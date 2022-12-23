@@ -1,10 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
-use fastwave_backend::{Signal, SignalIdx, SignalValue, VCD};
+use fastwave_backend::{Signal, SignalValue};
 use iced::mouse::Interaction;
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::{self, Frame, Stroke};
-use iced::widget::canvas::{Cache, Cursor, Geometry, Path};
+use iced::widget::canvas::{Cursor, Geometry, Path};
 use iced::{mouse, Color, Point, Rectangle, Size, Theme, Vector};
 use num::BigUint;
 use num::FromPrimitive;
@@ -50,8 +50,12 @@ impl<'a> canvas::Program<Message> for State {
 
         if let Some(vcd) = &self.vcd {
             for x in 0..frame.width() as u32 {
-                let min = num::BigUint::from_u64(0).unwrap();
-                let max = num::BigUint::from_u64(671_000).unwrap();
+                let max = if let Some(t) = vcd.max_timestamp() {
+                    t
+                }
+                else {
+                    break;
+                };
 
                 let time_spacing = max / BigUint::from_u64(frame.width() as u64).unwrap();
 
@@ -84,8 +88,7 @@ impl<'a> canvas::Program<Message> for State {
                                     );
                                     frame.stroke(
                                         &path,
-                                        Stroke::default().with_color(color)
-                                        .with_width(1.0)
+                                        Stroke::default().with_color(color).with_width(1.0),
                                     );
 
                                     frame.fill_rectangle(
