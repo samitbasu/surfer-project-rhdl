@@ -46,7 +46,7 @@ impl Application for State {
 
     fn new(_flags: ()) -> (State, Command<Message>) {
         println!("Loading vcd");
-        let file = File::open("full.vcd").expect("failed to open vcd");
+        let file = File::open("cpu.vcd").expect("failed to open vcd");
         println!("Done loading vcd");
         (
             State {

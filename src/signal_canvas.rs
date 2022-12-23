@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
-use fastwave_backend::{SignalIdx, VCD};
+use fastwave_backend::{Signal, SignalIdx, SignalValue, VCD};
 use iced::mouse::Interaction;
 use iced::widget::canvas::event::{self, Event};
-use iced::widget::canvas::{self, Frame};
+use iced::widget::canvas::{self, Frame, Stroke};
 use iced::widget::canvas::{Cache, Cursor, Geometry, Path};
 use iced::{mouse, Color, Point, Rectangle, Size, Theme, Vector};
 use num::BigUint;
@@ -51,7 +51,7 @@ impl<'a> canvas::Program<Message> for State {
         if let Some(vcd) = &self.vcd {
             for x in 0..frame.width() as u32 {
                 let min = num::BigUint::from_u64(0).unwrap();
-                let max = num::BigUint::from_u64(41_700_000).unwrap();
+                let max = num::BigUint::from_u64(671_000).unwrap();
 
                 let time_spacing = max / BigUint::from_u64(frame.width() as u64).unwrap();
 
@@ -66,33 +66,26 @@ impl<'a> canvas::Program<Message> for State {
                     .map(|s| (s, vcd.signal_from_signal_idx(*s)))
                     .enumerate()
                 {
-                    match sig.query_num_val_on_tmln(&time, &vcd) {
-                        Ok(val) => {
-                            let digits = val.to_u64_digits();
-                            let val = if digits.is_empty() {
-                                Some(0)
-                            } else {
-                                Some(digits[0])
-                            };
+                    if let Ok(val) = sig.query_val_on_tmln(&time, &vcd) {
+                        if let Some((time, old_val)) = prev_values.get(idx) {
+                            if *old_val != val {
+                                let app = signal_appearence(&sig, &old_val);
+                                let color = app.line_color();
+                                let lines = app.line_heights();
 
-                            if let Some((time, old_val)) = prev_values.get(idx) {
-                                if *old_val != val {
-                                    let (height, color) = match old_val {
-                                        Some(v) => {
-                                            if *v == 0 {
-                                                (line_height, Color::from_rgb8(60, 255, 60))
-                                            } else {
-                                                (0., Color::from_rgb8(60, 60, 255))
-                                            }
-                                        }
-                                        None => (0.5 * line_height, Color::from_rgb8(255, 255, 60)),
-                                    };
-
-                                    let y_start = y as f32 * (line_height + padding);
-                                    frame.fill_rectangle(
-                                        Point::new(*time as f32, y_start + height),
-                                        Size::new((x - time) as f32, 2.),
-                                        color,
+                                let y_start = y as f32 * (line_height + padding);
+                                for height in lines {
+                                    let path = Path::line(
+                                        Point::new(
+                                            *time as f32,
+                                            y_start + (1. - height) * line_height,
+                                        ),
+                                        Point::new(x as f32, y_start + (1. - height) * line_height),
+                                    );
+                                    frame.stroke(
+                                        &path,
+                                        Stroke::default().with_color(color)
+                                        .with_width(1.0)
                                     );
 
                                     frame.fill_rectangle(
@@ -100,17 +93,14 @@ impl<'a> canvas::Program<Message> for State {
                                         Size::new(1. as f32, line_height),
                                         color,
                                     );
-
-                                    prev_values.insert(*idx, (x, val));
                                 }
-                            }
-                            else {
+
                                 prev_values.insert(*idx, (x, val));
                             }
+                        } else {
+                            prev_values.insert(*idx, (x, val));
                         }
-                        // TODO: Do not just ignore this
-                        Err(_) => {},
-                    };
+                    }
                 }
             }
         }
@@ -125,5 +115,62 @@ impl<'a> canvas::Program<Message> for State {
         _cursor: Cursor,
     ) -> mouse::Interaction {
         mouse::Interaction::default()
+    }
+}
+
+enum SignalAppearence {
+    HighImp,
+    Undef,
+    False,
+    True,
+    Wide,
+}
+
+impl SignalAppearence {
+    fn line_color(&self) -> Color {
+        let min = 0.3;
+        let max = 1.0;
+        match self {
+            SignalAppearence::HighImp => Color::from_rgb(max, max, min),
+            SignalAppearence::Undef => Color::from_rgb(max, min, min),
+            SignalAppearence::False => Color::from_rgb(min, 0.7, min),
+            SignalAppearence::True => Color::from_rgb(min, max, min),
+            SignalAppearence::Wide => Color::from_rgb(min, max, min),
+        }
+    }
+
+    fn line_heights(&self) -> &'static [f32] {
+        match self {
+            SignalAppearence::HighImp => &[0.5],
+            SignalAppearence::Undef => &[0.5],
+            SignalAppearence::False => &[0.0],
+            SignalAppearence::True => &[1.0],
+            SignalAppearence::Wide => &[0.0, 1.0],
+        }
+    }
+}
+
+fn signal_appearence(signal: &Signal, val: &SignalValue) -> SignalAppearence {
+    match val {
+        SignalValue::BigUint(num) => match signal.num_bits() {
+            Some(1) => {
+                if num == &BigUint::from_u32(0).unwrap() {
+                    SignalAppearence::False
+                } else {
+                    SignalAppearence::True
+                }
+            }
+            _ => SignalAppearence::Wide,
+        },
+        SignalValue::String(s) => {
+            let s_lower = s.to_lowercase();
+            if s_lower.contains("z") {
+                SignalAppearence::HighImp
+            } else if s_lower.contains("x") {
+                SignalAppearence::Undef
+            } else {
+                SignalAppearence::Wide
+            }
+        }
     }
 }
