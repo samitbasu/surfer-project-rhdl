@@ -1,9 +1,12 @@
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::VCD;
 use iced::widget::horizontal_space;
+use iced::widget::pane_grid;
+use iced::widget::pane_grid::Configuration;
 use iced::widget::scrollable;
 use iced::widget::Canvas;
 use iced::widget::Column;
+use iced::widget::PaneGrid;
 use iced::widget::{button, column, container, row, text};
 use iced::Alignment;
 use iced::Element;
@@ -11,42 +14,86 @@ use iced::Length;
 
 use crate::{Message, State};
 
+pub enum PanePurpose {
+    Hierarchy,
+    VarSelection,
+    SignalList,
+    SignalView,
+}
+
+pub fn pane_config() -> Configuration<PanePurpose> {
+    Configuration::Split {
+        axis: pane_grid::Axis::Vertical,
+        ratio: 0.2,
+        a: Box::new(Configuration::Split {
+            axis: pane_grid::Axis::Horizontal,
+            ratio: 0.5,
+            a: Box::new(Configuration::Pane(PanePurpose::Hierarchy)),
+            b: Box::new(Configuration::Pane(PanePurpose::VarSelection)),
+        }),
+        b: Box::new(Configuration::Split {
+            axis: pane_grid::Axis::Vertical,
+            ratio: 0.2,
+            a: Box::new(Configuration::Pane(PanePurpose::SignalList)),
+            b: Box::new(Configuration::Pane(PanePurpose::SignalView)),
+        }),
+    }
+}
+
 impl State {
     pub fn do_view(&self) -> Element<Message> {
         let content: Element<Message> = if let Some(vcd) = self.vcd.as_ref() {
-            let scopes = expand_scopes(vcd, &vcd.root_scopes_by_idx());
-            let vars = self.var_view(vcd);
+            let pane_grid = PaneGrid::new(&self.pane_state, move |_id, purpose, _is_maximized| {
+                let content: Element<_> = match purpose {
+                    PanePurpose::Hierarchy => {
+                        let scopes = expand_scopes(vcd, &vcd.root_scopes_by_idx());
+                        container(scrollable(scopes))
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .into()
+                    }
+                    PanePurpose::VarSelection => {
+                        let vars = self.var_view(vcd);
+                        container(
+                            scrollable(vars)
+                                .height(Length::Fill)
+                                .on_scroll(|offset| Message::VarsScrolled(offset)),
+                        )
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into()
+                    }
+                    PanePurpose::SignalList => {
+                        let signal_list = self
+                            .signals
+                            .iter()
+                            .map(|idx| Element::from(text(vcd.signal_from_signal_idx(*idx).name())))
+                            .collect::<Vec<_>>();
 
-            let hierarchy = container(scopes)
-                .width(Length::Fill)
-                .height(Length::FillPortion(2));
-            let var_view = container(
-                scrollable(vars)
-                    .height(Length::Fill)
-                    .on_scroll(|offset| Message::VarsScrolled(offset)),
-            )
+                        Column::with_children(signal_list).into()
+                    }
+                    PanePurpose::SignalView => Canvas::new(self)
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into(),
+                };
+
+                pane_grid::Content::new(content)
+                    .style(if false {
+                        style::pane_active
+                    } else {
+                        style::pane_focused
+                    })
+            })
             .width(Length::Fill)
-            .height(Length::FillPortion(2));
+            .height(Length::Fill)
+            .spacing(5)
+            .on_resize(2, Message::GridResize);
 
-            let signal_selection = column!(hierarchy, var_view).width(Length::FillPortion(2));
-
-            let signal_list = self
-                .signals
-                .iter()
-                .map(|idx| Element::from(text(vcd.signal_from_signal_idx(*idx).name())))
-                .collect::<Vec<_>>();
-
-            let signal_view = row!(
-                Column::with_children(signal_list)
-                    .width(Length::FillPortion(2))
-                    .height(Length::Fill),
-                Canvas::new(self)
-                    .width(Length::FillPortion(5))
-                    .height(Length::Fill)
-            )
-            .width(Length::FillPortion(5));
-
-            Element::from(row!(signal_selection, signal_view))
+            container(pane_grid)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into()
         } else {
             text(format!("no vcd loaded")).size(14).into()
         };
@@ -103,4 +150,50 @@ fn expand_scopes<'a, 'b>(vcd: &'a VCD, scopes: &'a [ScopeIdx]) -> Element<'b, Me
         elems.into_iter().map(|c| c.into()).collect(),
     ))
     .into()
+}
+
+mod style {
+    use iced::{widget::container, Theme};
+
+    pub fn title_bar_active(theme: &Theme) -> container::Appearance {
+        let palette = theme.extended_palette();
+
+        container::Appearance {
+            text_color: Some(palette.background.strong.text),
+            background: Some(palette.background.strong.color.into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn title_bar_focused(theme: &Theme) -> container::Appearance {
+        let palette = theme.extended_palette();
+
+        container::Appearance {
+            text_color: Some(palette.primary.strong.text),
+            background: Some(palette.primary.strong.color.into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn pane_active(theme: &Theme) -> container::Appearance {
+        let palette = theme.extended_palette();
+
+        container::Appearance {
+            background: Some(palette.background.weak.color.into()),
+            border_width: 2.0,
+            border_color: palette.background.strong.color,
+            ..Default::default()
+        }
+    }
+
+    pub fn pane_focused(theme: &Theme) -> container::Appearance {
+        let palette = theme.extended_palette();
+
+        container::Appearance {
+            background: Some(palette.background.weak.color.into()),
+            border_width: 2.0,
+            border_color: palette.primary.strong.color,
+            ..Default::default()
+        }
+    }
 }
