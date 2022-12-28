@@ -185,7 +185,7 @@ impl State {
                     Stroke::default().with_color(stroke_color).with_width(1.0),
                 );
 
-                let text_size = cfg.line_height;
+                let text_size = cfg.line_height - 2.;
                 let char_width = text_size * 0.53;
 
                 let text_area = (x - old_x) as f32 - transition_width;
@@ -210,6 +210,7 @@ impl State {
                         position: abs_point(old_x as f32 + transition_width, 0.5),
                         color: Color::from_rgba(1., 1., 1., 1.),
                         size: text_size,
+                        font: self.font,
                         vertical_alignment: iced::alignment::Vertical::Center,
                         .. Default::default()
                     };

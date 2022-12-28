@@ -5,6 +5,7 @@ mod viewport;
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
+use iced::Font;
 use iced::executor;
 use iced::keyboard;
 use iced::theme::Theme;
@@ -39,6 +40,7 @@ struct State {
     control_key: bool,
     last_tick: Instant,
     num_timestamps: BigInt,
+    font: Font,
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +72,11 @@ impl Application for State {
             .and_then(|vcd| vcd.max_timestamp().as_ref().map(|t| t.to_bigint().unwrap()))
             .unwrap_or(BigInt::from_u32(1).unwrap());
 
+        let font = Font::External {
+            name: "DejaVuSansMono",
+            bytes: include_bytes!("/usr/share/fonts/TTF/DejaVuSansMono.ttf"),
+        };
+
         (
             State {
                 active_scope: None,
@@ -80,6 +87,7 @@ impl Application for State {
                 last_tick: Instant::now(),
                 num_timestamps,
                 vcd,
+                font
             },
             Command::none(),
         )
