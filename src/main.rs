@@ -10,15 +10,12 @@ use iced::keyboard;
 use iced::theme::Theme;
 use iced::time;
 use iced::widget::pane_grid;
-use iced::widget::pane_grid::Configuration;
-use iced::widget::pane_grid::Pane;
 use iced::widget::pane_grid::ResizeEvent;
 use iced::{Application, Command, Element, Settings, Subscription};
 
 use fastwave_backend::VCD;
 use num::bigint::ToBigInt;
 use num::BigInt;
-use num::BigUint;
 use num::FromPrimitive;
 use view::PanePurpose;
 use viewport::Viewport;

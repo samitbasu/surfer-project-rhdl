@@ -155,26 +155,6 @@ fn expand_scopes<'a, 'b>(vcd: &'a VCD, scopes: &'a [ScopeIdx]) -> Element<'b, Me
 mod style {
     use iced::{widget::container, Theme};
 
-    pub fn title_bar_active(theme: &Theme) -> container::Appearance {
-        let palette = theme.extended_palette();
-
-        container::Appearance {
-            text_color: Some(palette.background.strong.text),
-            background: Some(palette.background.strong.color.into()),
-            ..Default::default()
-        }
-    }
-
-    pub fn title_bar_focused(theme: &Theme) -> container::Appearance {
-        let palette = theme.extended_palette();
-
-        container::Appearance {
-            text_color: Some(palette.primary.strong.text),
-            background: Some(palette.primary.strong.color.into()),
-            ..Default::default()
-        }
-    }
-
     pub fn pane_active(theme: &Theme) -> container::Appearance {
         let palette = theme.extended_palette();
 

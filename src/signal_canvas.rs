@@ -62,17 +62,24 @@ impl<'a> canvas::Program<Message> for State {
 
         let mut prev_values = BTreeMap::new();
 
+        let cfg = DrawConfig {
+            line_height: 12.,
+            padding: 4.,
+        };
+
+        let max_time = BigRational::from_integer(self.num_timestamps.clone());
+
         if let Some(vcd) = &self.vcd {
-            for x in 0..frame.width() as u32 {
+            let frame_width = frame.width();
+            'outer: for x in 0..frame_width as u32 {
                 let time = self
                     .viewport_to_time(BigRational::from_float(x as f64).unwrap(), frame.width());
                 if time < BigRational::from_float(0.).unwrap() {
                     continue;
                 }
+                let is_last_x = time > max_time;
                 let time = time.to_integer().to_biguint().unwrap();
 
-                let line_height = 20.;
-                let padding = 4.;
 
                 for (y, (idx, sig)) in self
                     .signals
@@ -81,39 +88,32 @@ impl<'a> canvas::Program<Message> for State {
                     .enumerate()
                 {
                     if let Ok(val) = sig.query_val_on_tmln(&time, &vcd) {
-                        if let Some((time, old_val)) = prev_values.get(idx) {
-                            if *old_val != val {
-                                let app = signal_appearence(&sig, &old_val);
-                                let color = app.line_color();
-                                let lines = app.line_heights();
+                        let prev = prev_values.get(idx);
+                        if let Some((old_x, old_val)) = prev_values.get(idx) {
+                            self.draw_signal(
+                                &mut frame,
+                                y as f32,
+                                &sig,
+                                (*old_x, old_val),
+                                (x, &val),
+                                &cfg,
+                                // Force redraw on the last valid pixel to ensure
+                                // that the signal gets drawn the whole way
+                                x == (frame_width as u32 - 1) || is_last_x,
+                            );
+                        }
 
-                                let y_start = y as f32 * (line_height + padding);
-                                for height in lines {
-                                    let path = Path::line(
-                                        Point::new(
-                                            *time as f32,
-                                            y_start + (1. - height) * line_height,
-                                        ),
-                                        Point::new(x as f32, y_start + (1. - height) * line_height),
-                                    );
-                                    frame.stroke(
-                                        &path,
-                                        Stroke::default().with_color(color).with_width(1.0),
-                                    );
-
-                                    frame.fill_rectangle(
-                                        Point::new(x as f32, y_start),
-                                        Size::new(1. as f32, line_height),
-                                        color,
-                                    );
-                                }
-
-                                prev_values.insert(*idx, (x, val));
-                            }
-                        } else {
+                        // Only store the last time if the value is actually changed
+                        if prev.map(|(_, v)| v) != Some(&val) {
                             prev_values.insert(*idx, (x, val));
                         }
+
+                        // If this was the last x in the vcd file, we are done
+                        // drawing, so we can reak out of the outer loop
                     }
+                }
+                if is_last_x {
+                    break 'outer;
                 }
             }
         }
@@ -132,6 +132,38 @@ impl<'a> canvas::Program<Message> for State {
 }
 
 impl State {
+    fn draw_signal(
+        &self,
+        frame: &mut Frame,
+        y: f32,
+        signal: &Signal,
+        (old_x, old_val): (u32, &SignalValue),
+        (x, val): (u32, &SignalValue),
+        cfg: &DrawConfig,
+        force_redraw: bool,
+    ) {
+        if old_val != val || force_redraw {
+            let app = signal_appearence(&signal, &old_val);
+            let color = app.line_color();
+            let lines = app.line_heights();
+
+            let y_start = y as f32 * (cfg.line_height + cfg.padding);
+            for height in lines {
+                let path = Path::line(
+                    Point::new(old_x as f32, y_start + (1. - height) * cfg.line_height),
+                    Point::new(x as f32, y_start + (1. - height) * cfg.line_height),
+                );
+                frame.stroke(&path, Stroke::default().with_color(color).with_width(1.0));
+
+                frame.fill_rectangle(
+                    Point::new(x as f32, y_start),
+                    Size::new(1. as f32, cfg.line_height),
+                    color,
+                );
+            }
+        }
+    }
+
     fn viewport_to_time(&self, x: BigRational, view_width: f32) -> BigRational {
         let Viewport {
             curr_left: left,
@@ -179,8 +211,7 @@ impl State {
                             curr_left: target_left.clone().round(),
                             curr_right: target_right.clone().round(),
                         }))
-                    }
-                    else {
+                    } else {
                         None
                     }
                 } else {
@@ -188,8 +219,8 @@ impl State {
                     let scroll_step = (&self.viewport.curr_right - &self.viewport.curr_left)
                         / BigInt::from_u32(20).unwrap();
 
-                    let to_scroll =
-                        BigRational::from(scroll_step.clone()) * BigRational::from_float(y).unwrap();
+                    let to_scroll = BigRational::from(scroll_step.clone())
+                        * BigRational::from_float(y).unwrap();
 
                     let target_left = &self.viewport.curr_left + &to_scroll;
                     let target_right = &self.viewport.curr_right + &to_scroll;
@@ -206,6 +237,11 @@ impl State {
             }
         }
     }
+}
+
+struct DrawConfig {
+    line_height: f32,
+    padding: f32,
 }
 
 enum SignalAppearence {
