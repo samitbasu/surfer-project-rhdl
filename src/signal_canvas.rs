@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use fastwave_backend::{Signal, SignalValue};
 use iced::mouse::{Interaction, ScrollDelta};
 use iced::widget::canvas::event::{self, Event};
-use iced::widget::canvas::{self, Frame, Stroke};
+use iced::widget::canvas::path::Builder as PathBuilder;
+use iced::widget::canvas::{self, Frame, Stroke, Fill, Text};
 use iced::widget::canvas::{Cursor, Geometry, Path};
 use iced::{mouse, Color, Point, Rectangle, Size, Theme, Vector};
 use num::{BigInt, FromPrimitive};
@@ -63,7 +64,7 @@ impl<'a> canvas::Program<Message> for State {
         let mut prev_values = BTreeMap::new();
 
         let cfg = DrawConfig {
-            line_height: 12.,
+            line_height: 16.,
             padding: 4.,
         };
 
@@ -79,7 +80,6 @@ impl<'a> canvas::Program<Message> for State {
                 }
                 let is_last_x = time > max_time;
                 let time = time.to_integer().to_biguint().unwrap();
-
 
                 for (y, (idx, sig)) in self
                     .signals
@@ -142,24 +142,80 @@ impl State {
         cfg: &DrawConfig,
         force_redraw: bool,
     ) {
+        let y_start = y as f32 * (cfg.line_height + cfg.padding);
+        let abs_point =
+            |x: f32, rel_y: f32| Point::new(x as f32, y_start + (1. - rel_y) * cfg.line_height);
+
         if old_val != val || force_redraw {
-            let app = signal_appearence(&signal, &old_val);
-            let color = app.line_color();
-            let lines = app.line_heights();
+            if signal.num_bits() == Some(1) {
+                let (old_height, old_color) = old_val.bool_drawing_spec();
+                let (new_height, _) = val.bool_drawing_spec();
 
-            let y_start = y as f32 * (cfg.line_height + cfg.padding);
-            for height in lines {
-                let path = Path::line(
-                    Point::new(old_x as f32, y_start + (1. - height) * cfg.line_height),
-                    Point::new(x as f32, y_start + (1. - height) * cfg.line_height),
+                let mut path = PathBuilder::new();
+                path.line_to(abs_point(old_x as f32, old_height));
+                path.line_to(abs_point(x as f32, old_height));
+                path.line_to(abs_point(x as f32, new_height));
+                frame.stroke(
+                    &path.build(),
+                    Stroke::default().with_color(old_color).with_width(1.0),
                 );
-                frame.stroke(&path, Stroke::default().with_color(color).with_width(1.0));
 
-                frame.fill_rectangle(
-                    Point::new(x as f32, y_start),
-                    Size::new(1. as f32, cfg.line_height),
-                    color,
+            } else {
+                let mut border = PathBuilder::new();
+
+                let transition_width = (x - old_x).min(6) as f32;
+                border.line_to(abs_point(old_x as f32, 0.5));
+                border.line_to(abs_point(old_x as f32 + transition_width / 2., 1.0));
+                border.line_to(abs_point(x as f32 - transition_width/2., 1.0));
+                border.line_to(abs_point(x as f32, 0.5));
+                border.line_to(abs_point(x as f32 - transition_width/2., 0.0));
+                border.line_to(abs_point(old_x as f32 + transition_width / 2., 0.0));
+                border.line_to(abs_point(old_x as f32, 0.5));
+
+
+
+                let stroke_color = match old_val.value_kind() {
+                    ValueKind::HighImp => style::c_yellow(),
+                    ValueKind::Undef => style::c_red(),
+                    ValueKind::Normal => style::c_green(),
+                };
+
+                frame.stroke(
+                    &border.build(),
+                    Stroke::default().with_color(stroke_color).with_width(1.0),
                 );
+
+                let text_size = cfg.line_height;
+                let char_width = text_size * 0.53;
+
+                let text_area = (x - old_x) as f32 - transition_width;
+                let num_chars = (text_area / char_width).floor();
+                let fits_text =  num_chars >= 1.;
+
+                if fits_text {
+                    let full_text = old_val.value_str();
+                    let content = if full_text.len() > num_chars as usize {
+                        full_text
+                            .chars()
+                            .take(num_chars as usize - 1)
+                            .chain(['…'].into_iter())
+                            .collect::<String>()
+                    }
+                    else {
+                        full_text
+                    };
+
+                    let text = Text {
+                        content,
+                        position: abs_point(old_x as f32 + transition_width, 0.5),
+                        color: Color::from_rgba(1., 1., 1., 1.),
+                        size: text_size,
+                        vertical_alignment: iced::alignment::Vertical::Center,
+                        .. Default::default()
+                    };
+
+                    frame.fill_text(text)
+                }
             }
         }
     }
@@ -244,59 +300,86 @@ struct DrawConfig {
     padding: f32,
 }
 
-enum SignalAppearence {
+enum ValueKind {
     HighImp,
     Undef,
-    False,
-    True,
-    Wide,
+    Normal,
 }
 
-impl SignalAppearence {
-    fn line_color(&self) -> Color {
-        let min = 0.3;
-        let max = 1.0;
-        match self {
-            SignalAppearence::HighImp => Color::from_rgb(max, max, min),
-            SignalAppearence::Undef => Color::from_rgb(max, min, min),
-            SignalAppearence::False => Color::from_rgb(min, 0.7, min),
-            SignalAppearence::True => Color::from_rgb(min, max, min),
-            SignalAppearence::Wide => Color::from_rgb(min, max, min),
-        }
-    }
-
-    fn line_heights(&self) -> &'static [f32] {
-        match self {
-            SignalAppearence::HighImp => &[0.5],
-            SignalAppearence::Undef => &[0.5],
-            SignalAppearence::False => &[0.0],
-            SignalAppearence::True => &[1.0],
-            SignalAppearence::Wide => &[0.0, 1.0],
-        }
-    }
+trait SignalExt {
+    fn value_kind(&self) -> ValueKind;
+    fn bool_drawing_spec(&self) -> (f32, Color);
+    fn value_str(&self) -> String;
 }
 
-fn signal_appearence(signal: &Signal, val: &SignalValue) -> SignalAppearence {
-    match val {
-        SignalValue::BigUint(num) => match signal.num_bits() {
-            Some(1) => {
-                if num == &BigUint::from_u32(0).unwrap() {
-                    SignalAppearence::False
+impl SignalExt for SignalValue {
+    fn value_kind(&self) -> ValueKind {
+        match self {
+            SignalValue::BigUint(_) => ValueKind::Normal,
+            SignalValue::String(s) => {
+                let s_lower = s.to_lowercase();
+                if s_lower.contains("z") {
+                    ValueKind::HighImp
+                } else if s_lower.contains("x") {
+                    ValueKind::Undef
                 } else {
-                    SignalAppearence::True
+                    ValueKind::Normal
                 }
             }
-            _ => SignalAppearence::Wide,
-        },
-        SignalValue::String(s) => {
-            let s_lower = s.to_lowercase();
-            if s_lower.contains("z") {
-                SignalAppearence::HighImp
-            } else if s_lower.contains("x") {
-                SignalAppearence::Undef
-            } else {
-                SignalAppearence::Wide
+        }
+    }
+
+    /// Return the height and color with which to draw this value if it is a boolean
+    fn bool_drawing_spec(&self) -> (f32, Color) {
+        match (self.value_kind(), self) {
+            (ValueKind::HighImp, _) => (0.5, style::c_yellow()),
+            (ValueKind::Undef, _) => (0.5, style::c_red()),
+            (ValueKind::Normal, SignalValue::BigUint(num)) => {
+                if num == &BigUint::from_u32(0).unwrap() {
+                    (0., style::c_dark_green())
+                } else {
+                    (1., style::c_green())
+                }
+            }
+            (ValueKind::Normal, SignalValue::String(_)) => {
+                unreachable!()
             }
         }
+    }
+
+    fn value_str(&self) -> String {
+        match self {
+            SignalValue::BigUint(v) => format!("{v}"),
+            SignalValue::String(v) => format!("{v}"),
+        }
+    }
+}
+
+mod style {
+    use iced::Color;
+
+    fn c_min() -> f32 {
+        0.3
+    }
+    fn c_max() -> f32 {
+        1.0
+    }
+    fn c_mid() -> f32 {
+        0.5
+    }
+
+    pub fn c_green() -> Color {
+        Color::from_rgb(c_min(), c_max(), c_min())
+    }
+    pub fn c_dark_green() -> Color {
+        Color::from_rgb(c_min(), c_mid(), c_min())
+    }
+
+    pub fn c_red() -> Color {
+        Color::from_rgb(c_max(), c_min(), c_min())
+    }
+
+    pub fn c_yellow() -> Color {
+        Color::from_rgb(c_max(), c_max(), c_min())
     }
 }
