@@ -167,50 +167,35 @@ impl State {
                             bounds.width,
                         );
 
-                        let scale = BigRational::from_float(1. + y / 10.).unwrap();
+                        // - to get zoom in the natural direction
+                        let scale = BigRational::from_float(1. - y / 10.).unwrap();
 
-                        let target_left = (&cursor_pos - left) * &scale + &cursor_pos;
-                        let target_right = (&cursor_pos - right) * scale + &cursor_pos;
+                        let target_left = (left - &cursor_pos) * &scale + &cursor_pos;
+                        let target_right = (right - &cursor_pos) * &scale + &cursor_pos;
 
+                        // TODO: Do not just round here, this will not work
+                        // for small zoom levels
                         Some(Message::ChangeViewport(Viewport {
-                            curr_left: target_left.clone(),
-                            curr_right: target_right.clone(),
-                            target_left,
-                            target_right,
-                            step_left: BigRational::from_float(0.).clone().unwrap(),
-                            step_right: BigRational::from_float(0.).clone().unwrap(),
-                            // step_left: &target_left - &self.viewport.curr_left,
-                            // step_right: &target_right - &self.viewport.curr_right,
-                            // target_left,
-                            // target_right,
-                            // .. self.viewport.clone()
+                            curr_left: target_left.clone().round(),
+                            curr_right: target_right.clone().round(),
                         }))
                     }
                     else {
                         None
                     }
                 } else {
-                    // Scroll 10% of the viewport per scroll event
-                    let scroll_step = (&self.viewport.target_right - &self.viewport.target_left)
-                        / BigInt::from_u32(10).unwrap();
+                    // Scroll 5% of the viewport per scroll event
+                    let scroll_step = (&self.viewport.curr_right - &self.viewport.curr_left)
+                        / BigInt::from_u32(20).unwrap();
 
                     let to_scroll =
-                        BigRational::from(scroll_step) * BigRational::from_float(y).unwrap();
+                        BigRational::from(scroll_step.clone()) * BigRational::from_float(y).unwrap();
 
-                    let target_left = &self.viewport.target_left + &to_scroll;
-                    let target_right = &self.viewport.target_right + &to_scroll;
+                    let target_left = &self.viewport.curr_left + &to_scroll;
+                    let target_right = &self.viewport.curr_right + &to_scroll;
                     Some(Message::ChangeViewport(Viewport {
                         curr_left: target_left.clone(),
                         curr_right: target_right.clone(),
-                        target_left,
-                        target_right,
-                        step_left: BigRational::from_float(0.).clone().unwrap(),
-                        step_right: BigRational::from_float(0.).clone().unwrap(),
-                        // step_left: &target_left - &self.viewport.curr_left,
-                        // step_right: &target_right - &self.viewport.curr_right,
-                        // target_left,
-                        // target_right,
-                        // .. self.viewport.clone()
                     }))
                 }
             }

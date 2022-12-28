@@ -41,6 +41,7 @@ struct State {
     pane_state: pane_grid::State<PanePurpose>,
     control_key: bool,
     last_tick: Instant,
+    num_timestamps: BigInt,
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +68,10 @@ impl Application for State {
         let panes = pane_grid::State::with_configuration(pane_config());
 
         let vcd = Some(parse_vcd(file).expect("Failed to parse vcd"));
+        let num_timestamps = vcd
+            .as_ref()
+            .and_then(|vcd| vcd.max_timestamp().as_ref().map(|t| t.to_bigint().unwrap()))
+            .unwrap_or(BigInt::from_u32(1).unwrap());
 
         (
             State {
@@ -74,15 +79,9 @@ impl Application for State {
                 signals: vec![],
                 pane_state: panes,
                 control_key: false,
-                viewport: Viewport::new(
-                    BigInt::from_u32(0).unwrap(),
-                    vcd.as_ref()
-                        .and_then(|vcd| {
-                            vcd.max_timestamp().as_ref().map(|t| t.to_bigint().unwrap())
-                        })
-                        .unwrap_or(BigInt::from_u32(1).unwrap()),
-                ),
+                viewport: Viewport::new(BigInt::from_u32(0).unwrap(), num_timestamps.clone()),
                 last_tick: Instant::now(),
+                num_timestamps,
                 vcd,
             },
             Command::none(),
@@ -98,12 +97,13 @@ impl Application for State {
             Message::HierarchyClick(scope) => self.active_scope = Some(scope),
             Message::VarsScrolled(_) => {}
             Message::AddSignal(s) => {
-                println!("adding signal");
                 self.signals.push(s)
             }
             Message::GridResize(r) => self.pane_state.resize(&r.split, r.ratio),
             Message::ControlKeyChange(val) => self.control_key = val,
-            Message::ChangeViewport(new) => self.viewport = new,
+            Message::ChangeViewport(new) => {
+                self.viewport = new
+            },
             Message::Tick(instant) => {
                 self.viewport.interpolate(instant - self.last_tick);
                 self.last_tick = instant;
