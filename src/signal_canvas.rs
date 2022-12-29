@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use fastwave_backend::{Signal, SignalValue};
+use fastwave_backend::{Signal, SignalValue, SignalIdx};
 use iced::mouse::{Interaction, ScrollDelta};
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::path::Builder as PathBuilder;
@@ -93,6 +93,7 @@ impl<'a> canvas::Program<Message> for State {
                             self.draw_signal(
                                 &mut frame,
                                 y as f32,
+                                idx,
                                 &sig,
                                 (*old_x, old_val),
                                 (x, &val),
@@ -136,6 +137,7 @@ impl State {
         &self,
         frame: &mut Frame,
         y: f32,
+        signal_idx: &SignalIdx,
         signal: &Signal,
         (old_x, old_val): (u32, &SignalValue),
         (x, val): (u32, &SignalValue),
@@ -185,7 +187,7 @@ impl State {
                     Stroke::default().with_color(stroke_color).with_width(1.0),
                 );
 
-                let text_size = cfg.line_height - 2.;
+                let text_size = cfg.line_height - 4.;
                 let char_width = text_size * 0.53;
 
                 let text_area = (x - old_x) as f32 - transition_width;
@@ -193,7 +195,13 @@ impl State {
                 let fits_text =  num_chars >= 1.;
 
                 if fits_text {
-                    let full_text = old_val.value_str();
+                    let translator_name = self.signal_format.get(&signal_idx)
+                        .unwrap_or_else(|| &self.translators.default);
+                    let translator = &self.translators.inner[translator_name];
+
+                    // TODO: Graceful shutdown
+                    let full_text = translator.translate(signal, old_val).unwrap().val;
+
                     let content = if full_text.len() > num_chars as usize {
                         full_text
                             .chars()
@@ -310,7 +318,6 @@ enum ValueKind {
 trait SignalExt {
     fn value_kind(&self) -> ValueKind;
     fn bool_drawing_spec(&self) -> (f32, Color);
-    fn value_str(&self) -> String;
 }
 
 impl SignalExt for SignalValue {
@@ -345,13 +352,6 @@ impl SignalExt for SignalValue {
             (ValueKind::Normal, SignalValue::String(_)) => {
                 unreachable!()
             }
-        }
-    }
-
-    fn value_str(&self) -> String {
-        match self {
-            SignalValue::BigUint(v) => format!("{v}"),
-            SignalValue::String(v) => format!("{v}"),
         }
     }
 }

@@ -3,6 +3,7 @@ use fastwave_backend::VCD;
 use iced::widget::horizontal_space;
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::Configuration;
+use iced::widget::pick_list;
 use iced::widget::scrollable;
 use iced::widget::Canvas;
 use iced::widget::Column;
@@ -67,7 +68,15 @@ impl State {
                         let signal_list = self
                             .signals
                             .iter()
-                            .map(|idx| Element::from(text(vcd.signal_from_signal_idx(*idx).name())))
+                            .map(|idx| {
+                                pick_list(
+                                    self.translators.names(),
+                                    Some(vcd.signal_from_signal_idx(*idx).name()),
+                                    |selected| Message::SignalFormatChange(idx.clone(), selected),
+                                )
+                                .width(Length::Fill)
+                                .into()
+                            })
                             .collect::<Vec<_>>();
 
                         Column::with_children(signal_list).into()
@@ -78,12 +87,11 @@ impl State {
                         .into(),
                 };
 
-                pane_grid::Content::new(content)
-                    .style(if false {
-                        style::pane_active
-                    } else {
-                        style::pane_focused
-                    })
+                pane_grid::Content::new(content).style(if false {
+                    style::pane_active
+                } else {
+                    style::pane_focused
+                })
             })
             .width(Length::Fill)
             .height(Length::Fill)

@@ -1,29 +1,33 @@
 mod signal_canvas;
+mod translation;
 mod view;
 mod viewport;
 
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
-use iced::Font;
 use iced::executor;
 use iced::keyboard;
 use iced::theme::Theme;
 use iced::time;
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::ResizeEvent;
+use iced::Font;
 use iced::{Application, Command, Element, Settings, Subscription};
 
 use fastwave_backend::VCD;
 use num::bigint::ToBigInt;
 use num::BigInt;
 use num::FromPrimitive;
+use translation::TranslatorList;
 use view::PanePurpose;
 use viewport::Viewport;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::time::Instant;
 
+use crate::translation::pytranslator::PyTranslator;
 use crate::view::pane_config;
 
 pub fn main() -> iced::Result {
@@ -41,6 +45,9 @@ struct State {
     last_tick: Instant,
     num_timestamps: BigInt,
     font: Font,
+    /// Which translator to use for each signal
+    signal_format: HashMap<SignalIdx, String>,
+    translators: TranslatorList,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +59,7 @@ enum Message {
     ControlKeyChange(bool),
     ChangeViewport(Viewport),
     Tick(Instant),
+    SignalFormatChange(SignalIdx, String),
 }
 
 impl Application for State {
@@ -77,6 +85,12 @@ impl Application for State {
             bytes: include_bytes!("/usr/share/fonts/TTF/DejaVuSansMono.ttf"),
         };
 
+        let translators = TranslatorList::new(vec![
+            Box::new(translation::HexTranslator {}),
+            Box::new(translation::UnsignedTranslator {}),
+            Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap())
+        ]);
+
         (
             State {
                 active_scope: None,
@@ -87,7 +101,9 @@ impl Application for State {
                 last_tick: Instant::now(),
                 num_timestamps,
                 vcd,
-                font
+                font,
+                signal_format: HashMap::new(),
+                translators
             },
             Command::none(),
         )
@@ -101,17 +117,21 @@ impl Application for State {
         match message {
             Message::HierarchyClick(scope) => self.active_scope = Some(scope),
             Message::VarsScrolled(_) => {}
-            Message::AddSignal(s) => {
-                self.signals.push(s)
-            }
+            Message::AddSignal(s) => self.signals.push(s),
             Message::GridResize(r) => self.pane_state.resize(&r.split, r.ratio),
             Message::ControlKeyChange(val) => self.control_key = val,
-            Message::ChangeViewport(new) => {
-                self.viewport = new
-            },
+            Message::ChangeViewport(new) => self.viewport = new,
             Message::Tick(instant) => {
                 self.viewport.interpolate(instant - self.last_tick);
                 self.last_tick = instant;
+            }
+            Message::SignalFormatChange(idx, format) => {
+                if self.translators.inner.contains_key(&format) {
+                    *self.signal_format.entry(idx).or_default() = format
+                }
+                else {
+                    println!("WARN: No translator {format}")
+                }
             }
         }
         Command::none()
