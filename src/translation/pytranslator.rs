@@ -10,7 +10,7 @@ use super::{SignalPath, TranslationResult, Translator};
 
 pub struct PyTranslator {
     name: String,
-    module: PyObject,
+    instance: PyObject,
 }
 
 impl PyTranslator {
@@ -19,12 +19,15 @@ impl PyTranslator {
         let code =
             std::fs::read_to_string(&source).with_context(|| format!("Failed to read {source}"))?;
 
-        let module = Python::with_gil(|py| -> Result<PyObject> {
+        let instance = Python::with_gil(|py| -> Result<PyObject> {
             let module = PyModule::from_code(py, &code, source.as_str(), &name)
                 .with_context(|| format!("Failed to load {name} in {source}"))?;
 
+            let class = module.getattr(name)?;
+            let instance = class.call0()?;
+
             let ensure_has_attr = |attr: &str| {
-                if !module.hasattr(attr)? {
+                if !instance.hasattr(attr)? {
                     bail!("Translator {name} does not have a `{attr}` method");
                 }
                 Ok(())
@@ -33,12 +36,12 @@ impl PyTranslator {
             ensure_has_attr("translates")?;
             ensure_has_attr("translate")?;
 
-            Ok(module.to_object(py))
+            Ok(instance.to_object(py))
         })?;
 
         Ok(Self {
             name: name.to_string(),
-            module,
+            instance,
         })
     }
 }
@@ -51,9 +54,8 @@ impl Translator for PyTranslator {
     fn translates(&self, path: SignalPath) -> Result<bool> {
         Python::with_gil(|py| {
             let result = self
-                .module
-                .getattr(py, "translates")?
-                .call1(py, (path.name,))
+                .instance
+                .call_method1(py, "translates", (path.name,))
                 .with_context(|| format!("Failed to run translates on {}", self.name))?;
 
             Ok(result.extract(py)?)
@@ -71,9 +73,8 @@ impl Translator for PyTranslator {
 
         Python::with_gil(|py| {
             let result = self
-                .module
-                .getattr(py, "translate")?
-                .call1(py, (signal.name(), value_str))
+                .instance
+                .call_method1(py, "translate", (signal.name(), value_str))
                 .with_context(|| format!("Failed to run translates on {}", self.name))?;
 
             let val: String = result.extract(py)?;
