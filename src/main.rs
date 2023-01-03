@@ -1,4 +1,4 @@
-// mod signal_canvas;
+mod signal_canvas;
 mod translation;
 mod viewport;
 mod view;
@@ -76,7 +76,7 @@ impl State {
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
-            Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
+            // Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
         ]);
 
         State {

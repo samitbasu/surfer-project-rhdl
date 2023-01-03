@@ -58,6 +58,10 @@ impl eframe::App for State {
                 })
             });
 
+        egui::CentralPanel::default().show(ctx, |ui| {
+            self.draw_signals(ui);
+        });
+
         for msg in msgs {
             self.update(msg);
         }
