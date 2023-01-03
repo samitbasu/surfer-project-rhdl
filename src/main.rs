@@ -1,26 +1,18 @@
-mod signal_canvas;
+// mod signal_canvas;
 mod translation;
-mod view;
 mod viewport;
+mod view;
 
+use eframe::egui;
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
-use iced::executor;
-use iced::keyboard;
-use iced::theme::Theme;
-use iced::time;
-use iced::widget::pane_grid;
-use iced::widget::pane_grid::ResizeEvent;
-use iced::Font;
-use iced::{Application, Command, Element, Settings, Subscription};
 
 use fastwave_backend::VCD;
 use num::bigint::ToBigInt;
 use num::BigInt;
 use num::FromPrimitive;
 use translation::TranslatorList;
-use view::PanePurpose;
 use viewport::Viewport;
 
 use std::collections::HashMap;
@@ -28,10 +20,20 @@ use std::fs::File;
 use std::time::Instant;
 
 use crate::translation::pytranslator::PyTranslator;
-use crate::view::pane_config;
 
-pub fn main() -> iced::Result {
-    State::run(Settings::default())
+enum Command {
+    None,
+    Loopback(Vec<Message>),
+}
+
+fn main() {
+    let state = State::new();
+
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::vec2(320.0, 240.0)),
+        ..Default::default()
+    };
+    eframe::run_native("My egui App", options, Box::new(|_cc| Box::new(state)))
 }
 
 struct State {
@@ -40,11 +42,9 @@ struct State {
     signals: Vec<SignalIdx>,
     /// The offset of the left side of the wave window in signal timestamps.
     viewport: Viewport,
-    pane_state: pane_grid::State<PanePurpose>,
     control_key: bool,
     last_tick: Instant,
     num_timestamps: BigInt,
-    font: Font,
     /// Which translator to use for each signal
     signal_format: HashMap<SignalIdx, String>,
     translators: TranslatorList,
@@ -55,24 +55,17 @@ enum Message {
     HierarchyClick(ScopeIdx),
     VarsScrolled(f32),
     AddSignal(SignalIdx),
-    GridResize(ResizeEvent),
     ControlKeyChange(bool),
     ChangeViewport(Viewport),
     Tick(Instant),
     SignalFormatChange(SignalIdx, String),
 }
 
-impl Application for State {
-    type Message = Message;
-    type Theme = Theme;
-    type Executor = executor::Default;
-    type Flags = ();
-
-    fn new(_flags: ()) -> (State, Command<Message>) {
+impl State {
+    fn new() -> State {
         println!("Loading vcd");
         let file = File::open("cpu.vcd").expect("failed to open vcd");
         println!("Done loading vcd");
-        let panes = pane_grid::State::with_configuration(pane_config());
 
         let vcd = Some(parse_vcd(file).expect("Failed to parse vcd"));
         let num_timestamps = vcd
@@ -80,45 +73,30 @@ impl Application for State {
             .and_then(|vcd| vcd.max_timestamp().as_ref().map(|t| t.to_bigint().unwrap()))
             .unwrap_or(BigInt::from_u32(1).unwrap());
 
-        let font = Font::External {
-            name: "DejaVuSansMono",
-            bytes: include_bytes!("/usr/share/fonts/TTF/DejaVuSansMono.ttf"),
-        };
-
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
-            Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap())
+            Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
         ]);
 
-        (
-            State {
-                active_scope: None,
-                signals: vec![],
-                pane_state: panes,
-                control_key: false,
-                viewport: Viewport::new(BigInt::from_u32(0).unwrap(), num_timestamps.clone()),
-                last_tick: Instant::now(),
-                num_timestamps,
-                vcd,
-                font,
-                signal_format: HashMap::new(),
-                translators
-            },
-            Command::none(),
-        )
+        State {
+            active_scope: None,
+            signals: vec![],
+            control_key: false,
+            viewport: Viewport::new(BigInt::from_u32(0).unwrap(), num_timestamps.clone()),
+            last_tick: Instant::now(),
+            num_timestamps,
+            vcd,
+            signal_format: HashMap::new(),
+            translators,
+        }
     }
 
-    fn title(&self) -> String {
-        String::from("Stopwatch - Iced")
-    }
-
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(&mut self, message: Message) {
         match message {
             Message::HierarchyClick(scope) => self.active_scope = Some(scope),
             Message::VarsScrolled(_) => {}
             Message::AddSignal(s) => self.signals.push(s),
-            Message::GridResize(r) => self.pane_state.resize(&r.split, r.ratio),
             Message::ControlKeyChange(val) => self.control_key = val,
             Message::ChangeViewport(new) => self.viewport = new,
             Message::Tick(instant) => {
@@ -134,26 +112,7 @@ impl Application for State {
                 }
             }
         }
-        Command::none()
-    }
-
-    fn subscription(&self) -> Subscription<Message> {
-        let input = iced::subscription::events_with(|e, _| match e {
-            iced::Event::Keyboard(k) => match k {
-                keyboard::Event::ModifiersChanged(m) => {
-                    Some(Message::ControlKeyChange(m.control()))
-                }
-                _ => None,
-            },
-            _ => None,
-        });
-
-        let time = time::every(time::Duration::from_millis(1)).map(Message::Tick);
-
-        Subscription::batch(vec![input, time])
-    }
-
-    fn view(&self) -> Element<Message> {
-        self.do_view()
     }
 }
+
+
