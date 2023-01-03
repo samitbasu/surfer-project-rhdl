@@ -1,16 +1,17 @@
+import spade
+
 class pytest:
     def __init__(self):
-        self.counter = 0
+        print("Loading spade translation extension")
+        self.translator = spade.BitTranslator("/home/frans/Documents/fpga/spadev/build/spade_types.ron")
 
     def translates(self):
         return True
 
     def translate(self, name: str, value: str):
-        val_lower = value.lower()
-        if "x" in val_lower:
-            return "UNDEF"
-        elif "z" in val_lower:
-            return "HIGHIMP"
+        result = self.translator.translate_value(name, value)
+        print(f"Translating '{name}'' -> {result}")
+        if result is not None:
+            return result
         else:
-            self.counter += 1
-            return f"{self.counter}"
+            return value

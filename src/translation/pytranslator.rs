@@ -4,7 +4,7 @@ use color_eyre::{
     Result,
 };
 use fastwave_backend::{Signal, SignalValue};
-use pyo3::{types::PyModule, Py, PyAny, PyObject, Python, ToPyObject};
+use pyo3::{types::PyModule, Py, PyAny, PyObject, Python, ToPyObject, PyResult, pymodule, pyfunction, wrap_pyfunction};
 
 use super::{SignalPath, TranslationResult, Translator};
 
@@ -84,4 +84,15 @@ impl Translator for PyTranslator {
             })
         })
     }
+}
+
+#[pyfunction]
+fn test() {
+    println!("test")
+}
+
+#[pymodule]
+fn surfer(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(test, m)?)?;
+    Ok(())
 }

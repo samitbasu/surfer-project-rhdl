@@ -1,44 +1,13 @@
 use std::collections::BTreeMap;
 
 use fastwave_backend::{Signal, SignalValue, SignalIdx};
-use iced::mouse::{Interaction, ScrollDelta};
-use iced::widget::canvas::event::{self, Event};
-use iced::widget::canvas::path::Builder as PathBuilder;
-use iced::widget::canvas::{self, Frame, Stroke, Fill, Text};
-use iced::widget::canvas::{Cursor, Geometry, Path};
-use iced::{mouse, Color, Point, Rectangle, Size, Theme, Vector};
 use num::{BigInt, FromPrimitive};
 use num::{BigRational, BigUint};
 
 use crate::viewport::Viewport;
 use crate::{Message, State};
 
-impl<'a> canvas::Program<Message> for State {
-    type State = Interaction;
-
-    fn update(
-        &self,
-        _interaction: &mut Interaction,
-        event: Event,
-        bounds: Rectangle,
-        cursor: Cursor,
-    ) -> (event::Status, Option<Message>) {
-        match event {
-            Event::Mouse(m) => match m {
-                mouse::Event::WheelScrolled { delta } => {
-                    if cursor.is_over(&bounds) {
-                        let msg = self.handle_scroll(cursor, bounds, delta);
-                        (event::Status::Captured, msg)
-                    } else {
-                        (event::Status::Captured, None)
-                    }
-                }
-                _ => (event::Status::Ignored, None),
-            },
-            Event::Touch(_) | Event::Keyboard(_) => (event::Status::Ignored, None),
-        }
-    }
-
+impl State {
     fn draw(
         &self,
         _interaction: &Interaction,
@@ -120,15 +89,6 @@ impl<'a> canvas::Program<Message> for State {
         }
 
         vec![frame.into_geometry()]
-    }
-
-    fn mouse_interaction(
-        &self,
-        _interaction: &Interaction,
-        _bounds: Rectangle,
-        _cursor: Cursor,
-    ) -> mouse::Interaction {
-        mouse::Interaction::default()
     }
 }
 
