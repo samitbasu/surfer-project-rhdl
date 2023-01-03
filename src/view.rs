@@ -42,7 +42,7 @@ pub fn pane_config() -> Configuration<PanePurpose> {
 }
 
 impl State {
-    pub fn do_view(&self) -> Element<Message> {
+    pub fn do_view(&self) -> Vec<Message> {
         let content: Element<Message> = if let Some(vcd) = self.vcd.as_ref() {
             let pane_grid = PaneGrid::new(&self.pane_state, move |_id, purpose, _is_maximized| {
                 let content: Element<_> = match purpose {

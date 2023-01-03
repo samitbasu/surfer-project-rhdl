@@ -10,8 +10,7 @@ debug=true
 
 [dependencies]
 fastwave_backend = {path = "FastWaveBackend"}
-iced = {version = "0.6.0", features=["canvas", "tokio", "debug"]}
-iced_lazy = {version = "0.3.0"}
+eframe = "0.20.1"
 camino = "1.1.1"
 num = "0.4"
 pyo3 = {version = "0.17.3", features = ["auto-initialize"]}
