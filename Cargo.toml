@@ -8,6 +8,9 @@ edition = "2021"
 [profile.release]
 debug=true
 
+[profile.dev]
+opt-level=3
+
 [dependencies]
 fastwave_backend = {path = "FastWaveBackend"}
 eframe = "0.20.1"

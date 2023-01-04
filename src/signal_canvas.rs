@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use eframe::egui::{self, Sense, Painter};
-use eframe::emath;
-use eframe::epaint::{Color32, Pos2, Rect, Rounding, Stroke, PathShape};
+use eframe::egui::{self, Painter, Sense};
+use eframe::emath::{self, RectTransform};
+use eframe::epaint::{Color32, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use num::{BigInt, FromPrimitive};
 use num::{BigRational, BigUint};
@@ -11,13 +11,42 @@ use crate::viewport::Viewport;
 use crate::{Message, State};
 
 impl State {
-    pub fn draw_signals(&self, ui: &mut egui::Ui) {
+    pub fn draw_signals(&self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
 
-        let to_screen = emath::RectTransform::from_to(
-            Rect::from_min_size(Pos2::ZERO, response.rect.size()),
-            response.rect,
-        );
+        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
+        let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
+        let frame_width = response.rect.width();
+
+        // TODO: Move event handling into its own function
+        // TODO: Consider using events instead of querying like this
+        let pointer_pos = ui.input().pointer.interact_pos();
+
+        let pointer_in_canvas = pointer_pos
+            .map(|p| to_screen.transform_rect(container_rect).contains(p))
+            .unwrap_or(false);
+
+        if pointer_in_canvas {
+            let scroll_delta = ui.input().scroll_delta;
+            let cursor_pos = to_screen.inverse().transform_pos(pointer_pos.unwrap());
+            if scroll_delta != Vec2::ZERO {
+                msgs.push(Message::CanvasScroll {
+                    delta: ui.input().scroll_delta,
+                })
+            }
+
+            if ui.input().zoom_delta() != 1. {
+                let cursor_timestamp = self.viewport_to_time(
+                    BigRational::from_float(cursor_pos.x as f64).unwrap(),
+                    frame_width,
+                );
+
+                msgs.push(Message::CanvasZoom {
+                    cursor_timestamp,
+                    delta: ui.input().zoom_delta(),
+                })
+            }
+        }
 
         painter.rect_filled(response.rect, Rounding::none(), Color32::from_rgb(0, 0, 0));
 
@@ -31,7 +60,6 @@ impl State {
         let max_time = BigRational::from_integer(self.num_timestamps.clone());
 
         if let Some(vcd) = &self.vcd {
-            let frame_width = response.rect.width();
             'outer: for x in 0..frame_width as u32 {
                 let time =
                     self.viewport_to_time(BigRational::from_float(x as f64).unwrap(), frame_width);
@@ -53,6 +81,7 @@ impl State {
                             self.draw_signal(
                                 &mut painter,
                                 y as f32,
+                                to_screen,
                                 idx,
                                 &sig,
                                 (*old_x, old_val),
@@ -86,6 +115,7 @@ impl State {
         &self,
         painter: &mut Painter,
         y: f32,
+        to_screen: RectTransform,
         signal_idx: &SignalIdx,
         signal: &Signal,
         (old_x, old_val): (u32, &SignalValue),
@@ -94,8 +124,12 @@ impl State {
         force_redraw: bool,
     ) {
         let y_start = y as f32 * (cfg.line_height + cfg.padding);
-        let abs_point =
-            |x: f32, rel_y: f32| Pos2::new(x as f32, y_start + (1. - rel_y) * cfg.line_height);
+        let abs_point = |x: f32, rel_y: f32| {
+            to_screen.transform_pos(Pos2::new(
+                x as f32,
+                y_start + (1. - rel_y) * cfg.line_height,
+            ))
+        };
 
         if old_val != val || force_redraw {
             if signal.num_bits() == Some(1) {
@@ -105,16 +139,16 @@ impl State {
                 let stroke = Stroke {
                     color: old_color,
                     width: 1.,
-                    .. Default::default()
+                    ..Default::default()
                 };
 
                 painter.add(PathShape::line(
-                    vec! [
+                    vec![
                         abs_point(old_x as f32, old_height),
                         abs_point(x as f32, old_height),
-                        abs_point(x as f32, new_height)
+                        abs_point(x as f32, new_height),
                     ],
-                    stroke
+                    stroke,
                 ));
             } else {
                 let stroke_color = match old_val.value_kind() {
@@ -126,13 +160,13 @@ impl State {
                 let stroke = Stroke {
                     color: stroke_color,
                     width: 1.,
-                    .. Default::default()
+                    ..Default::default()
                 };
 
                 let transition_width = (x - old_x).min(6) as f32;
 
                 painter.add(PathShape::line(
-                    vec! [
+                    vec![
                         abs_point(old_x as f32, 0.5),
                         abs_point(old_x as f32 + transition_width / 2., 1.0),
                         abs_point(x as f32 - transition_width / 2., 1.0),
@@ -141,7 +175,7 @@ impl State {
                         abs_point(old_x as f32 + transition_width / 2., 0.0),
                         abs_point(old_x as f32, 0.5),
                     ],
-                    stroke
+                    stroke,
                 ));
 
                 /*
@@ -201,67 +235,6 @@ impl State {
         let time = left + time_spacing * x;
         time
     }
-
-    // pub fn handle_scroll(
-    //     &self,
-    //     cursor: Cursor,
-    //     bounds: Rectangle,
-    //     delta: ScrollDelta,
-    // ) -> Option<Message> {
-    //     match delta {
-    //         ScrollDelta::Lines { x: _, y } => {
-    //             // Zoom or scroll
-    //             if self.control_key {
-    //                 if let Some(cursor_pos) = cursor.position_in(&bounds) {
-    //                     let Viewport {
-    //                         curr_left: left,
-    //                         curr_right: right,
-    //                         ..
-    //                     } = &self.viewport;
-
-    //                     let cursor_pos = self.viewport_to_time(
-    //                         BigRational::from_float(cursor_pos.x).unwrap(),
-    //                         bounds.width,
-    //                     );
-
-    //                     // - to get zoom in the natural direction
-    //                     let scale = BigRational::from_float(1. - y / 10.).unwrap();
-
-    //                     let target_left = (left - &cursor_pos) * &scale + &cursor_pos;
-    //                     let target_right = (right - &cursor_pos) * &scale + &cursor_pos;
-
-    //                     // TODO: Do not just round here, this will not work
-    //                     // for small zoom levels
-    //                     Some(Message::ChangeViewport(Viewport {
-    //                         curr_left: target_left.clone().round(),
-    //                         curr_right: target_right.clone().round(),
-    //                     }))
-    //                 } else {
-    //                     None
-    //                 }
-    //             } else {
-    //                 // Scroll 5% of the viewport per scroll event
-    //                 let scroll_step = (&self.viewport.curr_right - &self.viewport.curr_left)
-    //                     / BigInt::from_u32(20).unwrap();
-
-    //                 let to_scroll = BigRational::from(scroll_step.clone())
-    //                     * BigRational::from_float(y).unwrap();
-
-    //                 let target_left = &self.viewport.curr_left + &to_scroll;
-    //                 let target_right = &self.viewport.curr_right + &to_scroll;
-    //                 Some(Message::ChangeViewport(Viewport {
-    //                     curr_left: target_left.clone(),
-    //                     curr_right: target_right.clone(),
-    //                 }))
-    //             }
-    //         }
-    //         ScrollDelta::Pixels { .. } => {
-    //             // TODO
-    //             println!("NOTE: Pixel scroll is unimplemented");
-    //             None
-    //         }
-    //     }
-    // }
 }
 
 struct DrawConfig {
@@ -315,8 +288,6 @@ impl SignalExt for SignalValue {
         }
     }
 }
-
-
 
 mod style {
     use eframe::epaint::Color32;
