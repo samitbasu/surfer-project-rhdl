@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, Painter, Sense};
-use eframe::emath::{self, RectTransform};
-use eframe::epaint::{Color32, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
+use eframe::emath::{self, RectTransform, Align2};
+use eframe::epaint::{Color32, PathShape, Pos2, Rect, Rounding, Stroke, Vec2, FontId};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use num::{BigInt, FromPrimitive};
 use num::{BigRational, BigUint};
@@ -178,9 +178,8 @@ impl State {
                     stroke,
                 ));
 
-                /*
-                let text_size = cfg.line_height - 4.;
-                let char_width = text_size * 0.53;
+                let text_size = cfg.line_height - 5.;
+                let char_width = text_size * (18./31.);
 
                 let text_area = (x - old_x) as f32 - transition_width;
                 let num_chars = (text_area / char_width).floor();
@@ -206,19 +205,24 @@ impl State {
                         full_text
                     };
 
-                    let text = Text {
+                    painter.text(
+                        abs_point(old_x as f32 + transition_width, 0.5),
+                        Align2::LEFT_CENTER,
                         content,
-                        position: abs_point(old_x as f32 + transition_width, 0.5),
-                        color: Color::from_rgba(1., 1., 1., 1.),
-                        size: text_size,
-                        font: self.font,
-                        vertical_alignment: iced::alignment::Vertical::Center,
-                        ..Default::default()
-                    };
+                        FontId::monospace(text_size),
+                        Color32::from_rgb(255, 255, 255)
+                    );
+                    // let text = Text {
+                    //     content,
+                    //     position: ,
+                    //     color: Color::from_rgba(1., 1., 1., 1.),
+                    //     size: text_size,
+                    //     font: self.font,
+                    //     vertical_alignment: iced::alignment::Vertical::Center,
+                    //     ..Default::default()
+                    // };
 
-                    frame.fill_text(text)
                 }
-                */
             }
         }
     }
