@@ -15,6 +15,7 @@ use num::bigint::ToBigInt;
 use num::BigInt;
 use num::BigRational;
 use num::FromPrimitive;
+use num::ToPrimitive;
 use translation::TranslatorList;
 use viewport::Viewport;
 
@@ -61,8 +62,13 @@ enum Message {
     ControlKeyChange(bool),
     Tick(Instant),
     SignalFormatChange(SignalIdx, String),
-    CanvasScroll { delta: Vec2 },
-    CanvasZoom { cursor_timestamp: BigRational, delta: f32 },
+    CanvasScroll {
+        delta: Vec2,
+    },
+    CanvasZoom {
+        cursor_timestamp: BigRational,
+        delta: f32,
+    },
 }
 
 impl State {
@@ -87,7 +93,7 @@ impl State {
             active_scope: None,
             signals: vec![],
             control_key: false,
-            viewport: Viewport::new(BigInt::from_u32(0).unwrap(), num_timestamps.clone()),
+            viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
             last_tick: Instant::now(),
             num_timestamps,
             vcd,
@@ -102,12 +108,11 @@ impl State {
             Message::VarsScrolled(_) => {}
             Message::AddSignal(s) => self.signals.push(s),
             Message::ControlKeyChange(val) => self.control_key = val,
-            Message::CanvasScroll { delta } => {
-                self.handle_canvas_scroll(delta)
-            }
-            Message::CanvasZoom { delta, cursor_timestamp } => {
-                self.handle_canvas_zoom(cursor_timestamp, delta)
-            }
+            Message::CanvasScroll { delta } => self.handle_canvas_scroll(delta),
+            Message::CanvasZoom {
+                delta,
+                cursor_timestamp,
+            } => self.handle_canvas_zoom(cursor_timestamp, delta as f64),
             Message::Tick(instant) => {
                 self.viewport.interpolate(instant - self.last_tick);
                 self.last_tick = instant;
@@ -130,13 +135,12 @@ impl State {
         // Scroll 5% of the viewport per scroll event.
         // One scroll event yields 50
         let scroll_step = (&self.viewport.curr_right - &self.viewport.curr_left)
-            / BigInt::from_u32(50 * 20).unwrap();
+            / (50. * 20.);
 
-        let to_scroll =
-            BigRational::from(scroll_step.clone()) * BigRational::from_float(delta.y).unwrap();
+        let target_left = &self.viewport.curr_left + scroll_step * delta.y as f64;
+        let target_right = &self.viewport.curr_right + scroll_step * delta.y as f64;
 
-        let target_left = &self.viewport.curr_left + &to_scroll;
-        let target_right = &self.viewport.curr_right + &to_scroll;
+        println!("Step: {scroll_step} {target_left} {target_right}");
 
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
@@ -146,7 +150,7 @@ impl State {
         &mut self,
         // Canvas relative
         cursor_timestamp: BigRational,
-        delta: f32,
+        delta: f64,
     ) {
         // Zoom or scroll
         let Viewport {
@@ -155,15 +159,10 @@ impl State {
             ..
         } = &self.viewport;
 
-        // let cursor_y = BigRational::from_f32(cursor_pos.x).unwrap();
-
-        // - to get zoom in the natural direction
-        // let scale = BigRational::from_float(1. - delta / 10.).unwrap();
-        let scale = BigRational::from_float(1./delta).unwrap();
-
-
-        let target_left = (left - &cursor_timestamp) * &scale + &cursor_timestamp;
-        let target_right = (right - &cursor_timestamp) * &scale + &cursor_timestamp;
+        let target_left = (left - cursor_timestamp.to_f64().unwrap()) / delta
+            + &cursor_timestamp.to_f64().unwrap();
+        let target_right = (right - cursor_timestamp.to_f64().unwrap()) / delta
+            + &cursor_timestamp.to_f64().unwrap();
 
         // TODO: Do not just round here, this will not work
         // for small zoom levels

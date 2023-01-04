@@ -37,7 +37,7 @@ impl State {
 
             if ui.input().zoom_delta() != 1. {
                 let cursor_timestamp = self.viewport_to_time(
-                    BigRational::from_float(cursor_pos.x as f64).unwrap(),
+                    cursor_pos.x as f64,
                     frame_width,
                 );
 
@@ -62,7 +62,7 @@ impl State {
         if let Some(vcd) = &self.vcd {
             'outer: for x in 0..frame_width as u32 {
                 let time =
-                    self.viewport_to_time(BigRational::from_float(x as f64).unwrap(), frame_width);
+                    self.viewport_to_time(x as f64, frame_width);
                 if time < BigRational::from_float(0.).unwrap() {
                     continue;
                 }
@@ -227,17 +227,17 @@ impl State {
         }
     }
 
-    fn viewport_to_time(&self, x: BigRational, view_width: f32) -> BigRational {
+    fn viewport_to_time(&self, x: f64, view_width: f32) -> BigRational {
         let Viewport {
             curr_left: left,
             curr_right: right,
             ..
         } = &self.viewport;
 
-        let time_spacing = (right - left) / BigInt::from_u64(view_width as u64).unwrap();
+        let time_spacing = (right - left) / view_width as f64;
 
         let time = left + time_spacing * x;
-        time
+        BigRational::from_f64(time).unwrap()
     }
 }
 
