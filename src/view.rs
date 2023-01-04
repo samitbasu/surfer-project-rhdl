@@ -1,4 +1,4 @@
-use eframe::egui::{self, Align, Layout};
+use eframe::egui::{self, Align, Layout, Key};
 use fastwave_backend::VCD;
 
 use crate::{Message, State};
@@ -36,6 +36,7 @@ impl eframe::App for State {
                     egui::Frame::none().show(ui, |ui| {
                         ui.heading("Signals");
                         ui.add_space(3.0);
+
                         egui::ScrollArea::both()
                             .id_source("signals")
                             .show(ui, |ui| {
@@ -59,10 +60,12 @@ impl eframe::App for State {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_signals(ui);
+            self.draw_signals(&mut msgs, ui);
         });
 
-        for msg in msgs {
+        self.control_key = ctx.input().modifiers.ctrl;
+
+        while let Some(msg) = msgs.pop() {
             self.update(msg);
         }
     }
@@ -146,15 +149,10 @@ impl State {
 
     fn draw_var_list(&self, msgs: &mut Vec<Message>, vcd: &VCD, ui: &mut egui::Ui) {
         for sig in &self.signals {
-            ui.with_layout(
-                Layout::top_down(Align::LEFT).with_cross_justify(true),
-                |ui| {
-                    ui.add(egui::SelectableLabel::new(
-                        false,
-                        vcd.signal_from_signal_idx(*sig).name(),
-                    ))
-                }
-            );
+            ui.add(egui::SelectableLabel::new(
+                false,
+                vcd.signal_from_signal_idx(*sig).name(),
+            ));
         }
     }
 }
