@@ -34,7 +34,7 @@ fn main() {
     let state = State::new();
 
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(320.0, 240.0)),
+        initial_window_size: Some(egui::vec2(1920., 1080.)),
         ..Default::default()
     };
     eframe::run_native("My egui App", options, Box::new(|_cc| Box::new(state)))
@@ -86,7 +86,7 @@ impl State {
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
-            // Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
+            Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
         ]);
 
         State {
@@ -139,8 +139,6 @@ impl State {
 
         let target_left = &self.viewport.curr_left + scroll_step * delta.y as f64;
         let target_right = &self.viewport.curr_right + scroll_step * delta.y as f64;
-
-        println!("Step: {scroll_step} {target_left} {target_right}");
 
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
