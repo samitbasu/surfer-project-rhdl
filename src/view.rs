@@ -1,10 +1,11 @@
 use eframe::egui::{self, Align, Key, Layout};
 use fastwave_backend::VCD;
+use pyo3::{PyResult, Python, exceptions::PyKeyboardInterrupt};
 
 use crate::{Message, State};
 
 impl eframe::App for State {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let max_width = ctx.available_rect().width();
 
         let mut msgs = vec![];
@@ -66,6 +67,8 @@ impl eframe::App for State {
 
         self.control_key = ctx.input().modifiers.ctrl;
 
+        self.handle_ctrlc(ctx, frame);
+
         while let Some(msg) = msgs.pop() {
             self.update(msg);
         }
@@ -73,6 +76,25 @@ impl eframe::App for State {
 }
 
 impl State {
+    fn handle_ctrlc(&self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Always repaint even if we're in the background. This is needed in order
+        // to handle ctrl+c correctly
+        ctx.request_repaint();
+
+        // Make ctrl-c work even if no python code is being executed
+        Python::with_gil(|py| {
+            let result: PyResult<()> = py.run("a=0", None, None);
+
+            match result {
+                Ok(_) => {}
+                Err(error) if error.is_instance_of::<PyKeyboardInterrupt>(py) => {
+                    frame.close();
+                }
+                Err(_) => println!("Python exception in keyboard interrupt loop"),
+            };
+        });
+    }
+
     pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, vcd: &VCD, ui: &mut egui::Ui) {
         for idx in vcd.root_scopes_by_idx() {
             self.draw_selectable_child_or_orphan_scope(msgs, vcd, idx, ui);
@@ -159,15 +181,14 @@ impl State {
                     ))
                     .context_menu(|ui| {
                         for name in self.translators.names() {
-                            ui.button(&name)
-                                .clicked()
-                                .then(|| {
-                                    ui.close_menu();
-                                    msgs.push(Message::SignalFormatChange(*sig, name.clone()))
-                                });
+                            ui.button(&name).clicked().then(|| {
+                                ui.close_menu();
+                                msgs.push(Message::SignalFormatChange(*sig, name.clone()))
+                            });
                         }
                     });
-                });
+                },
+            );
         }
     }
 }
