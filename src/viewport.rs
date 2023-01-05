@@ -4,15 +4,15 @@ use num::{BigInt, BigRational};
 
 #[derive(Debug, Clone)]
 pub struct Viewport {
-    pub curr_left: f64,
-    pub curr_right: f64,
+    pub curr_left: BigRational,
+    pub curr_right: BigRational,
 }
 
 impl Viewport {
-    pub fn new(left: f64, right: f64) -> Self {
+    pub fn new(left: BigInt, right: BigInt) -> Self {
         Self {
-            curr_left: left,
-            curr_right: right,
+            curr_left: BigRational::from(left.clone()),
+            curr_right: BigRational::from(right.clone()),
         }
     }
 
