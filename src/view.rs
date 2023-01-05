@@ -1,4 +1,4 @@
-use eframe::egui::{self, Align, Layout, Key};
+use eframe::egui::{self, Align, Key, Layout};
 use fastwave_backend::VCD;
 
 use crate::{Message, State};
@@ -17,8 +17,8 @@ impl eframe::App for State {
                     let total_space = ui.available_height();
 
                     egui::Frame::none().show(ui, |ui| {
-                        ui.set_max_height(total_space/2.);
-                        ui.set_min_height(total_space/2.);
+                        ui.set_max_height(total_space / 2.);
+                        ui.set_min_height(total_space / 2.);
 
                         ui.heading("Modules");
                         ui.add_space(3.0);
@@ -52,6 +52,7 @@ impl eframe::App for State {
             .default_width(300.)
             .width_range(100.0..=max_width)
             .show(ctx, |ui| {
+                ui.style_mut().wrap = Some(false);
                 ui.vertical(|ui| {
                     if let Some(vcd) = &self.vcd {
                         self.draw_var_list(&mut msgs, &vcd, ui);
@@ -138,21 +139,35 @@ impl State {
                         ui.add(egui::SelectableLabel::new(
                             false,
                             vcd.signal_from_signal_idx(sig).name(),
-                        )).clicked()
-                            .then(|| msgs.push(Message::AddSignal(sig)))
-                    }
+                        ))
+                        .clicked()
+                        .then(|| msgs.push(Message::AddSignal(sig)))
+                    },
                 );
             }
         }
     }
 
-
     fn draw_var_list(&self, msgs: &mut Vec<Message>, vcd: &VCD, ui: &mut egui::Ui) {
         for sig in &self.signals {
-            ui.add(egui::SelectableLabel::new(
-                false,
-                vcd.signal_from_signal_idx(*sig).name(),
-            ));
+            ui.with_layout(
+                Layout::top_down(Align::LEFT).with_cross_justify(true),
+                |ui| {
+                    ui.add(egui::SelectableLabel::new(
+                        false,
+                        vcd.signal_from_signal_idx(*sig).name(),
+                    ))
+                    .context_menu(|ui| {
+                        for name in self.translators.names() {
+                            ui.button(&name)
+                                .clicked()
+                                .then(|| {
+                                    ui.close_menu();
+                                    msgs.push(Message::SignalFormatChange(*sig, name.clone()))
+                                });
+                        }
+                    });
+                });
         }
     }
 }
