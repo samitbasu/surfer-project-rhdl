@@ -63,6 +63,7 @@ enum Message {
     SignalFormatChange(SignalIdx, String),
     CanvasScroll { delta: Vec2 },
     CanvasZoom { cursor_timestamp: BigRational, delta: f32 },
+    ViewportWidthChanged(f32)
 }
 
 impl State {
@@ -108,8 +109,8 @@ impl State {
             Message::CanvasZoom { delta, cursor_timestamp } => {
                 self.handle_canvas_zoom(cursor_timestamp, delta)
             }
+            Message::ViewportWidthChanged(new) => self.viewport.set_drawn_width(new),
             Message::Tick(instant) => {
-                self.viewport.interpolate(instant - self.last_tick);
                 self.last_tick = instant;
             }
             Message::SignalFormatChange(idx, format) => {
@@ -129,17 +130,16 @@ impl State {
     ) {
         // Scroll 5% of the viewport per scroll event.
         // One scroll event yields 50
-        let scroll_step = (&self.viewport.curr_right - &self.viewport.curr_left)
+        let scroll_step = (self.viewport.right() - self.viewport.left())
             / BigInt::from_u32(50 * 20).unwrap();
 
         let to_scroll =
             BigRational::from(scroll_step.clone()) * BigRational::from_float(delta.y).unwrap();
 
-        let target_left = &self.viewport.curr_left + &to_scroll;
-        let target_right = &self.viewport.curr_right + &to_scroll;
+        let target_left = self.viewport.left() + &to_scroll;
+        let target_right = self.viewport.right() + &to_scroll;
 
-        self.viewport.curr_left = target_left;
-        self.viewport.curr_right = target_right;
+        self.viewport.set_bounds(target_left, target_right);
     }
 
     pub fn handle_canvas_zoom(
@@ -149,11 +149,8 @@ impl State {
         delta: f32,
     ) {
         // Zoom or scroll
-        let Viewport {
-            curr_left: left,
-            curr_right: right,
-            ..
-        } = &self.viewport;
+        let left = self.viewport.left();
+        let right = self.viewport.right();
 
         // let cursor_y = BigRational::from_f32(cursor_pos.x).unwrap();
 
@@ -167,7 +164,6 @@ impl State {
 
         // TODO: Do not just round here, this will not work
         // for small zoom levels
-        self.viewport.curr_left = target_left;
-        self.viewport.curr_right = target_right;
+        self.viewport.set_bounds(target_left, target_right);
     }
 }

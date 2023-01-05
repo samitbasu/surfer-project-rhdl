@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, Painter, Sense};
-use eframe::emath::{self, RectTransform, Align2};
-use eframe::epaint::{Color32, PathShape, Pos2, Rect, Rounding, Stroke, Vec2, FontId};
+use eframe::emath::{self, Align2, RectTransform};
+use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use num::{BigInt, FromPrimitive};
 use num::{BigRational, BigUint};
@@ -17,6 +17,7 @@ impl State {
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
+        msgs.push(Message::ViewportWidthChanged(frame_width));
 
         // TODO: Move event handling into its own function
         // TODO: Consider using events instead of querying like this
@@ -36,10 +37,9 @@ impl State {
             }
 
             if ui.input().zoom_delta() != 1. {
-                let cursor_timestamp = self.viewport_to_time(
-                    BigRational::from_float(cursor_pos.x as f64).unwrap(),
-                    frame_width,
-                );
+                let cursor_timestamp = self
+                    .viewport
+                    .pixel_to_timestamp(BigRational::from_float(cursor_pos.x as f64).unwrap());
 
                 msgs.push(Message::CanvasZoom {
                     cursor_timestamp,
@@ -61,8 +61,9 @@ impl State {
 
         if let Some(vcd) = &self.vcd {
             'outer: for x in 0..frame_width as u32 {
-                let time =
-                    self.viewport_to_time(BigRational::from_float(x as f64).unwrap(), frame_width);
+                let time = self
+                    .viewport
+                    .pixel_to_timestamp(BigRational::from_float(x as f64).unwrap());
                 if time < BigRational::from_float(0.).unwrap() {
                     continue;
                 }
@@ -179,7 +180,7 @@ impl State {
                 ));
 
                 let text_size = cfg.line_height - 5.;
-                let char_width = text_size * (18./31.);
+                let char_width = text_size * (18. / 31.);
 
                 let text_area = (x - old_x) as f32 - transition_width;
                 let num_chars = (text_area / char_width).floor();
@@ -210,7 +211,7 @@ impl State {
                         Align2::LEFT_CENTER,
                         content,
                         FontId::monospace(text_size),
-                        Color32::from_rgb(255, 255, 255)
+                        Color32::from_rgb(255, 255, 255),
                     );
                     // let text = Text {
                     //     content,
@@ -221,23 +222,9 @@ impl State {
                     //     vertical_alignment: iced::alignment::Vertical::Center,
                     //     ..Default::default()
                     // };
-
                 }
             }
         }
-    }
-
-    fn viewport_to_time(&self, x: BigRational, view_width: f32) -> BigRational {
-        let Viewport {
-            curr_left: left,
-            curr_right: right,
-            ..
-        } = &self.viewport;
-
-        let time_spacing = (right - left) / BigInt::from_u64(view_width as u64).unwrap();
-
-        let time = left + time_spacing * x;
-        time
     }
 }
 
