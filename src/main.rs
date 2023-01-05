@@ -4,7 +4,6 @@ mod view;
 mod viewport;
 
 use eframe::egui;
-use eframe::epaint::Pos2;
 use eframe::epaint::Vec2;
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
@@ -21,14 +20,8 @@ use viewport::Viewport;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::time::Instant;
 
 use crate::translation::pytranslator::PyTranslator;
-
-enum Command {
-    None,
-    Loopback(Vec<Message>),
-}
 
 fn main() {
     let state = State::new();
@@ -47,28 +40,26 @@ struct State {
     /// The offset of the left side of the wave window in signal timestamps.
     viewport: Viewport,
     control_key: bool,
-    last_tick: Instant,
     num_timestamps: BigInt,
     /// Which translator to use for each signal
     signal_format: HashMap<SignalIdx, String>,
     translators: TranslatorList,
+    cursor: BigInt
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     HierarchyClick(ScopeIdx),
-    VarsScrolled(f32),
     AddSignal(SignalIdx),
-    ControlKeyChange(bool),
-    Tick(Instant),
     SignalFormatChange(SignalIdx, String),
     CanvasScroll {
         delta: Vec2,
     },
     CanvasZoom {
-        cursor_timestamp: BigRational,
+        mouse_ptr_timestamp: BigRational,
         delta: f32,
     },
+    CursorSet(BigInt)
 }
 
 impl State {
@@ -94,29 +85,24 @@ impl State {
             signals: vec![],
             control_key: false,
             viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
-            last_tick: Instant::now(),
             num_timestamps,
             vcd,
             signal_format: HashMap::new(),
             translators,
+            cursor: BigInt::from_u64(0).unwrap()
         }
     }
 
+    // TODO: Rename to process_msg or something
     fn update(&mut self, message: Message) {
         match message {
             Message::HierarchyClick(scope) => self.active_scope = Some(scope),
-            Message::VarsScrolled(_) => {}
             Message::AddSignal(s) => self.signals.push(s),
-            Message::ControlKeyChange(val) => self.control_key = val,
             Message::CanvasScroll { delta } => self.handle_canvas_scroll(delta),
             Message::CanvasZoom {
                 delta,
-                cursor_timestamp,
-            } => self.handle_canvas_zoom(cursor_timestamp, delta as f64),
-            Message::Tick(instant) => {
-                self.viewport.interpolate(instant - self.last_tick);
-                self.last_tick = instant;
-            }
+                mouse_ptr_timestamp,
+            } => self.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64),
             Message::SignalFormatChange(idx, format) => {
                 if self.translators.inner.contains_key(&format) {
                     *self.signal_format.entry(idx).or_default() = format
@@ -124,6 +110,7 @@ impl State {
                     println!("WARN: No translator {format}")
                 }
             }
+            Message::CursorSet(new) => self.cursor = new,
         }
     }
 
@@ -147,7 +134,7 @@ impl State {
     pub fn handle_canvas_zoom(
         &mut self,
         // Canvas relative
-        cursor_timestamp: BigRational,
+        mouse_ptr_timestamp: BigRational,
         delta: f64,
     ) {
         // Zoom or scroll
@@ -157,10 +144,10 @@ impl State {
             ..
         } = &self.viewport;
 
-        let target_left = (left - cursor_timestamp.to_f64().unwrap()) / delta
-            + &cursor_timestamp.to_f64().unwrap();
-        let target_right = (right - cursor_timestamp.to_f64().unwrap()) / delta
-            + &cursor_timestamp.to_f64().unwrap();
+        let target_left = (left - mouse_ptr_timestamp.to_f64().unwrap()) / delta
+            + &mouse_ptr_timestamp.to_f64().unwrap();
+        let target_right = (right - mouse_ptr_timestamp.to_f64().unwrap()) / delta
+            + &mouse_ptr_timestamp.to_f64().unwrap();
 
         // TODO: Do not just round here, this will not work
         // for small zoom levels

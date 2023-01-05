@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, Painter, Sense};
-use eframe::emath::{self, RectTransform, Align2};
-use eframe::epaint::{Color32, PathShape, Pos2, Rect, Rounding, Stroke, Vec2, FontId};
+use eframe::emath::{self, Align2, RectTransform};
+use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use num::{BigInt, FromPrimitive};
 use num::{BigRational, BigUint};
@@ -20,15 +20,17 @@ impl State {
 
         // TODO: Move event handling into its own function
         // TODO: Consider using events instead of querying like this
-        let pointer_pos = ui.input().pointer.interact_pos();
+        let pointer_pos_global = ui.input().pointer.interact_pos();
+        let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
 
-        let pointer_in_canvas = pointer_pos
+        let pointer_in_canvas = pointer_pos_global
             .map(|p| to_screen.transform_rect(container_rect).contains(p))
             .unwrap_or(false);
 
         if pointer_in_canvas {
+            let pointer_pos = pointer_pos_global.unwrap();
             let scroll_delta = ui.input().scroll_delta;
-            let cursor_pos = to_screen.inverse().transform_pos(pointer_pos.unwrap());
+            let mouse_ptr_pos = to_screen.inverse().transform_pos(pointer_pos);
             if scroll_delta != Vec2::ZERO {
                 msgs.push(Message::CanvasScroll {
                     delta: ui.input().scroll_delta,
@@ -36,16 +38,20 @@ impl State {
             }
 
             if ui.input().zoom_delta() != 1. {
-                let cursor_timestamp = self.viewport_to_time(
-                    cursor_pos.x as f64,
-                    frame_width,
-                );
+                let mouse_ptr_timestamp =
+                    self.viewport.to_time(mouse_ptr_pos.x as f64, frame_width);
 
                 msgs.push(Message::CanvasZoom {
-                    cursor_timestamp,
+                    mouse_ptr_timestamp,
                     delta: ui.input().zoom_delta(),
                 })
             }
+
+            ui.input().pointer.primary_down().then(|| {
+                let x = pointer_pos_canvas.unwrap().x;
+                let timestamp = self.viewport.to_time(x as f64, frame_width);
+                msgs.push(Message::CursorSet(timestamp.round().to_integer()));
+            });
         }
 
         painter.rect_filled(response.rect, Rounding::none(), Color32::from_rgb(0, 0, 0));
@@ -59,10 +65,11 @@ impl State {
 
         let max_time = BigRational::from_integer(self.num_timestamps.clone());
 
+        self.draw_cursor(&mut painter, response.rect.size(), to_screen);
+
         if let Some(vcd) = &self.vcd {
             'outer: for x in 0..frame_width as u32 {
-                let time =
-                    self.viewport_to_time(x as f64, frame_width);
+                let time = self.viewport.to_time(x as f64, frame_width);
                 if time < BigRational::from_float(0.).unwrap() {
                     continue;
                 }
@@ -111,6 +118,23 @@ impl State {
 }
 
 impl State {
+    fn draw_cursor(&self, painter: &mut Painter, size: Vec2, to_screen: RectTransform) {
+        let x = self.viewport.from_time(&self.cursor, size.x as f64);
+
+        let stroke = Stroke {
+            color: Color32::from_rgb(255, 128, 128),
+            width: 2.,
+            ..Default::default()
+        };
+        painter.line_segment(
+            [
+                to_screen.transform_pos(Pos2::new(x as f32, 0.)),
+                to_screen.transform_pos(Pos2::new(x as f32, size.y)),
+            ],
+            stroke,
+        )
+    }
+
     fn draw_signal(
         &self,
         painter: &mut Painter,
@@ -179,7 +203,7 @@ impl State {
                 ));
 
                 let text_size = cfg.line_height - 5.;
-                let char_width = text_size * (18./31.);
+                let char_width = text_size * (18. / 31.);
 
                 let text_area = (x - old_x) as f32 - transition_width;
                 let num_chars = (text_area / char_width).floor();
@@ -210,34 +234,11 @@ impl State {
                         Align2::LEFT_CENTER,
                         content,
                         FontId::monospace(text_size),
-                        Color32::from_rgb(255, 255, 255)
+                        Color32::from_rgb(255, 255, 255),
                     );
-                    // let text = Text {
-                    //     content,
-                    //     position: ,
-                    //     color: Color::from_rgba(1., 1., 1., 1.),
-                    //     size: text_size,
-                    //     font: self.font,
-                    //     vertical_alignment: iced::alignment::Vertical::Center,
-                    //     ..Default::default()
-                    // };
-
                 }
             }
         }
-    }
-
-    fn viewport_to_time(&self, x: f64, view_width: f32) -> BigRational {
-        let Viewport {
-            curr_left: left,
-            curr_right: right,
-            ..
-        } = &self.viewport;
-
-        let time_spacing = (right - left) / view_width as f64;
-
-        let time = left + time_spacing * x;
-        BigRational::from_f64(time).unwrap()
     }
 }
 
