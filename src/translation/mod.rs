@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
 use color_eyre::Result;
-use camino::Utf8PathBuf;
 use fastwave_backend::{Signal, SignalValue};
 
 pub mod pytranslator;
+mod basic_translators;
+
+pub use basic_translators::*;
 
 pub struct TranslatorList {
     pub inner: HashMap<String, Box<dyn Translator>>,
@@ -24,94 +26,33 @@ impl TranslatorList {
     }
 }
 
-pub struct SignalPath<'a> {
-    hierarchy: &'a [String],
-    name: &'a str,
-}
-
+#[derive(Clone)]
 pub struct TranslationResult {
     pub val: String,
     pub subfields: Vec<(String, Box<TranslationResult>)>,
+}
+
+
+/// Static information about the structure of a signal.
+pub enum SignalInfo {
+    Compound{subfields: Vec<(String, SignalInfo)>},
+    Bits
 }
 
 pub trait Translator {
     fn name(&self) -> String;
 
     /// Return true if this translator translates the specified signal
-    fn translates(&self, path: SignalPath) -> Result<bool>;
+    fn translates(&self, name: &str) -> Result<bool>;
 
     fn translate(
         &self,
         signal: &Signal,
         value: &SignalValue,
     ) -> Result<TranslationResult>;
-}
 
-// Implementations
-
-pub struct HexTranslator {}
-
-impl Translator for HexTranslator {
-    fn name(&self) -> String {
-        String::from("Hexadecimal")
-    }
-
-    fn translates(&self, _path: SignalPath) -> Result<bool> {
-        Ok(true)
-    }
-
-    fn translate(
-        &self,
-        signal: &Signal,
-        value: &SignalValue,
-    ) -> Result<TranslationResult> {
-        let result = match value {
-            SignalValue::BigUint(v) => TranslationResult {
-                val: format!("{v:0width$x}", width=signal.num_bits().unwrap_or(0) as usize / 4),
-                subfields: vec![],
-            },
-            SignalValue::String(s) => {
-                // TODO: Translate hex values
-                TranslationResult {
-                    val: s.clone(),
-                    subfields: vec![],
-                }
-            }
-        };
-        Ok(result)
+    fn signal_info(&self, _name: &str) -> Result<SignalInfo> {
+        Ok(SignalInfo::Bits)
     }
 }
 
-
-pub struct UnsignedTranslator {}
-
-impl Translator for UnsignedTranslator {
-    fn name(&self) -> String {
-        String::from("Unsigned")
-    }
-
-    fn translates(&self, _path: SignalPath) -> Result<bool> {
-        Ok(true)
-    }
-
-    fn translate(
-        &self,
-        signal: &Signal,
-        value: &SignalValue,
-    ) -> Result<TranslationResult> {
-        let result = match value {
-            SignalValue::BigUint(v) => TranslationResult {
-                val: format!("{v}"),
-                subfields: vec![],
-            },
-            SignalValue::String(s) => {
-                // TODO: Translate hex values
-                TranslationResult {
-                    val: s.clone(),
-                    subfields: vec![],
-                }
-            }
-        };
-        Ok(result)
-    }
-}

@@ -4,10 +4,9 @@ use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
-use num::{BigInt, FromPrimitive};
+use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
-use crate::viewport::Viewport;
 use crate::{Message, State};
 
 impl State {
@@ -79,17 +78,17 @@ impl State {
                 for (y, (idx, sig)) in self
                     .signals
                     .iter()
-                    .map(|s| (s, vcd.signal_from_signal_idx(*s)))
+                    .map(|s| (s, vcd.signal_from_signal_idx(s.0)))
                     .enumerate()
                 {
                     if let Ok(val) = sig.query_val_on_tmln(&time, &vcd) {
-                        let prev = prev_values.get(idx);
-                        if let Some((old_x, old_val)) = prev_values.get(idx) {
+                        let prev = prev_values.get(&idx.0);
+                        if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
                             self.draw_signal(
                                 &mut painter,
                                 y as f32,
                                 to_screen,
-                                idx,
+                                &idx.0,
                                 &sig,
                                 (*old_x, old_val),
                                 (x, &val),
@@ -102,7 +101,7 @@ impl State {
 
                         // Only store the last time if the value is actually changed
                         if prev.map(|(_, v)| v) != Some(&val) {
-                            prev_values.insert(*idx, (x, val));
+                            prev_values.insert(idx.0, (x, val));
                         }
                     }
                 }
@@ -210,11 +209,7 @@ impl State {
                 let fits_text = num_chars >= 1.;
 
                 if fits_text {
-                    let translator_name = self
-                        .signal_format
-                        .get(&signal_idx)
-                        .unwrap_or_else(|| &self.translators.default);
-                    let translator = &self.translators.inner[translator_name];
+                    let translator = self.signal_translator(*signal_idx);
 
                     // TODO: Graceful shutdown
                     let full_text = translator.translate(signal, old_val).unwrap().val;

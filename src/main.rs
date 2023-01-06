@@ -15,6 +15,11 @@ use num::BigInt;
 use num::BigRational;
 use num::FromPrimitive;
 use num::ToPrimitive;
+use pyo3::append_to_inittab;
+
+use translation::pytranslator::surfer;
+use translation::SignalInfo;
+use translation::Translator;
 use translation::TranslatorList;
 use viewport::Viewport;
 
@@ -24,6 +29,9 @@ use std::fs::File;
 use crate::translation::pytranslator::PyTranslator;
 
 fn main() {
+    // Load python modules we deinfe in this crate
+    append_to_inittab!(surfer);
+
     let state = State::new();
 
     let options = eframe::NativeOptions {
@@ -36,7 +44,7 @@ fn main() {
 struct State {
     vcd: Option<VCD>,
     active_scope: Option<ScopeIdx>,
-    signals: Vec<SignalIdx>,
+    signals: Vec<(SignalIdx, SignalInfo)>,
     /// The offset of the left side of the wave window in signal timestamps.
     viewport: Viewport,
     control_key: bool,
@@ -44,7 +52,7 @@ struct State {
     /// Which translator to use for each signal
     signal_format: HashMap<SignalIdx, String>,
     translators: TranslatorList,
-    cursor: BigInt
+    cursor: BigInt,
 }
 
 #[derive(Debug, Clone)]
@@ -59,7 +67,7 @@ enum Message {
         mouse_ptr_timestamp: BigRational,
         delta: f32,
     },
-    CursorSet(BigInt)
+    CursorSet(BigInt),
 }
 
 impl State {
@@ -77,6 +85,7 @@ impl State {
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
+            Box::new(translation::HierarchyTranslator {}),
             Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
         ]);
 
@@ -89,7 +98,7 @@ impl State {
             vcd,
             signal_format: HashMap::new(),
             translators,
-            cursor: BigInt::from_u64(0).unwrap()
+            cursor: BigInt::from_u64(0).unwrap(),
         }
     }
 
@@ -97,7 +106,11 @@ impl State {
     fn update(&mut self, message: Message) {
         match message {
             Message::HierarchyClick(scope) => self.active_scope = Some(scope),
-            Message::AddSignal(s) => self.signals.push(s),
+            Message::AddSignal(s) => {
+                let translator = self.signal_translator(s);
+                let info = translator.signal_info(&self.signal_name(s)).unwrap();
+                self.signals.push((s, info))
+            }
             Message::CanvasScroll { delta } => self.handle_canvas_scroll(delta),
             Message::CanvasZoom {
                 delta,
@@ -105,7 +118,12 @@ impl State {
             } => self.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64),
             Message::SignalFormatChange(idx, format) => {
                 if self.translators.inner.contains_key(&format) {
-                    *self.signal_format.entry(idx).or_default() = format
+                    *self.signal_format.entry(idx).or_default() = format;
+
+                    let translator = self.signal_translator(idx);
+                    let info = translator.signal_info(&self.signal_name(idx)).unwrap();
+                    self.signals.retain(|(old_idx, _)| *old_idx != idx);
+                    self.signals.push((idx, info))
                 } else {
                     println!("WARN: No translator {format}")
                 }
@@ -121,8 +139,7 @@ impl State {
     ) {
         // Scroll 5% of the viewport per scroll event.
         // One scroll event yields 50
-        let scroll_step = (&self.viewport.curr_right - &self.viewport.curr_left)
-            / (50. * 20.);
+        let scroll_step = (&self.viewport.curr_right - &self.viewport.curr_left) / (50. * 20.);
 
         let target_left = &self.viewport.curr_left + scroll_step * delta.y as f64;
         let target_right = &self.viewport.curr_right + scroll_step * delta.y as f64;
@@ -153,5 +170,22 @@ impl State {
         // for small zoom levels
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
+    }
+
+    pub fn signal_translator(&self, sig: SignalIdx) -> &Box<dyn Translator> {
+        let translator_name = self
+            .signal_format
+            .get(&sig)
+            .unwrap_or_else(|| &self.translators.default);
+        let translator = &self.translators.inner[translator_name];
+        translator
+    }
+
+    pub fn signal_name(&self, idx: SignalIdx) -> String {
+        self.vcd
+            .as_ref()
+            .expect("Getting signal name from idx without vcd set")
+            .signal_from_signal_idx(idx)
+            .name()
     }
 }

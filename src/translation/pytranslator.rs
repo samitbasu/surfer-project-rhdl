@@ -4,9 +4,9 @@ use color_eyre::{
     Result,
 };
 use fastwave_backend::{Signal, SignalValue};
-use pyo3::{types::PyModule, Py, PyAny, PyObject, Python, ToPyObject, PyResult, pymodule, pyfunction, wrap_pyfunction};
+use pyo3::{types::PyModule, PyObject, Python, ToPyObject, PyResult, pymodule, pyfunction, wrap_pyfunction, pyclass, pymethods};
 
-use super::{SignalPath, TranslationResult, Translator};
+use super::{TranslationResult, Translator};
 
 pub struct PyTranslator {
     name: String,
@@ -35,6 +35,7 @@ impl PyTranslator {
 
             ensure_has_attr("translates")?;
             ensure_has_attr("translate")?;
+            ensure_has_attr("signal_info")?;
 
             Ok(instance.to_object(py))
         })?;
@@ -51,11 +52,11 @@ impl Translator for PyTranslator {
         self.name.clone()
     }
 
-    fn translates(&self, path: SignalPath) -> Result<bool> {
+    fn translates(&self, name: &str) -> Result<bool> {
         Python::with_gil(|py| {
             let result = self
                 .instance
-                .call_method1(py, "translates", (path.name,))
+                .call_method1(py, "translates", (name,))
                 .with_context(|| format!("Failed to run translates on {}", self.name))?;
 
             Ok(result.extract(py)?)
@@ -77,11 +78,23 @@ impl Translator for PyTranslator {
                 .call_method1(py, "translate", (signal.name(), value_str))
                 .with_context(|| format!("Failed to run translates on {}", self.name))?;
 
-            let val: String = result.extract(py)?;
-            Ok(TranslationResult {
-                val,
-                subfields: vec![],
-            })
+            let val: PyTranslationResult = result.extract(py)?;
+            Ok(val.0)
+        })
+    }
+}
+
+#[pyclass(name = "TranslationResult")]
+#[derive(Clone)]
+struct PyTranslationResult (TranslationResult);
+
+#[pymethods]
+impl PyTranslationResult {
+    #[new]
+    fn new(val_str: &str) -> Self {
+        Self(TranslationResult {
+            val: val_str.to_string(),
+            subfields: vec![]
         })
     }
 }
@@ -91,8 +104,15 @@ fn test() {
     println!("test")
 }
 
+/// The python stuff we expose to python plugins. This must be apended to
+/// the import stuff before python code is run, preferably by
+/// ```
+/// append_to_inittab!(surfer);
+/// ```
+/// early on in the program
 #[pymodule]
-fn surfer(_py: Python, m: &PyModule) -> PyResult<()> {
+pub fn surfer(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<PyTranslationResult>()?;
     m.add_function(wrap_pyfunction!(test, m)?)?;
     Ok(())
 }

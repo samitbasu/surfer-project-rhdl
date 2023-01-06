@@ -1,8 +1,8 @@
-use eframe::egui::{self, Align, Key, Layout};
+use eframe::egui::{self, Align, Layout};
 use fastwave_backend::VCD;
-use pyo3::{PyResult, Python, exceptions::PyKeyboardInterrupt};
+use pyo3::{exceptions::PyKeyboardInterrupt, PyResult, Python};
 
-use crate::{Message, State};
+use crate::{translation::SignalInfo, Message, State};
 
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -171,24 +171,67 @@ impl State {
     }
 
     fn draw_var_list(&self, msgs: &mut Vec<Message>, vcd: &VCD, ui: &mut egui::Ui) {
-        for sig in &self.signals {
+        for (sig, info) in &self.signals {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    ui.add(egui::SelectableLabel::new(
-                        false,
-                        vcd.signal_from_signal_idx(*sig).name(),
-                    ))
+                    let name = vcd.signal_from_signal_idx(*sig).name();
+                    let ctx_menu = self
+                        .translators
+                        .names()
+                        .iter()
+                        .map(|t| (t.clone(), Message::SignalFormatChange(*sig, t.clone())))
+                        .collect();
+
+                    self.draw_var(msgs, &name, info, ui, ctx_menu);
+                },
+            );
+        }
+    }
+
+    fn draw_var(
+        &self,
+        msgs: &mut Vec<Message>,
+        name: &str,
+        info: &SignalInfo,
+        ui: &mut egui::Ui,
+        context_menu: Vec<(String, Message)>,
+    ) {
+        match info {
+            SignalInfo::Compound { subfields } => {
+                egui::collapsing_header::CollapsingState::load_with_default_open(
+                    ui.ctx(),
+                    egui::Id::new(name),
+                    false,
+                )
+                .show_header(ui, |ui| {
+                    ui.add(egui::SelectableLabel::new(false, name))
+                        .context_menu(|ui| {
+                            for (name, msg) in context_menu {
+                                ui.button(name).clicked().then(|| {
+                                    ui.close_menu();
+                                    msgs.push(msg);
+                                });
+                            }
+                        });
+                })
+                .body(|ui| {
+                    for (name, info) in subfields {
+                        self.draw_var(msgs, name, info, ui, vec![]);
+                    }
+                });
+            }
+            SignalInfo::Bits => {
+                ui.add(egui::SelectableLabel::new(false, name))
                     .context_menu(|ui| {
-                        for name in self.translators.names() {
-                            ui.button(&name).clicked().then(|| {
+                        for (name, msg) in context_menu {
+                            ui.button(name).clicked().then(|| {
                                 ui.close_menu();
-                                msgs.push(Message::SignalFormatChange(*sig, name.clone()))
+                                msgs.push(msg);
                             });
                         }
                     });
-                },
-            );
+            }
         }
     }
 }
