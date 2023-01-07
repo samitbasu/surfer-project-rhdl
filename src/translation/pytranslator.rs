@@ -4,9 +4,12 @@ use color_eyre::{
     Result,
 };
 use fastwave_backend::{Signal, SignalValue};
-use pyo3::{types::PyModule, PyObject, Python, ToPyObject, PyResult, pymodule, pyfunction, wrap_pyfunction, pyclass, pymethods};
+use pyo3::{
+    pyclass, pyfunction, pymethods, pymodule, types::PyModule, wrap_pyfunction, PyObject, PyResult,
+    Python, ToPyObject,
+};
 
-use super::{TranslationResult, Translator};
+use super::{SignalInfo, TranslationResult, Translator};
 
 pub struct PyTranslator {
     name: String,
@@ -82,11 +85,23 @@ impl Translator for PyTranslator {
             Ok(val.0)
         })
     }
+
+    fn signal_info(&self, name: &str) -> Result<SignalInfo> {
+        Python::with_gil(|py| {
+            let result = self
+                .instance
+                .call_method1(py, "signal_info", (name,))
+                .with_context(|| format!("Error when running signal_info on {}", self.name))?;
+
+            let val: Option<PySignalInfo> = result.extract(py)?;
+            Ok(val.map(|s| s.0).unwrap_or(SignalInfo::Bits))
+        })
+    }
 }
 
 #[pyclass(name = "TranslationResult")]
 #[derive(Clone)]
-struct PyTranslationResult (TranslationResult);
+struct PyTranslationResult(TranslationResult);
 
 #[pymethods]
 impl PyTranslationResult {
@@ -94,14 +109,33 @@ impl PyTranslationResult {
     fn new(val_str: &str) -> Self {
         Self(TranslationResult {
             val: val_str.to_string(),
-            subfields: vec![]
+            subfields: vec![],
         })
     }
 }
 
-#[pyfunction]
-fn test() {
-    println!("test")
+#[pyclass(name = "SignalInfo")]
+#[derive(Clone)]
+struct PySignalInfo(SignalInfo);
+
+#[pymethods]
+impl PySignalInfo {
+    #[new]
+    fn new() -> Self {
+        Self(SignalInfo::Bits)
+    }
+
+    pub fn with_field(&mut self, field: (String, PySignalInfo)) {
+        let unpacked = (field.0, field.1 .0);
+        match &mut self.0 {
+            SignalInfo::Bits => {
+                self.0 = SignalInfo::Compound {
+                    subfields: vec![unpacked],
+                }
+            }
+            SignalInfo::Compound { subfields } => subfields.push(unpacked),
+        }
+    }
 }
 
 /// The python stuff we expose to python plugins. This must be apended to
@@ -113,6 +147,6 @@ fn test() {
 #[pymodule]
 pub fn surfer(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyTranslationResult>()?;
-    m.add_function(wrap_pyfunction!(test, m)?)?;
+    m.add_class::<PySignalInfo>()?;
     Ok(())
 }

@@ -1,16 +1,23 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
-use fastwave_backend::{Signal, SignalIdx, SignalValue};
+use fastwave_backend::{Signal, SignalIdx, SignalValue, VCD};
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
+use crate::view::TraceIdx;
 use crate::{Message, State};
 
 impl State {
-    pub fn draw_signals(&self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    pub fn draw_signals(
+        &self,
+        msgs: &mut Vec<Message>,
+        signal_offsets: &HashMap<TraceIdx, f32>,
+        vcd: &VCD,
+        ui: &mut egui::Ui,
+    ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
 
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
@@ -66,51 +73,52 @@ impl State {
 
         self.draw_cursor(&mut painter, response.rect.size(), to_screen);
 
-        if let Some(vcd) = &self.vcd {
-            'outer: for x in 0..frame_width as u32 {
-                let time = self.viewport.to_time(x as f64, frame_width);
-                if time < BigRational::from_float(0.).unwrap() {
-                    continue;
-                }
-                let is_last_x = time > max_time;
-                let time = time.to_integer().to_biguint().unwrap();
+        'outer: for x in 0..frame_width as u32 {
+            let time = self.viewport.to_time(x as f64, frame_width);
+            if time < BigRational::from_float(0.).unwrap() {
+                continue;
+            }
+            let is_last_x = time > max_time;
+            let time = time.to_integer().to_biguint().unwrap();
 
-                for (y, (idx, sig)) in self
-                    .signals
-                    .iter()
-                    .map(|s| (s, vcd.signal_from_signal_idx(s.0)))
-                    .enumerate()
-                {
-                    if let Ok(val) = sig.query_val_on_tmln(&time, &vcd) {
-                        let prev = prev_values.get(&idx.0);
-                        if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
-                            self.draw_signal(
-                                &mut painter,
-                                y as f32,
-                                to_screen,
-                                &idx.0,
-                                &sig,
-                                (*old_x, old_val),
-                                (x, &val),
-                                &cfg,
-                                // Force redraw on the last valid pixel to ensure
-                                // that the signal gets drawn the whole way
-                                x == (frame_width as u32 - 1) || is_last_x,
-                            );
-                        }
+            for (idx, sig) in self
+                .signals
+                .iter()
+                .map(|s| (s, vcd.signal_from_signal_idx(s.0)))
+            {
+                if let Ok(val) = sig.query_val_on_tmln(&time, &vcd) {
+                    let y = signal_offsets
+                        .get(&(idx.0, vec![]))
+                        .expect(&format!("Found no y offset for signal {}", sig.name()));
 
-                        // Only store the last time if the value is actually changed
-                        if prev.map(|(_, v)| v) != Some(&val) {
-                            prev_values.insert(idx.0, (x, val));
-                        }
+                    let prev = prev_values.get(&idx.0);
+                    if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
+                        self.draw_signal(
+                            &mut painter,
+                            to_screen.inverse().transform_pos(Pos2::new(0., *y as f32)).y,
+                            to_screen,
+                            &idx.0,
+                            &sig,
+                            (*old_x, old_val),
+                            (x, &val),
+                            &cfg,
+                            // Force redraw on the last valid pixel to ensure
+                            // that the signal gets drawn the whole way
+                            x == (frame_width as u32 - 1) || is_last_x,
+                        );
+                    }
+
+                    // Only store the last time if the value is actually changed
+                    if prev.map(|(_, v)| v) != Some(&val) {
+                        prev_values.insert(idx.0, (x, val));
                     }
                 }
+            }
 
-                // If this was the last x in the vcd file, we are done
-                // drawing, so we can reak out of the outer loop
-                if is_last_x {
-                    break 'outer;
-                }
+            // If this was the last x in the vcd file, we are done
+            // drawing, so we can reak out of the outer loop
+            if is_last_x {
+                break 'outer;
             }
         }
     }
@@ -146,12 +154,8 @@ impl State {
         cfg: &DrawConfig,
         force_redraw: bool,
     ) {
-        let y_start = y as f32 * (cfg.line_height + cfg.padding);
         let abs_point = |x: f32, rel_y: f32| {
-            to_screen.transform_pos(Pos2::new(
-                x as f32,
-                y_start + (1. - rel_y) * cfg.line_height,
-            ))
+            to_screen.transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
         };
 
         if old_val != val || force_redraw {

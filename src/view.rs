@@ -1,8 +1,13 @@
+use std::collections::HashMap;
+
 use eframe::egui::{self, Align, Layout};
-use fastwave_backend::VCD;
+use fastwave_backend::{SignalIdx, VCD};
 use pyo3::{exceptions::PyKeyboardInterrupt, PyResult, Python};
 
 use crate::{translation::SignalInfo, Message, State};
+
+/// Index used to keep track of traces and their sub-traces
+pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
 
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -49,21 +54,21 @@ impl eframe::App for State {
                 })
             });
 
-        egui::SidePanel::left("signal list")
-            .default_width(300.)
-            .width_range(100.0..=max_width)
-            .show(ctx, |ui| {
-                ui.style_mut().wrap = Some(false);
-                ui.vertical(|ui| {
-                    if let Some(vcd) = &self.vcd {
-                        self.draw_var_list(&mut msgs, &vcd, ui);
-                    }
+        if let Some(vcd) = &self.vcd {
+            let signal_offsets = egui::SidePanel::left("signal list")
+                .default_width(300.)
+                .width_range(100.0..=max_width)
+                .show(ctx, |ui| {
+                    ui.style_mut().wrap = Some(false);
+                    ui.vertical(|ui| self.draw_var_list(&mut msgs, &vcd, ui))
+                        .inner
                 })
-            });
+                .inner;
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_signals(&mut msgs, ui);
-        });
+            egui::CentralPanel::default().show(ctx, |ui| {
+                self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
+            });
+        };
 
         self.control_key = ctx.input().modifiers.ctrl;
 
@@ -170,7 +175,14 @@ impl State {
         }
     }
 
-    fn draw_var_list(&self, msgs: &mut Vec<Message>, vcd: &VCD, ui: &mut egui::Ui) {
+    fn draw_var_list(
+        &self,
+        msgs: &mut Vec<Message>,
+        vcd: &VCD,
+        ui: &mut egui::Ui,
+    ) -> HashMap<TraceIdx, f32> {
+        let mut signal_offsets = HashMap::new();
+
         for (sig, info) in &self.signals {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
@@ -183,54 +195,64 @@ impl State {
                         .map(|t| (t.clone(), Message::SignalFormatChange(*sig, t.clone())))
                         .collect();
 
-                    self.draw_var(msgs, &name, info, ui, ctx_menu);
+                    self.draw_var(
+                        msgs,
+                        &name,
+                        &(*sig, vec![]),
+                        &mut signal_offsets,
+                        info,
+                        ui,
+                        ctx_menu,
+                    );
                 },
             );
         }
+
+        signal_offsets
     }
 
     fn draw_var(
         &self,
         msgs: &mut Vec<Message>,
         name: &str,
+        path: &(SignalIdx, Vec<String>),
+        signal_offsets: &mut HashMap<TraceIdx, f32>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
         context_menu: Vec<(String, Message)>,
     ) {
+        let draw_label = |ui: &mut egui::Ui| {
+            ui.selectable_label(false, name).context_menu(|ui| {
+                for (name, msg) in context_menu {
+                    ui.button(name).clicked().then(|| {
+                        ui.close_menu();
+                        msgs.push(msg);
+                    });
+                }
+            })
+        };
+
         match info {
             SignalInfo::Compound { subfields } => {
-                egui::collapsing_header::CollapsingState::load_with_default_open(
+                let response = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
-                    egui::Id::new(name),
+                    egui::Id::new(&path),
                     false,
                 )
-                .show_header(ui, |ui| {
-                    ui.add(egui::SelectableLabel::new(false, name))
-                        .context_menu(|ui| {
-                            for (name, msg) in context_menu {
-                                ui.button(name).clicked().then(|| {
-                                    ui.close_menu();
-                                    msgs.push(msg);
-                                });
-                            }
-                        });
-                })
+                .show_header(ui, draw_label)
                 .body(|ui| {
                     for (name, info) in subfields {
-                        self.draw_var(msgs, name, info, ui, vec![]);
+                        let mut new_path = path.clone();
+                        new_path.1.push(name.clone());
+                        self.draw_var(msgs, name, &path, signal_offsets, info, ui, vec![]);
                     }
                 });
+
+                signal_offsets.insert(path.clone(), response.1.response.rect.top());
             }
             SignalInfo::Bits => {
-                ui.add(egui::SelectableLabel::new(false, name))
-                    .context_menu(|ui| {
-                        for (name, msg) in context_menu {
-                            ui.button(name).clicked().then(|| {
-                                ui.close_menu();
-                                msgs.push(msg);
-                            });
-                        }
-                    });
+                let label = draw_label(ui);
+                signal_offsets.insert(path.clone(), label.rect.top());
             }
         }
     }

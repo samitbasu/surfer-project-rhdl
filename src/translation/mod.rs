@@ -34,6 +34,7 @@ pub struct TranslationResult {
 
 
 /// Static information about the structure of a signal.
+#[derive(Clone)]
 pub enum SignalInfo {
     Compound{subfields: Vec<(String, SignalInfo)>},
     Bits
