@@ -5,7 +5,7 @@ use color_eyre::{
 };
 use fastwave_backend::{Signal, SignalValue};
 use pyo3::{
-    pyclass, pyfunction, pymethods, pymodule, types::PyModule, wrap_pyfunction, PyObject, PyResult,
+    pyclass, pymethods, pymodule, types::PyModule, PyObject, PyResult,
     Python, ToPyObject,
 };
 

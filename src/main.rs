@@ -3,12 +3,16 @@ mod translation;
 mod view;
 mod viewport;
 
+use camino::Utf8PathBuf;
+use clap::Parser;
+use color_eyre::Result;
+use color_eyre::eyre::Context;
+use color_eyre::eyre::anyhow;
 use eframe::egui;
 use eframe::epaint::Vec2;
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
-
 use fastwave_backend::VCD;
 use num::bigint::ToBigInt;
 use num::BigInt;
@@ -26,19 +30,28 @@ use viewport::Viewport;
 use std::collections::HashMap;
 use std::fs::File;
 
-use crate::translation::pytranslator::PyTranslator;
+#[derive(clap::Parser)]
+struct Args {
+    vcd_file: Utf8PathBuf,
+}
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
+
     // Load python modules we deinfe in this crate
     append_to_inittab!(surfer);
 
-    let state = State::new();
+    let args = Args::parse();
+
+    let state = State::new(args)?;
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1920., 1080.)),
         ..Default::default()
     };
-    eframe::run_native("My egui App", options, Box::new(|_cc| Box::new(state)))
+    eframe::run_native("My egui App", options, Box::new(|_cc| Box::new(state)));
+
+    Ok(())
 }
 
 struct State {
@@ -71,12 +84,21 @@ enum Message {
 }
 
 impl State {
-    fn new() -> State {
+    fn new(args: Args) -> Result<State> {
+        let vcd_filename = args.vcd_file;
+
         println!("Loading vcd");
-        let file = File::open("cpu.vcd").expect("failed to open vcd");
+        let file = File::open(&vcd_filename)
+                .with_context(|| format!("Failed to open {vcd_filename}"))?;
+
+        let vcd = Some(
+            parse_vcd(file)
+                .map_err(|e| anyhow!("{e}"))
+                .with_context(|| format!("Failed to parse parse {vcd_filename}"))?,
+        );
+
         println!("Done loading vcd");
 
-        let vcd = Some(parse_vcd(file).expect("Failed to parse vcd"));
         let num_timestamps = vcd
             .as_ref()
             .and_then(|vcd| vcd.max_timestamp().as_ref().map(|t| t.to_bigint().unwrap()))
@@ -86,10 +108,10 @@ impl State {
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
             Box::new(translation::HierarchyTranslator {}),
-            Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
+            // Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
         ]);
 
-        State {
+        Ok(State {
             active_scope: None,
             signals: vec![],
             control_key: false,
@@ -99,7 +121,7 @@ impl State {
             signal_format: HashMap::new(),
             translators,
             cursor: BigInt::from_u64(0).unwrap(),
-        }
+        })
     }
 
     // TODO: Rename to process_msg or something
