@@ -14,6 +14,9 @@ use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
 use fastwave_backend::VCD;
+use fern::colors::ColoredLevelConfig;
+use log::debug;
+use log::info;
 use num::bigint::ToBigInt;
 use num::BigInt;
 use num::BigRational;
@@ -98,6 +101,27 @@ impl State {
     fn new(args: Args) -> Result<State> {
         let vcd_filename = args.vcd_file;
 
+
+        let colors = ColoredLevelConfig::new()
+            .error(fern::colors::Color::Red)
+            .warn(fern::colors::Color::Yellow)
+            .info(fern::colors::Color::Green)
+            .debug(fern::colors::Color::Blue)
+            .trace(fern::colors::Color::White);
+
+        let stdout_config = fern::Dispatch::new()
+            .level(log::LevelFilter::Info)
+            .format(move |out, message, record| {
+                out.finish(format_args!(
+                    "[{}] {}",
+                    colors.color(record.level()),
+                    message
+                ))
+            })
+            .chain(std::io::stdout());
+
+        fern::Dispatch::new().chain(stdout_config).apply()?;
+
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
@@ -112,16 +136,19 @@ impl State {
         let file =
             File::open(&vcd_filename).with_context(|| format!("Failed to open {vcd_filename}"))?;
 
-        // std::thread::spawn(|| {
-        //     let result = parse_vcd(file)
-        //         .map_err(|e| anyhow!("{e}"))
-        //         .with_context(|| format!("Failed to parse parse {vcd_filename}"));
+        std::thread::spawn(move || {
+            println!("Loading VCD");
+            let result = parse_vcd(file)
+                .map_err(|e| anyhow!("{e}"))
+                .with_context(|| format!("Failed to parse parse {vcd_filename}"));
 
-        //     match result {
-        //         Ok(vcd) => sender.send(Message::VcdLoaded(Box::new(vcd))),
-        //         Err(e) => sender.send(Message::Error(e))
-        //     }
-        // });
+            println!("Done loading");
+
+            match result {
+                Ok(vcd) => sender.send(Message::VcdLoaded(Box::new(vcd))),
+                Err(e) => sender.send(Message::Error(e))
+            }
+        });
 
         Ok(State {
             vcd: None,
@@ -140,7 +167,7 @@ impl State {
                 vcd.active_scope = Some(scope)
             }
             Message::AddSignal(s) => {
-                let mut vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
+                let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
 
                 let translator = vcd.signal_translator(s, &self.translators);
                 let info = translator.signal_info(&vcd.signal_name(s)).unwrap();
@@ -156,7 +183,7 @@ impl State {
                 });
             },
             Message::SignalFormatChange(idx, format) => {
-                let mut vcd = self
+                let vcd = self
                     .vcd
                     .as_mut()
                     .expect("Signal format change without vcd set");
@@ -192,6 +219,7 @@ impl State {
                     cursor: None,
                 };
 
+                info!("handling vcd loaded");
                 self.vcd = Some(new_vcd);
             }
             Message::Error(e) => {

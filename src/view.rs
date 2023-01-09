@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use eframe::egui::{self, Align, Layout};
 use fastwave_backend::{SignalIdx, VCD};
+use log::{trace, info};
 use pyo3::{exceptions::PyKeyboardInterrupt, PyResult, Python};
 
 use crate::{translation::SignalInfo, Message, State, VcdData};
@@ -73,6 +74,20 @@ impl eframe::App for State {
         self.control_key = ctx.input().modifiers.ctrl;
 
         self.handle_ctrlc(ctx, frame);
+
+        loop {
+            match self.msg_receiver.try_recv() {
+                Ok(msg) => {
+                    info!("VCD loaded");
+                    msgs.push(msg)
+                },
+                Err(std::sync::mpsc::TryRecvError::Empty) => {break},
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    trace!("Message sender disconnected");
+                    break;
+                }
+            }
+        }
 
         while let Some(msg) = msgs.pop() {
             self.update(msg);
