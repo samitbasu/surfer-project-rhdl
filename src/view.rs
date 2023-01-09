@@ -4,7 +4,7 @@ use eframe::egui::{self, Align, Layout};
 use fastwave_backend::{SignalIdx, VCD};
 use pyo3::{exceptions::PyKeyboardInterrupt, PyResult, Python};
 
-use crate::{translation::SignalInfo, Message, State};
+use crate::{translation::SignalInfo, Message, State, VcdData};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -100,8 +100,8 @@ impl State {
         });
     }
 
-    pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, vcd: &VCD, ui: &mut egui::Ui) {
-        for idx in vcd.root_scopes_by_idx() {
+    pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, vcd: &VcdData, ui: &mut egui::Ui) {
+        for idx in vcd.inner.root_scopes_by_idx() {
             self.draw_selectable_child_or_orphan_scope(msgs, vcd, idx, ui);
         }
     }
@@ -109,15 +109,15 @@ impl State {
     fn draw_selectable_child_or_orphan_scope(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &VCD,
+        vcd: &VcdData,
         scope_idx: fastwave_backend::ScopeIdx,
         ui: &mut egui::Ui,
     ) {
-        let name = vcd.scope_name_by_idx(scope_idx);
+        let name = vcd.inner.scope_name_by_idx(scope_idx);
         let fastwave_backend::ScopeIdx(idx) = scope_idx;
-        if vcd.child_scopes_by_idx(scope_idx).is_empty() {
+        if vcd.inner.child_scopes_by_idx(scope_idx).is_empty() {
             ui.add(egui::SelectableLabel::new(
-                self.active_scope == Some(scope_idx),
+                vcd.active_scope == Some(scope_idx),
                 name,
             ))
             .clicked()
@@ -133,7 +133,7 @@ impl State {
                     Layout::top_down(Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.add(egui::SelectableLabel::new(
-                            self.active_scope == Some(scope_idx),
+                            vcd.active_scope == Some(scope_idx),
                             name,
                         ))
                         .clicked()
@@ -148,24 +148,24 @@ impl State {
     fn draw_root_scope_view(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &VCD,
+        vcd: &VcdData,
         root_idx: fastwave_backend::ScopeIdx,
         ui: &mut egui::Ui,
     ) {
-        for child_scope_idx in vcd.child_scopes_by_idx(root_idx) {
+        for child_scope_idx in vcd.inner.child_scopes_by_idx(root_idx) {
             self.draw_selectable_child_or_orphan_scope(msgs, vcd, child_scope_idx, ui);
         }
     }
 
-    fn draw_signal_list(&self, msgs: &mut Vec<Message>, vcd: &VCD, ui: &mut egui::Ui) {
-        if let Some(idx) = self.active_scope {
-            for sig in vcd.get_children_signal_idxs(idx) {
+    fn draw_signal_list(&self, msgs: &mut Vec<Message>, vcd: &VcdData, ui: &mut egui::Ui) {
+        if let Some(idx) = vcd.active_scope {
+            for sig in vcd.inner.get_children_signal_idxs(idx) {
                 ui.with_layout(
                     Layout::top_down(Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.add(egui::SelectableLabel::new(
                             false,
-                            vcd.signal_from_signal_idx(sig).name(),
+                            vcd.inner.signal_from_signal_idx(sig).name(),
                         ))
                         .clicked()
                         .then(|| msgs.push(Message::AddSignal(sig)))
@@ -178,16 +178,16 @@ impl State {
     fn draw_var_list(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &VCD,
+        vcd: &VcdData,
         ui: &mut egui::Ui,
     ) -> HashMap<TraceIdx, f32> {
         let mut signal_offsets = HashMap::new();
 
-        for (sig, info) in &self.signals {
+        for (sig, info) in &vcd.signals {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    let name = vcd.signal_from_signal_idx(*sig).name();
+                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
                     let ctx_menu = self
                         .translators
                         .names()

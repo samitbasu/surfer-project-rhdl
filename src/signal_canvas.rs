@@ -7,15 +7,17 @@ use fastwave_backend::{Signal, SignalIdx, SignalValue, VCD};
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
+use crate::translation::TranslatorList;
 use crate::view::TraceIdx;
-use crate::{Message, State};
+use crate::viewport::Viewport;
+use crate::{Message, State, VcdData};
 
 impl State {
     pub fn draw_signals(
         &self,
         msgs: &mut Vec<Message>,
         signal_offsets: &HashMap<TraceIdx, f32>,
-        vcd: &VCD,
+        vcd: &VcdData,
         ui: &mut egui::Ui,
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
@@ -44,8 +46,7 @@ impl State {
             }
 
             if ui.input().zoom_delta() != 1. {
-                let mouse_ptr_timestamp =
-                    self.viewport.to_time(mouse_ptr_pos.x as f64, frame_width);
+                let mouse_ptr_timestamp = vcd.viewport.to_time(mouse_ptr_pos.x as f64, frame_width);
 
                 msgs.push(Message::CanvasZoom {
                     mouse_ptr_timestamp,
@@ -55,7 +56,7 @@ impl State {
 
             ui.input().pointer.primary_down().then(|| {
                 let x = pointer_pos_canvas.unwrap().x;
-                let timestamp = self.viewport.to_time(x as f64, frame_width);
+                let timestamp = vcd.viewport.to_time(x as f64, frame_width);
                 msgs.push(Message::CursorSet(timestamp.round().to_integer()));
             });
         }
@@ -69,33 +70,36 @@ impl State {
             padding: 4.,
         };
 
-        let max_time = BigRational::from_integer(self.num_timestamps.clone());
+        let max_time = BigRational::from_integer(vcd.num_timestamps.clone());
 
-        self.draw_cursor(&mut painter, response.rect.size(), to_screen);
+        vcd.draw_cursor(&mut painter, response.rect.size(), to_screen);
 
         'outer: for x in 0..frame_width as u32 {
-            let time = self.viewport.to_time(x as f64, frame_width);
+            let time = vcd.viewport.to_time(x as f64, frame_width);
             if time < BigRational::from_float(0.).unwrap() {
                 continue;
             }
             let is_last_x = time > max_time;
             let time = time.to_integer().to_biguint().unwrap();
 
-            for (idx, sig) in self
+            for (idx, sig) in vcd
                 .signals
                 .iter()
-                .map(|s| (s, vcd.signal_from_signal_idx(s.0)))
+                .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
             {
-                if let Ok(val) = sig.query_val_on_tmln(&time, &vcd) {
+                if let Ok(val) = sig.query_val_on_tmln(&time, &vcd.inner) {
                     let y = signal_offsets
                         .get(&(idx.0, vec![]))
                         .expect(&format!("Found no y offset for signal {}", sig.name()));
 
                     let prev = prev_values.get(&idx.0);
                     if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
-                        self.draw_signal(
+                        vcd.draw_signal(
                             &mut painter,
-                            to_screen.inverse().transform_pos(Pos2::new(0., *y as f32)).y,
+                            to_screen
+                                .inverse()
+                                .transform_pos(Pos2::new(0., *y as f32))
+                                .y,
                             to_screen,
                             &idx.0,
                             &sig,
@@ -105,6 +109,7 @@ impl State {
                             // Force redraw on the last valid pixel to ensure
                             // that the signal gets drawn the whole way
                             x == (frame_width as u32 - 1) || is_last_x,
+                            &self.translators,
                         );
                     }
 
@@ -124,22 +129,24 @@ impl State {
     }
 }
 
-impl State {
+impl VcdData {
     fn draw_cursor(&self, painter: &mut Painter, size: Vec2, to_screen: RectTransform) {
-        let x = self.viewport.from_time(&self.cursor, size.x as f64);
+        if let Some(cursor) = &self.cursor {
+            let x = self.viewport.from_time(&cursor, size.x as f64);
 
-        let stroke = Stroke {
-            color: Color32::from_rgb(255, 128, 128),
-            width: 2.,
-            ..Default::default()
-        };
-        painter.line_segment(
-            [
-                to_screen.transform_pos(Pos2::new(x as f32, 0.)),
-                to_screen.transform_pos(Pos2::new(x as f32, size.y)),
-            ],
-            stroke,
-        )
+            let stroke = Stroke {
+                color: Color32::from_rgb(255, 128, 128),
+                width: 2.,
+                ..Default::default()
+            };
+            painter.line_segment(
+                [
+                    to_screen.transform_pos(Pos2::new(x as f32, 0.)),
+                    to_screen.transform_pos(Pos2::new(x as f32, size.y)),
+                ],
+                stroke,
+            )
+        }
     }
 
     fn draw_signal(
@@ -153,6 +160,7 @@ impl State {
         (x, val): (u32, &SignalValue),
         cfg: &DrawConfig,
         force_redraw: bool,
+        translators: &TranslatorList,
     ) {
         let abs_point = |x: f32, rel_y: f32| {
             to_screen.transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
@@ -213,7 +221,7 @@ impl State {
                 let fits_text = num_chars >= 1.;
 
                 if fits_text {
-                    let translator = self.signal_translator(*signal_idx);
+                    let translator = self.signal_translator(*signal_idx, translators);
 
                     // TODO: Graceful shutdown
                     let full_text = translator.translate(signal, old_val).unwrap().val;
