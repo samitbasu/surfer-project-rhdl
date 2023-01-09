@@ -33,11 +33,12 @@ use viewport::Viewport;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 
 #[derive(clap::Parser)]
 struct Args {
@@ -84,7 +85,7 @@ struct State {
     msg_receiver: Receiver<Message>,
 
     /// The number of bytes loaded from the vcd file
-    vcd_progess: Arc<AtomicUsize>,
+    vcd_progess: (Option<u64>, Arc<AtomicU64>),
 }
 
 #[derive(Debug)]
@@ -107,7 +108,6 @@ enum Message {
 impl State {
     fn new(args: Args) -> Result<State> {
         let vcd_filename = args.vcd_file;
-
 
         let colors = ColoredLevelConfig::new()
             .error(fern::colors::Color::Red)
@@ -138,18 +138,23 @@ impl State {
 
         let (sender, receiver) = channel();
 
-
         // We'll open the file to check if it exists here to panic the main thread if not.
         // Then we pass the file into the thread for parsing
         let file =
             File::open(&vcd_filename).with_context(|| format!("Failed to open {vcd_filename}"))?;
 
+        let total_bytes = file
+            .metadata()
+            .map(|m| m.len())
+            .map_err(|e| info!("Failed to get vcd file metadata {e}"))
+            .ok();
+
         // Progress tracking in bytes
-        let progress_bytes = Arc::new(AtomicUsize::new(0));
+        let progress_bytes = Arc::new(AtomicU64::new(0));
         let reader = {
             let progress_bytes = progress_bytes.clone();
             ProgressReader::new(file, move |progress: usize| {
-                progress_bytes.fetch_add(progress, Ordering::SeqCst);
+                progress_bytes.fetch_add(progress as u64, Ordering::SeqCst);
             })
         };
 
@@ -163,7 +168,7 @@ impl State {
 
             match result {
                 Ok(vcd) => sender.send(Message::VcdLoaded(Box::new(vcd))),
-                Err(e) => sender.send(Message::Error(e))
+                Err(e) => sender.send(Message::Error(e)),
             }
         });
 
@@ -172,7 +177,7 @@ impl State {
             control_key: false,
             translators,
             msg_receiver: receiver,
-            vcd_progess: progress_bytes,
+            vcd_progess: (total_bytes, progress_bytes),
         })
     }
 
@@ -196,10 +201,10 @@ impl State {
                 delta,
                 mouse_ptr_timestamp,
             } => {
-                self.vcd.as_mut().map(|vcd| {
-                    vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64)
-                });
-            },
+                self.vcd
+                    .as_mut()
+                    .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
+            }
             Message::SignalFormatChange(idx, format) => {
                 let vcd = self
                     .vcd
@@ -219,7 +224,7 @@ impl State {
             }
             Message::CursorSet(new) => {
                 self.vcd.as_mut().map(|vcd| vcd.cursor = Some(new));
-            },
+            }
             Message::VcdLoaded(new_vcd_data) => {
                 let num_timestamps = new_vcd_data
                     .max_timestamp()
@@ -262,7 +267,6 @@ impl State {
             vcd.viewport.curr_right = target_right;
         }
     }
-
 }
 
 impl VcdData {

@@ -72,8 +72,21 @@ impl eframe::App for State {
         }
         else {
             egui::CentralPanel::default().show(ctx, |ui| {
-                let num_bytes = self.vcd_progess.load(std::sync::atomic::Ordering::Relaxed) / 1024;
-                ui.heading(format!("Loaded {num_bytes} kb from vcd file"));
+                ui.vertical_centered_justified(|ui| {
+                    let num_bytes = self.vcd_progess.1.load(std::sync::atomic::Ordering::Relaxed);
+                    if let Some(total) =  self.vcd_progess.0 {
+                        ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
+                        let progress = num_bytes as f32 / total as f32;
+                        let progress_bar = egui::ProgressBar::new(progress)
+                            .show_percentage()
+                            .desired_width(300.);
+
+                        ui.add(progress_bar);
+                    }
+                    else {
+                        ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
+                    }
+                });
             });
         };
 
