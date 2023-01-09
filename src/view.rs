@@ -69,6 +69,12 @@ impl eframe::App for State {
             egui::CentralPanel::default().show(ctx, |ui| {
                 self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
             });
+        }
+        else {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let num_bytes = self.vcd_progess.load(std::sync::atomic::Ordering::Relaxed) / 1024;
+                ui.heading(format!("Loaded {num_bytes} kb from vcd file"));
+            });
         };
 
         self.control_key = ctx.input().modifiers.ctrl;
