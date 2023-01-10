@@ -142,7 +142,14 @@ impl State {
         {
             let sender = sender.clone();
             std::thread::spawn(move || {
-                let pytranslator = PyTranslator::new("pytest", "translation_test.py");
+                let pytranslator = PyTranslator::new(
+                    "SurferTranslator",
+                    "translation_test.py",
+                    vec![(
+                        "type_file".to_string(),
+                        "/home/frans/Documents/fpga/spade-v/build/spade_types.ron".to_string(),
+                    )].into_iter().collect(),
+                );
                 match pytranslator {
                     Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
                     Err(e) => sender.send(Message::Error(e)),
@@ -259,9 +266,7 @@ impl State {
             Message::Error(e) => {
                 error!("{e:?}")
             }
-            Message::TranslatorLoaded(t) => {
-                self.translators.add(t)
-            }
+            Message::TranslatorLoaded(t) => self.translators.add(t),
         }
     }
 

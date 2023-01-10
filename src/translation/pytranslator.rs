@@ -3,10 +3,12 @@ use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
+use eframe::epaint::ahash::HashMap;
 use fastwave_backend::{Signal, SignalValue};
 use pyo3::{
-    pyclass, pymethods, pymodule, types::PyModule, PyObject, PyResult,
-    Python, ToPyObject,
+    pyclass, pymethods, pymodule,
+    types::{PyDict, PyModule, IntoPyDict},
+    PyObject, PyResult, Python, ToPyObject,
 };
 
 use super::{SignalInfo, TranslationResult, Translator};
@@ -17,7 +19,11 @@ pub struct PyTranslator {
 }
 
 impl PyTranslator {
-    pub fn new(name: &str, source: impl Into<Utf8PathBuf>) -> Result<Self> {
+    pub fn new(
+        name: &str,
+        source: impl Into<Utf8PathBuf>,
+        args: HashMap<String, String>,
+    ) -> Result<Self> {
         let source = source.into();
         let code =
             std::fs::read_to_string(&source).with_context(|| format!("Failed to read {source}"))?;
@@ -27,7 +33,8 @@ impl PyTranslator {
                 .with_context(|| format!("Failed to load {name} in {source}"))?;
 
             let class = module.getattr(name)?;
-            let instance = class.call0()?;
+
+            let instance = class.call((), Some(args.iter().into_py_dict(py)))?;
 
             let ensure_has_attr = |attr: &str| {
                 if !instance.hasattr(attr)? {
