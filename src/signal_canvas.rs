@@ -3,13 +3,12 @@ use std::collections::{BTreeMap, HashMap};
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
-use fastwave_backend::{Signal, SignalIdx, SignalValue, VCD};
+use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
 use crate::translation::TranslatorList;
 use crate::view::TraceIdx;
-use crate::viewport::Viewport;
 use crate::{Message, State, VcdData};
 
 impl State {

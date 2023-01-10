@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use eframe::egui::{self, Align, Layout};
 use fastwave_backend::{SignalIdx, VCD};
-use log::{trace, info};
+use log::{info, trace};
 use pyo3::{exceptions::PyKeyboardInterrupt, PyResult, Python};
 
 use crate::{translation::SignalInfo, Message, State, VcdData};
@@ -20,39 +20,42 @@ impl eframe::App for State {
             .default_width(300.)
             .width_range(100.0..=max_width)
             .show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    let total_space = ui.available_height();
+                ui.with_layout(
+                    Layout::top_down(Align::LEFT).with_cross_justify(true),
+                    |ui| {
+                        let total_space = ui.available_height();
 
-                    egui::Frame::none().show(ui, |ui| {
-                        ui.set_max_height(total_space / 2.);
-                        ui.set_min_height(total_space / 2.);
+                        egui::Frame::none().show(ui, |ui| {
+                            ui.set_max_height(total_space / 2.);
+                            ui.set_min_height(total_space / 2.);
 
-                        ui.heading("Modules");
-                        ui.add_space(3.0);
+                            ui.heading("Modules");
+                            ui.add_space(3.0);
 
-                        egui::ScrollArea::both()
-                            .id_source("modules")
-                            .show(ui, |ui| {
-                                ui.style_mut().wrap = Some(false);
-                                if let Some(vcd) = &self.vcd {
-                                    self.draw_all_scopes(&mut msgs, vcd, ui);
-                                }
-                            });
-                    });
+                            egui::ScrollArea::both()
+                                .id_source("modules")
+                                .show(ui, |ui| {
+                                    ui.style_mut().wrap = Some(false);
+                                    if let Some(vcd) = &self.vcd {
+                                        self.draw_all_scopes(&mut msgs, vcd, ui);
+                                    }
+                                });
+                        });
 
-                    egui::Frame::none().show(ui, |ui| {
-                        ui.heading("Signals");
-                        ui.add_space(3.0);
+                        egui::Frame::none().show(ui, |ui| {
+                            ui.heading("Signals");
+                            ui.add_space(3.0);
 
-                        egui::ScrollArea::both()
-                            .id_source("signals")
-                            .show(ui, |ui| {
-                                if let Some(vcd) = &self.vcd {
-                                    self.draw_signal_list(&mut msgs, vcd, ui);
-                                }
-                            });
-                    });
-                })
+                            egui::ScrollArea::both()
+                                .id_source("signals")
+                                .show(ui, |ui| {
+                                    if let Some(vcd) = &self.vcd {
+                                        self.draw_signal_list(&mut msgs, vcd, ui);
+                                    }
+                                });
+                        });
+                    },
+                )
             });
 
         if let Some(vcd) = &self.vcd {
@@ -61,20 +64,25 @@ impl eframe::App for State {
                 .width_range(100.0..=max_width)
                 .show(ctx, |ui| {
                     ui.style_mut().wrap = Some(false);
-                    ui.vertical(|ui| self.draw_var_list(&mut msgs, &vcd, ui))
-                        .inner
+                    ui.with_layout(
+                        Layout::top_down(Align::LEFT).with_cross_justify(true),
+                        |ui| self.draw_var_list(&mut msgs, &vcd, ui),
+                    )
+                    .inner
                 })
                 .inner;
 
             egui::CentralPanel::default().show(ctx, |ui| {
                 self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
             });
-        }
-        else {
+        } else {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.vertical_centered_justified(|ui| {
-                    let num_bytes = self.vcd_progess.1.load(std::sync::atomic::Ordering::Relaxed);
-                    if let Some(total) =  self.vcd_progess.0 {
+                    let num_bytes = self
+                        .vcd_progess
+                        .1
+                        .load(std::sync::atomic::Ordering::Relaxed);
+                    if let Some(total) = self.vcd_progess.0 {
                         ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
                         let progress = num_bytes as f32 / total as f32;
                         let progress_bar = egui::ProgressBar::new(progress)
@@ -82,8 +90,7 @@ impl eframe::App for State {
                             .desired_width(300.);
 
                         ui.add(progress_bar);
-                    }
-                    else {
+                    } else {
                         ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
                     }
                 });
@@ -99,8 +106,8 @@ impl eframe::App for State {
                 Ok(msg) => {
                     info!("VCD loaded");
                     msgs.push(msg)
-                },
-                Err(std::sync::mpsc::TryRecvError::Empty) => {break},
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                     trace!("Message sender disconnected");
                     break;

@@ -7,7 +7,7 @@ use eframe::epaint::ahash::HashMap;
 use fastwave_backend::{Signal, SignalValue};
 use pyo3::{
     pyclass, pymethods, pymodule,
-    types::{PyDict, PyModule, IntoPyDict},
+    types::{PyModule, IntoPyDict},
     PyObject, PyResult, Python, ToPyObject,
 };
 
