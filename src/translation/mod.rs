@@ -24,6 +24,10 @@ impl TranslatorList {
     pub fn names(&self) -> Vec<String> {
         self.inner.keys().cloned().collect()
     }
+
+    pub fn add(&mut self, t: Box<dyn Translator>) {
+        self.inner.insert(t.name(), t);
+    }
 }
 
 #[derive(Clone)]

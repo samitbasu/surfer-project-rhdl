@@ -15,7 +15,7 @@ use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
 use fastwave_backend::VCD;
 use fern::colors::ColoredLevelConfig;
-use log::debug;
+use log::error;
 use log::info;
 use num::bigint::ToBigInt;
 use num::BigInt;
@@ -26,6 +26,7 @@ use progress_streams::ProgressReader;
 use pyo3::append_to_inittab;
 
 use translation::pytranslator::surfer;
+use translation::pytranslator::PyTranslator;
 use translation::SignalInfo;
 use translation::Translator;
 use translation::TranslatorList;
@@ -34,7 +35,6 @@ use viewport::Viewport;
 use std::collections::HashMap;
 use std::fs::File;
 use std::sync::atomic::AtomicU64;
-use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
@@ -47,6 +47,26 @@ struct Args {
 
 fn main() -> Result<()> {
     color_eyre::install()?;
+
+    let colors = ColoredLevelConfig::new()
+        .error(fern::colors::Color::Red)
+        .warn(fern::colors::Color::Yellow)
+        .info(fern::colors::Color::Green)
+        .debug(fern::colors::Color::Blue)
+        .trace(fern::colors::Color::White);
+
+    let stdout_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "[{}] {}",
+                colors.color(record.level()),
+                message
+            ))
+        })
+        .chain(std::io::stdout());
+
+    fern::Dispatch::new().chain(stdout_config).apply()?;
 
     // Load python modules we deinfe in this crate
     append_to_inittab!(surfer);
@@ -88,7 +108,6 @@ struct State {
     vcd_progess: (Option<u64>, Arc<AtomicU64>),
 }
 
-#[derive(Debug)]
 enum Message {
     HierarchyClick(ScopeIdx),
     AddSignal(SignalIdx),
@@ -103,40 +122,33 @@ enum Message {
     CursorSet(BigInt),
     VcdLoaded(Box<VCD>),
     Error(color_eyre::eyre::Error),
+    TranslatorLoaded(Box<dyn Translator + Send>),
 }
 
 impl State {
     fn new(args: Args) -> Result<State> {
         let vcd_filename = args.vcd_file;
 
-        let colors = ColoredLevelConfig::new()
-            .error(fern::colors::Color::Red)
-            .warn(fern::colors::Color::Yellow)
-            .info(fern::colors::Color::Green)
-            .debug(fern::colors::Color::Blue)
-            .trace(fern::colors::Color::White);
+        let (sender, receiver) = channel();
 
-        let stdout_config = fern::Dispatch::new()
-            .level(log::LevelFilter::Info)
-            .format(move |out, message, record| {
-                out.finish(format_args!(
-                    "[{}] {}",
-                    colors.color(record.level()),
-                    message
-                ))
-            })
-            .chain(std::io::stdout());
-
-        fern::Dispatch::new().chain(stdout_config).apply()?;
-
+        // Basic translators that we can load quickly
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
             Box::new(translation::HierarchyTranslator {}),
-            // Box::new(PyTranslator::new("pytest", "translation_test.py").unwrap()),
         ]);
 
-        let (sender, receiver) = channel();
+        // Long running translators which we load in a thread
+        {
+            let sender = sender.clone();
+            std::thread::spawn(move || {
+                let pytranslator = PyTranslator::new("pytest", "translation_test.py");
+                match pytranslator {
+                    Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
+                    Err(e) => sender.send(Message::Error(e)),
+                }
+            });
+        }
 
         // We'll open the file to check if it exists here to panic the main thread if not.
         // Then we pass the file into the thread for parsing
@@ -245,7 +257,10 @@ impl State {
                 self.vcd = Some(new_vcd);
             }
             Message::Error(e) => {
-                eprintln!("{e}")
+                error!("{e:?}")
+            }
+            Message::TranslatorLoaded(t) => {
+                self.translators.add(t)
             }
         }
     }
