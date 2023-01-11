@@ -15,6 +15,7 @@ use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
 use fastwave_backend::VCD;
 use fern::colors::ColoredLevelConfig;
+use log::debug;
 use log::error;
 use log::info;
 use num::bigint::ToBigInt;
@@ -147,7 +148,7 @@ impl State {
                     "translation_test.py",
                     vec![(
                         "type_file".to_string(),
-                        "/home/frans/Documents/fpga/spade-v/build/spade_types.ron".to_string(),
+                        "/home/frans/Documents/spade/spade-v/build/spade_types.ron".to_string(),
                     )].into_iter().collect(),
                 );
                 match pytranslator {
@@ -178,12 +179,10 @@ impl State {
         };
 
         std::thread::spawn(move || {
-            println!("Loading VCD");
+            info!("Loading VCD");
             let result = parse_vcd(reader)
                 .map_err(|e| anyhow!("{e}"))
                 .with_context(|| format!("Failed to parse parse {vcd_filename}"));
-
-            println!("Done loading");
 
             match result {
                 Ok(vcd) => sender.send(Message::VcdLoaded(Box::new(vcd))),
@@ -245,6 +244,7 @@ impl State {
                 self.vcd.as_mut().map(|vcd| vcd.cursor = Some(new));
             }
             Message::VcdLoaded(new_vcd_data) => {
+                info!("VCD file loaded");
                 let num_timestamps = new_vcd_data
                     .max_timestamp()
                     .as_ref()
@@ -262,11 +262,15 @@ impl State {
                 };
 
                 self.vcd = Some(new_vcd);
+                info!("Done setting up vcd file");
             }
             Message::Error(e) => {
                 error!("{e:?}")
             }
-            Message::TranslatorLoaded(t) => self.translators.add(t),
+            Message::TranslatorLoaded(t) => {
+                info!("Translator {} loaded", t.name());
+                self.translators.add(t)
+            },
         }
     }
 

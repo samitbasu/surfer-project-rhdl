@@ -104,7 +104,6 @@ impl eframe::App for State {
         loop {
             match self.msg_receiver.try_recv() {
                 Ok(msg) => {
-                    info!("VCD loaded");
                     msgs.push(msg)
                 }
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
@@ -122,23 +121,26 @@ impl eframe::App for State {
 }
 
 impl State {
-    fn handle_ctrlc(&self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn handle_ctrlc(&self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Always repaint even if we're in the background. This is needed in order
         // to handle ctrl+c correctly
         ctx.request_repaint();
 
-        // Make ctrl-c work even if no python code is being executed
-        Python::with_gil(|py| {
-            let result: PyResult<()> = py.run("a=0", None, None);
+        // NOTE: This currently freezes the main thread when loading long running python
+        // plugins, since those lock the gil
 
-            match result {
-                Ok(_) => {}
-                Err(error) if error.is_instance_of::<PyKeyboardInterrupt>(py) => {
-                    frame.close();
-                }
-                Err(_) => println!("Python exception in keyboard interrupt loop"),
-            };
-        });
+        // Make ctrl-c work even if no python code is being executed
+        // Python::with_gil(|py| {
+        //     let result: PyResult<()> = py.run("a=0", None, None);
+
+        //     match result {
+        //         Ok(_) => {}
+        //         Err(error) if error.is_instance_of::<PyKeyboardInterrupt>(py) => {
+        //             frame.close();
+        //         }
+        //         Err(_) => println!("Python exception in keyboard interrupt loop"),
+        //     };
+        // });
     }
 
     pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, vcd: &VcdData, ui: &mut egui::Ui) {
