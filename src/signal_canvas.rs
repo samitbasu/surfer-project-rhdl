@@ -93,6 +93,10 @@ impl State {
 
                     let prev = prev_values.get(&idx.0);
                     if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
+                        let translator = vcd.signal_translator(idx.0, &self.translators);
+
+                        let full_text = translator.translate(&sig, &val).unwrap().val;
+
                         vcd.draw_signal(
                             &mut painter,
                             to_screen
@@ -108,7 +112,7 @@ impl State {
                             // Force redraw on the last valid pixel to ensure
                             // that the signal gets drawn the whole way
                             x == (frame_width as u32 - 1) || is_last_x,
-                            &self.translators,
+                            &full_text,
                         );
                     }
 
@@ -159,7 +163,7 @@ impl VcdData {
         (x, val): (u32, &SignalValue),
         cfg: &DrawConfig,
         force_redraw: bool,
-        translators: &TranslatorList,
+        full_text: &str,
     ) {
         let abs_point = |x: f32, rel_y: f32| {
             to_screen.transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
@@ -220,11 +224,6 @@ impl VcdData {
                 let fits_text = num_chars >= 1.;
 
                 if fits_text {
-                    let translator = self.signal_translator(*signal_idx, translators);
-
-                    // TODO: Graceful shutdown
-                    let full_text = translator.translate(signal, old_val).unwrap().val;
-
                     let content = if full_text.len() > num_chars as usize {
                         full_text
                             .chars()
@@ -232,7 +231,7 @@ impl VcdData {
                             .chain(['…'].into_iter())
                             .collect::<String>()
                     } else {
-                        full_text
+                        full_text.to_string()
                     };
 
                     painter.text(

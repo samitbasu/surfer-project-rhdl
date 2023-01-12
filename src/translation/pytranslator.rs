@@ -119,6 +119,10 @@ impl PyTranslationResult {
             subfields: vec![],
         })
     }
+
+    fn with_field(&mut self, name: String, translation_result: PyTranslationResult) {
+        self.0.subfields.push((name, translation_result.0))
+    }
 }
 
 #[pyclass(name = "SignalInfo")]

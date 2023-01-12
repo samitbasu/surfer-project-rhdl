@@ -33,7 +33,7 @@ impl TranslatorList {
 #[derive(Clone)]
 pub struct TranslationResult {
     pub val: String,
-    pub subfields: Vec<(String, Box<TranslationResult>)>,
+    pub subfields: Vec<(String, TranslationResult)>,
 }
 
 

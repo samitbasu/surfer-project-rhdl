@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use eframe::egui::{self, Align, Layout};
 use fastwave_backend::{SignalIdx, VCD};
 use log::{info, trace};
-use pyo3::{exceptions::PyKeyboardInterrupt, PyResult, Python};
 
 use crate::{translation::SignalInfo, Message, State, VcdData};
 

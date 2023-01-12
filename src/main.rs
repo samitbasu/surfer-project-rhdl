@@ -148,7 +148,7 @@ impl State {
                     "translation_test.py",
                     vec![(
                         "type_file".to_string(),
-                        "/home/frans/Documents/spade/spade-v/build/spade_types.ron".to_string(),
+                        "/home/frans/Documents/fpga/spadev/build/spade_types.ron".to_string(),
                     )].into_iter().collect(),
                 );
                 match pytranslator {
