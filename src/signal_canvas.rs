@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::time::Instant;
 
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
@@ -73,6 +74,11 @@ impl State {
 
         vcd.draw_cursor(&mut painter, response.rect.size(), to_screen);
 
+        let mut translation_count = 0;
+        let mut translation_time = 0.;
+        let mut non_overhead_translation = 0.;
+        let mut non_overhead_count = 0;
+
         'outer: for x in 0..frame_width as u32 {
             let time = vcd.viewport.to_time(x as f64, frame_width);
             if time < BigRational::from_float(0.).unwrap() {
@@ -93,9 +99,20 @@ impl State {
 
                     let prev = prev_values.get(&idx.0);
                     if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
+                        let translation_start = Instant::now();
                         let translator = vcd.signal_translator(idx.0, &self.translators);
 
-                        let full_text = translator.translate(&sig, &val).unwrap().val;
+                        let translation_result = translator.translate(&sig, &val).unwrap();
+                        let translation_end = Instant::now();
+                        let duration = (translation_end - translation_start).as_secs_f64();
+                        translation_time += duration;
+                        translation_count += 1;
+                        if let Some(duration) = translation_result.duration {
+                            non_overhead_count += 1;
+                            non_overhead_translation += duration;
+                        }
+
+                        let full_text = translation_result.val;
 
                         vcd.draw_signal(
                             &mut painter,
@@ -129,6 +146,14 @@ impl State {
                 break 'outer;
             }
         }
+
+        let time_per_translation = translation_time / translation_count as f64;
+        let non_overhead = non_overhead_translation / non_overhead_count as f64;
+        println!(
+            "{time_per_translation:.6} => Worst case: {:.6} | {non_overhead} => Worst case: {:.6}",
+            time_per_translation * 20000.,
+            non_overhead * 20000.
+        )
     }
 }
 

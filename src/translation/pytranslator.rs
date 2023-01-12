@@ -8,7 +8,7 @@ use fastwave_backend::{Signal, SignalValue};
 use pyo3::{
     pyclass, pymethods, pymodule,
     types::{PyModule, IntoPyDict},
-    PyObject, PyResult, Python, ToPyObject,
+    PyObject, PyResult, Python, ToPyObject, intern,
 };
 
 use super::{SignalInfo, TranslationResult, Translator};
@@ -85,7 +85,7 @@ impl Translator for PyTranslator {
         Python::with_gil(|py| {
             let result = self
                 .instance
-                .call_method1(py, "translate", (signal.name(), value_str))
+                .call_method1(py, intern!(py, "translate"), (signal.name(), value_str))
                 .with_context(|| format!("Failed to run translates on {}", self.name))?;
 
             let val: PyTranslationResult = result.extract(py)?;
@@ -97,7 +97,7 @@ impl Translator for PyTranslator {
         Python::with_gil(|py| {
             let result = self
                 .instance
-                .call_method1(py, "signal_info", (name,))
+                .call_method1(py, intern!(py, "signal_info"), (name,))
                 .with_context(|| format!("Error when running signal_info on {}", self.name))?;
 
             let val: Option<PySignalInfo> = result.extract(py)?;
@@ -117,11 +117,16 @@ impl PyTranslationResult {
         Self(TranslationResult {
             val: val_str.to_string(),
             subfields: vec![],
+            duration: None
         })
     }
 
     fn with_field(&mut self, name: String, translation_result: PyTranslationResult) {
         self.0.subfields.push((name, translation_result.0))
+    }
+
+    pub fn set_duration(&mut self, duration: f64) {
+        self.0.duration = Some(duration);
     }
 }
 

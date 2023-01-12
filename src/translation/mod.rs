@@ -34,6 +34,7 @@ impl TranslatorList {
 pub struct TranslationResult {
     pub val: String,
     pub subfields: Vec<(String, TranslationResult)>,
+    pub duration: Option<f64>
 }
 
 

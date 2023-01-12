@@ -22,12 +22,14 @@ impl Translator for HexTranslator {
                     width = signal.num_bits().unwrap_or(0) as usize / 4
                 ),
                 subfields: vec![],
+                duration: None
             },
             SignalValue::String(s) => {
                 // TODO: Translate hex values
                 TranslationResult {
                     val: s.clone(),
                     subfields: vec![],
+                    duration: None
                 }
             }
         };
@@ -51,12 +53,14 @@ impl Translator for UnsignedTranslator {
             SignalValue::BigUint(v) => TranslationResult {
                 val: format!("{v}"),
                 subfields: vec![],
+                duration: None
             },
             SignalValue::String(s) => {
                 // TODO: Translate hex values
                 TranslationResult {
                     val: s.clone(),
                     subfields: vec![],
+                    duration: None
                 }
             }
         };
@@ -84,6 +88,7 @@ impl Translator for HierarchyTranslator {
                     TranslationResult {
                         val: format!("field1"),
                         subfields: vec![],
+                        duration: None
                     },
                 ),
                 (
@@ -91,9 +96,11 @@ impl Translator for HierarchyTranslator {
                     TranslationResult {
                         val: format!("field1"),
                         subfields: vec![],
+                        duration: None
                     },
                 ),
             ],
+            duration: None
         })
     }
 
