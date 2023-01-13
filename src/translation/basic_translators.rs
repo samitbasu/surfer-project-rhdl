@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{SignalInfo, TranslationResult, Translator};
 
 use color_eyre::Result;
@@ -22,14 +24,14 @@ impl Translator for HexTranslator {
                     width = signal.num_bits().unwrap_or(0) as usize / 4
                 ),
                 subfields: vec![],
-                duration: None
+                durations: HashMap::new()
             },
             SignalValue::String(s) => {
                 // TODO: Translate hex values
                 TranslationResult {
                     val: s.clone(),
                     subfields: vec![],
-                    duration: None
+                    durations: HashMap::new()
                 }
             }
         };
@@ -53,14 +55,14 @@ impl Translator for UnsignedTranslator {
             SignalValue::BigUint(v) => TranslationResult {
                 val: format!("{v}"),
                 subfields: vec![],
-                duration: None
+                durations: HashMap::new()
             },
             SignalValue::String(s) => {
                 // TODO: Translate hex values
                 TranslationResult {
                     val: s.clone(),
                     subfields: vec![],
-                    duration: None
+                    durations: HashMap::new()
                 }
             }
         };
@@ -88,7 +90,7 @@ impl Translator for HierarchyTranslator {
                     TranslationResult {
                         val: format!("field1"),
                         subfields: vec![],
-                        duration: None
+                        durations: HashMap::new()
                     },
                 ),
                 (
@@ -96,11 +98,11 @@ impl Translator for HierarchyTranslator {
                     TranslationResult {
                         val: format!("field1"),
                         subfields: vec![],
-                        duration: None
+                        durations: HashMap::new()
                     },
                 ),
             ],
-            duration: None
+            durations: HashMap::new()
         })
     }
 

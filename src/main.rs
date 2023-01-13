@@ -15,7 +15,6 @@ use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
 use fastwave_backend::VCD;
 use fern::colors::ColoredLevelConfig;
-use log::debug;
 use log::error;
 use log::info;
 use num::bigint::ToBigInt;

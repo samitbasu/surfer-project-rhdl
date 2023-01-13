@@ -34,9 +34,17 @@ impl TranslatorList {
 pub struct TranslationResult {
     pub val: String,
     pub subfields: Vec<(String, TranslationResult)>,
-    pub duration: Option<f64>
+    /// Durations of different steps that were performed by the translator.
+    /// Used for benchmarks
+    pub durations: HashMap<String, f64>
 }
 
+
+impl TranslationResult {
+    fn push_duration(&mut self, name: &str, val: f64) {
+        self.durations.insert(name.to_string(), val);
+    }
+}
 
 /// Static information about the structure of a signal.
 #[derive(Clone)]

@@ -22,3 +22,4 @@ clap = {version = "4.0.32", features=['derive']}
 fern = { version = "0.6.1", features = ["colored"] }
 log = "0.4"
 progress-streams = "1.1.0"
+itertools = "0.10.5"

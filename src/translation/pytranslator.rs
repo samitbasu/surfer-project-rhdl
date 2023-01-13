@@ -1,14 +1,15 @@
+use std::{collections::HashMap, time::Instant};
+
 use camino::Utf8PathBuf;
 use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
-use eframe::epaint::ahash::HashMap;
 use fastwave_backend::{Signal, SignalValue};
 use pyo3::{
-    pyclass, pymethods, pymodule,
-    types::{PyModule, IntoPyDict},
-    PyObject, PyResult, Python, ToPyObject, intern,
+    intern, pyclass, pymethods, pymodule,
+    types::{IntoPyDict, PyModule},
+    PyObject, PyResult, Python, ToPyObject,
 };
 
 use super::{SignalInfo, TranslationResult, Translator};
@@ -74,6 +75,7 @@ impl Translator for PyTranslator {
     }
 
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
+        let val_str_start = Instant::now();
         let value_str = match value {
             SignalValue::BigUint(val) => format!(
                 "{val:0width$b}",
@@ -81,8 +83,10 @@ impl Translator for PyTranslator {
             ),
             SignalValue::String(val) => val.clone(),
         };
+        let val_str_end = Instant::now();
 
-        Python::with_gil(|py| {
+        let py_time_start = Instant::now();
+        let mut result = Python::with_gil(|py| -> Result<TranslationResult>{
             let result = self
                 .instance
                 .call_method1(py, intern!(py, "translate"), (signal.name(), value_str))
@@ -90,7 +94,16 @@ impl Translator for PyTranslator {
 
             let val: PyTranslationResult = result.extract(py)?;
             Ok(val.0)
-        })
+        })?;
+        let py_time_end = Instant::now();
+
+        result.push_duration("stringify", (val_str_end - val_str_start).as_secs_f64());
+        result.push_duration(
+            "py overhead",
+            (py_time_end - py_time_start).as_secs_f64() - result.durations["python"],
+        );
+
+        Ok(result)
     }
 
     fn signal_info(&self, name: &str) -> Result<SignalInfo> {
@@ -117,7 +130,7 @@ impl PyTranslationResult {
         Self(TranslationResult {
             val: val_str.to_string(),
             subfields: vec![],
-            duration: None
+            durations: HashMap::new(),
         })
     }
 
@@ -125,8 +138,8 @@ impl PyTranslationResult {
         self.0.subfields.push((name, translation_result.0))
     }
 
-    pub fn set_duration(&mut self, duration: f64) {
-        self.0.duration = Some(duration);
+    pub fn push_duration(&mut self, name: &str, duration: f64) {
+        self.0.push_duration(name, duration);
     }
 }
 

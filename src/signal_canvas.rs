@@ -5,12 +5,65 @@ use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
+use itertools::Itertools;
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
 use crate::translation::TranslatorList;
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
+
+struct TranslationTimings {
+    timings: HashMap<String, (Vec<f64>, HashMap<String, Vec<f64>>)>,
+}
+
+impl TranslationTimings {
+    fn new() -> Self {
+        Self {
+            timings: HashMap::new(),
+        }
+    }
+
+    pub fn push_timing(&mut self, name: &str, subname: Option<&str>, timing: f64) {
+        let target = self.timings.entry(name.to_string()).or_default();
+
+        if let Some(subname) = subname {
+            target
+                .1
+                .entry(subname.to_string())
+                .or_default()
+                .push(timing)
+        }
+        if subname.is_none() {
+            target.0.push(timing)
+        }
+    }
+
+    pub fn format(&self) -> String {
+        self.timings
+            .iter()
+            .sorted_by_key(|(name, _)| name.as_str())
+            .map(|(name, (counts, sub))| {
+                let total: f64 = counts.iter().sum();
+                let average = total / counts.len() as f64;
+
+                let substr = sub
+                    .iter()
+                    .sorted_by_key(|(name, _)| name.as_str())
+                    .map(|(name, counts)| {
+                        let subtotal: f64 = counts.iter().sum();
+                        let subaverage = total / counts.len() as f64;
+
+                        let pct = (subtotal / total) * 100.;
+                        format!("\t{name}: {subtotal:.05} {subaverage:.05} {pct:.05}%")
+                    })
+                    .join("\n");
+
+                format!("{name}: {total:.05} ({average:.05})\n{substr}")
+            })
+            .join("\n")
+    }
+}
 
 impl State {
     pub fn draw_signals(
@@ -74,10 +127,7 @@ impl State {
 
         vcd.draw_cursor(&mut painter, response.rect.size(), to_screen);
 
-        let mut translation_count = 0;
-        let mut translation_time = 0.;
-        let mut non_overhead_translation = 0.;
-        let mut non_overhead_count = 0;
+        let mut timings = TranslationTimings::new();
 
         'outer: for x in 0..frame_width as u32 {
             let time = vcd.viewport.to_time(x as f64, frame_width);
@@ -105,11 +155,10 @@ impl State {
                         let translation_result = translator.translate(&sig, &val).unwrap();
                         let translation_end = Instant::now();
                         let duration = (translation_end - translation_start).as_secs_f64();
-                        translation_time += duration;
-                        translation_count += 1;
-                        if let Some(duration) = translation_result.duration {
-                            non_overhead_count += 1;
-                            non_overhead_translation += duration;
+
+                        timings.push_timing(&translator.name(), None, duration);
+                        for (subname, time) in translation_result.durations {
+                            timings.push_timing(&translator.name(), Some(&subname), time)
                         }
 
                         let full_text = translation_result.val;
@@ -147,13 +196,7 @@ impl State {
             }
         }
 
-        let time_per_translation = translation_time / translation_count as f64;
-        let non_overhead = non_overhead_translation / non_overhead_count as f64;
-        println!(
-            "{time_per_translation:.6} => Worst case: {:.6} | {non_overhead} => Worst case: {:.6}",
-            time_per_translation * 20000.,
-            non_overhead * 20000.
-        )
+        egui::Window::new("Translation timings").show(ui.ctx(), |ui| ui.label(timings.format()));
     }
 }
 
