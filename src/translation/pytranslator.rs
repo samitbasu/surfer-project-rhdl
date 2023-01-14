@@ -8,9 +8,11 @@ use color_eyre::{
 use fastwave_backend::{Signal, SignalValue};
 use pyo3::{
     intern, pyclass, pymethods, pymodule,
-    types::{IntoPyDict, PyModule},
+    types::{IntoPyDict, PyModule, PyString},
     PyObject, PyResult, Python, ToPyObject,
 };
+
+use crate::benchmark::TimedRegion;
 
 use super::{SignalInfo, TranslationResult, Translator};
 
@@ -75,7 +77,15 @@ impl Translator for PyTranslator {
     }
 
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
-        let val_str_start = Instant::now();
+        let mut stringify = TimedRegion::defer();
+        let mut gil_lock = TimedRegion::defer();
+        let mut name_push = TimedRegion::defer();
+        let mut value_push = TimedRegion::defer();
+        let mut method_call = TimedRegion::defer();
+        let mut extraction = TimedRegion::defer();
+        let mut gil_unlock = TimedRegion::defer();
+
+        stringify.start();
         let value_str = match value {
             SignalValue::BigUint(val) => format!(
                 "{val:0width$b}",
@@ -83,25 +93,45 @@ impl Translator for PyTranslator {
             ),
             SignalValue::String(val) => val.clone(),
         };
-        let val_str_end = Instant::now();
+        stringify.stop();
 
-        let py_time_start = Instant::now();
+        gil_lock.start();
         let mut result = Python::with_gil(|py| -> Result<TranslationResult>{
+            gil_lock.stop();
+
+            method_call.start();
+
+
+            name_push.start();
+            let name_py = PyString::new(py, &signal.name());
+            name_push.stop();
+            value_push.start();
+            let val_py = PyString::new(py, &value_str);
+            value_push.stop();
+
             let result = self
                 .instance
-                .call_method1(py, intern!(py, "translate"), (signal.name(), value_str))
+                .call_method1(py, intern!(py, "translate"), (name_py, val_py))
                 .with_context(|| format!("Failed to run translates on {}", self.name))?;
+            method_call.stop();
 
+            extraction.start();
             let val: PyTranslationResult = result.extract(py)?;
+            extraction.stop();
+
+            gil_unlock.start();
             Ok(val.0)
         })?;
-        let py_time_end = Instant::now();
+        gil_unlock.stop();
 
-        result.push_duration("stringify", (val_str_end - val_str_start).as_secs_f64());
-        result.push_duration(
-            "py overhead",
-            (py_time_end - py_time_start).as_secs_f64() - result.durations["python"],
-        );
+
+        result.push_duration("stringify", stringify.secs());
+        result.push_duration("gil_lock", gil_lock.secs());
+        result.push_duration("name_push", name_push.secs());
+        result.push_duration("value_push", value_push.secs());
+        result.push_duration("extraction", extraction.secs());
+        result.push_duration("gil_unlock", gil_unlock.secs());
+        result.push_duration("method_call_overhead", method_call.secs() - result.durations["spade_pythonify"] - result.durations["spade_prelude"] - result.durations["spade_translate"]);
 
         Ok(result)
     }

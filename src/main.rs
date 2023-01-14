@@ -2,6 +2,7 @@ mod signal_canvas;
 mod translation;
 mod view;
 mod viewport;
+mod benchmark;
 
 use camino::Utf8PathBuf;
 use clap::Parser;
@@ -112,6 +113,8 @@ enum Message {
     HierarchyClick(ScopeIdx),
     AddSignal(SignalIdx),
     SignalFormatChange(SignalIdx, String),
+    // Reset the translator for this signal back to default
+    ResetSignalFormat(SignalIdx),
     CanvasScroll {
         delta: Vec2,
     },
@@ -147,7 +150,7 @@ impl State {
                     "translation_test.py",
                     vec![(
                         "type_file".to_string(),
-                        "/home/frans/Documents/spade/spade-v/build/spade_types.ron".to_string(),
+                        "/home/frans/Documents/fpga/spadev/build/spade_types.ron".to_string(),
                     )].into_iter().collect(),
                 );
                 match pytranslator {
@@ -232,11 +235,26 @@ impl State {
                     *vcd.signal_format.entry(idx).or_default() = format;
 
                     let translator = vcd.signal_translator(idx, &self.translators);
-                    let info = translator.signal_info(&vcd.signal_name(idx)).unwrap();
-                    vcd.signals.retain(|(old_idx, _)| *old_idx != idx);
-                    vcd.signals.push((idx, info));
+                    let new_info = translator.signal_info(&vcd.signal_name(idx)).unwrap();
+                    for (i, info) in &mut vcd.signals {
+                        if *i == idx {
+                            *info = new_info;
+                            break;
+                        }
+                    }
                 } else {
                     println!("WARN: No translator {format}")
+                }
+            }
+            Message::ResetSignalFormat(idx) => {
+                let vcd = self
+                    .vcd
+                    .as_mut()
+                    .expect("Signal format reset without vcd set");
+                for (i, info) in &mut vcd.signals {
+                    if *i == idx {
+                        vcd.signal_format.remove(&idx);
+                    }
                 }
             }
             Message::CursorSet(new) => {

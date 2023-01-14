@@ -1,26 +1,29 @@
 use std::collections::{BTreeMap, HashMap};
 use std::time::Instant;
 
+use color_eyre::Result;
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use itertools::Itertools;
+use log::error;
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
-use crate::translation::TranslatorList;
+use crate::benchmark::TimedRegion;
+use crate::translation::{Translator, TranslatorList};
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
 
 struct TranslationTimings {
-    timings: HashMap<String, (Vec<f64>, HashMap<String, Vec<f64>>)>,
+    timings: BTreeMap<String, (Vec<f64>, BTreeMap<String, Vec<f64>>)>,
 }
 
 impl TranslationTimings {
     fn new() -> Self {
         Self {
-            timings: HashMap::new(),
+            timings: BTreeMap::new(),
         }
     }
 
@@ -149,36 +152,26 @@ impl State {
 
                     let prev = prev_values.get(&idx.0);
                     if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
-                        let translation_start = Instant::now();
                         let translator = vcd.signal_translator(idx.0, &self.translators);
 
-                        let translation_result = translator.translate(&sig, &val).unwrap();
-                        let translation_end = Instant::now();
-                        let duration = (translation_end - translation_start).as_secs_f64();
-
-                        timings.push_timing(&translator.name(), None, duration);
-                        for (subname, time) in translation_result.durations {
-                            timings.push_timing(&translator.name(), Some(&subname), time)
-                        }
-
-                        let full_text = translation_result.val;
-
                         vcd.draw_signal(
+                            msgs,
                             &mut painter,
                             to_screen
                                 .inverse()
                                 .transform_pos(Pos2::new(0., *y as f32))
                                 .y,
                             to_screen,
-                            &idx.0,
                             &sig,
+                            &idx.0,
                             (*old_x, old_val),
                             (x, &val),
                             &cfg,
                             // Force redraw on the last valid pixel to ensure
                             // that the signal gets drawn the whole way
                             x == (frame_width as u32 - 1) || is_last_x,
-                            &full_text,
+                            translator.as_ref(),
+                            &mut timings,
                         );
                     }
 
@@ -196,7 +189,9 @@ impl State {
             }
         }
 
-        egui::Window::new("Translation timings").show(ui.ctx(), |ui| ui.label(timings.format()));
+        egui::Window::new("Translation timings")
+            .anchor(Align2::RIGHT_BOTTOM, Vec2::ZERO)
+            .show(ui.ctx(), |ui| ui.label(timings.format()));
     }
 }
 
@@ -222,16 +217,18 @@ impl VcdData {
 
     fn draw_signal(
         &self,
+        msgs: &mut Vec<Message>,
         painter: &mut Painter,
         y: f32,
         to_screen: RectTransform,
-        signal_idx: &SignalIdx,
         signal: &Signal,
+        signal_idx: &SignalIdx,
         (old_x, old_val): (u32, &SignalValue),
         (x, val): (u32, &SignalValue),
         cfg: &DrawConfig,
         force_redraw: bool,
-        full_text: &str,
+        translator: &dyn Translator,
+        timings: &mut TranslationTimings,
     ) {
         let abs_point = |x: f32, rel_y: f32| {
             to_screen.transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
@@ -292,6 +289,26 @@ impl VcdData {
                 let fits_text = num_chars >= 1.;
 
                 if fits_text {
+                    let mut duration = TimedRegion::started();
+                    let translation_result = match translator.translate(signal, old_val) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            error!(
+                                "Translator for {name} failed:\n{e:#}\nIt has been disabled",
+                                name = signal.name()
+                            );
+                            msgs.push(Message::ResetSignalFormat(*signal_idx));
+                            return;
+                        }
+                    };
+                    duration.stop();
+                    let full_text = translation_result.val;
+
+                    timings.push_timing(&translator.name(), None, duration.secs());
+                    for (subname, time) in translation_result.durations {
+                        timings.push_timing(&translator.name(), Some(subname.as_str()), time)
+                    }
+
                     let content = if full_text.len() > num_chars as usize {
                         full_text
                             .chars()
