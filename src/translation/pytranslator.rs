@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 
 use camino::Utf8PathBuf;
 use color_eyre::{
@@ -14,7 +14,7 @@ use pyo3::{
 
 use crate::benchmark::TimedRegion;
 
-use super::{SignalInfo, TranslationResult, Translator};
+use super::{SignalInfo, TranslationResult, Translator, ValueRepr};
 
 pub struct PyTranslator {
     name: String,
@@ -96,11 +96,10 @@ impl Translator for PyTranslator {
         stringify.stop();
 
         gil_lock.start();
-        let mut result = Python::with_gil(|py| -> Result<TranslationResult>{
+        let mut result = Python::with_gil(|py| -> Result<TranslationResult> {
             gil_lock.stop();
 
             method_call.start();
-
 
             name_push.start();
             let name_py = PyString::new(py, &signal.name());
@@ -124,14 +123,19 @@ impl Translator for PyTranslator {
         })?;
         gil_unlock.stop();
 
-
         result.push_duration("stringify", stringify.secs());
         result.push_duration("gil_lock", gil_lock.secs());
         result.push_duration("name_push", name_push.secs());
         result.push_duration("value_push", value_push.secs());
         result.push_duration("extraction", extraction.secs());
         result.push_duration("gil_unlock", gil_unlock.secs());
-        result.push_duration("method_call_overhead", method_call.secs() - result.durations["spade_pythonify"] - result.durations["spade_prelude"] - result.durations["spade_translate"]);
+        result.push_duration(
+            "method_call_overhead",
+            method_call.secs()
+                - result.durations["spade_pythonify"]
+                - result.durations["spade_prelude"]
+                - result.durations["spade_translate"],
+        );
 
         Ok(result)
     }
@@ -156,16 +160,32 @@ struct PyTranslationResult(TranslationResult);
 #[pymethods]
 impl PyTranslationResult {
     #[new]
-    fn new(val_str: &str) -> Self {
+    fn new() -> Self {
         Self(TranslationResult {
-            val: val_str.to_string(),
+            val: ValueRepr::Bits,
             subfields: vec![],
             durations: HashMap::new(),
         })
     }
 
-    fn with_field(&mut self, name: String, translation_result: PyTranslationResult) {
-        self.0.subfields.push((name, translation_result.0))
+    fn repr_string(&mut self, val: &str) {
+         self.0.val = ValueRepr::String(val.to_string());
+    }
+    fn repr_bits(&mut self) {
+         self.0.val = ValueRepr::Bits
+    }
+    fn repr_tuple(&mut self) {
+         self.0.val = ValueRepr::Tuple
+    }
+    fn repr_struct(&mut self) {
+         self.0.val = ValueRepr::Struct
+    }
+    fn repr_array(&mut self) {
+         self.0.val = ValueRepr::Array
+    }
+
+    fn with_fields(&mut self, fields: Vec<(String, PyTranslationResult)>) {
+        self.0.subfields = fields.into_iter().map(|(n, v)| (n, v.0)).collect()
     }
 
     pub fn push_duration(&mut self, name: &str, duration: f64) {

@@ -1,18 +1,15 @@
 use std::collections::{BTreeMap, HashMap};
-use std::time::Instant;
 
-use color_eyre::Result;
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
-use fastwave_backend::{Signal, SignalIdx, SignalValue};
+use fastwave_backend::SignalValue;
 use itertools::Itertools;
 use log::error;
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
 use crate::benchmark::TimedRegion;
-use crate::translation::{Translator, TranslatorList};
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
 
@@ -123,7 +120,6 @@ impl State {
 
         let cfg = DrawConfig {
             line_height: 16.,
-            padding: 4.,
         };
 
         let max_time = BigRational::from_integer(vcd.num_timestamps.clone());
@@ -140,39 +136,75 @@ impl State {
             let is_last_x = time > max_time;
             let time = time.to_integer().to_biguint().unwrap();
 
-            for (idx, sig) in vcd
+            for ((idx, _), sig) in vcd
                 .signals
                 .iter()
                 .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
             {
                 if let Ok(val) = sig.query_val_on_tmln(&time, &vcd.inner) {
                     let y = signal_offsets
-                        .get(&(idx.0, vec![]))
+                        .get(&(*idx, vec![]))
                         .expect(&format!("Found no y offset for signal {}", sig.name()));
+
+                    let abs_point = |x: f32, rel_y: f32| {
+                        to_screen
+                            .transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
+                    };
+
+                    let ctx = DrawingContext {
+                        painter: &mut painter,
+                        cfg: &cfg,
+                        abs_point: &abs_point,
+                    };
 
                     let prev = prev_values.get(&idx.0);
                     if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
-                        let translator = vcd.signal_translator(idx.0, &self.translators);
+                        // Force redraw on the last valid pixel to ensure
+                        // that the signal gets drawn the whole way
+                        let force_redraw = x == (frame_width as u32 - 1) || is_last_x;
+                        let draw = force_redraw || old_val != &val;
 
-                        vcd.draw_signal(
-                            msgs,
-                            &mut painter,
-                            to_screen
-                                .inverse()
-                                .transform_pos(Pos2::new(0., *y as f32))
-                                .y,
-                            to_screen,
-                            &sig,
-                            &idx.0,
-                            (*old_x, old_val),
-                            (x, &val),
-                            &cfg,
-                            // Force redraw on the last valid pixel to ensure
-                            // that the signal gets drawn the whole way
-                            x == (frame_width as u32 - 1) || is_last_x,
-                            translator.as_ref(),
-                            &mut timings,
-                        );
+                        if draw {
+                            let mut duration = TimedRegion::started();
+                            let translator = vcd.signal_translator(*idx, &self.translators);
+
+                            let translation_result = match translator.translate(&sig, old_val) {
+                                Ok(result) => result,
+                                Err(e) => {
+                                    error!(
+                                        "{translator_name} for {sig_name} failed. Disabling:",
+                                        translator_name = translator.name(),
+                                        sig_name = sig.name()
+                                    );
+                                    error!("{e:#}");
+                                    msgs.push(Message::ResetSignalFormat(*idx));
+                                    return;
+                                }
+                            };
+
+                            duration.stop();
+                            timings.push_timing(&translator.name(), None, duration.secs());
+                            for (subname, time) in &translation_result.durations {
+                                timings.push_timing(
+                                    &translator.name(),
+                                    Some(subname.as_str()),
+                                    *time,
+                                )
+                            }
+
+                            let is_bool = sig.num_bits().unwrap_or(0) == 1;
+
+                            if is_bool {
+                                vcd.draw_bool((*old_x, old_val), (x, &val), &ctx);
+                            } else {
+                                vcd.draw_signal(
+                                    (*old_x, old_val),
+                                    x,
+                                    &ctx,
+                                    &translation_result.to_string(),
+                                )
+                            }
+                        }
                     }
 
                     // Only store the last time if the value is actually changed
@@ -195,6 +227,12 @@ impl State {
     }
 }
 
+struct DrawingContext<'a> {
+    painter: &'a mut Painter,
+    cfg: &'a DrawConfig,
+    abs_point: &'a dyn Fn(f32, f32) -> Pos2,
+}
+
 impl VcdData {
     fn draw_cursor(&self, painter: &mut Painter, size: Vec2, to_screen: RectTransform) {
         if let Some(cursor) = &self.cursor {
@@ -215,126 +253,99 @@ impl VcdData {
         }
     }
 
-    fn draw_signal(
+    fn draw_bool(
         &self,
-        msgs: &mut Vec<Message>,
-        painter: &mut Painter,
-        y: f32,
-        to_screen: RectTransform,
-        signal: &Signal,
-        signal_idx: &SignalIdx,
         (old_x, old_val): (u32, &SignalValue),
-        (x, val): (u32, &SignalValue),
-        cfg: &DrawConfig,
-        force_redraw: bool,
-        translator: &dyn Translator,
-        timings: &mut TranslationTimings,
+        (new_x, new_val): (u32, &SignalValue),
+        ctx: &DrawingContext,
     ) {
-        let abs_point = |x: f32, rel_y: f32| {
-            to_screen.transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
+        let abs_point = &ctx.abs_point;
+        let (old_height, old_color) = old_val.bool_drawing_spec();
+        let (new_height, _) = new_val.bool_drawing_spec();
+
+        let stroke = Stroke {
+            color: old_color,
+            width: 1.,
+            ..Default::default()
         };
 
-        if old_val != val || force_redraw {
-            if signal.num_bits() == Some(1) {
-                let (old_height, old_color) = old_val.bool_drawing_spec();
-                let (new_height, _) = val.bool_drawing_spec();
+        ctx.painter.add(PathShape::line(
+            vec![
+                abs_point(old_x as f32, old_height),
+                abs_point(new_x as f32, old_height),
+                abs_point(new_x as f32, new_height),
+            ],
+            stroke,
+        ));
+    }
 
-                let stroke = Stroke {
-                    color: old_color,
-                    width: 1.,
-                    ..Default::default()
-                };
+    fn draw_signal(
+        &self,
+        (old_x, old_val): (u32, &SignalValue),
+        new_x: u32,
+        ctx: &DrawingContext,
+        full_text: &str,
+    ) {
+        let abs_point = ctx.abs_point;
 
-                painter.add(PathShape::line(
-                    vec![
-                        abs_point(old_x as f32, old_height),
-                        abs_point(x as f32, old_height),
-                        abs_point(x as f32, new_height),
-                    ],
-                    stroke,
-                ));
+        let stroke_color = match old_val.value_kind() {
+            ValueKind::HighImp => style::c_yellow(),
+            ValueKind::Undef => style::c_red(),
+            ValueKind::Normal => style::c_green(),
+        };
+
+        let stroke = Stroke {
+            color: stroke_color,
+            width: 1.,
+            ..Default::default()
+        };
+
+        let transition_width = (new_x - old_x).min(6) as f32;
+
+        ctx.painter.add(PathShape::line(
+            vec![
+                abs_point(old_x as f32, 0.5),
+                abs_point(old_x as f32 + transition_width / 2., 1.0),
+                abs_point(new_x as f32 - transition_width / 2., 1.0),
+                abs_point(new_x as f32, 0.5),
+                abs_point(new_x as f32 - transition_width / 2., 0.0),
+                abs_point(old_x as f32 + transition_width / 2., 0.0),
+                abs_point(old_x as f32, 0.5),
+            ],
+            stroke,
+        ));
+
+        let text_size = ctx.cfg.line_height - 5.;
+        let char_width = text_size * (18. / 31.);
+
+        let text_area = (new_x - old_x) as f32 - transition_width;
+        let num_chars = (text_area / char_width).floor();
+        let fits_text = num_chars >= 1.;
+
+        if fits_text {
+            let content = if full_text.len() > num_chars as usize {
+                full_text
+                    .chars()
+                    .take(num_chars as usize - 1)
+                    .chain(['…'].into_iter())
+                    .collect::<String>()
             } else {
-                let stroke_color = match old_val.value_kind() {
-                    ValueKind::HighImp => style::c_yellow(),
-                    ValueKind::Undef => style::c_red(),
-                    ValueKind::Normal => style::c_green(),
-                };
+                full_text.to_string()
+            };
 
-                let stroke = Stroke {
-                    color: stroke_color,
-                    width: 1.,
-                    ..Default::default()
-                };
-
-                let transition_width = (x - old_x).min(6) as f32;
-
-                painter.add(PathShape::line(
-                    vec![
-                        abs_point(old_x as f32, 0.5),
-                        abs_point(old_x as f32 + transition_width / 2., 1.0),
-                        abs_point(x as f32 - transition_width / 2., 1.0),
-                        abs_point(x as f32, 0.5),
-                        abs_point(x as f32 - transition_width / 2., 0.0),
-                        abs_point(old_x as f32 + transition_width / 2., 0.0),
-                        abs_point(old_x as f32, 0.5),
-                    ],
-                    stroke,
-                ));
-
-                let text_size = cfg.line_height - 5.;
-                let char_width = text_size * (18. / 31.);
-
-                let text_area = (x - old_x) as f32 - transition_width;
-                let num_chars = (text_area / char_width).floor();
-                let fits_text = num_chars >= 1.;
-
-                if fits_text {
-                    let mut duration = TimedRegion::started();
-                    let translation_result = match translator.translate(signal, old_val) {
-                        Ok(result) => result,
-                        Err(e) => {
-                            error!(
-                                "Translator for {name} failed:\n{e:#}\nIt has been disabled",
-                                name = signal.name()
-                            );
-                            msgs.push(Message::ResetSignalFormat(*signal_idx));
-                            return;
-                        }
-                    };
-                    duration.stop();
-                    let full_text = translation_result.val;
-
-                    timings.push_timing(&translator.name(), None, duration.secs());
-                    for (subname, time) in translation_result.durations {
-                        timings.push_timing(&translator.name(), Some(subname.as_str()), time)
-                    }
-
-                    let content = if full_text.len() > num_chars as usize {
-                        full_text
-                            .chars()
-                            .take(num_chars as usize - 1)
-                            .chain(['…'].into_iter())
-                            .collect::<String>()
-                    } else {
-                        full_text.to_string()
-                    };
-
-                    painter.text(
-                        abs_point(old_x as f32 + transition_width, 0.5),
-                        Align2::LEFT_CENTER,
-                        content,
-                        FontId::monospace(text_size),
-                        Color32::from_rgb(255, 255, 255),
-                    );
-                }
-            }
+            ctx.painter.text(
+                abs_point(old_x as f32 + transition_width, 0.5),
+                Align2::LEFT_CENTER,
+                content,
+                FontId::monospace(text_size),
+                Color32::from_rgb(255, 255, 255),
+            );
         }
     }
 }
 
 struct DrawConfig {
     line_height: f32,
-    padding: f32,
 }
 
 enum ValueKind {

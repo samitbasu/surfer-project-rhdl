@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use eframe::egui::{self, Align, Layout};
-use fastwave_backend::{SignalIdx, VCD};
-use log::{info, trace};
+use fastwave_backend::SignalIdx;
+use log::trace;
 
 use crate::{translation::SignalInfo, Message, State, VcdData};
 
@@ -102,9 +102,7 @@ impl eframe::App for State {
 
         loop {
             match self.msg_receiver.try_recv() {
-                Ok(msg) => {
-                    msgs.push(msg)
-                }
+                Ok(msg) => msgs.push(msg),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                     trace!("Message sender disconnected");

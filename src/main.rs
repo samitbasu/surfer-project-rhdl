@@ -138,7 +138,6 @@ impl State {
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
-            Box::new(translation::HierarchyTranslator {}),
         ]);
 
         // Long running translators which we load in a thread
@@ -251,7 +250,7 @@ impl State {
                     .vcd
                     .as_mut()
                     .expect("Signal format reset without vcd set");
-                for (i, info) in &mut vcd.signals {
+                for (i, _) in &mut vcd.signals {
                     if *i == idx {
                         vcd.signal_format.remove(&idx);
                     }
