@@ -3,13 +3,14 @@ use std::collections::{BTreeMap, HashMap};
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
-use fastwave_backend::SignalValue;
+use fastwave_backend::{SignalValue, SignalIdx, Signal};
 use itertools::Itertools;
 use log::error;
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
 use crate::benchmark::TimedRegion;
+use crate::translation::{SignalInfo, TranslatorList};
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
 
@@ -116,8 +117,6 @@ impl State {
 
         painter.rect_filled(response.rect, Rounding::none(), Color32::from_rgb(0, 0, 0));
 
-        let mut prev_values = BTreeMap::new();
-
         let cfg = DrawConfig {
             line_height: 16.,
         };
@@ -126,99 +125,43 @@ impl State {
 
         vcd.draw_cursor(&mut painter, response.rect.size(), to_screen);
 
-        let mut timings = TranslationTimings::new();
-
-        'outer: for x in 0..frame_width as u32 {
+        // Compute which timestamp to draw in each pixel
+        let timestamps = (0..frame_width as u32).filter_map(|x| {
             let time = vcd.viewport.to_time(x as f64, frame_width);
             if time < BigRational::from_float(0.).unwrap() {
-                continue;
+                None
             }
-            let is_last_x = time > max_time;
-            let time = time.to_integer().to_biguint().unwrap();
-
-            for ((idx, _), sig) in vcd
-                .signals
-                .iter()
-                .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
-            {
-                if let Ok(val) = sig.query_val_on_tmln(&time, &vcd.inner) {
-                    let y = signal_offsets
-                        .get(&(*idx, vec![]))
-                        .expect(&format!("Found no y offset for signal {}", sig.name()));
-
-                    let abs_point = |x: f32, rel_y: f32| {
-                        to_screen
-                            .transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
-                    };
-
-                    let ctx = DrawingContext {
-                        painter: &mut painter,
-                        cfg: &cfg,
-                        abs_point: &abs_point,
-                    };
-
-                    let prev = prev_values.get(&idx.0);
-                    if let Some((old_x, old_val)) = prev_values.get(&idx.0) {
-                        // Force redraw on the last valid pixel to ensure
-                        // that the signal gets drawn the whole way
-                        let force_redraw = x == (frame_width as u32 - 1) || is_last_x;
-                        let draw = force_redraw || old_val != &val;
-
-                        if draw {
-                            let mut duration = TimedRegion::started();
-                            let translator = vcd.signal_translator(*idx, &self.translators);
-
-                            let translation_result = match translator.translate(&sig, old_val) {
-                                Ok(result) => result,
-                                Err(e) => {
-                                    error!(
-                                        "{translator_name} for {sig_name} failed. Disabling:",
-                                        translator_name = translator.name(),
-                                        sig_name = sig.name()
-                                    );
-                                    error!("{e:#}");
-                                    msgs.push(Message::ResetSignalFormat(*idx));
-                                    return;
-                                }
-                            };
-
-                            duration.stop();
-                            timings.push_timing(&translator.name(), None, duration.secs());
-                            for (subname, time) in &translation_result.durations {
-                                timings.push_timing(
-                                    &translator.name(),
-                                    Some(subname.as_str()),
-                                    *time,
-                                )
-                            }
-
-                            let is_bool = sig.num_bits().unwrap_or(0) == 1;
-
-                            if is_bool {
-                                vcd.draw_bool((*old_x, old_val), (x, &val), &ctx);
-                            } else {
-                                vcd.draw_signal(
-                                    (*old_x, old_val),
-                                    x,
-                                    &ctx,
-                                    &translation_result.to_string(),
-                                )
-                            }
-                        }
-                    }
-
-                    // Only store the last time if the value is actually changed
-                    if prev.map(|(_, v)| v) != Some(&val) {
-                        prev_values.insert(idx.0, (x, val));
-                    }
-                }
+            else if time > max_time {
+                None
             }
-
-            // If this was the last x in the vcd file, we are done
-            // drawing, so we can reak out of the outer loop
-            if is_last_x {
-                break 'outer;
+            else {
+                Some((x as f32, time.to_integer().to_biguint().unwrap()))
             }
+        }).collect::<Vec<_>>();
+
+
+
+        let mut timings = TranslationTimings::new();
+
+        for ((idx, info), sig) in vcd
+            .signals
+            .iter()
+            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
+        {
+            vcd.draw_signal(
+                &timestamps,
+                idx,
+                info,
+                &sig,
+                &mut painter,
+                to_screen,
+                &cfg,
+                &mut timings,
+                signal_offsets,
+                &self.translators,
+                msgs
+            );
+
         }
 
         egui::Window::new("Translation timings")
@@ -253,10 +196,99 @@ impl VcdData {
         }
     }
 
-    fn draw_bool(
+    fn draw_signal(
         &self,
-        (old_x, old_val): (u32, &SignalValue),
-        (new_x, new_val): (u32, &SignalValue),
+        timestamps: &[(f32, BigUint)],
+        idx: &SignalIdx,
+        info: &SignalInfo,
+        signal: &Signal,
+        painter: &mut Painter,
+        to_screen: RectTransform,
+        cfg: &DrawConfig,
+        timings: &mut TranslationTimings,
+        signal_offsets: &HashMap<TraceIdx, f32>,
+        translators: &TranslatorList,
+        msgs: &mut Vec<Message>,
+    ) {
+        let mut prev_value: Option<(f32, SignalValue)> = None;
+        for (i, (x, time)) in timestamps.iter().enumerate() {
+            if let Ok(val) = signal.query_val_on_tmln(&time, &self.inner) {
+                let y = signal_offsets
+                    .get(&(*idx, vec![]))
+                    .expect(&format!("Found no y offset for signal {}", signal.name()));
+
+                let abs_point = |x: f32, rel_y: f32| {
+                    to_screen
+                        .transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
+                };
+
+                let ctx = DrawingContext {
+                    painter,
+                    cfg: &cfg,
+                    abs_point: &abs_point,
+                };
+
+                if let Some((old_x, old_val)) = &prev_value {
+                    // Force redraw on the last valid pixel to ensure
+                    // that the signal gets drawn the whole way
+                    let force_redraw = i == timestamps.len()-1;
+                    let draw = force_redraw || old_val != &val;
+
+                    if draw {
+                        let mut duration = TimedRegion::started();
+                        let translator = self.signal_translator(*idx, &translators);
+
+                        let translation_result = match translator.translate(&signal, &old_val) {
+                            Ok(result) => result,
+                            Err(e) => {
+                                error!(
+                                    "{translator_name} for {sig_name} failed. Disabling:",
+                                    translator_name = translator.name(),
+                                    sig_name = signal.name()
+                                );
+                                error!("{e:#}");
+                                msgs.push(Message::ResetSignalFormat(*idx));
+                                return;
+                            }
+                        };
+
+                        duration.stop();
+                        timings.push_timing(&translator.name(), None, duration.secs());
+                        for (subname, time) in &translation_result.durations {
+                            timings.push_timing(
+                                &translator.name(),
+                                Some(subname.as_str()),
+                                *time,
+                            )
+                        }
+
+                        let is_bool = signal.num_bits().unwrap_or(0) == 1;
+
+                        if is_bool {
+                            self.draw_bool_transition((*old_x, &old_val), (*x, &val), &ctx);
+                        } else {
+                            self.draw_transition(
+                                (*old_x, &old_val),
+                                *x,
+                                &ctx,
+                                &translation_result.to_string(),
+                            )
+                        }
+                    }
+                }
+
+                // Only store the last time if the value is actually changed
+                if prev_value.as_ref().map(|(_, v)| v != &val).unwrap_or(true) {
+                    prev_value = Some((*x, val));
+                }
+            }
+        }
+    }
+
+    fn draw_bool_transition(
+        &self,
+        (old_x, old_val): (f32, &SignalValue),
+        (new_x, new_val): (f32, &SignalValue),
         ctx: &DrawingContext,
     ) {
         let abs_point = &ctx.abs_point;
@@ -279,10 +311,10 @@ impl VcdData {
         ));
     }
 
-    fn draw_signal(
+    fn draw_transition(
         &self,
-        (old_x, old_val): (u32, &SignalValue),
-        new_x: u32,
+        (old_x, old_val): (f32, &SignalValue),
+        new_x: f32,
         ctx: &DrawingContext,
         full_text: &str,
     ) {
@@ -300,17 +332,17 @@ impl VcdData {
             ..Default::default()
         };
 
-        let transition_width = (new_x - old_x).min(6) as f32;
+        let transition_width = (new_x - old_x).min(6.) as f32;
 
         ctx.painter.add(PathShape::line(
             vec![
-                abs_point(old_x as f32, 0.5),
-                abs_point(old_x as f32 + transition_width / 2., 1.0),
-                abs_point(new_x as f32 - transition_width / 2., 1.0),
-                abs_point(new_x as f32, 0.5),
-                abs_point(new_x as f32 - transition_width / 2., 0.0),
-                abs_point(old_x as f32 + transition_width / 2., 0.0),
-                abs_point(old_x as f32, 0.5),
+                abs_point(old_x, 0.5),
+                abs_point(old_x + transition_width / 2., 1.0),
+                abs_point(new_x - transition_width / 2., 1.0),
+                abs_point(new_x, 0.5),
+                abs_point(new_x - transition_width / 2., 0.0),
+                abs_point(old_x + transition_width / 2., 0.0),
+                abs_point(old_x, 0.5),
             ],
             stroke,
         ));
