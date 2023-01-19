@@ -211,6 +211,7 @@ impl VcdData {
         msgs: &mut Vec<Message>,
     ) {
         let mut prev_value: Option<(f32, SignalValue)> = None;
+
         for (i, (x, time)) in timestamps.iter().enumerate() {
             if let Ok(val) = signal.query_val_on_tmln(&time, &self.inner) {
                 let y = signal_offsets
