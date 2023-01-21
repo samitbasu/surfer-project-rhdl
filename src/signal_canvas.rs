@@ -1,68 +1,47 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
-use fastwave_backend::{SignalValue, SignalIdx, Signal};
-use itertools::Itertools;
+use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use log::error;
 use num::FromPrimitive;
 use num::{BigRational, BigUint};
 
-use crate::benchmark::TimedRegion;
+use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::translation::{SignalInfo, TranslatorList};
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
 
-struct TranslationTimings {
-    timings: BTreeMap<String, (Vec<f64>, BTreeMap<String, Vec<f64>>)>,
+struct DrawnRegion {
+    color: Color32,
+    value: String,
 }
 
-impl TranslationTimings {
-    fn new() -> Self {
+/// List of values to draw for a signal. It is an ordered list of values that should
+/// be drawn at the *start time* until the *start time* of the next value
+struct DrawingCommands {
+    is_bool: bool,
+    values: Vec<(f32, DrawnRegion)>,
+}
+
+impl DrawingCommands {
+    pub fn new_bool() -> Self {
         Self {
-            timings: BTreeMap::new(),
+            values: vec![],
+            is_bool: true,
         }
     }
 
-    pub fn push_timing(&mut self, name: &str, subname: Option<&str>, timing: f64) {
-        let target = self.timings.entry(name.to_string()).or_default();
-
-        if let Some(subname) = subname {
-            target
-                .1
-                .entry(subname.to_string())
-                .or_default()
-                .push(timing)
-        }
-        if subname.is_none() {
-            target.0.push(timing)
+    pub fn new_wide() -> Self {
+        Self {
+            values: vec![],
+            is_bool: false,
         }
     }
 
-    pub fn format(&self) -> String {
-        self.timings
-            .iter()
-            .sorted_by_key(|(name, _)| name.as_str())
-            .map(|(name, (counts, sub))| {
-                let total: f64 = counts.iter().sum();
-                let average = total / counts.len() as f64;
-
-                let substr = sub
-                    .iter()
-                    .sorted_by_key(|(name, _)| name.as_str())
-                    .map(|(name, counts)| {
-                        let subtotal: f64 = counts.iter().sum();
-                        let subaverage = total / counts.len() as f64;
-
-                        let pct = (subtotal / total) * 100.;
-                        format!("\t{name}: {subtotal:.05} {subaverage:.05} {pct:.05}%")
-                    })
-                    .join("\n");
-
-                format!("{name}: {total:.05} ({average:.05})\n{substr}")
-            })
-            .join("\n")
+    pub fn push(&mut self, val: (f32, DrawnRegion)) {
+        self.values.push(val)
     }
 }
 
@@ -119,49 +98,61 @@ impl State {
 
         let cfg = DrawConfig {
             line_height: 16.,
+            max_transition_width: 6,
         };
 
         let max_time = BigRational::from_integer(vcd.num_timestamps.clone());
 
         vcd.draw_cursor(&mut painter, response.rect.size(), to_screen);
 
-        // Compute which timestamp to draw in each pixel
-        let timestamps = (0..frame_width as u32).filter_map(|x| {
-            let time = vcd.viewport.to_time(x as f64, frame_width);
-            if time < BigRational::from_float(0.).unwrap() {
-                None
-            }
-            else if time > max_time {
-                None
-            }
-            else {
-                Some((x as f32, time.to_integer().to_biguint().unwrap()))
-            }
-        }).collect::<Vec<_>>();
-
-
+        // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
+        // width + transition_width in order to draw initial transitions outside the screen
+        let timestamps = (-cfg.max_transition_width
+            ..(frame_width as i32 + cfg.max_transition_width))
+            .filter_map(|x| {
+                let time = vcd.viewport.to_time(x as f64, frame_width);
+                if time < BigRational::from_float(0.).unwrap() {
+                    None
+                } else if time > max_time {
+                    None
+                } else {
+                    Some((x as f32, time.to_integer().to_biguint().unwrap()))
+                }
+            })
+            .collect::<Vec<_>>();
 
         let mut timings = TranslationTimings::new();
+
+        let draw_commands = vcd
+            .signals
+            .iter()
+            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
+            .map(|((idx, info), sig)| {
+                let mut prev_values = HashMap::new();
+                for (pixel, time) in timestamps {
+                    if let Ok(val) = sig.query_val_on_tmln(&time, &vcd.inner) {
+                    }
+                }
+            });
 
         for ((idx, info), sig) in vcd
             .signals
             .iter()
             .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
         {
-            vcd.draw_signal(
-                &timestamps,
-                idx,
-                info,
-                &sig,
-                &mut painter,
-                to_screen,
-                &cfg,
-                &mut timings,
-                signal_offsets,
-                &self.translators,
-                msgs
-            );
-
+            // vcd.draw_signal(
+            //     &timestamps,
+            //     idx,
+            //     info,
+            //     &sig,
+            //     &mut painter,
+            //     to_screen,
+            //     &cfg,
+            //     &mut timings,
+            //     signal_offsets,
+            //     &self.translators,
+            //     msgs
+            // );
         }
 
         egui::Window::new("Translation timings")
@@ -219,8 +210,7 @@ impl VcdData {
                     .expect(&format!("Found no y offset for signal {}", signal.name()));
 
                 let abs_point = |x: f32, rel_y: f32| {
-                    to_screen
-                        .transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
+                    to_screen.transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
                 };
 
                 let ctx = DrawingContext {
@@ -232,7 +222,7 @@ impl VcdData {
                 if let Some((old_x, old_val)) = &prev_value {
                     // Force redraw on the last valid pixel to ensure
                     // that the signal gets drawn the whole way
-                    let force_redraw = i == timestamps.len()-1;
+                    let force_redraw = i == timestamps.len() - 1;
                     let draw = force_redraw || old_val != &val;
 
                     if draw {
@@ -256,11 +246,7 @@ impl VcdData {
                         duration.stop();
                         timings.push_timing(&translator.name(), None, duration.secs());
                         for (subname, time) in &translation_result.durations {
-                            timings.push_timing(
-                                &translator.name(),
-                                Some(subname.as_str()),
-                                *time,
-                            )
+                            timings.push_timing(&translator.name(), Some(subname.as_str()), *time)
                         }
 
                         let is_bool = signal.num_bits().unwrap_or(0) == 1;
@@ -379,6 +365,7 @@ impl VcdData {
 
 struct DrawConfig {
     line_height: f32,
+    max_transition_width: i32,
 }
 
 enum ValueKind {
