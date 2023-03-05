@@ -47,6 +47,23 @@ pub enum ValueRepr {
     Array,
 }
 
+pub struct FlatTranslationResult {
+    /// The string representation of the translated result
+    pub this: String,
+    /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
+    /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
+    pub fields: Vec<(Vec<String>, String)>,
+}
+
+impl FlatTranslationResult {
+    pub fn as_fields(self) -> Vec<(Vec<String>, String)> {
+        vec![(vec![], self.this)]
+            .into_iter()
+            .chain(self.fields.into_iter())
+            .collect()
+    }
+}
+
 #[derive(Clone)]
 pub struct TranslationResult {
     pub val: ValueRepr,
@@ -61,31 +78,51 @@ impl TranslationResult {
         self.durations.insert(name.to_string(), val);
     }
 
-    pub fn to_string(&self) -> String {
-        match &self.val {
-            ValueRepr::Bits => format!("BITS PLACEHOLDER"),
-            ValueRepr::String(raw) => raw.clone(),
+    /// Flattens the translation result into path, value pairs
+    pub fn flatten(&self) -> FlatTranslationResult {
+        let subresults = self
+            .subfields
+            .iter()
+            .map(|(n, v)| {
+                let sub = v.flatten();
+                (n, sub)
+            })
+            .collect::<HashMap<_, _>>();
+
+        let string_repr = match self.val {
+            ValueRepr::Bits => "BITS PLACEHOLDER".to_string(),
+            ValueRepr::String(sval) => sval.clone(),
             ValueRepr::Tuple => {
-                format!(
-                    "({})",
-                    self.subfields.iter().map(|(_, f)| f.to_string()).join(", ")
-                )
+                format!("({})", subresults.iter().map(|(n, v)| v.this).join(", "))
             }
             ValueRepr::Struct => {
                 format!(
                     "{{{}}}",
-                    self.subfields
+                    subresults
                         .iter()
-                        .map(|(n, f)| format!("{n}: {}", f.to_string()))
+                        .map(|(n, v)| format!("{n}: {}", v.this))
                         .join(", ")
                 )
             }
             ValueRepr::Array => {
-                format!(
-                    "[{}]",
-                    self.subfields.iter().map(|(_, f)| f.to_string()).join(", ")
-                )
+                format!("[{}]", subresults.iter().map(|(n, v)| v.this).join(", "))
             }
+        };
+
+        FlatTranslationResult {
+            this: string_repr,
+            fields: subresults
+                .into_iter()
+                .flat_map(|(n, sub)| {
+                    sub.as_fields()
+                        .into_iter()
+                        .map(|(mut path, val)| {
+                            path.insert(0, n.clone());
+                            (path, val)
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect(),
         }
     }
 }

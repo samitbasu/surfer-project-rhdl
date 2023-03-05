@@ -161,7 +161,6 @@ struct PyTranslationResult(TranslationResult);
 impl PyTranslationResult {
     #[new]
     fn new() -> Self {
-        println!("Instantiating translation result");
         Self(TranslationResult {
             val: ValueRepr::Bits,
             subfields: vec![],
