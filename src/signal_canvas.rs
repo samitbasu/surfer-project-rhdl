@@ -5,8 +5,8 @@ use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use log::error;
-use num::FromPrimitive;
 use num::{BigRational, BigUint};
+use num::{FromPrimitive, Zero};
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::translation::{SignalInfo, TranslatorList};
@@ -135,6 +135,19 @@ impl State {
                 let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
 
                 let mut prev_values = HashMap::new();
+
+                // In order to insert a final draw command at the end of a trace,
+                // we need to know if this is the last timestamp to draw
+                let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
+                // The first pixel we actually draw is the second pixel in the
+                // list, since we skip one pixel to have a previous value
+                let start_pixel = timestamps
+                    .iter()
+                    .skip(1)
+                    .next()
+                    .map(|t| t.0)
+                    .unwrap_or_default();
+
                 // Iterate over all the time stamps to draw on
                 for ((_, prev_time), (pixel, time)) in
                     timestamps.iter().zip(timestamps.iter().skip(1))
@@ -147,9 +160,12 @@ impl State {
                         continue;
                     };
 
+                    let is_last_timestep = pixel == &end_pixel;
+                    let is_first_timestep = pixel == &start_pixel;
+
                     // Check if the value remains unchanged between this pixel
                     // and the last
-                    if &change_time < prev_time {
+                    if &change_time < prev_time && !is_first_timestep && !is_last_timestep {
                         continue;
                     }
 
@@ -179,7 +195,7 @@ impl State {
                         let prev = prev_values.get(&path);
 
                         // This is not the value we drew last time
-                        if prev != Some(&value) {
+                        if prev != Some(&value) || is_last_timestep {
                             *prev_values.entry(path.clone()).or_insert(value.clone()) =
                                 value.clone();
 
@@ -310,91 +326,6 @@ impl VcdData {
                 stroke,
             )
         }
-    }
-
-    fn draw_signal(
-        &self,
-        timestamps: &[(f32, BigUint)],
-        idx: &SignalIdx,
-        info: &SignalInfo,
-        signal: &Signal,
-        painter: &mut Painter,
-        to_screen: RectTransform,
-        cfg: &DrawConfig,
-        timings: &mut TranslationTimings,
-        signal_offsets: &HashMap<TraceIdx, f32>,
-        translators: &TranslatorList,
-        msgs: &mut Vec<Message>,
-    ) {
-        // let mut prev_value: Option<(f32, SignalValue)> = None;
-
-        // for (i, (x, time)) in timestamps.iter().enumerate() {
-        //     if let Ok(val) = signal.query_val_on_tmln(&time, &self.inner) {
-        //         let y = signal_offsets
-        //             .get(&(*idx, vec![]))
-        //             .expect(&format!("Found no y offset for signal {}", signal.name()));
-
-        //         let abs_point = |x: f32, rel_y: f32| {
-        //             to_screen.transform_pos(Pos2::new(x as f32, y + (1. - rel_y) * cfg.line_height))
-        //         };
-
-        //         let ctx = DrawingContext {
-        //             painter,
-        //             cfg: &cfg,
-        //             abs_point: &abs_point,
-        //         };
-
-        //         if let Some((old_x, old_val)) = &prev_value {
-        //             // Force redraw on the last valid pixel to ensure
-        //             // that the signal gets drawn the whole way
-        //             let force_redraw = i == timestamps.len() - 1;
-        //             let draw = force_redraw || old_val != &val;
-
-        //             if draw {
-        //                 let mut duration = TimedRegion::started();
-        //                 let translator = self.signal_translator(*idx, &translators);
-
-        //                 let translation_result = match translator.translate(&signal, &old_val) {
-        //                     Ok(result) => result,
-        //                     Err(e) => {
-        //                         error!(
-        //                             "{translator_name} for {sig_name} failed. Disabling:",
-        //                             translator_name = translator.name(),
-        //                             sig_name = signal.name()
-        //                         );
-        //                         error!("{e:#}");
-        //                         msgs.push(Message::ResetSignalFormat(*idx));
-        //                         return;
-        //                     }
-        //                 };
-
-        //                 duration.stop();
-        //                 timings.push_timing(&translator.name(), None, duration.secs());
-        //                 for (subname, time) in &translation_result.durations {
-        //                     timings.push_timing(&translator.name(), Some(subname.as_str()), *time)
-        //                 }
-
-        //                 let is_bool = signal.num_bits().unwrap_or(0) == 1;
-
-        //                 if is_bool {
-        //                     self.draw_bool_transition((*old_x, &old_val), (*x, &val), &ctx);
-        //                 } else {
-        //                     self.draw_transition(
-        //                         (*old_x, &old_val),
-        //                         *x,
-        //                         &ctx,
-        //                         &translation_result.to_string(),
-        //                     )
-        //                 }
-        //             }
-        //         }
-
-        //         // Only store the last time if the value is actually changed
-        //         if prev_value.as_ref().map(|(_, v)| v != &val).unwrap_or(true) {
-        //             prev_value = Some((*x, val));
-        //         }
-        //     }
-        // }
     }
 
     // fn draw_bool_transition(
