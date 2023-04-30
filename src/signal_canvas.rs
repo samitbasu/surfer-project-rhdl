@@ -155,7 +155,6 @@ impl State {
 
                     // Perform the translation
                     let mut duration = TimedRegion::started();
-                    let translator = vcd.signal_translator(*idx, &self.translators);
 
                     let translation_result = match translator.translate(&sig, &val) {
                         Ok(result) => result,
@@ -179,9 +178,10 @@ impl State {
                     for (path, value) in fields {
                         let prev = prev_values.get(&path);
 
-                        // This is not the value we draw last time
+                        // This is not the value we drew last time
                         if prev != Some(&value) {
-                            *prev_values.entry(path).or_insert(value) = value;
+                            *prev_values.entry(path.clone()).or_insert(value.clone()) =
+                                value.clone();
 
                             // TODO: Use new_bool for bools
                             local_commands
@@ -207,36 +207,89 @@ impl State {
             .flatten()
             .collect::<Vec<_>>();
 
-        for ((idx, info), sig) in vcd
-            .signals
-            .iter()
-            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
-        {
-            // vcd.draw_signal(
-            //     &timestamps,
-            //     idx,
-            //     info,
-            //     &sig,
-            //     &mut painter,
-            //     to_screen,
-            //     &cfg,
-            //     &mut timings,
-            //     signal_offsets,
-            //     &self.translators,
-            //     msgs
-            // );
+        let mut ctx = DrawingContext {
+            painter: &mut painter,
+            cfg: &cfg,
+            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y)),
+        };
+
+        for (trace, commands) in &draw_commands {
+            let offset = signal_offsets.get(trace);
+            if let Some(offset) = offset {
+                for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
+                    self.draw_command((old, new), *offset, &mut ctx)
+                }
+            }
         }
 
         egui::Window::new("Translation timings")
             .anchor(Align2::RIGHT_BOTTOM, Vec2::ZERO)
             .show(ui.ctx(), |ui| ui.label(timings.format()));
     }
+
+    fn draw_command(
+        &self,
+        ((old_x, prev_region), (new_x, _)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
+        offset: f32,
+        ctx: &mut DrawingContext,
+    ) {
+        let stroke = Stroke {
+            color: prev_region.color,
+            width: 1.,
+            ..Default::default()
+        };
+
+        let transition_width = (new_x - old_x).min(6.) as f32;
+
+        let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
+
+        ctx.painter.add(PathShape::line(
+            vec![
+                trace_coords(*old_x, 0.5),
+                trace_coords(old_x + transition_width / 2., 1.0),
+                trace_coords(new_x - transition_width / 2., 1.0),
+                trace_coords(*new_x, 0.5),
+                trace_coords(new_x - transition_width / 2., 0.0),
+                trace_coords(old_x + transition_width / 2., 0.0),
+                trace_coords(*old_x, 0.5),
+            ],
+            stroke,
+        ));
+
+        let text_size = ctx.cfg.line_height - 5.;
+        let char_width = text_size * (18. / 31.);
+
+        let text_area = (new_x - old_x) as f32 - transition_width;
+        let num_chars = (text_area / char_width).floor();
+        let fits_text = num_chars >= 1.;
+
+        let full_text = &prev_region.value;
+        if fits_text {
+            let content = if full_text.len() > num_chars as usize {
+                full_text
+                    .chars()
+                    .take(num_chars as usize - 1)
+                    .chain(['…'].into_iter())
+                    .collect::<String>()
+            } else {
+                full_text.to_string()
+            };
+
+            ctx.painter.text(
+                trace_coords(*old_x + transition_width, 0.5),
+                Align2::LEFT_CENTER,
+                content,
+                FontId::monospace(text_size),
+                Color32::from_rgb(255, 255, 255),
+            );
+        }
+    }
 }
 
 struct DrawingContext<'a> {
     painter: &'a mut Painter,
     cfg: &'a DrawConfig,
-    abs_point: &'a dyn Fn(f32, f32) -> Pos2,
+    to_screen: &'a dyn Fn(f32, f32) -> Pos2,
 }
 
 impl VcdData {
@@ -344,95 +397,31 @@ impl VcdData {
         // }
     }
 
-    fn draw_bool_transition(
-        &self,
-        (old_x, old_val): (f32, &SignalValue),
-        (new_x, new_val): (f32, &SignalValue),
-        ctx: &DrawingContext,
-    ) {
-        let abs_point = &ctx.abs_point;
-        let (old_height, old_color) = old_val.bool_drawing_spec();
-        let (new_height, _) = new_val.bool_drawing_spec();
+    // fn draw_bool_transition(
+    //     &self,
+    //     (old_x, old_val): (f32, &SignalValue),
+    //     (new_x, new_val): (f32, &SignalValue),
+    //     ctx: &DrawingContext,
+    // ) {
+    //     let abs_point = &ctx.abs_point;
+    //     let (old_height, old_color) = old_val.bool_drawing_spec();
+    //     let (new_height, _) = new_val.bool_drawing_spec();
 
-        let stroke = Stroke {
-            color: old_color,
-            width: 1.,
-            ..Default::default()
-        };
+    //     let stroke = Stroke {
+    //         color: old_color,
+    //         width: 1.,
+    //         ..Default::default()
+    //     };
 
-        ctx.painter.add(PathShape::line(
-            vec![
-                abs_point(old_x as f32, old_height),
-                abs_point(new_x as f32, old_height),
-                abs_point(new_x as f32, new_height),
-            ],
-            stroke,
-        ));
-    }
-
-    fn draw_transition(
-        &self,
-        (old_x, old_val): (f32, &SignalValue),
-        new_x: f32,
-        ctx: &DrawingContext,
-        full_text: &str,
-    ) {
-        let abs_point = ctx.abs_point;
-
-        let stroke_color = match old_val.value_kind() {
-            ValueKind::HighImp => style::c_yellow(),
-            ValueKind::Undef => style::c_red(),
-            ValueKind::Normal => style::c_green(),
-        };
-
-        let stroke = Stroke {
-            color: stroke_color,
-            width: 1.,
-            ..Default::default()
-        };
-
-        let transition_width = (new_x - old_x).min(6.) as f32;
-
-        ctx.painter.add(PathShape::line(
-            vec![
-                abs_point(old_x, 0.5),
-                abs_point(old_x + transition_width / 2., 1.0),
-                abs_point(new_x - transition_width / 2., 1.0),
-                abs_point(new_x, 0.5),
-                abs_point(new_x - transition_width / 2., 0.0),
-                abs_point(old_x + transition_width / 2., 0.0),
-                abs_point(old_x, 0.5),
-            ],
-            stroke,
-        ));
-
-        let text_size = ctx.cfg.line_height - 5.;
-        let char_width = text_size * (18. / 31.);
-
-        let text_area = (new_x - old_x) as f32 - transition_width;
-        let num_chars = (text_area / char_width).floor();
-        let fits_text = num_chars >= 1.;
-
-        if fits_text {
-            let content = if full_text.len() > num_chars as usize {
-                full_text
-                    .chars()
-                    .take(num_chars as usize - 1)
-                    .chain(['…'].into_iter())
-                    .collect::<String>()
-            } else {
-                full_text.to_string()
-            };
-
-            ctx.painter.text(
-                abs_point(old_x as f32 + transition_width, 0.5),
-                Align2::LEFT_CENTER,
-                content,
-                FontId::monospace(text_size),
-                Color32::from_rgb(255, 255, 255),
-            );
-        }
-    }
+    //     ctx.painter.add(PathShape::line(
+    //         vec![
+    //             abs_point(old_x as f32, old_height),
+    //             abs_point(new_x as f32, old_height),
+    //             abs_point(new_x as f32, new_height),
+    //         ],
+    //         stroke,
+    //     ));
+    // }
 }
 
 struct DrawConfig {

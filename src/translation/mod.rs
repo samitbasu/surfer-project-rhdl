@@ -89,11 +89,11 @@ impl TranslationResult {
             })
             .collect::<HashMap<_, _>>();
 
-        let string_repr = match self.val {
+        let string_repr = match &self.val {
             ValueRepr::Bits => "BITS PLACEHOLDER".to_string(),
             ValueRepr::String(sval) => sval.clone(),
             ValueRepr::Tuple => {
-                format!("({})", subresults.iter().map(|(n, v)| v.this).join(", "))
+                format!("({})", subresults.iter().map(|(n, v)| &v.this).join(", "))
             }
             ValueRepr::Struct => {
                 format!(
@@ -105,7 +105,7 @@ impl TranslationResult {
                 )
             }
             ValueRepr::Array => {
-                format!("[{}]", subresults.iter().map(|(n, v)| v.this).join(", "))
+                format!("[{}]", subresults.iter().map(|(n, v)| &v.this).join(", "))
             }
         };
 

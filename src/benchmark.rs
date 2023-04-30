@@ -1,5 +1,6 @@
 use std::{time::Instant, collections::BTreeMap};
 
+use itertools::Itertools;
 use log::warn;
 
 pub struct TimedRegion {
