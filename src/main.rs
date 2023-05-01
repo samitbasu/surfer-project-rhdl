@@ -138,6 +138,7 @@ impl State {
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
+            Box::new(translation::HierarchicalTranslator {})
         ]);
 
         // Long running translators which we load in a thread

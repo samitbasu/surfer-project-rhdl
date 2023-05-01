@@ -3,13 +3,11 @@ use std::collections::HashMap;
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
-use fastwave_backend::{Signal, SignalIdx, SignalValue};
 use log::error;
-use num::{BigRational, BigUint};
-use num::{FromPrimitive, Zero};
+use num::BigRational;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
-use crate::translation::{SignalInfo, TranslatorList};
+use crate::translation::SignalInfo;
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
 
@@ -202,10 +200,12 @@ impl State {
                             // TODO: Use new_bool for bools
                             local_commands
                                 .entry(path)
-                                .or_insert_with(|| if let SignalInfo::Bool = info {
-                                    DrawingCommands::new_bool()
-                                } else {
-                                    DrawingCommands::new_wide()
+                                .or_insert_with(|| {
+                                    if let SignalInfo::Bool = info {
+                                        DrawingCommands::new_bool()
+                                    } else {
+                                        DrawingCommands::new_wide()
+                                    }
                                 })
                                 .push((
                                     *pixel,
@@ -233,14 +233,15 @@ impl State {
             to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y)),
         };
 
+        println!("New frame");
         for (trace, commands) in &draw_commands {
+            println!("Drawing {trace:?}");
             let offset = signal_offsets.get(trace);
             if let Some(offset) = offset {
                 for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
                     if commands.is_bool {
                         self.draw_bool_transition((old, new), *offset, &mut ctx)
-                    }
-                    else {
+                    } else {
                         self.draw_region((old, new), *offset, &mut ctx)
                     }
                 }
@@ -310,7 +311,6 @@ impl State {
         }
     }
 
-
     fn draw_bool_transition(
         &self,
         ((old_x, prev_region), (new_x, new_region)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
@@ -364,7 +364,6 @@ impl VcdData {
             )
         }
     }
-
 }
 
 struct DrawConfig {
@@ -387,11 +386,9 @@ impl SignalExt for String {
     fn value_kind(&self) -> ValueKind {
         if self.to_lowercase().contains("x") {
             ValueKind::Undef
-        }
-        else if self.to_lowercase().contains("z") {
+        } else if self.to_lowercase().contains("z") {
             ValueKind::HighImp
-        }
-        else {
+        } else {
             ValueKind::Normal
         }
     }

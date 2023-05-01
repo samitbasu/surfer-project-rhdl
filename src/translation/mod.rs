@@ -87,7 +87,7 @@ impl TranslationResult {
                 let sub = v.flatten();
                 (n, sub)
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<Vec<_>>();
 
         let string_repr = match &self.val {
             ValueRepr::Bits => "BITS PLACEHOLDER".to_string(),

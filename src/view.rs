@@ -284,7 +284,7 @@ impl State {
                     for (name, info) in subfields {
                         let mut new_path = path.clone();
                         new_path.1.push(name.clone());
-                        self.draw_var(msgs, name, &path, signal_offsets, info, ui, vec![]);
+                        self.draw_var(msgs, name, &new_path, signal_offsets, info, ui, vec![]);
                     }
                 });
 
