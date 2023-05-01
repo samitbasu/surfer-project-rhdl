@@ -202,7 +202,11 @@ impl State {
                             // TODO: Use new_bool for bools
                             local_commands
                                 .entry(path)
-                                .or_insert(DrawingCommands::new_wide())
+                                .or_insert_with(|| if let SignalInfo::Bool = info {
+                                    DrawingCommands::new_bool()
+                                } else {
+                                    DrawingCommands::new_wide()
+                                })
                                 .push((
                                     *pixel,
                                     DrawnRegion {
@@ -233,7 +237,12 @@ impl State {
             let offset = signal_offsets.get(trace);
             if let Some(offset) = offset {
                 for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
-                    self.draw_command((old, new), *offset, &mut ctx)
+                    if commands.is_bool {
+                        self.draw_bool_transition((old, new), *offset, &mut ctx)
+                    }
+                    else {
+                        self.draw_region((old, new), *offset, &mut ctx)
+                    }
                 }
             }
         }
@@ -243,7 +252,7 @@ impl State {
             .show(ui.ctx(), |ui| ui.label(timings.format()));
     }
 
-    fn draw_command(
+    fn draw_region(
         &self,
         ((old_x, prev_region), (new_x, _)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
         offset: f32,
@@ -300,6 +309,34 @@ impl State {
             );
         }
     }
+
+
+    fn draw_bool_transition(
+        &self,
+        ((old_x, prev_region), (new_x, new_region)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
+        offset: f32,
+        ctx: &mut DrawingContext,
+    ) {
+        let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
+
+        let (old_height, old_color) = prev_region.value.bool_drawing_spec();
+        let (new_height, _) = new_region.value.bool_drawing_spec();
+
+        let stroke = Stroke {
+            color: old_color,
+            width: 1.,
+            ..Default::default()
+        };
+
+        ctx.painter.add(PathShape::line(
+            vec![
+                trace_coords(*old_x, old_height),
+                trace_coords(*new_x, old_height),
+                trace_coords(*new_x, new_height),
+            ],
+            stroke,
+        ));
+    }
 }
 
 struct DrawingContext<'a> {
@@ -328,31 +365,6 @@ impl VcdData {
         }
     }
 
-    // fn draw_bool_transition(
-    //     &self,
-    //     (old_x, old_val): (f32, &SignalValue),
-    //     (new_x, new_val): (f32, &SignalValue),
-    //     ctx: &DrawingContext,
-    // ) {
-    //     let abs_point = &ctx.abs_point;
-    //     let (old_height, old_color) = old_val.bool_drawing_spec();
-    //     let (new_height, _) = new_val.bool_drawing_spec();
-
-    //     let stroke = Stroke {
-    //         color: old_color,
-    //         width: 1.,
-    //         ..Default::default()
-    //     };
-
-    //     ctx.painter.add(PathShape::line(
-    //         vec![
-    //             abs_point(old_x as f32, old_height),
-    //             abs_point(new_x as f32, old_height),
-    //             abs_point(new_x as f32, new_height),
-    //         ],
-    //         stroke,
-    //     ));
-    // }
 }
 
 struct DrawConfig {
@@ -371,20 +383,16 @@ trait SignalExt {
     fn bool_drawing_spec(&self) -> (f32, Color32);
 }
 
-impl SignalExt for SignalValue {
+impl SignalExt for String {
     fn value_kind(&self) -> ValueKind {
-        match self {
-            SignalValue::BigUint(_) => ValueKind::Normal,
-            SignalValue::String(s) => {
-                let s_lower = s.to_lowercase();
-                if s_lower.contains("z") {
-                    ValueKind::HighImp
-                } else if s_lower.contains("x") {
-                    ValueKind::Undef
-                } else {
-                    ValueKind::Normal
-                }
-            }
+        if self.to_lowercase().contains("x") {
+            ValueKind::Undef
+        }
+        else if self.to_lowercase().contains("z") {
+            ValueKind::HighImp
+        }
+        else {
+            ValueKind::Normal
         }
     }
 
@@ -393,15 +401,12 @@ impl SignalExt for SignalValue {
         match (self.value_kind(), self) {
             (ValueKind::HighImp, _) => (0.5, style::c_yellow()),
             (ValueKind::Undef, _) => (0.5, style::c_red()),
-            (ValueKind::Normal, SignalValue::BigUint(num)) => {
-                if num == &BigUint::from_u32(0).unwrap() {
+            (ValueKind::Normal, other) => {
+                if other == "0" {
                     (0., style::c_dark_green())
                 } else {
                     (1., style::c_green())
                 }
-            }
-            (ValueKind::Normal, SignalValue::String(_)) => {
-                unreachable!()
             }
         }
     }

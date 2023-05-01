@@ -140,7 +140,7 @@ impl Translator for PyTranslator {
         Ok(result)
     }
 
-    fn signal_info(&self, name: &str) -> Result<SignalInfo> {
+    fn signal_info(&self, _signal: &Signal, name: &str) -> Result<SignalInfo> {
         Python::with_gil(|py| {
             let result = self
                 .instance
@@ -207,7 +207,7 @@ impl PySignalInfo {
     pub fn with_field(&mut self, field: (String, PySignalInfo)) {
         let unpacked = (field.0, field.1 .0);
         match &mut self.0 {
-            SignalInfo::Bits => {
+            SignalInfo::Bits | SignalInfo::Bool => {
                 self.0 = SignalInfo::Compound {
                     subfields: vec![unpacked],
                 }

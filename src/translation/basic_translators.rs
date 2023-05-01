@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{TranslationResult, Translator, ValueRepr};
+use super::{TranslationResult, Translator, ValueRepr, SignalInfo};
 
 use color_eyre::Result;
 use fastwave_backend::{Signal, SignalValue};
@@ -37,6 +37,15 @@ impl Translator for HexTranslator {
         };
         Ok(result)
     }
+
+    fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo> {
+        if signal.num_bits() == Some(1) {
+            Ok(SignalInfo::Bool)
+        }
+        else {
+            Ok(SignalInfo::Bits)
+        }
+    }
 }
 
 pub struct UnsignedTranslator {}
@@ -67,5 +76,14 @@ impl Translator for UnsignedTranslator {
             }
         };
         Ok(result)
+    }
+
+    fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo> {
+        if signal.num_bits() == Some(1) {
+            Ok(SignalInfo::Bool)
+        }
+        else {
+            Ok(SignalInfo::Bits)
+        }
     }
 }

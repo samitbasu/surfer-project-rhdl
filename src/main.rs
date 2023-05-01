@@ -1,8 +1,8 @@
+mod benchmark;
 mod signal_canvas;
 mod translation;
 mod view;
 mod viewport;
-mod benchmark;
 
 use camino::Utf8PathBuf;
 use clap::Parser;
@@ -150,7 +150,9 @@ impl State {
                     vec![(
                         "type_file".to_string(),
                         "/home/frans/Documents/fpga/spadev/build/spade_types.ron".to_string(),
-                    )].into_iter().collect(),
+                    )]
+                    .into_iter()
+                    .collect(),
                 );
                 match pytranslator {
                     Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
@@ -211,8 +213,11 @@ impl State {
             Message::AddSignal(s) => {
                 let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
 
+                let signal = vcd.inner.signal_from_signal_idx(s);
                 let translator = vcd.signal_translator(s, &self.translators);
-                let info = translator.signal_info(&vcd.signal_name(s)).unwrap();
+                let info = translator
+                    .signal_info(&signal, &vcd.signal_name(s))
+                    .unwrap();
                 vcd.signals.push((s, info))
             }
             Message::CanvasScroll { delta } => self.handle_canvas_scroll(delta),
@@ -233,8 +238,11 @@ impl State {
                 if self.translators.inner.contains_key(&format) {
                     *vcd.signal_format.entry(idx).or_default() = format;
 
+                    let signal = vcd.inner.signal_from_signal_idx(idx);
                     let translator = vcd.signal_translator(idx, &self.translators);
-                    let new_info = translator.signal_info(&vcd.signal_name(idx)).unwrap();
+                    let new_info = translator
+                        .signal_info(&signal, &vcd.signal_name(idx))
+                        .unwrap();
                     for (i, info) in &mut vcd.signals {
                         if *i == idx {
                             *info = new_info;
@@ -286,7 +294,7 @@ impl State {
             Message::TranslatorLoaded(t) => {
                 info!("Translator {} loaded", t.name());
                 self.translators.add(t)
-            },
+            }
         }
     }
 

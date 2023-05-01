@@ -134,6 +134,7 @@ pub enum SignalInfo {
         subfields: Vec<(String, SignalInfo)>,
     },
     Bits,
+    Bool,
 }
 
 pub trait Translator {
@@ -144,7 +145,5 @@ pub trait Translator {
 
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult>;
 
-    fn signal_info(&self, _name: &str) -> Result<SignalInfo> {
-        Ok(SignalInfo::Bits)
-    }
+    fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo>;
 }
