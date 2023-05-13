@@ -228,22 +228,8 @@ impl State {
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
                     let name = vcd.inner.signal_from_signal_idx(*sig).name();
-                    let ctx_menu = self
-                        .translators
-                        .names()
-                        .iter()
-                        .map(|t| (t.clone(), Message::SignalFormatChange(*sig, t.clone())))
-                        .collect();
 
-                    self.draw_var(
-                        msgs,
-                        &name,
-                        &(*sig, vec![]),
-                        &mut signal_offsets,
-                        info,
-                        ui,
-                        ctx_menu,
-                    );
+                    self.draw_var(msgs, &name, &(*sig, vec![]), &mut signal_offsets, info, ui);
                 },
             );
         }
@@ -259,11 +245,22 @@ impl State {
         signal_offsets: &mut HashMap<TraceIdx, f32>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
-        context_menu: Vec<(String, Message)>,
     ) {
-        let draw_label = |ui: &mut egui::Ui| {
+        let mut draw_label = |ui: &mut egui::Ui| {
             ui.selectable_label(false, name).context_menu(|ui| {
-                for (name, msg) in context_menu {
+                let ctx_menu = self
+                    .translators
+                    .names()
+                    .iter()
+                    .map(|t| {
+                        (
+                            t.clone(),
+                            Message::SignalFormatChange(path.clone(), t.clone()),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                for (name, msg) in ctx_menu {
                     ui.button(name).clicked().then(|| {
                         ui.close_menu();
                         msgs.push(msg);
@@ -284,7 +281,7 @@ impl State {
                     for (name, info) in subfields {
                         let mut new_path = path.clone();
                         new_path.1.push(name.clone());
-                        self.draw_var(msgs, name, &new_path, signal_offsets, info, ui, vec![]);
+                        self.draw_var(msgs, name, &new_path, signal_offsets, info, ui);
                     }
                 });
 

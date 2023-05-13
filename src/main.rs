@@ -31,6 +31,7 @@ use translation::pytranslator::PyTranslator;
 use translation::SignalInfo;
 use translation::Translator;
 use translation::TranslatorList;
+use view::TraceIdx;
 use viewport::Viewport;
 
 use std::collections::HashMap;
@@ -88,10 +89,12 @@ fn main() -> Result<()> {
 struct VcdData {
     inner: VCD,
     active_scope: Option<ScopeIdx>,
+    /// Root signals to display
     signals: Vec<(SignalIdx, SignalInfo)>,
     viewport: Viewport,
     num_timestamps: BigInt,
-    signal_format: HashMap<SignalIdx, String>,
+    /// Name of the translator used to translate this trace
+    signal_format: HashMap<TraceIdx, String>,
     cursor: Option<BigInt>,
 }
 
@@ -112,9 +115,10 @@ struct State {
 enum Message {
     HierarchyClick(ScopeIdx),
     AddSignal(SignalIdx),
-    SignalFormatChange(SignalIdx, String),
-    // Reset the translator for this signal back to default
-    ResetSignalFormat(SignalIdx),
+    SignalFormatChange(TraceIdx, String),
+    // Reset the translator for this signal back to default. Sub-signals,
+    // i.e. those with the signal idx and a shared path are also reset
+    ResetSignalFormat(TraceIdx),
     CanvasScroll {
         delta: Vec2,
     },
@@ -138,7 +142,7 @@ impl State {
         let translators = TranslatorList::new(vec![
             Box::new(translation::HexTranslator {}),
             Box::new(translation::UnsignedTranslator {}),
-            Box::new(translation::HierarchicalTranslator {})
+            Box::new(translation::HierarchicalTranslator {}),
         ]);
 
         // Long running translators which we load in a thread
@@ -215,7 +219,7 @@ impl State {
                 let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
 
                 let signal = vcd.inner.signal_from_signal_idx(s);
-                let translator = vcd.signal_translator(s, &self.translators);
+                let translator = vcd.signal_translator((s, vec![]), &self.translators);
                 let info = translator
                     .signal_info(&signal, &vcd.signal_name(s))
                     .unwrap();
@@ -230,24 +234,27 @@ impl State {
                     .as_mut()
                     .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
             }
-            Message::SignalFormatChange(idx, format) => {
+            Message::SignalFormatChange(ref idx @ (ref signal_idx, ref path), format) => {
                 let vcd = self
                     .vcd
                     .as_mut()
                     .expect("Signal format change without vcd set");
 
                 if self.translators.inner.contains_key(&format) {
-                    *vcd.signal_format.entry(idx).or_default() = format;
+                    *vcd.signal_format.entry(idx.clone()).or_default() = format;
 
-                    let signal = vcd.inner.signal_from_signal_idx(idx);
-                    let translator = vcd.signal_translator(idx, &self.translators);
-                    let new_info = translator
-                        .signal_info(&signal, &vcd.signal_name(idx))
-                        .unwrap();
-                    for (i, info) in &mut vcd.signals {
-                        if *i == idx {
-                            *info = new_info;
-                            break;
+                    if path.is_empty() {
+                        let signal = vcd.inner.signal_from_signal_idx(idx.0);
+                        let translator = vcd.signal_translator(idx.clone(), &self.translators);
+                        let new_info = translator
+                            .signal_info(&signal, &vcd.signal_name(idx.0))
+                            .unwrap();
+
+                        for (i, info) in &mut vcd.signals {
+                            if i == signal_idx {
+                                *info = new_info;
+                                break;
+                            }
                         }
                     }
                 } else {
@@ -259,11 +266,8 @@ impl State {
                     .vcd
                     .as_mut()
                     .expect("Signal format reset without vcd set");
-                for (i, _) in &mut vcd.signals {
-                    if *i == idx {
-                        vcd.signal_format.remove(&idx);
-                    }
-                }
+
+                vcd.signal_format.remove(&idx);
             }
             Message::CursorSet(new) => {
                 self.vcd.as_mut().map(|vcd| vcd.cursor = Some(new));
@@ -325,7 +329,7 @@ impl VcdData {
 
     pub fn signal_translator<'a>(
         &'a self,
-        sig: SignalIdx,
+        sig: TraceIdx,
         translators: &'a TranslatorList,
     ) -> &'a Box<dyn Translator> {
         let translator_name = self

@@ -9,6 +9,8 @@ pub mod pytranslator;
 pub use basic_translators::*;
 use itertools::Itertools;
 
+use crate::view::TraceIdx;
+
 pub struct TranslatorList {
     pub inner: HashMap<String, Box<dyn Translator>>,
     pub default: String,
@@ -36,7 +38,7 @@ impl TranslatorList {
 #[derive(Clone)]
 pub enum ValueRepr {
     /// The value is raw bits, and can be translated by further translators
-    Bits,
+    Bits(String),
     /// The value is exactly the specified string
     String(String),
     /// Represent the value as (f1, f2, f3...)
@@ -79,21 +81,25 @@ impl TranslationResult {
     }
 
     /// Flattens the translation result into path, value pairs
-    pub fn flatten(&self) -> FlatTranslationResult {
+    pub fn flatten(
+        &self,
+        formats: &HashMap<TraceIdx, String>,
+        translators: &TranslatorList,
+    ) -> FlatTranslationResult {
         let subresults = self
             .subfields
             .iter()
             .map(|(n, v)| {
-                let sub = v.flatten();
+                let sub = v.flatten(formats, translators);
                 (n, sub)
             })
             .collect::<Vec<_>>();
 
         let string_repr = match &self.val {
-            ValueRepr::Bits => "BITS PLACEHOLDER".to_string(),
+            ValueRepr::Bits(bits) => bits.clone(),
             ValueRepr::String(sval) => sval.clone(),
             ValueRepr::Tuple => {
-                format!("({})", subresults.iter().map(|(n, v)| &v.this).join(", "))
+                format!("({})", subresults.iter().map(|(_, v)| &v.this).join(", "))
             }
             ValueRepr::Struct => {
                 format!(
@@ -105,7 +111,7 @@ impl TranslationResult {
                 )
             }
             ValueRepr::Array => {
-                format!("[{}]", subresults.iter().map(|(n, v)| &v.this).join(", "))
+                format!("[{}]", subresults.iter().map(|(_, v)| &v.this).join(", "))
             }
         };
 

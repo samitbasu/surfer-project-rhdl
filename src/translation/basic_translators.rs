@@ -97,17 +97,20 @@ impl Translator for HierarchicalTranslator {
         Ok(true)
     }
 
-    fn translate(&self, _signal: &Signal, _value: &SignalValue) -> Result<TranslationResult> {
+    fn translate(&self, _signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
         Ok(TranslationResult {
             val: ValueRepr::Struct,
             subfields: vec![
                 ("a".to_string(), TranslationResult {
-                    val: ValueRepr::Bits,
+                    val: ValueRepr::Bits(match value {
+                        SignalValue::BigUint(v) => format!("{v:b}"),
+                        SignalValue::String(v) => v.clone(),
+                    }),
                     subfields: vec![],
                     durations: HashMap::new()
                 }),
                 ("b".to_string(), TranslationResult {
-                    val: ValueRepr::Bits,
+                    val: ValueRepr::Bits("11x".to_string()),
                     subfields: vec![],
                     durations: HashMap::new()
                 }),
@@ -115,12 +118,12 @@ impl Translator for HierarchicalTranslator {
                     val: ValueRepr::Tuple,
                     subfields: vec![
                         ("0".to_string(), TranslationResult {
-                            val: ValueRepr::Bits,
+                            val: ValueRepr::Bits("001".to_string()),
                             subfields: vec![],
                             durations: HashMap::new()
                         }),
                         ("1".to_string(), TranslationResult {
-                            val: ValueRepr::Bits,
+                            val: ValueRepr::Bits("1111".to_string()),
                             subfields: vec![],
                             durations: HashMap::new()
                         }),

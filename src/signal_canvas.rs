@@ -128,7 +128,7 @@ impl State {
             // Iterate over the signals, generating draw commands for all the
             // subfields
             .map(|((idx, info), sig)| {
-                let translator = vcd.signal_translator(*idx, &self.translators);
+                let translator = vcd.signal_translator((*idx, vec![]), &self.translators);
 
                 let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
 
@@ -179,7 +179,7 @@ impl State {
                                 sig_name = sig.name()
                             );
                             error!("{e:#}");
-                            msgs.push(Message::ResetSignalFormat(*idx));
+                            msgs.push(Message::ResetSignalFormat((*idx, vec![])));
                             return vec![];
                         }
                     };
@@ -187,7 +187,9 @@ impl State {
                     duration.stop();
                     timings.push_timing(&translator.name(), None, duration.secs());
 
-                    let fields = translation_result.flatten().as_fields();
+                    let fields = translation_result
+                        .flatten(&vcd.signal_format, &self.translators)
+                        .as_fields();
 
                     for (path, value) in fields {
                         let prev = prev_values.get(&path);
@@ -233,9 +235,7 @@ impl State {
             to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y)),
         };
 
-        println!("New frame");
         for (trace, commands) in &draw_commands {
-            println!("Drawing {trace:?}");
             let offset = signal_offsets.get(trace);
             if let Some(offset) = offset {
                 for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
