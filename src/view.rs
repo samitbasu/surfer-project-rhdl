@@ -248,14 +248,18 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.selectable_label(false, name).context_menu(|ui| {
-                let ctx_menu = self
-                    .translators
-                    .names()
+                let available_translators = if path.1.is_empty() {
+                    self.translators.all_translator_names()
+                } else {
+                    self.translators.basic_translator_names()
+                };
+
+                let ctx_menu = available_translators
                     .iter()
                     .map(|t| {
                         (
                             t.clone(),
-                            Message::SignalFormatChange(path.clone(), t.clone()),
+                            Message::SignalFormatChange(path.clone(), t.to_string()),
                         )
                     })
                     .collect::<Vec<_>>();

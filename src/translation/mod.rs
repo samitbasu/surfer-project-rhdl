@@ -12,20 +12,40 @@ use itertools::Itertools;
 use crate::view::TraceIdx;
 
 pub struct TranslatorList {
-    pub inner: HashMap<String, Box<dyn Translator>>,
+    inner: HashMap<String, Box<dyn Translator>>,
+    basic: HashMap<String, Box<dyn BasicTranslator>>,
     pub default: String,
 }
 
 impl TranslatorList {
-    pub fn new(translators: Vec<Box<dyn Translator>>) -> Self {
+    pub fn new(
+        basic: Vec<Box<dyn BasicTranslator>>,
+        translators: Vec<Box<dyn Translator>>,
+    ) -> Self {
         Self {
-            default: translators.first().unwrap().name(),
+            default: basic.first().unwrap().name(),
+            basic: basic.into_iter().map(|t| (t.name(), t)).collect(),
             inner: translators.into_iter().map(|t| (t.name(), t)).collect(),
         }
     }
 
-    pub fn names(&self) -> Vec<String> {
-        self.inner.keys().cloned().collect()
+    pub fn all_translator_names<'a>(&'a self) -> Vec<&'a String> {
+        self.inner.keys().chain(self.basic.keys()).collect()
+    }
+
+    pub fn basic_translator_names<'a>(&'a self) -> Vec<&'a String> {
+        self.basic.keys().collect()
+    }
+
+    pub fn get_translator<'a>(&'a self, name: &'a str) -> &'a dyn Translator {
+        let full = self.inner.get(name);
+        if let Some(full) = full.map(|t| t.as_ref()) {
+            full
+        }
+        else {
+            let basic = self.basic.get(name).unwrap();
+            basic
+        }
     }
 
     pub fn add(&mut self, t: Box<dyn Translator>) {
@@ -152,4 +172,35 @@ pub trait Translator {
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult>;
 
     fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo>;
+}
+
+pub trait BasicTranslator {
+    fn name(&self) -> String;
+    fn translate(&self, num_bits: u64, value: &SignalValue) -> ValueRepr;
+}
+
+impl Translator for Box<dyn BasicTranslator> {
+    fn name(&self) -> String {
+        self.as_ref().name()
+    }
+
+    fn translates(&self, _name: &str) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
+        Ok(TranslationResult {
+            val: self.as_ref().translate(signal.num_bits().unwrap_or(0) as u64, value),
+            subfields: vec![],
+            durations: HashMap::new(),
+        })
+    }
+
+    fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo> {
+        if signal.num_bits() == Some(0) {
+            Ok(SignalInfo::Bool)
+        } else {
+            Ok(SignalInfo::Bits)
+        }
+    }
 }
