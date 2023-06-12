@@ -188,7 +188,7 @@ impl State {
                     timings.push_timing(&translator.name(), None, duration.secs());
 
                     let fields = translation_result
-                        .flatten(&vcd.signal_format, &self.translators)
+                        .flatten((*idx, vec![]), &vcd.signal_format, &self.translators)
                         .as_fields();
 
                     for (path, value) in fields {

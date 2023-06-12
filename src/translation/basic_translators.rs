@@ -4,6 +4,7 @@ use super::{BasicTranslator, SignalInfo, TranslationResult, Translator, ValueRep
 
 use color_eyre::Result;
 use fastwave_backend::{Signal, SignalValue};
+use itertools::Itertools;
 
 pub struct HexTranslator {}
 
@@ -12,12 +13,30 @@ impl BasicTranslator for HexTranslator {
         String::from("Hexadecimal")
     }
 
-    fn translate(&self, num_bits: u64, value: &SignalValue) -> ValueRepr {
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> String {
         match value {
             SignalValue::BigUint(v) => {
-                ValueRepr::String(format!("{v:0width$x}", width = num_bits as usize / 4))
+                format!("{v:0width$x}", width = num_bits as usize / 4)
             }
-            SignalValue::String(s) => ValueRepr::String(s.clone()),
+            SignalValue::String(s) => s
+                .chars()
+                .chunks(4)
+                .into_iter()
+                .map(|c| {
+                    let c = c.collect::<String>();
+                    if c.contains('x') {
+                        "x".to_string()
+                    } else if c.contains('z') {
+                        "z".to_string()
+                    } else {
+                        format!(
+                            "{:x}",
+                            u8::from_str_radix(&c, 2)
+                                .expect("Found non binary digit in value")
+                        )
+                    }
+                })
+                .join(""),
         }
     }
 }
@@ -29,10 +48,10 @@ impl BasicTranslator for UnsignedTranslator {
         String::from("Unsigned")
     }
 
-    fn translate(&self, _num_bits: u64, value: &SignalValue) -> ValueRepr {
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> String {
         match value {
-            SignalValue::BigUint(v) => ValueRepr::String(format!("{v}")),
-            SignalValue::String(s) => ValueRepr::String(s.clone()),
+            SignalValue::BigUint(v) => format!("{v}"),
+            SignalValue::String(s) => s.clone(),
         }
     }
 }
@@ -55,10 +74,13 @@ impl Translator for HierarchicalTranslator {
                 (
                     "a".to_string(),
                     TranslationResult {
-                        val: ValueRepr::Bits(match value {
-                            SignalValue::BigUint(v) => format!("{v:b}"),
-                            SignalValue::String(v) => v.clone(),
-                        }),
+                        val: ValueRepr::Bits(
+                            10,
+                            match value {
+                                SignalValue::BigUint(v) => format!("{v:b}"),
+                                SignalValue::String(v) => v.clone(),
+                            },
+                        ),
                         subfields: vec![],
                         durations: HashMap::new(),
                     },
@@ -66,7 +88,7 @@ impl Translator for HierarchicalTranslator {
                 (
                     "b".to_string(),
                     TranslationResult {
-                        val: ValueRepr::Bits("11x".to_string()),
+                        val: ValueRepr::Bits(3, "11x".to_string()),
                         subfields: vec![],
                         durations: HashMap::new(),
                     },
@@ -79,7 +101,7 @@ impl Translator for HierarchicalTranslator {
                             (
                                 "0".to_string(),
                                 TranslationResult {
-                                    val: ValueRepr::Bits("001".to_string()),
+                                    val: ValueRepr::Bits(3, "001".to_string()),
                                     subfields: vec![],
                                     durations: HashMap::new(),
                                 },
@@ -87,7 +109,7 @@ impl Translator for HierarchicalTranslator {
                             (
                                 "1".to_string(),
                                 TranslationResult {
-                                    val: ValueRepr::Bits("1111".to_string()),
+                                    val: ValueRepr::Bits(4, "1111".to_string()),
                                     subfields: vec![],
                                     durations: HashMap::new(),
                                 },

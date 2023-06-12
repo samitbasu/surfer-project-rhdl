@@ -41,8 +41,7 @@ impl TranslatorList {
         let full = self.inner.get(name);
         if let Some(full) = full.map(|t| t.as_ref()) {
             full
-        }
-        else {
+        } else {
             let basic = self.basic.get(name).unwrap();
             basic
         }
@@ -57,8 +56,8 @@ impl TranslatorList {
 /// be represented by the repr of their subfields
 #[derive(Clone)]
 pub enum ValueRepr {
-    /// The value is raw bits, and can be translated by further translators
-    Bits(String),
+    /// The value is `.0` raw bits, and can be translated by further translators
+    Bits(u64, String),
     /// The value is exactly the specified string
     String(String),
     /// Represent the value as (f1, f2, f3...)
@@ -103,6 +102,7 @@ impl TranslationResult {
     /// Flattens the translation result into path, value pairs
     pub fn flatten(
         &self,
+        path_so_far: TraceIdx,
         formats: &HashMap<TraceIdx, String>,
         translators: &TranslatorList,
     ) -> FlatTranslationResult {
@@ -110,13 +110,33 @@ impl TranslationResult {
             .subfields
             .iter()
             .map(|(n, v)| {
-                let sub = v.flatten(formats, translators);
+                let sub_path = path_so_far
+                    .1
+                    .clone()
+                    .into_iter()
+                    .chain(vec![n.clone()])
+                    .collect();
+
+                let sub = v.flatten((path_so_far.0, sub_path), formats, translators);
                 (n, sub)
             })
             .collect::<Vec<_>>();
 
         let string_repr = match &self.val {
-            ValueRepr::Bits(bits) => bits.clone(),
+            ValueRepr::Bits(bit_count, bits) => {
+                let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
+
+                let subtranslator = translators.basic.get(subtranslator_name).expect(&format!(
+                    "Did not find a translator named {subtranslator_name}"
+                ));
+
+
+                let result = subtranslator
+                    .as_ref()
+                    .basic_translate(*bit_count, &SignalValue::String(bits.clone()));
+
+                result
+            }
             ValueRepr::String(sval) => sval.clone(),
             ValueRepr::Tuple => {
                 format!("({})", subresults.iter().map(|(_, v)| &v.this).join(", "))
@@ -176,7 +196,7 @@ pub trait Translator {
 
 pub trait BasicTranslator {
     fn name(&self) -> String;
-    fn translate(&self, num_bits: u64, value: &SignalValue) -> ValueRepr;
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> String;
 }
 
 impl Translator for Box<dyn BasicTranslator> {
@@ -190,7 +210,10 @@ impl Translator for Box<dyn BasicTranslator> {
 
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
         Ok(TranslationResult {
-            val: self.as_ref().translate(signal.num_bits().unwrap_or(0) as u64, value),
+            val: ValueRepr::String(
+                self.as_ref()
+                    .basic_translate(signal.num_bits().unwrap_or(0) as u64, value),
+            ),
             subfields: vec![],
             durations: HashMap::new(),
         })

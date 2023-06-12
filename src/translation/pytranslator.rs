@@ -163,7 +163,7 @@ impl PyTranslationResult {
     fn new() -> Self {
         Self(TranslationResult {
             // TODO: Set this
-            val: ValueRepr::Bits("".to_string()),
+            val: ValueRepr::Bits(0, "".to_string()),
             subfields: vec![],
             durations: HashMap::new(),
         })
@@ -174,7 +174,7 @@ impl PyTranslationResult {
     }
     fn repr_bits(&mut self) {
         // TODO: Set this
-         self.0.val = ValueRepr::Bits("".to_string())
+         self.0.val = ValueRepr::Bits(0, "".to_string())
     }
     fn repr_tuple(&mut self) {
          self.0.val = ValueRepr::Tuple
