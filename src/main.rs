@@ -31,6 +31,7 @@ use translation::pytranslator::PyTranslator;
 use translation::SignalInfo;
 use translation::Translator;
 use translation::TranslatorList;
+use translation::spade::SpadeTranslator;
 use view::TraceIdx;
 use viewport::Viewport;
 
@@ -45,6 +46,10 @@ use std::sync::Arc;
 #[derive(clap::Parser)]
 struct Args {
     vcd_file: Utf8PathBuf,
+    #[clap(long)]
+    spade_state: Option<Utf8PathBuf>,
+    #[clap(long)]
+    spade_top: Option<String>
 }
 
 fn main() -> Result<()> {
@@ -151,6 +156,17 @@ impl State {
         {
             let sender = sender.clone();
             std::thread::spawn(move || {
+                if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
+                    let t = SpadeTranslator::new(&top, &state);
+                    match t {
+                        Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
+                        Err(e) => sender.send(Message::Error(e)),
+                    }?;
+                }
+                else {
+                    info!("spade-top and spade-state not set, not loading spade translator");
+                }
+
                 let pytranslator = PyTranslator::new(
                     "SurferTranslator",
                     "translation_test.py",

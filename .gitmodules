@@ -1,3 +1,6 @@
 [submodule "FastWaveBackend"]
 	path = FastWaveBackend
 	url = https://github.com/TheZoq2/FastWaveBackend.git
+[submodule "spade"]
+	path = spade
+	url = git@gitlab.com:spade-lang/spade.git

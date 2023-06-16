@@ -5,6 +5,7 @@ use fastwave_backend::{Signal, SignalValue};
 
 mod basic_translators;
 pub mod pytranslator;
+pub mod spade;
 
 pub use basic_translators::*;
 use itertools::Itertools;
@@ -186,9 +187,6 @@ pub enum SignalInfo {
 pub trait Translator {
     fn name(&self) -> String;
 
-    /// Return true if this translator translates the specified signal
-    fn translates(&self, name: &str) -> Result<bool>;
-
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult>;
 
     fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo>;
@@ -202,10 +200,6 @@ pub trait BasicTranslator {
 impl Translator for Box<dyn BasicTranslator> {
     fn name(&self) -> String {
         self.as_ref().name()
-    }
-
-    fn translates(&self, _name: &str) -> Result<bool> {
-        Ok(true)
     }
 
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {

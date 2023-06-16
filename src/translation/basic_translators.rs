@@ -63,10 +63,6 @@ impl Translator for HierarchicalTranslator {
         String::from("HierarchicalTranslator")
     }
 
-    fn translates(&self, _name: &str) -> Result<bool> {
-        Ok(true)
-    }
-
     fn translate(&self, _signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
         Ok(TranslationResult {
             val: ValueRepr::Struct,

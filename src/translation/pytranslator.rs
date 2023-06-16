@@ -65,17 +65,6 @@ impl Translator for PyTranslator {
         self.name.clone()
     }
 
-    fn translates(&self, name: &str) -> Result<bool> {
-        Python::with_gil(|py| {
-            let result = self
-                .instance
-                .call_method1(py, "translates", (name,))
-                .with_context(|| format!("Failed to run translates on {}", self.name))?;
-
-            Ok(result.extract(py)?)
-        })
-    }
-
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
         let mut stringify = TimedRegion::defer();
         let mut gil_lock = TimedRegion::defer();
