@@ -140,6 +140,20 @@ impl Translator for PyTranslator {
             Ok(val.map(|s| s.0).unwrap_or(SignalInfo::Bits))
         })
     }
+
+    fn translates(&self, signal: &Signal) -> Result<bool> {
+        let name = signal.name();
+
+        Python::with_gil(|py| {
+            let result = self
+                .instance
+                .call_method1(py, intern!(py, "translates"), (name,))
+                .with_context(|| format!("Error when running translates on {}", self.name))?;
+
+            let val: bool = result.extract(py)?;
+            Ok(val)
+        })
+    }
 }
 
 #[pyclass(name = "TranslationResult")]

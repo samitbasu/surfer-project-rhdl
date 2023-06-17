@@ -13,8 +13,7 @@ use spade_common::{
     name::{Identifier, NameID, Path},
 };
 use spade_hir_lowering::MirLowerable;
-use spade_types::ConcreteType;
-use vcd_translate::translation::{inner_translate_value, value_from_str};
+use spade_types::{ConcreteType, PrimitiveType};
 
 use super::{SignalInfo, TranslationResult, Translator, ValueRepr};
 
@@ -89,6 +88,17 @@ impl Translator for SpadeTranslator {
 
         info_from_concrete(&ty)
     }
+
+    fn translates(&self, signal: &fastwave_backend::Signal) -> Result<bool> {
+        let ty = self
+            .state
+            .type_of_hierarchical_value(&self.top, &signal.path()[1..])?;
+
+        match ty {
+            ConcreteType::Single { base, params } => Ok(false),
+            _ => Ok(true),
+        }
+    }
 }
 
 fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult> {
@@ -140,6 +150,14 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
             subfields: vec![],
             durations: HashMap::new(),
         },
+        ConcreteType::Single {
+            base: PrimitiveType::Bool | PrimitiveType::Clock,
+            params: _,
+        } => TranslationResult {
+            val: ValueRepr::Bit(val.chars().next().unwrap()),
+            subfields: vec![],
+            durations: HashMap::new(),
+        },
         ConcreteType::Single { base: _, params: _ } | ConcreteType::Integer(_) => {
             TranslationResult {
                 val: ValueRepr::Bits(
@@ -181,6 +199,10 @@ fn info_from_concrete(ty: &ConcreteType) -> Result<SignalInfo> {
                 .collect::<Result<_>>()?,
         },
         ConcreteType::Enum { .. } => SignalInfo::Bits,
+        ConcreteType::Single {
+            base: PrimitiveType::Bool | PrimitiveType::Clock,
+            params: _,
+        } => SignalInfo::Bool,
         ConcreteType::Single { .. } => SignalInfo::Bits,
         ConcreteType::Integer(_) => SignalInfo::Bits,
         ConcreteType::Backward(inner) => info_from_concrete(inner)?,

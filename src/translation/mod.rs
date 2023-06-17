@@ -57,6 +57,7 @@ impl TranslatorList {
 /// be represented by the repr of their subfields
 #[derive(Clone)]
 pub enum ValueRepr {
+    Bit(char),
     /// The value is `.0` raw bits, and can be translated by further translators
     Bits(u64, String),
     /// The value is exactly the specified string
@@ -124,6 +125,9 @@ impl TranslationResult {
             .collect::<Vec<_>>();
 
         let string_repr = match &self.val {
+            ValueRepr::Bit(val) => {
+                format!("{val}")
+            }
             ValueRepr::Bits(bit_count, bits) => {
                 let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
 
@@ -190,6 +194,8 @@ pub trait Translator {
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult>;
 
     fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo>;
+
+    fn translates(&self, signal: &Signal) -> Result<bool>;
 }
 
 pub trait BasicTranslator {
@@ -214,10 +220,14 @@ impl Translator for Box<dyn BasicTranslator> {
     }
 
     fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo> {
-        if signal.num_bits() == Some(0) {
+        if signal.num_bits() == Some(1) {
             Ok(SignalInfo::Bool)
         } else {
             Ok(SignalInfo::Bits)
         }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<bool> {
+        Ok(true)
     }
 }

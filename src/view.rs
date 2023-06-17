@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use color_eyre::eyre::Context;
 use eframe::egui::{self, Align, Layout};
 use fastwave_backend::SignalIdx;
 use log::trace;
@@ -249,7 +250,43 @@ impl State {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.selectable_label(false, name).context_menu(|ui| {
                 let available_translators = if path.1.is_empty() {
-                    self.translators.all_translator_names()
+                    self.translators
+                        .all_translator_names()
+                        .into_iter()
+                        .filter(|translator_name| {
+                            let t = self.translators.get_translator(translator_name);
+
+                            if self
+                                .blacklisted_translators
+                                .contains(&(path.0, (*translator_name).clone()))
+                            {
+                                false
+                            } else {
+                                self.vcd
+                                    .as_ref()
+                                    .map(|vcd| {
+                                        let sig = vcd.inner.signal_from_signal_idx(path.0);
+
+                                        match t.translates(&sig).context(format!(
+                                            "Failed to check if {translator_name} translates {}",
+                                            sig.name(),
+                                        )) {
+                                            Ok(true) => true,
+                                            Ok(false) => false,
+                                            Err(e) => {
+                                                msgs.push(Message::BlacklistTranslator(
+                                                    path.0,
+                                                    (*translator_name).clone(),
+                                                ));
+                                                msgs.push(Message::Error(e));
+                                                false
+                                            }
+                                        }
+                                    })
+                                    .unwrap_or(false)
+                            }
+                        })
+                        .collect()
                 } else {
                     self.translators.basic_translator_names()
                 };

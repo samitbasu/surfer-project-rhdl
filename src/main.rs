@@ -36,6 +36,7 @@ use view::TraceIdx;
 use viewport::Viewport;
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::File;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -121,6 +122,9 @@ enum Message {
     VcdLoaded(Box<VCD>),
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(Box<dyn Translator + Send>),
+    /// Take note that the specified translator errored on a `translates` call on the
+    /// specified signal
+    BlacklistTranslator(SignalIdx, String)
 }
 
 struct State {
@@ -135,6 +139,9 @@ struct State {
 
     /// The number of bytes loaded from the vcd file
     vcd_progess: (Option<u64>, Arc<AtomicU64>),
+
+    // Vector of translators which have failed at the `translates` function for a signal.
+    blacklisted_translators: HashSet<(SignalIdx, String)>,
 }
 
 impl State {
@@ -149,7 +156,7 @@ impl State {
                 Box::new(translation::HexTranslator {}),
                 Box::new(translation::UnsignedTranslator {}),
             ],
-            vec![Box::new(translation::HierarchicalTranslator {})],
+            vec![],
         );
 
         // Long running translators which we load in a thread
@@ -222,6 +229,7 @@ impl State {
             translators,
             msg_receiver: receiver,
             vcd_progess: (total_bytes, progress_bytes),
+            blacklisted_translators: HashSet::new()
         })
     }
 
@@ -310,6 +318,9 @@ impl State {
 
                 self.vcd = Some(new_vcd);
                 info!("Done setting up vcd file");
+            }
+            Message::BlacklistTranslator(idx, translator) => {
+                self.blacklisted_translators.insert((idx, translator));
             }
             Message::Error(e) => {
                 error!("{e:?}")
