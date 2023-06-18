@@ -87,7 +87,10 @@ fn main() -> Result<()> {
         initial_window_size: Some(egui::vec2(1920., 1080.)),
         ..Default::default()
     };
-    eframe::run_native("My egui App", options, Box::new(|_cc| Box::new(state)));
+    eframe::run_native("My egui App", options, Box::new(|cc| {
+        cc.egui_ctx.set_pixels_per_point(2.0);
+        Box::new(state)
+    }));
 
     Ok(())
 }

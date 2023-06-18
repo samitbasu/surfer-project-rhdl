@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use color_eyre::Result;
+use eframe::epaint::Color32;
 use fastwave_backend::{Signal, SignalValue};
 
 mod basic_translators;
@@ -53,6 +54,26 @@ impl TranslatorList {
     }
 }
 
+#[derive(Clone, PartialEq, Copy)]
+pub enum ValueColor {
+    Normal,
+    Undef,
+    HighImp,
+    Custom(Color32),
+    Warn,
+}
+impl ValueColor {
+    pub(crate) fn to_color32(&self) -> Color32 {
+        match self {
+            ValueColor::Normal => Color32::GREEN,
+            ValueColor::Undef => Color32::RED,
+            ValueColor::HighImp => Color32::YELLOW,
+            ValueColor::Warn => Color32::from_rgb(255, 102, 0),
+            ValueColor::Custom(inner) => inner.clone(),
+        }
+    }
+}
+
 /// The representation of the value, compound values can be
 /// be represented by the repr of their subfields
 #[derive(Clone)]
@@ -82,14 +103,14 @@ pub enum ValueRepr {
 
 pub struct FlatTranslationResult {
     /// The string representation of the translated result
-    pub this: Option<String>,
+    pub this: Option<(String, ValueColor)>,
     /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
     /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<(Vec<String>, Option<String>)>,
+    pub fields: Vec<(Vec<String>, Option<(String, ValueColor)>)>,
 }
 
 impl FlatTranslationResult {
-    pub fn as_fields(self) -> Vec<(Vec<String>, Option<String>)> {
+    pub fn as_fields(self) -> Vec<(Vec<String>, Option<(String, ValueColor)>)> {
         vec![(vec![], self.this)]
             .into_iter()
             .chain(self.fields.into_iter())
@@ -101,6 +122,7 @@ impl FlatTranslationResult {
 pub struct TranslationResult {
     pub val: ValueRepr,
     pub subfields: Vec<(String, TranslationResult)>,
+    pub color: ValueColor,
     /// Durations of different steps that were performed by the translator.
     /// Used for benchmarks
     pub durations: HashMap<String, f64>,
@@ -135,7 +157,7 @@ impl TranslationResult {
             .collect::<Vec<_>>();
 
         let string_repr = match &self.val {
-            ValueRepr::Bit(val) => Some(format!("{val}")),
+            ValueRepr::Bit(val) => Some((format!("{val}"), self.color)),
             ValueRepr::Bits(bit_count, bits) => {
                 let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
 
@@ -149,32 +171,52 @@ impl TranslationResult {
 
                 Some(result)
             }
-            ValueRepr::String(sval) => Some(sval.clone()),
-            ValueRepr::Tuple => Some(format!(
-                "({})",
-                subresults
-                    .iter()
-                    .map(|(_, v)| v.this.as_deref().unwrap_or_else(|| "-"))
-                    .join(", ")
+            ValueRepr::String(sval) => Some((sval.clone(), self.color)),
+            ValueRepr::Tuple => Some((
+                format!(
+                    "({})",
+                    subresults
+                        .iter()
+                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-"))
+                        .join(", ")
+                ),
+                self.color,
             )),
-            ValueRepr::Struct => Some(format!(
-                "{{{}}}",
-                subresults
-                    .iter()
-                    .map(|(n, v)| format!("{n}: {}", v.this.as_deref().unwrap_or_else(|| "-")))
-                    .join(", ")
+            ValueRepr::Struct => Some((
+                format!(
+                    "{{{}}}",
+                    subresults
+                        .iter()
+                        .map(|(n, v)| format!(
+                            "{n}: {}",
+                            v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-")
+                        ))
+                        .join(", ")
+                ),
+                self.color,
             )),
-            ValueRepr::Array => Some(format!(
-                "[{}]",
-                subresults
-                    .iter()
-                    .map(|(_, v)| v.this.as_deref().unwrap_or_else(|| "-"))
-                    .join(", ")
+            ValueRepr::Array => Some((
+                format!(
+                    "[{}]",
+                    subresults
+                        .iter()
+                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-"))
+                        .join(", ")
+                ),
+                self.color,
             )),
             ValueRepr::NotPresent => None,
-            ValueRepr::Enum { idx, name } => Some(format!(
-                "{name}{{{}}}",
-                subresults[*idx].1.this.as_deref().unwrap_or_else(|| "-")
+            ValueRepr::Enum { idx, name } => Some((
+                format!(
+                    "{name}{{{}}}",
+                    subresults[*idx]
+                        .1
+                        .this
+                        .as_ref()
+                        .map(|t| t.0.as_str())
+                        .unwrap_or_else(|| "-")
+                ),
+                self.color,
             )),
         };
 
@@ -218,7 +260,7 @@ pub trait Translator {
 
 pub trait BasicTranslator {
     fn name(&self) -> String;
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> String;
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor);
 }
 
 impl Translator for Box<dyn BasicTranslator> {
@@ -227,11 +269,12 @@ impl Translator for Box<dyn BasicTranslator> {
     }
 
     fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
+        let (val, color) = self
+            .as_ref()
+            .basic_translate(signal.num_bits().unwrap_or(0) as u64, value);
         Ok(TranslationResult {
-            val: ValueRepr::String(
-                self.as_ref()
-                    .basic_translate(signal.num_bits().unwrap_or(0) as u64, value),
-            ),
+            val: ValueRepr::String(val),
+            color,
             subfields: vec![],
             durations: HashMap::new(),
         })
@@ -245,7 +288,7 @@ impl Translator for Box<dyn BasicTranslator> {
         }
     }
 
-    fn translates(&self, signal: &Signal) -> Result<bool> {
+    fn translates(&self, _signal: &Signal) -> Result<bool> {
         Ok(true)
     }
 }

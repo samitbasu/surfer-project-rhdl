@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use camino::Utf8Path;
+use eframe::epaint::Color32;
 use num::ToPrimitive;
 use spade::compiler_state::CompilerState;
 
@@ -15,7 +16,7 @@ use spade_common::{
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
-use super::{SignalInfo, TranslationResult, Translator, ValueRepr};
+use super::{SignalInfo, TranslationResult, Translator, ValueColor, ValueRepr};
 
 pub struct SpadeTranslator {
     state: CompilerState,
@@ -78,7 +79,7 @@ impl Translator for SpadeTranslator {
             String::new()
         };
         let val_vcd = format!("{extra_bits}{val_vcd_raw}",);
-        translate_concrete(&val_vcd, &ty)
+        translate_concrete(&val_vcd, &ty, &mut false)
     }
 
     fn signal_info(&self, signal: &fastwave_backend::Signal, _name: &str) -> Result<SignalInfo> {
@@ -112,6 +113,7 @@ fn not_present_enum_fields(
                 TranslationResult {
                     val: ValueRepr::NotPresent,
                     subfields: vec![],
+                    color: ValueColor::Normal,
                     durations: HashMap::new(),
                 },
             )
@@ -119,26 +121,42 @@ fn not_present_enum_fields(
         .collect()
 }
 
-fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult> {
+fn translate_concrete(
+    val: &str,
+    ty: &ConcreteType,
+    problematic: &mut bool,
+) -> Result<TranslationResult> {
+    macro_rules! handle_problematic {
+        () => {
+            if *problematic {
+                ValueColor::Warn
+            } else {
+                ValueColor::Normal
+            }
+        };
+    }
     let mir_ty = ty.to_mir_type();
     let result = match ty {
         ConcreteType::Tuple(inner) => {
             let mut subfields = vec![];
             let mut offset = 0;
             for (i, t) in inner.iter().enumerate() {
+                let mut local_problematic = false;
                 let end = offset
                     + t.to_mir_type()
                         .size()
                         .to_usize()
                         .context(format!("Value is wider than {} bits", usize::MAX))?;
-                let new = translate_concrete(&val[offset..end], t)?;
+                let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
                 offset = end;
                 subfields.push((format!("{i}"), new));
+                *problematic |= local_problematic;
             }
 
             TranslationResult {
                 val: ValueRepr::Tuple,
                 subfields,
+                color: handle_problematic!(),
                 durations: HashMap::new(),
             }
         }
@@ -146,12 +164,14 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
             let mut subfields = vec![];
             let mut offset = 0;
             for (n, t) in members.iter() {
+                let mut local_problematic = false;
                 let end = offset
                     + t.to_mir_type()
                         .size()
                         .to_usize()
                         .context(format!("Value is wider than {} bits", usize::MAX))?;
-                let new = translate_concrete(&val[offset..end], t)?;
+                let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
+                *problematic |= local_problematic;
                 offset = end;
                 subfields.push((n.0.clone(), new));
             }
@@ -159,6 +179,7 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
             TranslationResult {
                 val: ValueRepr::Tuple,
                 subfields,
+                color: ValueColor::Normal,
                 durations: HashMap::new(),
             }
         }
@@ -169,13 +190,15 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
                 .to_usize()
                 .context(format!("Array size is greater than {}", usize::MAX))?
             {
+                let mut local_problematic = false;
                 let end = offset
                     + inner
                         .to_mir_type()
                         .size()
                         .to_usize()
                         .context(format!("Value is wider than {} bits", usize::MAX))?;
-                let new = translate_concrete(&val[offset..end], inner)?;
+                let new = translate_concrete(&val[offset..end], inner, &mut local_problematic)?;
+                *problematic |= local_problematic;
                 offset = end;
                 subfields.push((format!("{n}"), new));
             }
@@ -183,6 +206,7 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
             TranslationResult {
                 val: ValueRepr::Array,
                 subfields,
+                color: handle_problematic!(),
                 durations: HashMap::new(),
             }
         }
@@ -191,15 +215,19 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
             let tag_section = &val[0..tag_size];
             let mut offset = tag_size;
             if tag_section.contains('x') {
+                *problematic = true;
                 TranslationResult {
                     val: ValueRepr::String("UNDEF".to_string()),
                     subfields: not_present_enum_fields(&options),
+                    color: ValueColor::HighImp,
                     durations: HashMap::new(),
                 }
             } else if tag_section.contains('z') {
+                *problematic = true;
                 TranslationResult {
-                    val: ValueRepr::String("UNDEF".to_string()),
+                    val: ValueRepr::String("HIGHIMP".to_string()),
                     subfields: not_present_enum_fields(&options),
+                    color: ValueColor::Undef,
                     durations: HashMap::new(),
                 }
             } else {
@@ -208,9 +236,11 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
                     .with_context(|| format!("Unexpected characters in enum tag {tag_section}"))?;
 
                 if tag > options.len() {
+                    *problematic = true;
                     TranslationResult {
                         val: ValueRepr::String("?TAG".to_string()),
                         subfields: not_present_enum_fields(&options),
+                        color: ValueColor::Undef,
                         durations: HashMap::new(),
                     }
                 } else {
@@ -219,37 +249,41 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
                             idx: tag,
                             name: options[tag].0 .1.tail().0.clone(),
                         },
+                        color: ValueColor::Normal,
                         subfields: options
                             .iter()
                             .enumerate()
                             .map(|(i, (name, fields))| {
                                 let name = name.1.tail().0;
+
+                                let subfields = fields
+                                    .iter()
+                                    .map(|(f_name, f_ty)| {
+                                        let mut local_problematic = false;
+                                        let end = offset
+                                            + f_ty.to_mir_type().size().to_usize().context(
+                                                format!("Value is wider than {} bits", usize::MAX),
+                                            )?;
+                                        let new = translate_concrete(
+                                            &val[offset..end],
+                                            f_ty,
+                                            &mut local_problematic,
+                                        )?;
+                                        offset = end;
+
+                                        *problematic |= local_problematic;
+
+                                        Ok((f_name.0.clone(), new))
+                                    })
+                                    .collect::<Result<_>>()?;
+
                                 let result = if i == tag {
                                     (
                                         name.clone(),
                                         TranslationResult {
                                             val: ValueRepr::Struct,
-                                            subfields: fields
-                                                .iter()
-                                                .map(|(f_name, f_ty)| {
-                                                    let end = offset
-                                                        + f_ty
-                                                            .to_mir_type()
-                                                            .size()
-                                                            .to_usize()
-                                                            .context(format!(
-                                                                "Value is wider than {} bits",
-                                                                usize::MAX
-                                                            ))?;
-                                                    let new = translate_concrete(
-                                                        &val[offset..end],
-                                                        f_ty,
-                                                    )?;
-                                                    offset = end;
-
-                                                    Ok((f_name.0.clone(), new))
-                                                })
-                                                .collect::<Result<_>>()?,
+                                            subfields,
+                                            color: handle_problematic!(),
                                             durations: HashMap::new(),
                                         },
                                     )
@@ -259,6 +293,7 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
                                         TranslationResult {
                                             val: ValueRepr::NotPresent,
                                             subfields: vec![],
+                                            color: handle_problematic!(),
                                             durations: HashMap::new(),
                                         },
                                     )
@@ -276,6 +311,7 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
             params: _,
         } => TranslationResult {
             val: ValueRepr::Bit(val.chars().next().unwrap()),
+            color: ValueColor::Normal,
             subfields: vec![],
             durations: HashMap::new(),
         },
@@ -285,16 +321,18 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
                     mir_ty.size().to_u64().context("Size did not fit in u64")?,
                     val.to_string(),
                 ),
+                color: ValueColor::Normal,
                 subfields: vec![],
                 durations: HashMap::new(),
             }
         }
         ConcreteType::Backward(_) => TranslationResult {
             val: ValueRepr::String("*backward*".to_string()),
+            color: ValueColor::Custom(Color32::from_gray(128)),
             subfields: vec![],
             durations: HashMap::new(),
         },
-        ConcreteType::Wire(inner) => translate_concrete(val, inner)?,
+        ConcreteType::Wire(inner) => translate_concrete(val, inner, problematic)?,
     };
     Ok(result)
 }

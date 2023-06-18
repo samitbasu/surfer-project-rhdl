@@ -7,13 +7,12 @@ use log::error;
 use num::BigRational;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
-use crate::translation::SignalInfo;
+use crate::translation::{SignalInfo, ValueColor};
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
 
 struct DrawnRegion {
-    color: Color32,
-    value: Option<String>,
+    inner: Option<(String, ValueColor)>,
 }
 
 /// List of values to draw for a signal. It is an ordered list of values that should
@@ -209,13 +208,7 @@ impl State {
                                         DrawingCommands::new_wide()
                                     }
                                 })
-                                .push((
-                                    *pixel,
-                                    DrawnRegion {
-                                        value,
-                                        color: Color32::GREEN,
-                                    },
-                                ))
+                                .push((*pixel, DrawnRegion { inner: value }))
                         }
                     }
                 }
@@ -259,9 +252,9 @@ impl State {
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        if let Some(full_text) = &prev_region.value {
+        if let Some((prev_value, prev_color)) = &prev_region.inner {
             let stroke = Stroke {
-                color: prev_region.color,
+                color: prev_color.to_color32(),
                 width: 1.,
                 ..Default::default()
             };
@@ -284,21 +277,21 @@ impl State {
             ));
 
             let text_size = ctx.cfg.line_height - 5.;
-            let char_width = text_size * (18. / 31.);
+            let char_width = text_size * (20. / 31.);
 
             let text_area = (new_x - old_x) as f32 - transition_width;
             let num_chars = (text_area / char_width).floor();
             let fits_text = num_chars >= 1.;
 
             if fits_text {
-                let content = if full_text.len() > num_chars as usize {
-                    full_text
+                let content = if prev_value.len() > num_chars as usize {
+                    prev_value
                         .chars()
                         .take(num_chars as usize - 1)
                         .chain(['…'].into_iter())
                         .collect::<String>()
                 } else {
-                    full_text.to_string()
+                    prev_value.to_string()
                 };
 
                 ctx.painter.text(
@@ -318,7 +311,9 @@ impl State {
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        if let (Some(prev_value), Some(new_value)) = (&prev_region.value, &new_region.value) {
+        if let (Some((prev_value, _)), Some((new_value, _))) =
+            (&prev_region.inner, &new_region.inner)
+        {
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
             let (old_height, old_color) = prev_value.bool_drawing_spec();

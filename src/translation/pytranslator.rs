@@ -14,7 +14,7 @@ use pyo3::{
 
 use crate::benchmark::TimedRegion;
 
-use super::{SignalInfo, TranslationResult, Translator, ValueRepr};
+use super::{SignalInfo, TranslationResult, Translator, ValueRepr, ValueColor};
 
 pub struct PyTranslator {
     name: String,
@@ -169,6 +169,7 @@ impl PyTranslationResult {
             val: ValueRepr::Bits(0, "".to_string()),
             subfields: vec![],
             durations: HashMap::new(),
+            color: ValueColor::Normal
         })
     }
 
