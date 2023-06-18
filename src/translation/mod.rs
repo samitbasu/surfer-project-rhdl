@@ -69,24 +69,27 @@ pub enum ValueRepr {
     /// Represent as a spade-like enum with the specified field being shown.
     /// The index is the index of the option which is currently selected, the name is
     /// the name of that option to avoid having to look that up
-    Enum{idx: usize, name: String},
+    Enum {
+        idx: usize,
+        name: String,
+    },
     /// Represent the value as [f1, f2, f3...]
     Array,
     /// The signal value is not present. This is used to draw signals which are
     /// validated by other signals.
-    NotPresent
+    NotPresent,
 }
 
 pub struct FlatTranslationResult {
     /// The string representation of the translated result
-    pub this: String,
+    pub this: Option<String>,
     /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
     /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<(Vec<String>, String)>,
+    pub fields: Vec<(Vec<String>, Option<String>)>,
 }
 
 impl FlatTranslationResult {
-    pub fn as_fields(self) -> Vec<(Vec<String>, String)> {
+    pub fn as_fields(self) -> Vec<(Vec<String>, Option<String>)> {
         vec![(vec![], self.this)]
             .into_iter()
             .chain(self.fields.into_iter())
@@ -132,9 +135,7 @@ impl TranslationResult {
             .collect::<Vec<_>>();
 
         let string_repr = match &self.val {
-            ValueRepr::Bit(val) => {
-                format!("{val}")
-            }
+            ValueRepr::Bit(val) => Some(format!("{val}")),
             ValueRepr::Bits(bit_count, bits) => {
                 let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
 
@@ -142,35 +143,39 @@ impl TranslationResult {
                     "Did not find a translator named {subtranslator_name}"
                 ));
 
-
                 let result = subtranslator
                     .as_ref()
                     .basic_translate(*bit_count, &SignalValue::String(bits.clone()));
 
-                result
+                Some(result)
             }
-            ValueRepr::String(sval) => sval.clone(),
-            ValueRepr::Tuple => {
-                format!("({})", subresults.iter().map(|(_, v)| &v.this).join(", "))
-            }
-            ValueRepr::Struct => {
-                format!(
-                    "{{{}}}",
-                    subresults
-                        .iter()
-                        .map(|(n, v)| format!("{n}: {}", v.this))
-                        .join(", ")
-                )
-            }
-            ValueRepr::Array => {
-                format!("[{}]", subresults.iter().map(|(_, v)| &v.this).join(", "))
-            }
-            ValueRepr::NotPresent => {
-                format!("-")
-            }
-            ValueRepr::Enum {idx, name} => {
-                format!("{name}{{{}}}", subresults[*idx].1.this)
-            }
+            ValueRepr::String(sval) => Some(sval.clone()),
+            ValueRepr::Tuple => Some(format!(
+                "({})",
+                subresults
+                    .iter()
+                    .map(|(_, v)| v.this.as_deref().unwrap_or_else(|| "-"))
+                    .join(", ")
+            )),
+            ValueRepr::Struct => Some(format!(
+                "{{{}}}",
+                subresults
+                    .iter()
+                    .map(|(n, v)| format!("{n}: {}", v.this.as_deref().unwrap_or_else(|| "-")))
+                    .join(", ")
+            )),
+            ValueRepr::Array => Some(format!(
+                "[{}]",
+                subresults
+                    .iter()
+                    .map(|(_, v)| v.this.as_deref().unwrap_or_else(|| "-"))
+                    .join(", ")
+            )),
+            ValueRepr::NotPresent => None,
+            ValueRepr::Enum { idx, name } => Some(format!(
+                "{name}{{{}}}",
+                subresults[*idx].1.this.as_deref().unwrap_or_else(|| "-")
+            )),
         };
 
         FlatTranslationResult {

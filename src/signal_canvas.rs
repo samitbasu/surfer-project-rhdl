@@ -13,7 +13,7 @@ use crate::{Message, State, VcdData};
 
 struct DrawnRegion {
     color: Color32,
-    value: String,
+    value: Option<String>,
 }
 
 /// List of values to draw for a signal. It is an ordered list of values that should
@@ -259,55 +259,56 @@ impl State {
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        let stroke = Stroke {
-            color: prev_region.color,
-            width: 1.,
-            ..Default::default()
-        };
-
-        let transition_width = (new_x - old_x).min(6.) as f32;
-
-        let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
-
-        ctx.painter.add(PathShape::line(
-            vec![
-                trace_coords(*old_x, 0.5),
-                trace_coords(old_x + transition_width / 2., 1.0),
-                trace_coords(new_x - transition_width / 2., 1.0),
-                trace_coords(*new_x, 0.5),
-                trace_coords(new_x - transition_width / 2., 0.0),
-                trace_coords(old_x + transition_width / 2., 0.0),
-                trace_coords(*old_x, 0.5),
-            ],
-            stroke,
-        ));
-
-        let text_size = ctx.cfg.line_height - 5.;
-        let char_width = text_size * (18. / 31.);
-
-        let text_area = (new_x - old_x) as f32 - transition_width;
-        let num_chars = (text_area / char_width).floor();
-        let fits_text = num_chars >= 1.;
-
-        let full_text = &prev_region.value;
-        if fits_text {
-            let content = if full_text.len() > num_chars as usize {
-                full_text
-                    .chars()
-                    .take(num_chars as usize - 1)
-                    .chain(['…'].into_iter())
-                    .collect::<String>()
-            } else {
-                full_text.to_string()
+        if let Some(full_text) = &prev_region.value {
+            let stroke = Stroke {
+                color: prev_region.color,
+                width: 1.,
+                ..Default::default()
             };
 
-            ctx.painter.text(
-                trace_coords(*old_x + transition_width, 0.5),
-                Align2::LEFT_CENTER,
-                content,
-                FontId::monospace(text_size),
-                Color32::from_rgb(255, 255, 255),
-            );
+            let transition_width = (new_x - old_x).min(6.) as f32;
+
+            let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
+
+            ctx.painter.add(PathShape::line(
+                vec![
+                    trace_coords(*old_x, 0.5),
+                    trace_coords(old_x + transition_width / 2., 1.0),
+                    trace_coords(new_x - transition_width / 2., 1.0),
+                    trace_coords(*new_x, 0.5),
+                    trace_coords(new_x - transition_width / 2., 0.0),
+                    trace_coords(old_x + transition_width / 2., 0.0),
+                    trace_coords(*old_x, 0.5),
+                ],
+                stroke,
+            ));
+
+            let text_size = ctx.cfg.line_height - 5.;
+            let char_width = text_size * (18. / 31.);
+
+            let text_area = (new_x - old_x) as f32 - transition_width;
+            let num_chars = (text_area / char_width).floor();
+            let fits_text = num_chars >= 1.;
+
+            if fits_text {
+                let content = if full_text.len() > num_chars as usize {
+                    full_text
+                        .chars()
+                        .take(num_chars as usize - 1)
+                        .chain(['…'].into_iter())
+                        .collect::<String>()
+                } else {
+                    full_text.to_string()
+                };
+
+                ctx.painter.text(
+                    trace_coords(*old_x + transition_width, 0.5),
+                    Align2::LEFT_CENTER,
+                    content,
+                    FontId::monospace(text_size),
+                    Color32::from_rgb(255, 255, 255),
+                );
+            }
         }
     }
 
@@ -317,25 +318,27 @@ impl State {
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
+        if let (Some(prev_value), Some(new_value)) = (&prev_region.value, &new_region.value) {
+            let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
-        let (old_height, old_color) = prev_region.value.bool_drawing_spec();
-        let (new_height, _) = new_region.value.bool_drawing_spec();
+            let (old_height, old_color) = prev_value.bool_drawing_spec();
+            let (new_height, _) = new_value.bool_drawing_spec();
 
-        let stroke = Stroke {
-            color: old_color,
-            width: 1.,
-            ..Default::default()
-        };
+            let stroke = Stroke {
+                color: old_color,
+                width: 1.,
+                ..Default::default()
+            };
 
-        ctx.painter.add(PathShape::line(
-            vec![
-                trace_coords(*old_x, old_height),
-                trace_coords(*new_x, old_height),
-                trace_coords(*new_x, new_height),
-            ],
-            stroke,
-        ));
+            ctx.painter.add(PathShape::line(
+                vec![
+                    trace_coords(*old_x, old_height),
+                    trace_coords(*new_x, old_height),
+                    trace_coords(*new_x, new_height),
+                ],
+                stroke,
+            ));
+        }
     }
 }
 
