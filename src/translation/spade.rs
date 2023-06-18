@@ -95,10 +95,28 @@ impl Translator for SpadeTranslator {
             .type_of_hierarchical_value(&self.top, &signal.path()[1..])?;
 
         match ty {
-            ConcreteType::Single { base, params } => Ok(false),
+            ConcreteType::Single { base: _, params: _ } => Ok(false),
             _ => Ok(true),
         }
     }
+}
+
+fn not_present_enum_fields(
+    options: &Vec<(NameID, Vec<(Identifier, ConcreteType)>)>,
+) -> Vec<(String, TranslationResult)> {
+    options
+        .iter()
+        .map(|(opt_name, _opt_fields)| {
+            (
+                opt_name.1.tail().0.clone(),
+                TranslationResult {
+                    val: ValueRepr::NotPresent,
+                    subfields: vec![],
+                    durations: HashMap::new(),
+                },
+            )
+        })
+        .collect()
 }
 
 fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult> {
@@ -124,7 +142,7 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
                 durations: HashMap::new(),
             }
         }
-        ConcreteType::Struct { name, members } => {
+        ConcreteType::Struct { name: _, members } => {
             let mut subfields = vec![];
             let mut offset = 0;
             for (n, t) in members.iter() {
@@ -144,12 +162,115 @@ fn translate_concrete(val: &str, ty: &ConcreteType) -> Result<TranslationResult>
                 durations: HashMap::new(),
             }
         }
-        ConcreteType::Array { inner, size } => todo!(),
-        ConcreteType::Enum { options } => TranslationResult {
-            val: ValueRepr::String(format!("Enums not yet handled")),
-            subfields: vec![],
-            durations: HashMap::new(),
-        },
+        ConcreteType::Array { inner, size } => {
+            let mut subfields = vec![];
+            let mut offset = 0;
+            for n in 0..size
+                .to_usize()
+                .context(format!("Array size is greater than {}", usize::MAX))?
+            {
+                let end = offset
+                    + inner
+                        .to_mir_type()
+                        .size()
+                        .to_usize()
+                        .context(format!("Value is wider than {} bits", usize::MAX))?;
+                let new = translate_concrete(&val[offset..end], inner)?;
+                offset = end;
+                subfields.push((format!("{n}"), new));
+            }
+
+            TranslationResult {
+                val: ValueRepr::Array,
+                subfields,
+                durations: HashMap::new(),
+            }
+        }
+        ConcreteType::Enum { options } => {
+            let tag_size = (options.len() as f32).log2().ceil() as usize;
+            let tag_section = &val[0..tag_size];
+            let mut offset = tag_size;
+            if tag_section.contains('x') {
+                TranslationResult {
+                    val: ValueRepr::String("UNDEF".to_string()),
+                    subfields: not_present_enum_fields(&options),
+                    durations: HashMap::new(),
+                }
+            } else if tag_section.contains('z') {
+                TranslationResult {
+                    val: ValueRepr::String("UNDEF".to_string()),
+                    subfields: not_present_enum_fields(&options),
+                    durations: HashMap::new(),
+                }
+            } else {
+                let tag = tag_section
+                    .parse::<usize>()
+                    .with_context(|| format!("Unexpected characters in enum tag {tag_section}"))?;
+
+                if tag > options.len() {
+                    TranslationResult {
+                        val: ValueRepr::String("?TAG".to_string()),
+                        subfields: not_present_enum_fields(&options),
+                        durations: HashMap::new(),
+                    }
+                } else {
+                    TranslationResult {
+                        val: ValueRepr::Enum {
+                            idx: tag,
+                            name: options[tag].0 .1.tail().0.clone(),
+                        },
+                        subfields: options
+                            .iter()
+                            .enumerate()
+                            .map(|(i, (name, fields))| {
+                                let name = name.1.tail().0;
+                                let result = if i == tag {
+                                    (
+                                        name.clone(),
+                                        TranslationResult {
+                                            val: ValueRepr::Struct,
+                                            subfields: fields
+                                                .iter()
+                                                .map(|(f_name, f_ty)| {
+                                                    let end = offset
+                                                        + f_ty
+                                                            .to_mir_type()
+                                                            .size()
+                                                            .to_usize()
+                                                            .context(format!(
+                                                                "Value is wider than {} bits",
+                                                                usize::MAX
+                                                            ))?;
+                                                    let new = translate_concrete(
+                                                        &val[offset..end],
+                                                        f_ty,
+                                                    )?;
+                                                    offset = end;
+
+                                                    Ok((f_name.0.clone(), new))
+                                                })
+                                                .collect::<Result<_>>()?,
+                                            durations: HashMap::new(),
+                                        },
+                                    )
+                                } else {
+                                    (
+                                        name.clone(),
+                                        TranslationResult {
+                                            val: ValueRepr::NotPresent,
+                                            subfields: vec![],
+                                            durations: HashMap::new(),
+                                        },
+                                    )
+                                };
+                                Ok(result)
+                            })
+                            .collect::<Result<_>>()?,
+                        durations: HashMap::new(),
+                    }
+                }
+            }
+        }
         ConcreteType::Single {
             base: PrimitiveType::Bool | PrimitiveType::Clock,
             params: _,
@@ -198,7 +319,24 @@ fn info_from_concrete(ty: &ConcreteType) -> Result<SignalInfo> {
                 .map(|i| Ok((format!("{i}"), info_from_concrete(inner)?)))
                 .collect::<Result<_>>()?,
         },
-        ConcreteType::Enum { .. } => SignalInfo::Bits,
+        ConcreteType::Enum { options } => SignalInfo::Compound {
+            subfields: options
+                .iter()
+                .map(|(name, fields)| {
+                    Ok((
+                        name.1.tail().0.clone(),
+                        SignalInfo::Compound {
+                            subfields: fields
+                                .iter()
+                                .map(|(f_name, f_ty)| {
+                                    Ok((f_name.0.clone(), info_from_concrete(f_ty)?))
+                                })
+                                .collect::<Result<_>>()?,
+                        },
+                    ))
+                })
+                .collect::<Result<_>>()?,
+        },
         ConcreteType::Single {
             base: PrimitiveType::Bool | PrimitiveType::Clock,
             params: _,

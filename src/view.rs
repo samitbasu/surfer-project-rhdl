@@ -268,8 +268,8 @@ impl State {
                                         let sig = vcd.inner.signal_from_signal_idx(path.0);
 
                                         match t.translates(&sig).context(format!(
-                                            "Failed to check if {translator_name} translates {}",
-                                            sig.name(),
+                                            "Failed to check if {translator_name} translates {:?}",
+                                            sig.path(),
                                         )) {
                                             Ok(true) => true,
                                             Ok(false) => false,

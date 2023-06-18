@@ -66,8 +66,15 @@ pub enum ValueRepr {
     Tuple,
     /// Represent the value as {f1: v1, f2: v2, f3: v3...}
     Struct,
+    /// Represent as a spade-like enum with the specified field being shown.
+    /// The index is the index of the option which is currently selected, the name is
+    /// the name of that option to avoid having to look that up
+    Enum{idx: usize, name: String},
     /// Represent the value as [f1, f2, f3...]
     Array,
+    /// The signal value is not present. This is used to draw signals which are
+    /// validated by other signals.
+    NotPresent
 }
 
 pub struct FlatTranslationResult {
@@ -157,6 +164,12 @@ impl TranslationResult {
             }
             ValueRepr::Array => {
                 format!("[{}]", subresults.iter().map(|(_, v)| &v.this).join(", "))
+            }
+            ValueRepr::NotPresent => {
+                format!("-")
+            }
+            ValueRepr::Enum {idx, name} => {
+                format!("{name}{{{}}}", subresults[*idx].1.this)
             }
         };
 
