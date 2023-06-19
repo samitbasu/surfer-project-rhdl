@@ -24,7 +24,7 @@ impl Viewport {
         let time_spacing = (right - left) / view_width as f64;
 
         let time = left + time_spacing * x;
-        BigRational::from_f64(time).unwrap()
+        BigRational::from_f64(time).unwrap_or_else(|| BigRational::from_f64(1.0f64).unwrap())
     }
 
     pub fn from_time(&self, time: &BigInt, view_width: f64) -> f64 {
