@@ -179,7 +179,7 @@ fn translate_concrete(
             TranslationResult {
                 val: ValueRepr::Tuple,
                 subfields,
-                color: ValueColor::Normal,
+                color: handle_problematic!(),
                 durations: HashMap::new(),
             }
         }

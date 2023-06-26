@@ -66,14 +66,18 @@ impl BasicTranslator for UnsignedTranslator {
         match value {
             SignalValue::BigUint(v) => (format!("{v}"), ValueColor::Normal),
             SignalValue::String(s) => {
-                let color = if s.contains("x") {
-                    ValueColor::Undef
+                if s.contains("x") {
+                    (format!("UNDEF"), ValueColor::Undef)
                 } else if s.contains("z") {
-                    ValueColor::HighImp
+                    (format!("HIGHIMP"), ValueColor::HighImp)
                 } else {
-                    ValueColor::Normal
-                };
-                (format!("0b{}", s), color)
+                    (
+                        s.parse::<u128>()
+                            .map(|val| format!("{val}"))
+                            .unwrap_or(s.clone()),
+                        ValueColor::Normal,
+                    )
+                }
             }
         }
     }

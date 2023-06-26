@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use color_eyre::eyre::Context;
 use eframe::egui::{self, Align, Layout};
 use fastwave_backend::SignalIdx;
+use itertools::Itertools;
 use log::trace;
 
 use crate::{translation::SignalInfo, Message, State, VcdData};
@@ -200,16 +201,26 @@ impl State {
 
     fn draw_signal_list(&self, msgs: &mut Vec<Message>, vcd: &VcdData, ui: &mut egui::Ui) {
         if let Some(idx) = vcd.active_scope {
-            for sig in vcd.inner.get_children_signal_idxs(idx) {
+            let signals = vcd.inner.get_children_signal_idxs(idx);
+            let listed = signals
+                .iter()
+                .filter_map(|sig| {
+                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
+                    if !name.starts_with("_e_") {
+                        Some((sig, name.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .sorted_by_key(|(_, name)| name.clone());
+
+            for (sig, name) in listed {
                 ui.with_layout(
                     Layout::top_down(Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        ui.add(egui::SelectableLabel::new(
-                            false,
-                            vcd.inner.signal_from_signal_idx(sig).name(),
-                        ))
-                        .clicked()
-                        .then(|| msgs.push(Message::AddSignal(sig)))
+                        ui.add(egui::SelectableLabel::new(false, name))
+                            .clicked()
+                            .then(|| msgs.push(Message::AddSignal(*sig)));
                     },
                 );
             }
