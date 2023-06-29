@@ -16,7 +16,9 @@ use spade_common::{
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
-use super::{SignalInfo, TranslationResult, Translator, ValueColor, ValueRepr, TranslationPreference};
+use super::{
+    SignalInfo, TranslationPreference, TranslationResult, Translator, ValueColor, ValueRepr,
+};
 
 pub struct SpadeTranslator {
     state: CompilerState,
@@ -102,17 +104,56 @@ impl Translator for SpadeTranslator {
     }
 }
 
+fn not_present_value(ty: &ConcreteType) -> TranslationResult {
+    let subfields = match ty {
+        ConcreteType::Tuple(inner) => inner
+            .iter()
+            .enumerate()
+            .map(|(i, t)| (format!("{i}"), not_present_value(t)))
+            .collect(),
+        ConcreteType::Struct { name: _, members } => members
+            .iter()
+            .map(|(n, t)| (format!("{n}"), not_present_value(t)))
+            .collect(),
+        ConcreteType::Array { inner, size } => (0..(size.to_u64().unwrap()))
+            .map(|i| (format!("{i}"), not_present_value(inner)))
+            .collect(),
+        ConcreteType::Enum { options } => not_present_enum_options(options),
+        ConcreteType::Single { .. } => vec![],
+        ConcreteType::Integer(_) => vec![],
+        ConcreteType::Backward(inner) | ConcreteType::Wire(inner) => {
+            not_present_value(inner).subfields
+        }
+    };
+
+    TranslationResult {
+        val: ValueRepr::NotPresent,
+        subfields,
+        color: ValueColor::Normal,
+        durations: HashMap::new(),
+    }
+}
+
 fn not_present_enum_fields(
+    fields: &[(Identifier, ConcreteType)],
+) -> Vec<(String, TranslationResult)> {
+    fields
+        .iter()
+        .map(|(name, ty)| (name.0.clone(), not_present_value(ty)))
+        .collect()
+}
+
+fn not_present_enum_options(
     options: &Vec<(NameID, Vec<(Identifier, ConcreteType)>)>,
 ) -> Vec<(String, TranslationResult)> {
     options
         .iter()
-        .map(|(opt_name, _opt_fields)| {
+        .map(|(opt_name, opt_fields)| {
             (
                 opt_name.1.tail().0.clone(),
                 TranslationResult {
                     val: ValueRepr::NotPresent,
-                    subfields: vec![],
+                    subfields: not_present_enum_fields(opt_fields),
                     color: ValueColor::Normal,
                     durations: HashMap::new(),
                 },
@@ -217,7 +258,7 @@ fn translate_concrete(
                 *problematic = true;
                 TranslationResult {
                     val: ValueRepr::String(format!("xTAG(0b{tag_section})")),
-                    subfields: not_present_enum_fields(&options),
+                    subfields: not_present_enum_options(&options),
                     color: ValueColor::Undef,
                     durations: HashMap::new(),
                 }
@@ -225,7 +266,7 @@ fn translate_concrete(
                 *problematic = true;
                 TranslationResult {
                     val: ValueRepr::String(format!("zTAG(0b{tag_section})")),
-                    subfields: not_present_enum_fields(&options),
+                    subfields: not_present_enum_options(&options),
                     color: ValueColor::HighImp,
                     durations: HashMap::new(),
                 }
@@ -237,7 +278,7 @@ fn translate_concrete(
                     *problematic = true;
                     TranslationResult {
                         val: ValueRepr::String(format!("?TAG(0b{tag_section})")),
-                        subfields: not_present_enum_fields(&options),
+                        subfields: not_present_enum_options(&options),
                         color: ValueColor::Undef,
                         durations: HashMap::new(),
                     }
@@ -291,7 +332,7 @@ fn translate_concrete(
                                         name.clone(),
                                         TranslationResult {
                                             val: ValueRepr::NotPresent,
-                                            subfields: vec![],
+                                            subfields: not_present_enum_fields(fields),
                                             color: handle_problematic!(),
                                             durations: HashMap::new(),
                                         },

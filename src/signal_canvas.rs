@@ -198,7 +198,6 @@ impl State {
                             *prev_values.entry(path.clone()).or_insert(value.clone()) =
                                 value.clone();
 
-                            // TODO: Use new_bool for bools
                             local_commands
                                 .entry(path)
                                 .or_insert_with(|| {
