@@ -16,7 +16,7 @@ use spade_common::{
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
-use super::{SignalInfo, TranslationResult, Translator, ValueColor, ValueRepr};
+use super::{SignalInfo, TranslationResult, Translator, ValueColor, ValueRepr, TranslationPreference};
 
 pub struct SpadeTranslator {
     state: CompilerState,
@@ -67,7 +67,7 @@ impl Translator for SpadeTranslator {
             .context("Type size does not fit in usize")?;
         let extra_bits = if ty_size > val_vcd_raw.len() {
             let extra_count = ty_size - val_vcd_raw.len();
-            let extra_value = match val_vcd_raw.chars().last() {
+            let extra_value = match val_vcd_raw.chars().next() {
                 Some('0') => "0",
                 Some('1') => "0",
                 Some('x') => "x",
@@ -90,14 +90,14 @@ impl Translator for SpadeTranslator {
         info_from_concrete(&ty)
     }
 
-    fn translates(&self, signal: &fastwave_backend::Signal) -> Result<bool> {
+    fn translates(&self, signal: &fastwave_backend::Signal) -> Result<TranslationPreference> {
         let ty = self
             .state
             .type_of_hierarchical_value(&self.top, &signal.path()[1..])?;
 
         match ty {
-            ConcreteType::Single { base: _, params: _ } => Ok(false),
-            _ => Ok(true),
+            ConcreteType::Single { base: _, params: _ } => Ok(TranslationPreference::No),
+            _ => Ok(TranslationPreference::Prefer),
         }
     }
 }
@@ -213,32 +213,30 @@ fn translate_concrete(
         ConcreteType::Enum { options } => {
             let tag_size = (options.len() as f32).log2().ceil() as usize;
             let tag_section = &val[0..tag_size];
-            let mut offset = tag_size;
             if tag_section.contains('x') {
                 *problematic = true;
                 TranslationResult {
-                    val: ValueRepr::String("UNDEF".to_string()),
+                    val: ValueRepr::String(format!("xTAG(0b{tag_section})")),
                     subfields: not_present_enum_fields(&options),
-                    color: ValueColor::HighImp,
+                    color: ValueColor::Undef,
                     durations: HashMap::new(),
                 }
             } else if tag_section.contains('z') {
                 *problematic = true;
                 TranslationResult {
-                    val: ValueRepr::String("HIGHIMP".to_string()),
+                    val: ValueRepr::String(format!("zTAG(0b{tag_section})")),
                     subfields: not_present_enum_fields(&options),
-                    color: ValueColor::Undef,
+                    color: ValueColor::HighImp,
                     durations: HashMap::new(),
                 }
             } else {
-                let tag = tag_section
-                    .parse::<usize>()
+                let tag = usize::from_str_radix(tag_section, 2)
                     .with_context(|| format!("Unexpected characters in enum tag {tag_section}"))?;
 
                 if tag > options.len() {
                     *problematic = true;
                     TranslationResult {
-                        val: ValueRepr::String("?TAG".to_string()),
+                        val: ValueRepr::String(format!("?TAG(0b{tag_section})")),
                         subfields: not_present_enum_fields(&options),
                         color: ValueColor::Undef,
                         durations: HashMap::new(),
@@ -255,6 +253,7 @@ fn translate_concrete(
                             .enumerate()
                             .map(|(i, (name, fields))| {
                                 let name = name.1.tail().0;
+                                let mut offset = tag_size;
 
                                 let subfields = fields
                                     .iter()

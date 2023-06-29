@@ -82,3 +82,51 @@ impl BasicTranslator for UnsignedTranslator {
         }
     }
 }
+
+
+pub struct ExtendingBinaryTranslator {}
+
+
+impl BasicTranslator for ExtendingBinaryTranslator {
+    fn name(&self) -> String {
+        String::from("Binary (with extension)")
+    }
+
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+        let (val, color) = match value {
+            SignalValue::BigUint(v) => (format!("{v:b}"), ValueColor::Normal),
+            SignalValue::String(s) => {
+                let val = s.clone();
+                if s.contains("x") {
+                    (val, ValueColor::Undef)
+                } else if s.contains("z") {
+                    (val, ValueColor::HighImp)
+                } else {
+                    (
+                        val,
+                        ValueColor::Normal,
+                    )
+                }
+            }
+        };
+
+        // VCD spec'd bit extension
+        let extra_bits = if num_bits > val.len() as u64 {
+            let extra_count = num_bits - val.len() as u64;
+            let extra_value = match val.chars().next() {
+                Some('0') => "0",
+                Some('1') => "0",
+                Some('x') => "x",
+                Some('z') => "z",
+                // If we got weird characters, this is probably a string, so we don't
+                // do the extension
+                _ => "",
+            };
+            extra_value.repeat(extra_count as usize)
+        } else {
+            String::new()
+        };
+
+        (format!("{extra_bits}{val}").chars().chunks(4).into_iter().map(|mut c| c.join("")).join(" "), color)
+    }
+}

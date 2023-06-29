@@ -248,6 +248,26 @@ pub enum SignalInfo {
     Bool,
 }
 
+pub enum TranslationPreference {
+    /// This translator prefers translating the signal, so it will be selected
+    /// as the default translator for the signal
+    Prefer,
+    /// This translator is able to translate the signal, but will not be
+    /// selected by default, the user has to select it
+    Yes,
+    No,
+}
+
+impl TranslationPreference {
+    fn translates(&self) -> bool {
+        match self {
+            TranslationPreference::Prefer => true,
+            TranslationPreference::Yes => true,
+            TranslationPreference::No => false,
+        }
+    }
+}
+
 pub trait Translator {
     fn name(&self) -> String;
 
@@ -255,7 +275,7 @@ pub trait Translator {
 
     fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo>;
 
-    fn translates(&self, signal: &Signal) -> Result<bool>;
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference>;
 }
 
 pub trait BasicTranslator {
@@ -288,7 +308,7 @@ impl Translator for Box<dyn BasicTranslator> {
         }
     }
 
-    fn translates(&self, _signal: &Signal) -> Result<bool> {
-        Ok(true)
+    fn translates(&self, _signal: &Signal) -> Result<TranslationPreference> {
+        Ok(TranslationPreference::Yes)
     }
 }

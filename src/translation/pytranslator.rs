@@ -14,7 +14,9 @@ use pyo3::{
 
 use crate::benchmark::TimedRegion;
 
-use super::{SignalInfo, TranslationResult, Translator, ValueRepr, ValueColor};
+use super::{
+    SignalInfo, TranslationPreference, TranslationResult, Translator, ValueColor, ValueRepr,
+};
 
 pub struct PyTranslator {
     name: String,
@@ -141,7 +143,7 @@ impl Translator for PyTranslator {
         })
     }
 
-    fn translates(&self, signal: &Signal) -> Result<bool> {
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
         let name = signal.name();
 
         Python::with_gil(|py| {
@@ -151,7 +153,11 @@ impl Translator for PyTranslator {
                 .with_context(|| format!("Error when running translates on {}", self.name))?;
 
             let val: bool = result.extract(py)?;
-            Ok(val)
+            Ok(if val {
+                TranslationPreference::Yes
+            } else {
+                TranslationPreference::No
+            })
         })
     }
 }
@@ -169,25 +175,25 @@ impl PyTranslationResult {
             val: ValueRepr::Bits(0, "".to_string()),
             subfields: vec![],
             durations: HashMap::new(),
-            color: ValueColor::Normal
+            color: ValueColor::Normal,
         })
     }
 
     fn repr_string(&mut self, val: &str) {
-         self.0.val = ValueRepr::String(val.to_string());
+        self.0.val = ValueRepr::String(val.to_string());
     }
     fn repr_bits(&mut self) {
         // TODO: Set this
-         self.0.val = ValueRepr::Bits(0, "".to_string())
+        self.0.val = ValueRepr::Bits(0, "".to_string())
     }
     fn repr_tuple(&mut self) {
-         self.0.val = ValueRepr::Tuple
+        self.0.val = ValueRepr::Tuple
     }
     fn repr_struct(&mut self) {
-         self.0.val = ValueRepr::Struct
+        self.0.val = ValueRepr::Struct
     }
     fn repr_array(&mut self) {
-         self.0.val = ValueRepr::Array
+        self.0.val = ValueRepr::Array
     }
 
     fn with_fields(&mut self, fields: Vec<(String, PyTranslationResult)>) {

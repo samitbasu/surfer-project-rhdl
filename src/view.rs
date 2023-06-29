@@ -268,66 +268,85 @@ impl State {
         ui: &mut egui::Ui,
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
-            ui.selectable_label(false, name).context_menu(|ui| {
-                let available_translators = if path.1.is_empty() {
-                    self.translators
-                        .all_translator_names()
-                        .into_iter()
-                        .filter(|translator_name| {
-                            let t = self.translators.get_translator(translator_name);
+            let tooltip = if let Some(vcd) = &self.vcd {
+                if path.1.len() == 0 {
+                    format!(
+                        "Num bits: {}",
+                        vcd.inner
+                            .signal_from_signal_idx(path.0)
+                            .num_bits()
+                            .map(|v| format!("{v}"))
+                            .unwrap_or("unknown".to_string())
+                    )
+                } else {
+                    "From translator".to_string()
+                }
+            } else {
+                "No VCD loaded".to_string()
+            };
+            ui.selectable_label(false, name)
+                .on_hover_text(tooltip)
+                .context_menu(|ui| {
+                    let available_translators = if path.1.is_empty() {
+                        self.translators
+                            .all_translator_names()
+                            .into_iter()
+                            .filter(|translator_name| {
+                                let t = self.translators.get_translator(translator_name);
 
-                            if self
-                                .blacklisted_translators
-                                .contains(&(path.0, (*translator_name).clone()))
-                            {
-                                false
-                            } else {
-                                self.vcd
-                                    .as_ref()
-                                    .map(|vcd| {
-                                        let sig = vcd.inner.signal_from_signal_idx(path.0);
+                                if self
+                                    .blacklisted_translators
+                                    .contains(&(path.0, (*translator_name).clone()))
+                                {
+                                    false
+                                } else {
+                                    self.vcd
+                                        .as_ref()
+                                        .map(|vcd| {
+                                            let sig = vcd.inner.signal_from_signal_idx(path.0);
 
-                                        match t.translates(&sig).context(format!(
+                                            match t.translates(&sig).context(format!(
                                             "Failed to check if {translator_name} translates {:?}",
                                             sig.path(),
                                         )) {
-                                            Ok(true) => true,
-                                            Ok(false) => false,
-                                            Err(e) => {
-                                                msgs.push(Message::BlacklistTranslator(
-                                                    path.0,
-                                                    (*translator_name).clone(),
-                                                ));
-                                                msgs.push(Message::Error(e));
-                                                false
+                                                Ok(TranslationPreference::Yes) => true,
+                                                Ok(TranslationPreference::Prefer) => true,
+                                                Ok(TranslationPreference::No) => false,
+                                                Err(e) => {
+                                                    msgs.push(Message::BlacklistTranslator(
+                                                        path.0,
+                                                        (*translator_name).clone(),
+                                                    ));
+                                                    msgs.push(Message::Error(e));
+                                                    false
+                                                }
                                             }
-                                        }
-                                    })
-                                    .unwrap_or(false)
-                            }
+                                        })
+                                        .unwrap_or(false)
+                                }
+                            })
+                            .collect()
+                    } else {
+                        self.translators.basic_translator_names()
+                    };
+
+                    let ctx_menu = available_translators
+                        .iter()
+                        .map(|t| {
+                            (
+                                t.clone(),
+                                Message::SignalFormatChange(path.clone(), t.to_string()),
+                            )
                         })
-                        .collect()
-                } else {
-                    self.translators.basic_translator_names()
-                };
+                        .collect::<Vec<_>>();
 
-                let ctx_menu = available_translators
-                    .iter()
-                    .map(|t| {
-                        (
-                            t.clone(),
-                            Message::SignalFormatChange(path.clone(), t.to_string()),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-
-                for (name, msg) in ctx_menu {
-                    ui.button(name).clicked().then(|| {
-                        ui.close_menu();
-                        msgs.push(msg);
-                    });
-                }
-            })
+                    for (name, msg) in ctx_menu {
+                        ui.button(name).clicked().then(|| {
+                            ui.close_menu();
+                            msgs.push(msg);
+                        });
+                    }
+                })
         };
 
         match info {
