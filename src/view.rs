@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
 use color_eyre::eyre::Context;
-use eframe::egui::{self, Align, Layout};
+use eframe::egui::{self, style::Margin, Align, Frame, Layout};
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
 use log::trace;
 
-use crate::{translation::SignalInfo, Message, State, VcdData};
+use crate::{
+    translation::{SignalInfo, TranslationPreference},
+    Message, State, VcdData,
+};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -73,9 +76,15 @@ impl eframe::App for State {
                 })
                 .inner;
 
-            egui::CentralPanel::default().show(ctx, |ui| {
-                self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
-            });
+            egui::CentralPanel::default()
+                .frame(Frame {
+                    inner_margin: Margin::same(0.0),
+                    outer_margin: Margin::same(0.0),
+                    .. Default::default()
+                })
+                .show(ctx, |ui| {
+                    self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
+                });
         } else {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.vertical_centered_justified(|ui| {
