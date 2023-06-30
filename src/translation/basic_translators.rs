@@ -72,7 +72,7 @@ impl BasicTranslator for UnsignedTranslator {
                     (format!("HIGHIMP"), ValueColor::HighImp)
                 } else {
                     (
-                        s.parse::<u128>()
+                        u128::from_str_radix(s, 2)
                             .map(|val| format!("{val}"))
                             .unwrap_or(s.clone()),
                         ValueColor::Normal,

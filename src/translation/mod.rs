@@ -157,7 +157,19 @@ impl TranslationResult {
             .collect::<Vec<_>>();
 
         let string_repr = match &self.val {
-            ValueRepr::Bit(val) => Some((format!("{val}"), self.color)),
+            ValueRepr::Bit(val) => {
+                let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
+
+                let subtranslator = translators.basic.get(subtranslator_name).expect(&format!(
+                    "Did not find a translator named {subtranslator_name}"
+                ));
+
+                let result = subtranslator
+                    .as_ref()
+                    .basic_translate(1, &SignalValue::String(val.to_string()));
+
+                Some(result)
+            }
             ValueRepr::Bits(bit_count, bits) => {
                 let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
 
@@ -246,6 +258,21 @@ pub enum SignalInfo {
     },
     Bits,
     Bool,
+}
+
+impl SignalInfo {
+    pub fn get_subinfo(&self, path: &[String]) -> &SignalInfo {
+        match path {
+            [] => self,
+            [field, rest @ ..] => match self {
+                SignalInfo::Compound { subfields } => {
+                    subfields.iter().find(|(f, _)| f == field).unwrap().1.get_subinfo(rest)
+                },
+                SignalInfo::Bits => panic!(),
+                SignalInfo::Bool => panic!(),
+            }
+        }
+    }
 }
 
 pub enum TranslationPreference {

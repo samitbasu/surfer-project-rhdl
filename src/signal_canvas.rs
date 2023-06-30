@@ -199,9 +199,9 @@ impl State {
                                 value.clone();
 
                             local_commands
-                                .entry(path)
+                                .entry(path.clone())
                                 .or_insert_with(|| {
-                                    if let SignalInfo::Bool = info {
+                                    if let SignalInfo::Bool = info.get_subinfo(&path) {
                                         DrawingCommands::new_bool()
                                     } else {
                                         DrawingCommands::new_wide()
@@ -326,9 +326,9 @@ impl State {
 
             ctx.painter.add(PathShape::line(
                 vec![
-                    trace_coords(*old_x, old_height),
-                    trace_coords(*new_x, old_height),
-                    trace_coords(*new_x, new_height),
+                    trace_coords(*old_x, 1.-old_height),
+                    trace_coords(*new_x, 1.-old_height),
+                    trace_coords(*new_x, 1.-new_height),
                 ],
                 stroke,
             ));
