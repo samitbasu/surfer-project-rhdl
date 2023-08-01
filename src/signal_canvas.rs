@@ -123,10 +123,10 @@ impl State {
         let draw_commands = vcd
             .signals
             .iter()
-            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
+            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.1)))
             // Iterate over the signals, generating draw commands for all the
             // subfields
-            .map(|((idx, info), sig)| {
+            .map(|((_vidx, idx, info), sig)| {
                 let translator = vcd.signal_translator((*idx, vec![]), &self.translators);
 
                 let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
@@ -326,9 +326,9 @@ impl State {
 
             ctx.painter.add(PathShape::line(
                 vec![
-                    trace_coords(*old_x, 1.-old_height),
-                    trace_coords(*new_x, 1.-old_height),
-                    trace_coords(*new_x, 1.-new_height),
+                    trace_coords(*old_x, 1. - old_height),
+                    trace_coords(*new_x, 1. - old_height),
+                    trace_coords(*new_x, 1. - new_height),
                 ],
                 stroke,
             ));

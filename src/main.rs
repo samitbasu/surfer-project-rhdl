@@ -28,10 +28,10 @@ use pyo3::append_to_inittab;
 
 use translation::pytranslator::surfer;
 use translation::pytranslator::PyTranslator;
+use translation::spade::SpadeTranslator;
 use translation::SignalInfo;
 use translation::Translator;
 use translation::TranslatorList;
-use translation::spade::SpadeTranslator;
 use view::TraceIdx;
 use viewport::Viewport;
 
@@ -50,8 +50,10 @@ struct Args {
     #[clap(long)]
     spade_state: Option<Utf8PathBuf>,
     #[clap(long)]
-    spade_top: Option<String>
+    spade_top: Option<String>,
 }
+
+type VarListIdx = u32;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -87,9 +89,7 @@ fn main() -> Result<()> {
         initial_window_size: Some(egui::vec2(1920., 1080.)),
         ..Default::default()
     };
-    eframe::run_native("My egui App", options, Box::new(|_cc| {
-        Box::new(state)
-    }));
+    eframe::run_native("My egui App", options, Box::new(|_cc| Box::new(state)));
 
     Ok(())
 }
@@ -98,7 +98,8 @@ struct VcdData {
     inner: VCD,
     active_scope: Option<ScopeIdx>,
     /// Root signals to display
-    signals: Vec<(SignalIdx, SignalInfo)>,
+    next_varlist_idx: VarListIdx,
+    signals: Vec<(u32, SignalIdx, SignalInfo)>,
     viewport: Viewport,
     num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
@@ -109,6 +110,7 @@ struct VcdData {
 enum Message {
     HierarchyClick(ScopeIdx),
     AddSignal(SignalIdx),
+    RemoveSignal(VarListIdx),
     SignalFormatChange(TraceIdx, String),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
@@ -126,7 +128,7 @@ enum Message {
     TranslatorLoaded(Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified signal
-    BlacklistTranslator(SignalIdx, String)
+    BlacklistTranslator(SignalIdx, String),
 }
 
 struct State {
@@ -172,8 +174,7 @@ impl State {
                         Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
                         Err(e) => sender.send(Message::Error(e)),
                     }?;
-                }
-                else {
+                } else {
                     info!("spade-top and spade-state not set, not loading spade translator");
                 }
 
@@ -232,7 +233,7 @@ impl State {
             translators,
             msg_receiver: receiver,
             vcd_progess: (total_bytes, progress_bytes),
-            blacklisted_translators: HashSet::new()
+            blacklisted_translators: HashSet::new(),
         })
     }
 
@@ -252,7 +253,12 @@ impl State {
                 let info = translator
                     .signal_info(&signal, &vcd.signal_name(s))
                     .unwrap();
-                vcd.signals.push((s, info))
+                let vidx = vcd.get_next_varlist_idx();
+                vcd.signals.push((vidx, s, info))
+            }
+            Message::RemoveSignal(vidx) => {
+                let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
+                vcd.signals.retain(|idx| idx.0 != vidx);
             }
             Message::CanvasScroll { delta } => self.handle_canvas_scroll(delta),
             Message::CanvasZoom {
@@ -279,7 +285,7 @@ impl State {
                             .signal_info(&signal, &vcd.signal_name(idx.0))
                             .unwrap();
 
-                        for (i, info) in &mut vcd.signals {
+                        for (_vidx, i, info) in &mut vcd.signals {
                             if i == signal_idx {
                                 *info = new_info;
                                 break;
@@ -312,6 +318,7 @@ impl State {
                 let new_vcd = VcdData {
                     inner: *new_vcd_data,
                     active_scope: None,
+                    next_varlist_idx: 0,
                     signals: vec![],
                     viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
                     signal_format: HashMap::new(),
@@ -394,5 +401,11 @@ impl VcdData {
         // for small zoom levels
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
+    }
+
+    pub fn get_next_varlist_idx(&mut self) -> u32 {
+        let next_varlist_idx = self.next_varlist_idx;
+        self.next_varlist_idx = self.next_varlist_idx + 1;
+        next_varlist_idx
     }
 }
