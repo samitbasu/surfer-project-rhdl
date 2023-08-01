@@ -405,7 +405,7 @@ impl VcdData {
 
     pub fn get_next_varlist_idx(&mut self) -> u32 {
         let next_varlist_idx = self.next_varlist_idx;
-        self.next_varlist_idx = self.next_varlist_idx + 1;
+        self.next_varlist_idx += 1;
         next_varlist_idx
     }
 }
