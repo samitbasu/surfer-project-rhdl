@@ -8,7 +8,7 @@ use log::trace;
 
 use crate::{
     translation::{SignalInfo, TranslationPreference},
-    Message, State, VcdData,
+    Message, State, VarListIdx, VcdData,
 };
 
 /// Index used to keep track of traces and their sub-traces
@@ -80,7 +80,7 @@ impl eframe::App for State {
                 .frame(Frame {
                     inner_margin: Margin::same(0.0),
                     outer_margin: Margin::same(0.0),
-                    .. Default::default()
+                    ..Default::default()
                 })
                 .show(ctx, |ui| {
                     self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
@@ -244,13 +244,21 @@ impl State {
     ) -> HashMap<TraceIdx, f32> {
         let mut signal_offsets = HashMap::new();
 
-        for (sig, info) in &vcd.signals {
+        for (vidx, sig, info) in &vcd.signals {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
                     let name = vcd.inner.signal_from_signal_idx(*sig).name();
 
-                    self.draw_var(msgs, &name, &(*sig, vec![]), &mut signal_offsets, info, ui);
+                    self.draw_var(
+                        msgs,
+                        *vidx,
+                        &name,
+                        &(*sig, vec![]),
+                        &mut signal_offsets,
+                        info,
+                        ui,
+                    );
                 },
             );
         }
@@ -261,6 +269,7 @@ impl State {
     fn draw_var(
         &self,
         msgs: &mut Vec<Message>,
+        vidx: VarListIdx,
         name: &str,
         path: &(SignalIdx, Vec<String>),
         signal_offsets: &mut HashMap<TraceIdx, f32>,
@@ -340,11 +349,18 @@ impl State {
                         })
                         .collect::<Vec<_>>();
 
-                    for (name, msg) in ctx_menu {
-                        ui.button(name).clicked().then(|| {
-                            ui.close_menu();
-                            msgs.push(msg);
-                        });
+                    ui.menu_button("Format", |ui| {
+                        for (name, msg) in ctx_menu {
+                            ui.button(name).clicked().then(|| {
+                                ui.close_menu();
+                                msgs.push(msg);
+                            });
+                        }
+                    });
+
+                    if ui.button("Remove").clicked() {
+                        msgs.push(Message::RemoveSignal(vidx));
+                        ui.close_menu();
                     }
                 })
         };
@@ -361,7 +377,7 @@ impl State {
                     for (name, info) in subfields {
                         let mut new_path = path.clone();
                         new_path.1.push(name.clone());
-                        self.draw_var(msgs, name, &new_path, signal_offsets, info, ui);
+                        self.draw_var(msgs, vidx, name, &new_path, signal_offsets, info, ui);
                     }
                 });
 
