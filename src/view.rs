@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 
 use color_eyre::eyre::Context;
-use eframe::egui::{self, style::Margin, Align, Frame, Layout};
+use eframe::egui::{self, style::Margin, Align, Event, Frame, Key, Layout, RichText};
+use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
 use log::trace;
 
 use crate::{
+    command_prompt::show_command_prompt,
     translation::{SignalInfo, TranslationPreference},
-    Message, State, VarListIdx, VcdData,
+    Message, SignalDescriptor, State, VarListIdx, VcdData,
 };
 
 /// Index used to keep track of traces and their sub-traces
@@ -17,74 +19,97 @@ pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let max_width = ctx.available_rect().width();
+        let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
 
-        egui::SidePanel::left("signal select left panel")
-            .default_width(300.)
-            .width_range(100.0..=max_width)
-            .show(ctx, |ui| {
-                ui.with_layout(
-                    Layout::top_down(Align::LEFT).with_cross_justify(true),
-                    |ui| {
-                        let total_space = ui.available_height();
-
-                        egui::Frame::none().show(ui, |ui| {
-                            ui.set_max_height(total_space / 2.);
-                            ui.set_min_height(total_space / 2.);
-
-                            ui.heading("Modules");
-                            ui.add_space(3.0);
-
-                            egui::ScrollArea::both()
-                                .id_source("modules")
-                                .show(ui, |ui| {
-                                    ui.style_mut().wrap = Some(false);
-                                    if let Some(vcd) = &self.vcd {
-                                        self.draw_all_scopes(&mut msgs, vcd, ui);
-                                    }
-                                });
-                        });
-
-                        egui::Frame::none().show(ui, |ui| {
-                            ui.heading("Signals");
-                            ui.add_space(3.0);
-
-                            egui::ScrollArea::both()
-                                .id_source("signals")
-                                .show(ui, |ui| {
-                                    if let Some(vcd) = &self.vcd {
-                                        self.draw_signal_list(&mut msgs, vcd, ui);
-                                    }
-                                });
-                        });
-                    },
-                )
-            });
-
-        if let Some(vcd) = &self.vcd {
-            let signal_offsets = egui::SidePanel::left("signal list")
+        if self.show_side_panel {
+            egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
                 .show(ctx, |ui| {
-                    ui.style_mut().wrap = Some(false);
                     ui.with_layout(
                         Layout::top_down(Align::LEFT).with_cross_justify(true),
-                        |ui| self.draw_var_list(&mut msgs, &vcd, ui),
-                    )
-                    .inner
-                })
-                .inner;
+                        |ui| {
+                            let total_space = ui.available_height();
 
-            egui::CentralPanel::default()
-                .frame(Frame {
-                    inner_margin: Margin::same(0.0),
-                    outer_margin: Margin::same(0.0),
-                    ..Default::default()
-                })
-                .show(ctx, |ui| {
-                    self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
+                            egui::Frame::none().show(ui, |ui| {
+                                ui.set_max_height(total_space / 2.);
+                                ui.set_min_height(total_space / 2.);
+
+                                ui.heading("Modules");
+                                ui.add_space(3.0);
+
+                                egui::ScrollArea::both()
+                                    .id_source("modules")
+                                    .show(ui, |ui| {
+                                        ui.style_mut().wrap = Some(false);
+                                        if let Some(vcd) = &self.vcd {
+                                            self.draw_all_scopes(&mut msgs, vcd, ui);
+                                        }
+                                    });
+                            });
+
+                            egui::Frame::none().show(ui, |ui| {
+                                ui.heading("Signals");
+                                ui.add_space(3.0);
+
+                                egui::ScrollArea::both()
+                                    .id_source("signals")
+                                    .show(ui, |ui| {
+                                        if let Some(vcd) = &self.vcd {
+                                            self.draw_signal_list(&mut msgs, vcd, ui);
+                                        }
+                                    });
+                            });
+                        },
+                    )
                 });
+        }
+
+        if self.command_prompt.visible {
+            show_command_prompt(self, ctx, frame, &mut msgs);
+        }
+
+        if let Some(vcd) = &self.vcd {
+            if !vcd.signals.is_empty() {
+                let signal_offsets = egui::SidePanel::left("signal list")
+                    .default_width(300.)
+                    .width_range(100.0..=max_width)
+                    .show(ctx, |ui| {
+                        ui.style_mut().wrap = Some(false);
+                        ui.with_layout(
+                            Layout::top_down(Align::LEFT).with_cross_justify(true),
+                            |ui| self.draw_var_list(&mut msgs, &vcd, ui),
+                        )
+                        .inner
+                    })
+                    .inner;
+                egui::CentralPanel::default()
+                    .frame(Frame {
+                        inner_margin: Margin::same(0.0),
+                        outer_margin: Margin::same(0.0),
+                        ..Default::default()
+                    })
+                    .show(ctx, |ui| {
+                        self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
+                    });
+            } else {
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::none().fill(egui::Color32::BLACK))
+                    .show(ctx, |ui| {
+                        ui.add_space(max_height * 0.3);
+                        ui.vertical_centered(|ui| {
+                            ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
+                            ui.add_space(20.);
+                            let layout = egui::Layout::top_down(egui::Align::LEFT);
+                            ui.allocate_ui_with_layout(Vec2 { x: max_width * 0.35, y: max_height * 0.5}, layout, |ui| {
+                                ui.label(RichText::new("🚀  Space:  Show command prompt").monospace());
+                                ui.label(RichText::new("〰  h    :  Show or hide the design hierarchy").monospace());
+                            });
+                        });
+                    });
+            }
         } else {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.vertical_centered_justified(|ui| {
@@ -108,6 +133,26 @@ impl eframe::App for State {
         };
 
         self.control_key = ctx.input().modifiers.ctrl;
+
+        ctx.input().events.iter().for_each(|event| match event {
+            Event::Key {
+                key,
+                pressed,
+                modifiers: _,
+            } => match (key, pressed, self.command_prompt.visible) {
+                (Key::Space, true, false) => {
+                    msgs.push(Message::ShowCommandPrompt(true));
+                }
+                (Key::Escape, true, true) => {
+                    msgs.push(Message::ShowCommandPrompt(false));
+                }
+                (Key::H, true, false) => {
+                    msgs.push(Message::ToggleSidePanel);
+                }
+                _ => {}
+            },
+            _ => {}
+        });
 
         self.handle_ctrlc(ctx, frame);
 
@@ -229,7 +274,7 @@ impl State {
                     |ui| {
                         ui.add(egui::SelectableLabel::new(false, name))
                             .clicked()
-                            .then(|| msgs.push(Message::AddSignal(*sig)));
+                            .then(|| msgs.push(Message::AddSignal(SignalDescriptor::Id(*sig))));
                     },
                 );
             }

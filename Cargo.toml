@@ -30,3 +30,4 @@ spade-mir = {path = "spade/spade-mir"}
 spade-hir-lowering = {path = "spade/spade-hir-lowering"}
 vcd-translate = {path = "spade/vcd-translate"}
 ron = { version = "0.8.0", features = ["integer128"] }
+fzcmd = {path = "fzcmd"}

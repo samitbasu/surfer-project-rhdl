@@ -4,3 +4,6 @@
 [submodule "spade"]
 	path = spade
 	url = git@gitlab.com:spade-lang/spade.git
+[submodule "fzcmd"]
+	path = fzcmd
+	url = git@gitlab.com:TheZoq2/fzcmd.git

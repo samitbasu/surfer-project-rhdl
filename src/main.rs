@@ -1,4 +1,6 @@
 mod benchmark;
+mod command_prompt;
+mod commands;
 mod signal_canvas;
 mod translation;
 mod view;
@@ -82,6 +84,7 @@ fn main() -> Result<()> {
     append_to_inittab!(surfer);
 
     let args = Args::parse();
+    let vcd_file = args.vcd_file.clone();
 
     let state = State::new(args)?;
 
@@ -89,17 +92,26 @@ fn main() -> Result<()> {
         initial_window_size: Some(egui::vec2(1920., 1080.)),
         ..Default::default()
     };
-    eframe::run_native("My egui App", options, Box::new(|_cc| Box::new(state)));
+    eframe::run_native(
+        &format!("Surfer: {}", &vcd_file),
+        options,
+        Box::new(|_cc| Box::new(state)),
+    );
 
     Ok(())
 }
 
-struct VcdData {
+pub struct VcdData {
     inner: VCD,
     active_scope: Option<ScopeIdx>,
     /// Root signals to display
     next_varlist_idx: VarListIdx,
     signals: Vec<(u32, SignalIdx, SignalInfo)>,
+    /// These hashmaps contain a list of all full (i.e., top.dut.mod1.signal) signal or scope
+    /// names to their indices. They have to be initialized using the initialize_signal_scope_maps
+    /// function after this struct is created.
+    signals_to_ids: HashMap<String, SignalIdx>,
+    scopes_to_ids: HashMap<String, ScopeIdx>,
     viewport: Viewport,
     num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
@@ -107,9 +119,20 @@ struct VcdData {
     cursor: Option<BigInt>,
 }
 
-enum Message {
+pub enum SignalDescriptor {
+    Id(SignalIdx),
+    Name(String),
+}
+
+pub enum ScopeDescriptor {
+    Id(ScopeIdx),
+    Name(String),
+}
+
+pub enum Message {
     HierarchyClick(ScopeIdx),
-    AddSignal(SignalIdx),
+    AddSignal(SignalDescriptor),
+    AddScope(ScopeDescriptor),
     RemoveSignal(VarListIdx),
     SignalFormatChange(TraceIdx, String),
     // Reset the translator for this signal back to default. Sub-signals,
@@ -129,9 +152,11 @@ enum Message {
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified signal
     BlacklistTranslator(SignalIdx, String),
+    ToggleSidePanel,
+    ShowCommandPrompt(bool),
 }
 
-struct State {
+pub struct State {
     vcd: Option<VcdData>,
     /// The offset of the left side of the wave window in signal timestamps.
     control_key: bool,
@@ -146,6 +171,10 @@ struct State {
 
     // Vector of translators which have failed at the `translates` function for a signal.
     blacklisted_translators: HashSet<(SignalIdx, String)>,
+    /// buffer for the command input
+    command_prompt: command_prompt::CommandPrompt,
+    /// Flag to show/hide the side panel
+    show_side_panel: bool,
 }
 
 impl State {
@@ -234,6 +263,13 @@ impl State {
             msg_receiver: receiver,
             vcd_progess: (total_bytes, progress_bytes),
             blacklisted_translators: HashSet::new(),
+            command_prompt: command_prompt::CommandPrompt {
+                visible: false,
+                input: String::from(""),
+                expanded: String::from(""),
+                suggestions: vec![],
+            },
+            show_side_panel: true,
         })
     }
 
@@ -245,16 +281,34 @@ impl State {
 
                 vcd.active_scope = Some(scope)
             }
-            Message::AddSignal(s) => {
+            Message::AddSignal(descriptor) => {
+                let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
+                match descriptor {
+                    SignalDescriptor::Id(id) => vcd.add_signal(&self.translators, id),
+                    SignalDescriptor::Name(name) => {
+                        if let Some(id) = vcd.signals_to_ids.get(&name) {
+                            vcd.add_signal(&self.translators, *id);
+                        } else {
+                            error!("Can not add signal \"{name}\" to viewer.");
+                        }
+                    }
+                }
+            }
+            Message::AddScope(descriptor) => {
                 let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
 
-                let signal = vcd.inner.signal_from_signal_idx(s);
-                let translator = vcd.signal_translator((s, vec![]), &self.translators);
-                let info = translator
-                    .signal_info(&signal, &vcd.signal_name(s))
-                    .unwrap();
-                let vidx = vcd.get_next_varlist_idx();
-                vcd.signals.push((vidx, s, info))
+                let id_option = match descriptor {
+                    ScopeDescriptor::Id(id) => Some(id),
+                    ScopeDescriptor::Name(name) => vcd.scopes_to_ids.get(&name).copied(),
+                };
+                if let Some(s) = id_option {
+                    let signals = vcd.inner.get_children_signal_idxs(s);
+                    for sidx in signals {
+                        if !vcd.signal_name(sidx).starts_with("_") {
+                            vcd.add_signal(&self.translators, sidx);
+                        }
+                    }
+                }
             }
             Message::RemoveSignal(vidx) => {
                 let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
@@ -315,16 +369,19 @@ impl State {
                     .map(|t| t.to_bigint().unwrap())
                     .unwrap_or(BigInt::from_u32(1).unwrap());
 
-                let new_vcd = VcdData {
+                let mut new_vcd = VcdData {
                     inner: *new_vcd_data,
                     active_scope: None,
                     next_varlist_idx: 0,
                     signals: vec![],
+                    signals_to_ids: HashMap::new(),
+                    scopes_to_ids: HashMap::new(),
                     viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
                     signal_format: HashMap::new(),
                     num_timestamps,
                     cursor: None,
                 };
+                new_vcd.initialize_signal_scope_maps();
 
                 self.vcd = Some(new_vcd);
                 info!("Done setting up vcd file");
@@ -338,6 +395,17 @@ impl State {
             Message::TranslatorLoaded(t) => {
                 info!("Translator {} loaded", t.name());
                 self.translators.add(t)
+            }
+            Message::ToggleSidePanel => {
+                self.show_side_panel = !self.show_side_panel;
+            }
+            Message::ShowCommandPrompt(new_visibility) => {
+                if !self.command_prompt.visible && new_visibility {
+                    self.command_prompt.input = "".to_string();
+                    self.command_prompt.suggestions = vec![];
+                    self.command_prompt.expanded = "".to_string();
+                }
+                self.command_prompt.visible = new_visibility;
             }
         }
     }
@@ -407,5 +475,52 @@ impl VcdData {
         let next_varlist_idx = self.next_varlist_idx;
         self.next_varlist_idx += 1;
         next_varlist_idx
+    }
+
+    // Initializes the scopes_to_ids and signals_to_ids
+    // fields by iterating down the scope hierarchy and collectiong
+    // the absolute names of all signals and scopes
+    pub fn initialize_signal_scope_maps(&mut self) {
+        // in scope S and path P, adds all signals x to all_signal_names
+        // as [S.]P.x
+        // does the same for scopes
+        // goes down into subscopes and does the same there
+        fn add_scope_signals(scope: ScopeIdx, path: String, vcd: &mut VcdData) {
+            let scope_name = vcd.inner.scope_name_by_idx(scope);
+            let full_scope_name = if !path.is_empty() {
+                format!("{path}.{}", scope_name)
+            } else {
+                scope_name.to_string()
+            };
+            vcd.scopes_to_ids.insert(full_scope_name.clone(), scope);
+
+            let signal_idxs = vcd.inner.get_children_signal_idxs(scope);
+            for signal in signal_idxs {
+                let signal_name = vcd.inner.signal_from_signal_idx(signal).name();
+                // TODO: it would be best if this is a setting
+                if !signal_name.starts_with('_') {
+                    vcd.signals_to_ids
+                        .insert(format!("{}.{}", full_scope_name, signal_name), signal);
+                }
+            }
+
+            for sub_scope in vcd.inner.child_scopes_by_idx(scope) {
+                add_scope_signals(sub_scope, full_scope_name.clone(), vcd);
+            }
+        }
+
+        for root_scope in self.inner.root_scopes_by_idx() {
+            add_scope_signals(root_scope, String::from(""), self);
+        }
+    }
+
+    pub fn add_signal(&mut self, translators: &TranslatorList, sidx: SignalIdx) {
+        let signal = self.inner.signal_from_signal_idx(sidx);
+        let translator = self.signal_translator((sidx, vec![]), translators);
+        let info = translator
+            .signal_info(&signal, &self.signal_name(sidx))
+            .unwrap();
+        let vidx = self.get_next_varlist_idx();
+        self.signals.push((vidx, sidx, info))
     }
 }
