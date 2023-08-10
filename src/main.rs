@@ -3,6 +3,7 @@ mod command_prompt;
 mod commands;
 mod signal_canvas;
 mod translation;
+mod util;
 mod view;
 mod viewport;
 
@@ -55,8 +56,6 @@ struct Args {
     spade_top: Option<String>,
 }
 
-type VarListIdx = u32;
-
 fn main() -> Result<()> {
     color_eyre::install()?;
 
@@ -105,8 +104,7 @@ pub struct VcdData {
     inner: VCD,
     active_scope: Option<ScopeIdx>,
     /// Root signals to display
-    next_varlist_idx: VarListIdx,
-    signals: Vec<(u32, SignalIdx, SignalInfo)>,
+    signals: Vec<(SignalIdx, SignalInfo)>,
     /// These hashmaps contain a list of all full (i.e., top.dut.mod1.signal) signal or scope
     /// names to their indices. They have to be initialized using the initialize_signal_scope_maps
     /// function after this struct is created.
@@ -129,11 +127,20 @@ pub enum ScopeDescriptor {
     Name(String),
 }
 
+pub enum MoveDir {
+    Up,
+    Down,
+}
+
 pub enum Message {
     HierarchyClick(ScopeIdx),
     AddSignal(SignalDescriptor),
     AddScope(ScopeDescriptor),
-    RemoveSignal(VarListIdx),
+    RemoveSignal(usize),
+    FocusSignal(usize),
+    UnfocusSignal,
+    MoveFocus(MoveDir),
+    MoveFocusedSignal(MoveDir),
     SignalFormatChange(TraceIdx, String),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
@@ -175,6 +182,10 @@ pub struct State {
     command_prompt: command_prompt::CommandPrompt,
     /// Flag to show/hide the side panel
     show_side_panel: bool,
+    // Flag to show the signal selectors i.e., aa, ab, ac, ...
+    // show_signal_selectors: bool,
+    // List of currenlty focused signals from the signal list
+    focused_signal: Option<usize>,
 }
 
 impl State {
@@ -270,6 +281,7 @@ impl State {
                 suggestions: vec![],
             },
             show_side_panel: true,
+            focused_signal: None,
         })
     }
 
@@ -295,7 +307,7 @@ impl State {
                 }
             }
             Message::AddScope(descriptor) => {
-                let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
+                let vcd = self.vcd.as_mut().expect("AddScope without vcd set");
 
                 let id_option = match descriptor {
                     ScopeDescriptor::Id(id) => Some(id),
@@ -310,9 +322,93 @@ impl State {
                     }
                 }
             }
-            Message::RemoveSignal(vidx) => {
-                let vcd = self.vcd.as_mut().expect("AddSignal without vcd set");
-                vcd.signals.retain(|idx| idx.0 != vidx);
+            Message::FocusSignal(idx) => {
+                let vcd = self.vcd.as_ref().expect("FocusSignal without vcd set");
+
+                let visible_signals_len = vcd.signals.len();
+                if visible_signals_len > 0 && idx <= visible_signals_len - 1 {
+                    self.focused_signal = Some(idx);
+                } else {
+                    error!(
+                        "Can not focus signal {idx} because only {} signals are visible.",
+                        vcd.signals.len()
+                    );
+                }
+            }
+            Message::UnfocusSignal => {
+                self.focused_signal = None;
+            }
+            Message::MoveFocus(direction) => {
+                let vcd = self.vcd.as_mut().expect("MoveFocus without vcd set");
+                match direction {
+                    MoveDir::Up => {
+                        self.focused_signal =
+                            self.focused_signal
+                                .map_or(Some(vcd.signals.len() - 1), |focused| {
+                                    if focused > 0 {
+                                        Some(focused - 1)
+                                    } else {
+                                        Some(focused)
+                                    }
+                                })
+                    }
+                    MoveDir::Down => {
+                        self.focused_signal = self.focused_signal.map_or(Some(0), |focused| {
+                            if focused < (vcd.signals.len() - 1).try_into().unwrap_or(0) {
+                                Some(focused + 1)
+                            } else {
+                                Some(focused)
+                            }
+                        });
+                    }
+                }
+            }
+            Message::RemoveSignal(idx) => {
+                let vcd = self.vcd.as_mut().expect("RemoveSignal without vcd set");
+                let visible_signals_len = vcd.signals.len();
+                if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
+                    vcd.signals.remove(idx);
+                    if let Some(focused) = self.focused_signal {
+                        if focused == idx {
+                            if (idx > 0) && (idx == (visible_signals_len - 1)) {
+                                // if the end of list is selected
+                                self.focused_signal = Some(idx - 1);
+                            }
+                        } else {
+                            if idx < focused {
+                                self.focused_signal = Some(focused - 1)
+                            }
+                        }
+                        if vcd.signals.is_empty() {
+                            self.focused_signal = None;
+                        }
+                    }
+                }
+            }
+            Message::MoveFocusedSignal(direction) => {
+                let vcd = self
+                    .vcd
+                    .as_mut()
+                    .expect("MoveFocusedSignal without vcd set");
+                if let Some(idx) = self.focused_signal {
+                    let visible_signals_len = vcd.signals.len();
+                    if visible_signals_len > 0 {
+                        match direction {
+                            MoveDir::Up => {
+                                if idx > 0 {
+                                    vcd.signals.swap(idx, idx - 1);
+                                    self.focused_signal = Some(idx - 1);
+                                }
+                            }
+                            MoveDir::Down => {
+                                if idx < (visible_signals_len - 1) {
+                                    vcd.signals.swap(idx, idx + 1);
+                                    self.focused_signal = Some(idx + 1);
+                                }
+                            }
+                        }
+                    }
+                }
             }
             Message::CanvasScroll { delta } => self.handle_canvas_scroll(delta),
             Message::CanvasZoom {
@@ -339,7 +435,7 @@ impl State {
                             .signal_info(&signal, &vcd.signal_name(idx.0))
                             .unwrap();
 
-                        for (_vidx, i, info) in &mut vcd.signals {
+                        for (i, info) in &mut vcd.signals {
                             if i == signal_idx {
                                 *info = new_info;
                                 break;
@@ -372,7 +468,6 @@ impl State {
                 let mut new_vcd = VcdData {
                     inner: *new_vcd_data,
                     active_scope: None,
-                    next_varlist_idx: 0,
                     signals: vec![],
                     signals_to_ids: HashMap::new(),
                     scopes_to_ids: HashMap::new(),
@@ -400,7 +495,7 @@ impl State {
                 self.show_side_panel = !self.show_side_panel;
             }
             Message::ShowCommandPrompt(new_visibility) => {
-                if !self.command_prompt.visible && new_visibility {
+                if !new_visibility {
                     self.command_prompt.input = "".to_string();
                     self.command_prompt.suggestions = vec![];
                     self.command_prompt.expanded = "".to_string();
@@ -471,12 +566,6 @@ impl VcdData {
         self.viewport.curr_right = target_right;
     }
 
-    pub fn get_next_varlist_idx(&mut self) -> u32 {
-        let next_varlist_idx = self.next_varlist_idx;
-        self.next_varlist_idx += 1;
-        next_varlist_idx
-    }
-
     // Initializes the scopes_to_ids and signals_to_ids
     // fields by iterating down the scope hierarchy and collectiong
     // the absolute names of all signals and scopes
@@ -520,7 +609,6 @@ impl VcdData {
         let info = translator
             .signal_info(&signal, &self.signal_name(sidx))
             .unwrap();
-        let vidx = self.get_next_varlist_idx();
-        self.signals.push((vidx, sidx, info))
+        self.signals.push((sidx, info))
     }
 }

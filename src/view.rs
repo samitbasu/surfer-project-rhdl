@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 
 use color_eyre::eyre::Context;
-use eframe::egui::{self, style::Margin, Align, Event, Frame, Key, Layout, RichText};
+use eframe::egui::{self, style::Margin, Align, Color32, Event, Frame, Key, Layout, RichText};
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
 use log::trace;
 
+use crate::util::uint_idx_to_alpha_idx;
 use crate::{
     command_prompt::show_command_prompt,
     translation::{SignalInfo, TranslationPreference},
-    Message, SignalDescriptor, State, VarListIdx, VcdData,
+    Message, MoveDir, SignalDescriptor, State, VcdData,
 };
 
 /// Index used to keep track of traces and their sub-traces
@@ -103,10 +104,25 @@ impl eframe::App for State {
                             ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
                             ui.add_space(20.);
                             let layout = egui::Layout::top_down(egui::Align::LEFT);
-                            ui.allocate_ui_with_layout(Vec2 { x: max_width * 0.35, y: max_height * 0.5}, layout, |ui| {
-                                ui.label(RichText::new("🚀  Space:  Show command prompt").monospace());
-                                ui.label(RichText::new("〰  h    :  Show or hide the design hierarchy").monospace());
-                            });
+                            ui.allocate_ui_with_layout(
+                                Vec2 {
+                                    x: max_width * 0.35,
+                                    y: max_height * 0.5,
+                                },
+                                layout,
+                                |ui| {
+                                    ui.label(
+                                        RichText::new("🚀  Space:  Show command prompt")
+                                            .monospace(),
+                                    );
+                                    ui.label(
+                                        RichText::new(
+                                            "〰  b    :  Show or hide the design hierarchy",
+                                        )
+                                        .monospace(),
+                                    );
+                                },
+                            );
                         });
                     });
             }
@@ -140,15 +156,49 @@ impl eframe::App for State {
                 pressed,
                 modifiers: _,
             } => match (key, pressed, self.command_prompt.visible) {
-                (Key::Space, true, false) => {
-                    msgs.push(Message::ShowCommandPrompt(true));
+                (Key::Space, true, false) => msgs.push(Message::ShowCommandPrompt(true)),
+                (Key::Escape, true, true) => msgs.push(Message::ShowCommandPrompt(false)),
+                (Key::B, true, false) => msgs.push(Message::ToggleSidePanel),
+                (Key::J, true, false) => {
+                    if self.control_key {
+                        msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
+                    } else {
+                        msgs.push(Message::MoveFocus(MoveDir::Down));
+                    }
                 }
-                (Key::Escape, true, true) => {
-                    msgs.push(Message::ShowCommandPrompt(false));
+                (Key::K, true, false) => {
+                    if self.control_key {
+                        msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
+                    } else {
+                        msgs.push(Message::MoveFocus(MoveDir::Up));
+                    }
                 }
-                (Key::H, true, false) => {
-                    msgs.push(Message::ToggleSidePanel);
+                (Key::ArrowDown, true, false) => {
+                    if self.control_key {
+                        msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
+                    } else {
+                        msgs.push(Message::MoveFocus(MoveDir::Down));
+                    }
                 }
+                (Key::ArrowUp, true, false) => {
+                    if self.control_key {
+                        msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
+                    } else {
+                        msgs.push(Message::MoveFocus(MoveDir::Up));
+                    }
+                }
+                (Key::Delete, true, false) => {
+                    if let Some(idx) = self.focused_signal {
+                        msgs.push(Message::RemoveSignal(idx));
+                    }
+                }
+                // this should be a shortcut to focusing
+                // to make this functional we need to make the cursor of the prompt
+                // point to the end of the input
+                // (Key::F, true, false) => {
+                //     self.command_prompt.input = String::from("focus_signal ");
+                //     msgs.push(Message::ShowCommandPrompt(true));
+                // }
                 _ => {}
             },
             _ => {}
@@ -289,7 +339,7 @@ impl State {
     ) -> HashMap<TraceIdx, f32> {
         let mut signal_offsets = HashMap::new();
 
-        for (vidx, sig, info) in &vcd.signals {
+        for (vidx, (sig, info)) in vcd.signals.iter().enumerate() {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
@@ -297,7 +347,7 @@ impl State {
 
                     self.draw_var(
                         msgs,
-                        *vidx,
+                        vidx,
                         &name,
                         &(*sig, vec![]),
                         &mut signal_offsets,
@@ -314,7 +364,7 @@ impl State {
     fn draw_var(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: VarListIdx,
+        vidx: usize,
         name: &str,
         path: &(SignalIdx, Vec<String>),
         signal_offsets: &mut HashMap<TraceIdx, f32>,
@@ -338,76 +388,108 @@ impl State {
             } else {
                 "No VCD loaded".to_string()
             };
-            ui.selectable_label(false, name)
-                .on_hover_text(tooltip)
-                .context_menu(|ui| {
-                    let available_translators = if path.1.is_empty() {
-                        self.translators
-                            .all_translator_names()
-                            .into_iter()
-                            .filter(|translator_name| {
-                                let t = self.translators.get_translator(translator_name);
+            ui.horizontal_top(|ui| {
+                if self.command_prompt.expanded.starts_with("focus") {
+                    let alpha_id = uint_idx_to_alpha_idx(
+                        vidx,
+                        self.vcd.as_ref().map_or(0, |vcd| vcd.signals.len()),
+                    );
+                    ui.label(
+                        egui::RichText::new(alpha_id)
+                            .background_color(Color32::GOLD)
+                            .monospace()
+                            .color(Color32::BLACK),
+                    );
+                }
 
-                                if self
-                                    .blacklisted_translators
-                                    .contains(&(path.0, (*translator_name).clone()))
-                                {
-                                    false
-                                } else {
-                                    self.vcd
-                                        .as_ref()
-                                        .map(|vcd| {
-                                            let sig = vcd.inner.signal_from_signal_idx(path.0);
+                let label_bg_color = if self
+                    .focused_signal
+                    .map(|focused| focused == vidx)
+                    .unwrap_or(false)
+                {
+                    Color32::DARK_RED
+                } else {
+                    Color32::TRANSPARENT
+                };
+                let signal_label = ui
+                    .selectable_label(
+                        false,
+                        egui::RichText::new(name).background_color(label_bg_color),
+                    )
+                    .on_hover_text(tooltip)
+                    .context_menu(|ui| {
+                        let available_translators = if path.1.is_empty() {
+                            self.translators
+                                .all_translator_names()
+                                .into_iter()
+                                .filter(|translator_name| {
+                                    let t = self.translators.get_translator(translator_name);
 
-                                            match t.translates(&sig).context(format!(
+                                    if self
+                                        .blacklisted_translators
+                                        .contains(&(path.0, (*translator_name).clone()))
+                                    {
+                                        false
+                                    } else {
+                                        self.vcd
+                                            .as_ref()
+                                            .map(|vcd| {
+                                                let sig = vcd.inner.signal_from_signal_idx(path.0);
+
+                                                match t.translates(&sig).context(format!(
                                             "Failed to check if {translator_name} translates {:?}",
                                             sig.path(),
                                         )) {
-                                                Ok(TranslationPreference::Yes) => true,
-                                                Ok(TranslationPreference::Prefer) => true,
-                                                Ok(TranslationPreference::No) => false,
-                                                Err(e) => {
-                                                    msgs.push(Message::BlacklistTranslator(
-                                                        path.0,
-                                                        (*translator_name).clone(),
-                                                    ));
-                                                    msgs.push(Message::Error(e));
-                                                    false
+                                                    Ok(TranslationPreference::Yes) => true,
+                                                    Ok(TranslationPreference::Prefer) => true,
+                                                    Ok(TranslationPreference::No) => false,
+                                                    Err(e) => {
+                                                        msgs.push(Message::BlacklistTranslator(
+                                                            path.0,
+                                                            (*translator_name).clone(),
+                                                        ));
+                                                        msgs.push(Message::Error(e));
+                                                        false
+                                                    }
                                                 }
-                                            }
-                                        })
-                                        .unwrap_or(false)
-                                }
+                                            })
+                                            .unwrap_or(false)
+                                    }
+                                })
+                                .collect()
+                        } else {
+                            self.translators.basic_translator_names()
+                        };
+
+                        let ctx_menu = available_translators
+                            .iter()
+                            .map(|t| {
+                                (
+                                    t.clone(),
+                                    Message::SignalFormatChange(path.clone(), t.to_string()),
+                                )
                             })
-                            .collect()
-                    } else {
-                        self.translators.basic_translator_names()
-                    };
+                            .collect::<Vec<_>>();
 
-                    let ctx_menu = available_translators
-                        .iter()
-                        .map(|t| {
-                            (
-                                t.clone(),
-                                Message::SignalFormatChange(path.clone(), t.to_string()),
-                            )
-                        })
-                        .collect::<Vec<_>>();
+                        ui.menu_button("Format", |ui| {
+                            for (name, msg) in ctx_menu {
+                                ui.button(name).clicked().then(|| {
+                                    ui.close_menu();
+                                    msgs.push(msg);
+                                });
+                            }
+                        });
 
-                    ui.menu_button("Format", |ui| {
-                        for (name, msg) in ctx_menu {
-                            ui.button(name).clicked().then(|| {
-                                ui.close_menu();
-                                msgs.push(msg);
-                            });
+                        if ui.button("Remove").clicked() {
+                            msgs.push(Message::RemoveSignal(vidx));
+                            ui.close_menu();
                         }
                     });
-
-                    if ui.button("Remove").clicked() {
-                        msgs.push(Message::RemoveSignal(vidx));
-                        ui.close_menu();
-                    }
-                })
+                if signal_label.clicked() {
+                    msgs.push(Message::FocusSignal(vidx))
+                }
+                signal_label
+            })
         };
 
         match info {
@@ -430,7 +512,7 @@ impl State {
             }
             SignalInfo::Bool | SignalInfo::Bits => {
                 let label = draw_label(ui);
-                signal_offsets.insert(path.clone(), label.rect.top());
+                signal_offsets.insert(path.clone(), label.inner.rect.top());
             }
         }
     }

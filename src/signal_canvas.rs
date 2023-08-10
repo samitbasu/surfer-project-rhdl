@@ -123,10 +123,10 @@ impl State {
         let draw_commands = vcd
             .signals
             .iter()
-            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.1)))
+            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
             // Iterate over the signals, generating draw commands for all the
             // subfields
-            .map(|((_vidx, idx, info), sig)| {
+            .map(|((idx, info), sig)| {
                 let translator = vcd.signal_translator((*idx, vec![]), &self.translators);
 
                 let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();

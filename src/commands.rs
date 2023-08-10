@@ -1,6 +1,10 @@
-use crate::{Message, State};
+use crate::{
+    util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
+    Message, State,
+};
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};
+use itertools::Itertools;
 
 pub fn get_parser(state: &State) -> Command<Message> {
     fn single_word(
@@ -30,10 +34,25 @@ pub fn get_parser(state: &State) -> Command<Message> {
             .collect::<Vec<_>>(),
         None => vec![],
     };
+    let displayed_signals = match &state.vcd {
+        Some(v) => v
+            .signals
+            .iter()
+            .enumerate()
+            .map(|(idx, s)| {
+                format!(
+                    "{}_{}",
+                    uint_idx_to_alpha_idx(idx, v.signals.len()),
+                    v.inner.signal_from_signal_idx(s.0).name()
+                )
+            })
+            .collect_vec(),
+        None => vec![],
+    };
 
     Command::NonTerminal(
         ParamGreed::Word,
-        vec!["add_signal", "add_scope"]
+        vec!["add_signal", "add_scope", "focus", "unfocus"]
             .into_iter()
             .map(|s| s.into())
             .collect(),
@@ -54,6 +73,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     )))
                 }),
             ),
+            "focus" => single_word(
+                displayed_signals.clone(),
+                Box::new(|word| {
+                    // split off the idx which is always followed by an underscore
+                    let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                    alpha_idx_to_uint_idx(alpha_idx)
+                        .map(|idx| Command::Terminal(Message::FocusSignal(idx)))
+                }),
+            ),
+            "unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
             _ => None,
         }),
     )
