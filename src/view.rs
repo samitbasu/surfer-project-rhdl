@@ -130,10 +130,10 @@ impl eframe::App for State {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.vertical_centered_justified(|ui| {
                     let num_bytes = self
-                        .vcd_progess
+                        .vcd_progress
                         .1
                         .load(std::sync::atomic::Ordering::Relaxed);
-                    if let Some(total) = self.vcd_progess.0 {
+                    if let Some(total) = self.vcd_progress.0 {
                         ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
                         let progress = num_bytes as f32 / total as f32;
                         let progress_bar = egui::ProgressBar::new(progress)

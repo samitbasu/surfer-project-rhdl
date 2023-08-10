@@ -174,7 +174,7 @@ pub struct State {
     msg_receiver: Receiver<Message>,
 
     /// The number of bytes loaded from the vcd file
-    vcd_progess: (Option<u64>, Arc<AtomicU64>),
+    vcd_progress: (Option<u64>, Arc<AtomicU64>),
 
     // Vector of translators which have failed at the `translates` function for a signal.
     blacklisted_translators: HashSet<(SignalIdx, String)>,
@@ -184,7 +184,7 @@ pub struct State {
     show_side_panel: bool,
     // Flag to show the signal selectors i.e., aa, ab, ac, ...
     // show_signal_selectors: bool,
-    // List of currenlty focused signals from the signal list
+    // List of currently focused signals from the signal list
     focused_signal: Option<usize>,
 }
 
@@ -272,7 +272,7 @@ impl State {
             control_key: false,
             translators,
             msg_receiver: receiver,
-            vcd_progess: (total_bytes, progress_bytes),
+            vcd_progress: (total_bytes, progress_bytes),
             blacklisted_translators: HashSet::new(),
             command_prompt: command_prompt::CommandPrompt {
                 visible: false,
@@ -285,7 +285,6 @@ impl State {
         })
     }
 
-    // TODO: Rename to process_msg or something
     fn update(&mut self, message: Message) {
         match message {
             Message::HierarchyClick(scope) => {
@@ -560,8 +559,6 @@ impl VcdData {
         let target_right = (right - mouse_ptr_timestamp.to_f64().unwrap()) / delta
             + &mouse_ptr_timestamp.to_f64().unwrap();
 
-        // TODO: Do not just round here, this will not work
-        // for small zoom levels
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
     }
@@ -586,7 +583,6 @@ impl VcdData {
             let signal_idxs = vcd.inner.get_children_signal_idxs(scope);
             for signal in signal_idxs {
                 let signal_name = vcd.inner.signal_from_signal_idx(signal).name();
-                // TODO: it would be best if this is a setting
                 if !signal_name.starts_with('_') {
                     vcd.signals_to_ids
                         .insert(format!("{}.{}", full_scope_name, signal_name), signal);

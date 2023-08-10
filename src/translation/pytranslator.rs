@@ -170,21 +170,22 @@ struct PyTranslationResult(TranslationResult);
 impl PyTranslationResult {
     #[new]
     fn new() -> Self {
+        todo!("ValueRepr string is not set yet");
+        /*
         Self(TranslationResult {
-            // TODO: Set this
             val: ValueRepr::Bits(0, "".to_string()),
             subfields: vec![],
             durations: HashMap::new(),
             color: ValueColor::Normal,
-        })
+        })*/
     }
 
     fn repr_string(&mut self, val: &str) {
         self.0.val = ValueRepr::String(val.to_string());
     }
     fn repr_bits(&mut self) {
-        // TODO: Set this
-        self.0.val = ValueRepr::Bits(0, "".to_string())
+        todo!("ValueRepr string is not set yet");
+        // self.0.val = ValueRepr::Bits(0, "".to_string())
     }
     fn repr_tuple(&mut self) {
         self.0.val = ValueRepr::Tuple
@@ -229,7 +230,7 @@ impl PySignalInfo {
     }
 }
 
-/// The python stuff we expose to python plugins. This must be apended to
+/// The python stuff we expose to python plugins. This must be appended to
 /// the import stuff before python code is run, preferably by
 /// ```
 /// append_to_inittab!(surfer);

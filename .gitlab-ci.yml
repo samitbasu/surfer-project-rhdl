@@ -1,5 +1,5 @@
 # image: "scorpil/rust:nightly"
-image: rust:1.65
+image: rust:1.71
 
 variables:
     CARGO_HOME: $CI_PROJECT_DIR/cargo
@@ -59,15 +59,15 @@ typos-and-todos:
         # will find typos in
         - tar xzf typos.tar.gz ./typos
     script:
-        - ./typos
+        - ./typos src
           # invert exit code of grep while still printing all matches
-        - set -e; find . -name "*.rs" | xargs grep -Ei "// *TODO" || exit 0 && exit 1
+        - set -e; find src -name "*.rs" | xargs grep -Ei "// *TODO" || exit 0 && exit 1
     after_script:
         - >
             if [ $CI_JOB_STATUS == 'success' ]; then
               echo 'SUCCESS'
             else
               echo 'Running again to give you all output since the test failed'
-              ./typos || echo ""
-              find . -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
+              ./typos src || echo ""
+              set -e; find src -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
             fi
