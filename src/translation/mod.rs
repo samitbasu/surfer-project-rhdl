@@ -5,7 +5,6 @@ use eframe::epaint::Color32;
 use fastwave_backend::{Signal, SignalValue};
 
 mod basic_translators;
-pub mod pytranslator;
 pub mod spade;
 
 pub use basic_translators::*;
@@ -129,10 +128,6 @@ pub struct TranslationResult {
 }
 
 impl TranslationResult {
-    fn push_duration(&mut self, name: &str, val: f64) {
-        self.durations.insert(name.to_string(), val);
-    }
-
     /// Flattens the translation result into path, value pairs
     pub fn flatten(
         &self,
