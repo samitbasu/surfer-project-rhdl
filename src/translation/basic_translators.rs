@@ -21,8 +21,12 @@ impl BasicTranslator for HexTranslator {
                 let mut is_highimp = false;
                 let val = s
                     .chars()
+                    .rev()
                     .chunks(4)
                     .into_iter()
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
                     .map(|c| {
                         let c = c.collect::<String>();
                         if c.contains('x') {
@@ -130,6 +134,34 @@ impl BasicTranslator for ExtendingBinaryTranslator {
                 .map(|mut c| c.join(""))
                 .join(" "),
             color,
+        )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use spade_common::num_ext::InfallibleToBigUint;
+
+    use super::*;
+
+    #[test]
+    fn hexadecimal_translation_groups_digits_correctly_string() {
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .0,
+            "10"
+        )
+    }
+
+
+    #[test]
+    fn hexadecimal_translation_groups_digits_correctly_bigint() {
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0b10000u32.to_biguint()))
+                .0,
+            "10"
         )
     }
 }
