@@ -3,6 +3,27 @@ use super::{BasicTranslator, ValueColor};
 use fastwave_backend::SignalValue;
 use itertools::Itertools;
 
+// Forms groups of 4 chars from from a string. If the string size is
+// not divisible by 4, the first group will be smaller than 4
+// The string must only consist of ascii characters
+fn group_4_chars<'a>(s: &'a str) -> Vec<&'a str> {
+    let num_extra_chars = s.len() % 4;
+
+    let last_group = &s[0..num_extra_chars];
+
+    let rest_groups = s.len() / 4;
+    let rest_str = &s[num_extra_chars..];
+
+    if !last_group.is_empty() {
+        vec![last_group]
+    } else {
+        vec![]
+    }
+    .into_iter()
+    .chain((0..rest_groups).map(|start| &rest_str[start * 4..(start + 1) * 4]))
+    .collect()
+}
+
 pub struct HexTranslator {}
 
 impl BasicTranslator for HexTranslator {
@@ -19,26 +40,20 @@ impl BasicTranslator for HexTranslator {
             SignalValue::String(s) => {
                 let mut is_undef = false;
                 let mut is_highimp = false;
-                let val = s
-                    .chars()
-                    .rev()
-                    .chunks(4)
+
+                let val = group_4_chars(s)
                     .into_iter()
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .map(|c| {
-                        let c = c.collect::<String>();
-                        if c.contains('x') {
+                    .map(|g| {
+                        if g.contains('x') {
                             is_undef = true;
                             "x".to_string()
-                        } else if c.contains('z') {
+                        } else if g.contains('z') {
                             is_highimp = true;
                             "z".to_string()
                         } else {
                             format!(
                                 "{:x}",
-                                u8::from_str_radix(&c, 2).expect("Found non binary digit in value")
+                                u8::from_str_radix(&g, 2).expect("Found non binary digit in value")
                             )
                         }
                     })
@@ -127,12 +142,7 @@ impl BasicTranslator for ExtendingBinaryTranslator {
         };
 
         (
-            format!("{extra_bits}{val}")
-                .chars()
-                .chunks(4)
-                .into_iter()
-                .map(|mut c| c.join(""))
-                .join(" "),
+            group_4_chars(&format!("{extra_bits}{val}")).join(" "),
             color,
         )
     }
@@ -151,9 +161,15 @@ mod test {
                 .basic_translate(5, &SignalValue::String("10000".to_string()))
                 .0,
             "10"
-        )
-    }
+        );
 
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(5, &SignalValue::String("100000".to_string()))
+                .0,
+            "20"
+        );
+    }
 
     #[test]
     fn hexadecimal_translation_groups_digits_correctly_bigint() {
@@ -162,6 +178,33 @@ mod test {
                 .basic_translate(5, &SignalValue::BigUint(0b10000u32.to_biguint()))
                 .0,
             "10"
+        )
+    }
+
+    #[test]
+    fn binary_translation_groups_digits_correctly_string() {
+        assert_eq!(
+            ExtendingBinaryTranslator {}
+                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .0,
+            "1 0000"
+        );
+
+        assert_eq!(
+            ExtendingBinaryTranslator {}
+                .basic_translate(5, &SignalValue::String("100000".to_string()))
+                .0,
+            "10 0000"
+        )
+    }
+
+    #[test]
+    fn binary_translation_groups_digits_correctly_bigint() {
+        assert_eq!(
+            ExtendingBinaryTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0b100000u32.to_biguint()))
+                .0,
+            "10 0000"
         )
     }
 }
