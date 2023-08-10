@@ -106,9 +106,7 @@ impl State {
             ..(frame_width as i32 + cfg.max_transition_width))
             .filter_map(|x| {
                 let time = vcd.viewport.to_time(x as f64, frame_width);
-                if time < BigRational::from_float(0.).unwrap() {
-                    None
-                } else if time > max_time {
+                if time < BigRational::from_float(0.).unwrap() || time > max_time {
                     None
                 } else {
                     Some((x as f32, time.to_integer().to_biguint().unwrap()))
