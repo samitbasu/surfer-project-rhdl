@@ -24,6 +24,19 @@ impl eframe::App for State {
 
         let mut msgs = vec![];
 
+        if let Some(vcd) = &self.vcd {
+            egui::TopBottomPanel::bottom("modeline").show(ctx, |ui| {
+                ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
+                    ui.label(&vcd.filename);
+                    if let Some(time) = &vcd.cursor {
+                        ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
+                            ui.label(format!("{}", time));
+                        });
+                    }
+                });
+            });
+        }
+
         if self.show_side_panel {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
@@ -95,58 +108,72 @@ impl eframe::App for State {
                     .show(ctx, |ui| {
                         self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
                     });
-            } else {
-                egui::CentralPanel::default()
-                    .frame(egui::Frame::none().fill(egui::Color32::BLACK))
-                    .show(ctx, |ui| {
-                        ui.add_space(max_height * 0.3);
-                        ui.vertical_centered(|ui| {
-                            ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
-                            ui.add_space(20.);
-                            let layout = egui::Layout::top_down(egui::Align::LEFT);
-                            ui.allocate_ui_with_layout(
-                                Vec2 {
-                                    x: max_width * 0.35,
-                                    y: max_height * 0.5,
-                                },
-                                layout,
-                                |ui| {
-                                    ui.label(
-                                        RichText::new("🚀  Space:  Show command prompt")
-                                            .monospace(),
-                                    );
-                                    ui.label(
-                                        RichText::new(
-                                            "〰  b    :  Show or hide the design hierarchy",
-                                        )
-                                        .monospace(),
-                                    );
-                                },
-                            );
-                        });
-                    });
             }
         } else {
-            egui::CentralPanel::default().show(ctx, |ui| {
-                ui.vertical_centered_justified(|ui| {
-                    let num_bytes = self
-                        .vcd_progess
-                        .1
-                        .load(std::sync::atomic::Ordering::Relaxed);
-                    if let Some(total) = self.vcd_progess.0 {
-                        ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
-                        let progress = num_bytes as f32 / total as f32;
-                        let progress_bar = egui::ProgressBar::new(progress)
-                            .show_percentage()
-                            .desired_width(300.);
+            if let Some(vcd_progress_data) = &self.vcd_progress {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.vertical_centered_justified(|ui| {
+                        let num_bytes = vcd_progress_data
+                            .1
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        if let Some(total) = vcd_progress_data.0 {
+                            ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
+                            let progress = num_bytes as f32 / total as f32;
+                            let progress_bar = egui::ProgressBar::new(progress)
+                                .show_percentage()
+                                .desired_width(300.);
 
-                        ui.add(progress_bar);
-                    } else {
-                        ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
-                    }
+                            ui.add(progress_bar);
+                        } else {
+                            ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
+                        }
+                    });
                 });
-            });
+            }
         };
+
+        if self.vcd.is_none()
+            || self
+                .vcd
+                .as_ref()
+                .map_or(false, |vcd| vcd.signals.is_empty())
+        {
+            egui::CentralPanel::default()
+                .frame(egui::Frame::none().fill(egui::Color32::BLACK))
+                .show(ctx, |ui| {
+                    ui.add_space(max_height * 0.3);
+                    ui.vertical_centered(|ui| {
+                        ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
+                        ui.add_space(20.);
+                        let layout = egui::Layout::top_down(egui::Align::LEFT);
+                        ui.allocate_ui_with_layout(
+                            Vec2 {
+                                x: max_width * 0.35,
+                                y: max_height * 0.5,
+                            },
+                            layout,
+                            |ui| {
+                                ui.label(
+                                    RichText::new("🚀  Space:  Show command prompt").monospace(),
+                                );
+                                ui.label(
+                                    RichText::new("〰  b    :  Show or hide the design hierarchy")
+                                        .monospace(),
+                                );
+                                ui.add_space(20.0);
+                                ui.separator();
+                                ui.add_space(20.0);
+                                if let Some(vcd) = &self.vcd {
+                                    ui.label(
+                                        RichText::new(format!("Filename: {}", vcd.filename))
+                                            .monospace(),
+                                    );
+                                }
+                            },
+                        );
+                    });
+                });
+        }
 
         self.control_key = ctx.input().modifiers.ctrl;
 
@@ -188,8 +215,10 @@ impl eframe::App for State {
                     }
                 }
                 (Key::Delete, true, false) => {
-                    if let Some(idx) = self.focused_signal {
-                        msgs.push(Message::RemoveSignal(idx));
+                    if let Some(vcd) = &self.vcd {
+                        if let Some(idx) = vcd.focused_signal {
+                            msgs.push(Message::RemoveSignal(idx));
+                        }
                     }
                 }
                 // this should be a shortcut to focusing
@@ -403,6 +432,9 @@ impl State {
                 }
 
                 let label_bg_color = if self
+                    .vcd
+                    .as_ref()
+                    .expect("Can't draw a signal without a loaded waveform.")
                     .focused_signal
                     .map(|focused| focused == vidx)
                     .unwrap_or(false)
