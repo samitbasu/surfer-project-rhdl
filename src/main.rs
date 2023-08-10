@@ -285,7 +285,6 @@ impl State {
         })
     }
 
-    // TODO: Rename to process_msg or something
     fn update(&mut self, message: Message) {
         match message {
             Message::HierarchyClick(scope) => {
@@ -560,8 +559,6 @@ impl VcdData {
         let target_right = (right - mouse_ptr_timestamp.to_f64().unwrap()) / delta
             + &mouse_ptr_timestamp.to_f64().unwrap();
 
-        // TODO: Do not just round here, this will not work
-        // for small zoom levels
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
     }
@@ -586,7 +583,6 @@ impl VcdData {
             let signal_idxs = vcd.inner.get_children_signal_idxs(scope);
             for signal in signal_idxs {
                 let signal_name = vcd.inner.signal_from_signal_idx(signal).name();
-                // TODO: it would be best if this is a setting
                 if !signal_name.starts_with('_') {
                     vcd.signals_to_ids
                         .insert(format!("{}.{}", full_scope_name, signal_name), signal);

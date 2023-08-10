@@ -56,8 +56,6 @@ impl State {
         let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
 
-        // TODO: Move event handling into its own function
-        // TODO: Consider using events instead of querying like this
         let pointer_pos_global = ui.input().pointer.interact_pos();
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
 
