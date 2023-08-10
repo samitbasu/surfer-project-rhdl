@@ -16,17 +16,6 @@ impl TimedRegion {
         }
     }
 
-    pub fn defer() -> Self {
-        Self {
-            start: None,
-            end: None,
-        }
-    }
-
-    pub fn start(&mut self) {
-        self.start = Some(Instant::now())
-    }
-
     pub fn stop(&mut self) {
         self.end = Some(Instant::now())
     }

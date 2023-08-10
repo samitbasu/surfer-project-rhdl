@@ -27,10 +27,7 @@ use num::BigRational;
 use num::FromPrimitive;
 use num::ToPrimitive;
 use progress_streams::ProgressReader;
-use pyo3::append_to_inittab;
 
-use translation::pytranslator::surfer;
-use translation::pytranslator::PyTranslator;
 use translation::spade::SpadeTranslator;
 use translation::SignalInfo;
 use translation::Translator;
@@ -78,9 +75,6 @@ fn main() -> Result<()> {
         .chain(std::io::stdout());
 
     fern::Dispatch::new().chain(stdout_config).apply()?;
-
-    // Load python modules we deinfe in this crate
-    append_to_inittab!(surfer);
 
     let args = Args::parse();
     let state = State::new(args)?;
@@ -208,24 +202,10 @@ impl State {
                     match t {
                         Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
                         Err(e) => sender.send(Message::Error(e)),
-                    }?;
+                    }
                 } else {
                     info!("spade-top and spade-state not set, not loading spade translator");
-                }
-
-                let pytranslator = PyTranslator::new(
-                    "SurferTranslator",
-                    "translation_test.py",
-                    vec![(
-                        "type_file".to_string(),
-                        "/home/frans/Documents/fpga/spadev/build/spade_types.ron".to_string(),
-                    )]
-                    .into_iter()
-                    .collect(),
-                );
-                match pytranslator {
-                    Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
-                    Err(e) => sender.send(Message::Error(e)),
+                    Ok(())
                 }
             });
         }
