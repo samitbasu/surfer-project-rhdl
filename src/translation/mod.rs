@@ -265,12 +265,15 @@ impl SignalInfo {
         match path {
             [] => self,
             [field, rest @ ..] => match self {
-                SignalInfo::Compound { subfields } => {
-                    subfields.iter().find(|(f, _)| f == field).unwrap().1.get_subinfo(rest)
-                },
+                SignalInfo::Compound { subfields } => subfields
+                    .iter()
+                    .find(|(f, _)| f == field)
+                    .unwrap()
+                    .1
+                    .get_subinfo(rest),
                 SignalInfo::Bits => panic!(),
                 SignalInfo::Bool => panic!(),
-            }
+            },
         }
     }
 }
@@ -283,16 +286,6 @@ pub enum TranslationPreference {
     /// selected by default, the user has to select it
     Yes,
     No,
-}
-
-impl TranslationPreference {
-    fn translates(&self) -> bool {
-        match self {
-            TranslationPreference::Prefer => true,
-            TranslationPreference::Yes => true,
-            TranslationPreference::No => false,
-        }
-    }
 }
 
 pub trait Translator {

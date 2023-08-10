@@ -463,12 +463,7 @@ impl State {
 
                         let ctx_menu = available_translators
                             .iter()
-                            .map(|t| {
-                                (
-                                    t.clone(),
-                                    Message::SignalFormatChange(path.clone(), t.to_string()),
-                                )
-                            })
+                            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
                             .collect::<Vec<_>>();
 
                         ui.menu_button("Format", |ui| {

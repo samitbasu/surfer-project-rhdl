@@ -289,7 +289,7 @@ impl State {
     fn update(&mut self, message: Message) {
         match message {
             Message::HierarchyClick(scope) => {
-                let mut vcd = self.vcd.as_mut().expect("HierarchyClick without vcd set");
+                let vcd = self.vcd.as_mut().expect("HierarchyClick without vcd set");
 
                 vcd.active_scope = Some(scope)
             }

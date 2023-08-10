@@ -1,4 +1,4 @@
-use std::{time::Instant, collections::BTreeMap};
+use std::{collections::BTreeMap, time::Instant};
 
 use itertools::Itertools;
 use log::warn;
@@ -12,14 +12,14 @@ impl TimedRegion {
     pub fn started() -> Self {
         Self {
             start: Some(Instant::now()),
-            end: None
+            end: None,
         }
     }
 
     pub fn defer() -> Self {
         Self {
             start: None,
-            end: None
+            end: None,
         }
     }
 
@@ -43,7 +43,6 @@ impl Drop for TimedRegion {
         warn!("Dropping a timed region timer");
     }
 }
-
 
 pub struct TranslationTimings {
     timings: BTreeMap<String, (Vec<f64>, BTreeMap<String, Vec<f64>>)>,
@@ -96,4 +95,3 @@ impl TranslationTimings {
             .join("\n")
     }
 }
-

@@ -1,0 +1,73 @@
+# image: "scorpil/rust:nightly"
+image: rust:1.65
+
+variables:
+    CARGO_HOME: $CI_PROJECT_DIR/cargo
+    FF_ENABLE_BASH_EXIT_CODE_CHECK: "true"
+    GIT_SUBMODULE_STRATEGY: normal
+
+clippy:
+    stage: test
+    before_script:
+        - rustup component add clippy
+        - cargo install gitlab_clippy
+    script:
+        - cargo clippy -- --allow clippy::useless_format
+    after_script:
+        - cargo clippy --message-format=json -- --allow clippy::useless_format | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
+    artifacts:
+        reports:
+            codequality: gl-code-quality-report.json
+        expire_in: 1 week
+    cache:
+        key:
+            files:
+                - Cargo.lock
+        paths:
+            - target
+            - $CARGO_HOME
+
+test:
+    stage: test
+    script:
+        - cargo test --color=always
+    cache:
+        key:
+            files:
+                - Cargo.lock
+        paths:
+            - target
+            - $CARGO_HOME
+
+
+cargo-fmt:
+    stage: test
+    before_script:
+        - rustup component add rustfmt
+    script:
+        # pass --check to rustfmt to error if un-formatted
+        - cargo fmt -- --check
+
+typos-and-todos:
+    stage: test
+    cache: [] # Disable cache since the spell checker finds typos in other peoples source code 
+    before_script:
+        - apt update
+        - apt install -y wget
+        - wget https://github.com/crate-ci/typos/releases/download/v1.10.3/typos-v1.10.3-x86_64-unknown-linux-musl.tar.gz -O typos.tar.gz
+        # Extract only the typos executable to not get a docs folder which the typo checker
+        # will find typos in
+        - tar xzf typos.tar.gz ./typos
+    script:
+        - ./typos
+          # invert exit code of grep while still printing all matches
+        - set -e; find . -name "*.rs" | xargs grep -Ei "// *TODO" || exit 0 && exit 1
+    after_script:
+        - >
+            if [ $CI_JOB_STATUS == 'success' ]; then
+              echo 'SUCCESS'
+            else
+              echo 'Running again to give you all output since the test failed'
+              ./typos || echo ""
+              find . -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
+            fi

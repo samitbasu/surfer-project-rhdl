@@ -1,4 +1,4 @@
-use num::{BigRational, FromPrimitive, BigInt, ToPrimitive};
+use num::{BigInt, BigRational, FromPrimitive, ToPrimitive};
 
 #[derive(Debug, Clone)]
 pub struct Viewport {
@@ -34,14 +34,12 @@ impl Viewport {
             ..
         } = &self;
 
-
         let time_float = time.to_f64().unwrap();
 
         let distance_from_left = time_float - left;
 
-        let width = right-left;
+        let width = right - left;
 
         (distance_from_left / width) * view_width
     }
 }
-

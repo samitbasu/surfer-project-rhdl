@@ -83,9 +83,7 @@ impl BasicTranslator for UnsignedTranslator {
     }
 }
 
-
 pub struct ExtendingBinaryTranslator {}
-
 
 impl BasicTranslator for ExtendingBinaryTranslator {
     fn name(&self) -> String {
@@ -102,10 +100,7 @@ impl BasicTranslator for ExtendingBinaryTranslator {
                 } else if s.contains("z") {
                     (val, ValueColor::HighImp)
                 } else {
-                    (
-                        val,
-                        ValueColor::Normal,
-                    )
+                    (val, ValueColor::Normal)
                 }
             }
         };
@@ -127,6 +122,14 @@ impl BasicTranslator for ExtendingBinaryTranslator {
             String::new()
         };
 
-        (format!("{extra_bits}{val}").chars().chunks(4).into_iter().map(|mut c| c.join("")).join(" "), color)
+        (
+            format!("{extra_bits}{val}")
+                .chars()
+                .chunks(4)
+                .into_iter()
+                .map(|mut c| c.join(""))
+                .join(" "),
+            color,
+        )
     }
 }
