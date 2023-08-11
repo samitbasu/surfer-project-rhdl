@@ -34,11 +34,21 @@ impl TranslatorList {
         self.inner.keys().chain(self.basic.keys()).collect()
     }
 
+    pub fn all_translators<'a>(&'a self) -> Vec<&'a dyn Translator> {
+        // This is kind of inefficient, but I don't feel like messing with lifetimes
+        // and downcasting BasicTranslator to Translator again. Since this function
+        // isn't run very often, this should be sufficient
+        self.all_translator_names()
+            .into_iter()
+            .map(|name| self.get_translator(name))
+            .collect()
+    }
+
     pub fn basic_translator_names<'a>(&'a self) -> Vec<&'a String> {
         self.basic.keys().collect()
     }
 
-    pub fn get_translator<'a>(&'a self, name: &'a str) -> &'a dyn Translator {
+    pub fn get_translator<'a, 'b>(&'a self, name: &'b str) -> &'a dyn Translator {
         let full = self.inner.get(name);
         if let Some(full) = full.map(|t| t.as_ref()) {
             full

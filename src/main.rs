@@ -33,6 +33,7 @@ use progress_streams::ProgressReader;
 
 use translation::spade::SpadeTranslator;
 use translation::SignalInfo;
+use translation::TranslationPreference;
 use translation::Translator;
 use translation::TranslatorList;
 use view::TraceIdx;
@@ -493,16 +494,47 @@ impl VcdData {
         self.inner.signal_from_signal_idx(idx).name()
     }
 
+    pub fn select_preferred_translator(
+        &self,
+        sig: SignalIdx,
+        translators: &TranslatorList,
+    ) -> String {
+        translators
+            .all_translators()
+            .iter()
+            .filter_map(|t| {
+                let signal = self.inner.signal_from_signal_idx(sig);
+                match t.translates(&signal) {
+                    Ok(TranslationPreference::Prefer) => Some(t.name()),
+                    Ok(TranslationPreference::Yes) => None,
+                    Ok(TranslationPreference::No) => None,
+                    Err(e) => {
+                        error!(
+                            "Failed to check if {} translates {}\n{e:#?}",
+                            t.name(),
+                            signal.name()
+                        );
+                        None
+                    }
+                }
+            })
+            .next()
+            .unwrap_or(translators.default.clone())
+    }
+
     pub fn signal_translator<'a>(
         &'a self,
         sig: TraceIdx,
         translators: &'a TranslatorList,
     ) -> &'a dyn Translator {
-        let translator_name = self
-            .signal_format
-            .get(&sig)
-            .unwrap_or_else(|| &translators.default);
-        let translator = translators.get_translator(translator_name);
+        let translator_name = self.signal_format.get(&sig).cloned().unwrap_or_else(|| {
+            if sig.1.is_empty() {
+                self.select_preferred_translator(sig.0, translators)
+            } else {
+                translators.default.clone()
+            }
+        });
+        let translator = translators.get_translator(&translator_name);
         translator
     }
 
