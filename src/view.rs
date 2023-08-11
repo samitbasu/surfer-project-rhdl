@@ -1,11 +1,14 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use color_eyre::eyre::Context;
+use eframe::egui::TextStyle;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Frame, Key, Layout, RichText};
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
 use log::trace;
+use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::util::uint_idx_to_alpha_idx;
 use crate::{
@@ -99,6 +102,21 @@ impl eframe::App for State {
                         .inner
                     })
                     .inner;
+
+                egui::SidePanel::left("signal values")
+                    .default_width(300.)
+                    .width_range(100.0..=max_width)
+                    .show(ctx, |ui| {
+                        ui.style_mut().wrap = Some(false);
+                        ui.with_layout(
+                            Layout::top_down(Align::LEFT).with_cross_justify(true),
+                            |ui| {
+                                egui::ScrollArea::horizontal()
+                                    .show(ui, |ui| self.draw_var_values(&signal_offsets, vcd, ui))
+                            },
+                        )
+                    });
+
                 egui::CentralPanel::default()
                     .frame(Frame {
                         inner_margin: Margin::same(0.0),
@@ -568,6 +586,59 @@ impl State {
             SignalInfo::Bool | SignalInfo::Bits | SignalInfo::Clock => {
                 let label = draw_label(ui);
                 signal_offsets.insert(path.clone(), label.inner.rect.top());
+            }
+        }
+    }
+
+    fn draw_var_values(
+        &self,
+        signal_offsets: &HashMap<TraceIdx, f32>,
+        vcd: &VcdData,
+        ui: &mut egui::Ui,
+    ) {
+        if let Some(cursor) = &vcd.cursor {
+            let text_style = TextStyle::Monospace;
+            ui.style_mut().override_text_style = Some(text_style);
+
+            for (idx, offset) in signal_offsets
+                .iter()
+                .sorted_by(|(_, l_offset), (_, r_offset)| {
+                    l_offset.partial_cmp(r_offset).unwrap_or(Ordering::Equal)
+                })
+            {
+                let next_y = ui.cursor().top();
+                // In order to align the text in this view with the variable tree,
+                // we need to keep track of how far away from the expected offset we are,
+                // and compensate for it
+                if next_y < *offset {
+                    ui.add_space(offset - next_y);
+                }
+
+                let translator = vcd.signal_translator((idx.0, vec![]), &self.translators);
+
+                let signal = vcd.inner.signal_from_signal_idx(idx.0);
+
+                if cursor < &0.to_bigint() {
+                    break;
+                }
+
+                let translation_result = signal
+                    .query_val_on_tmln(&num::BigInt::to_biguint(&cursor).unwrap(), &vcd.inner)
+                    .map(|(_time, value)| translator.translate(&signal, &value));
+
+                if let Ok(Ok(s)) = translation_result {
+                    let subfields = s
+                        .flatten((idx.0, vec![]), &vcd.signal_format, &self.translators)
+                        .as_fields();
+
+                    let subfield = subfields.iter().find(|(k, _)| k == &idx.1);
+
+                    if let Some((_, Some((v, _)))) = subfield {
+                        ui.label(v);
+                    } else {
+                        ui.label("-");
+                    }
+                }
             }
         }
     }
