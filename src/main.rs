@@ -1,6 +1,7 @@
 mod benchmark;
 mod command_prompt;
 mod commands;
+mod descriptors;
 mod signal_canvas;
 mod translation;
 mod util;
@@ -12,6 +13,8 @@ use clap::Parser;
 use color_eyre::eyre::anyhow;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
+use descriptors::ScopeDescriptor;
+use descriptors::SignalDescriptor;
 use eframe::egui;
 use eframe::epaint::Vec2;
 use fastwave_backend::parse_vcd;
@@ -108,23 +111,13 @@ pub struct VcdData {
     focused_signal: Option<usize>,
 }
 
-pub enum SignalDescriptor {
-    Id(SignalIdx),
-    Name(String),
-}
-
-pub enum ScopeDescriptor {
-    Id(ScopeIdx),
-    Name(String),
-}
-
 pub enum MoveDir {
     Up,
     Down,
 }
 
 pub enum Message {
-    HierarchyClick(ScopeIdx),
+    SetActiveScope(ScopeDescriptor),
     AddSignal(SignalDescriptor),
     AddScope(ScopeDescriptor),
     RemoveSignal(usize),
@@ -274,31 +267,22 @@ impl State {
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::HierarchyClick(scope) => {
+            Message::SetActiveScope(descriptor) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
-                vcd.active_scope = Some(scope)
+                if let Some(scope) = descriptor.resolve(vcd) {
+                    vcd.active_scope = Some(scope)
+                }
             }
             Message::AddSignal(descriptor) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
-                match descriptor {
-                    SignalDescriptor::Id(id) => vcd.add_signal(&self.translators, id),
-                    SignalDescriptor::Name(name) => {
-                        if let Some(id) = vcd.signals_to_ids.get(&name) {
-                            vcd.add_signal(&self.translators, *id);
-                        } else {
-                            error!("Can not add signal \"{name}\" to viewer.");
-                        }
-                    }
+                if let Some(id) = descriptor.resolve(vcd) {
+                    vcd.add_signal(&self.translators, id)
                 }
             }
             Message::AddScope(descriptor) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
 
-                let id_option = match descriptor {
-                    ScopeDescriptor::Id(id) => Some(id),
-                    ScopeDescriptor::Name(name) => vcd.scopes_to_ids.get(&name).copied(),
-                };
-                if let Some(s) = id_option {
+                if let Some(s) = descriptor.resolve(vcd) {
                     let signals = vcd.inner.get_children_signal_idxs(s);
                     for sidx in signals {
                         if !vcd.signal_name(sidx).starts_with("_") {

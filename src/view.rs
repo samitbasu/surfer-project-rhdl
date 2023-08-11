@@ -296,7 +296,7 @@ impl State {
                 name,
             ))
             .clicked()
-            .then(|| msgs.push(Message::HierarchyClick(scope_idx)));
+            .then(|| msgs.push(Message::SetActiveScope(scope_idx.into())));
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
                 ui.ctx(),
@@ -312,7 +312,7 @@ impl State {
                             name,
                         ))
                         .clicked()
-                        .then(|| msgs.push(Message::HierarchyClick(scope_idx)))
+                        .then(|| msgs.push(Message::SetActiveScope(scope_idx.into())))
                     },
                 );
             })

@@ -1,4 +1,4 @@
-use std::fs;
+use std::{collections::BTreeMap, fs};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
@@ -62,6 +62,24 @@ pub fn get_parser(state: &State) -> Command<Message> {
             .collect_vec(),
         None => vec![],
     };
+    let signals_in_active_scope = state
+        .vcd
+        .as_ref()
+        .and_then(|vcd| {
+            vcd.active_scope.map(|scope| {
+                vcd.inner
+                    .get_children_signal_idxs(scope)
+                    .into_iter()
+                    .map(|signal_idx| {
+                        (
+                            vcd.inner.signal_from_signal_idx(signal_idx).name(),
+                            signal_idx,
+                        )
+                    })
+                    .collect::<BTreeMap<_, _>>()
+            })
+        })
+        .unwrap_or_default();
 
     fn vcd_files() -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
@@ -79,42 +97,69 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     Command::NonTerminal(
         ParamGreed::Word,
-        vec!["add_signal", "add_scope", "focus", "unfocus", "load_vcd"]
-            .into_iter()
-            .map(|s| s.into())
-            .collect(),
-        Box::new(move |query, _| match query {
-            "add_signal" => single_word(
-                signals.clone(),
-                Box::new(|word| {
-                    Some(Command::Terminal(Message::AddSignal(
-                        crate::SignalDescriptor::Name(word.into()),
-                    )))
-                }),
-            ),
-            "add_scope" => single_word(
-                scopes.clone(),
-                Box::new(|word| {
-                    Some(Command::Terminal(Message::AddScope(
-                        crate::ScopeDescriptor::Name(word.into()),
-                    )))
-                }),
-            ),
-            "focus" => single_word(
-                displayed_signals.clone(),
-                Box::new(|word| {
-                    // split off the idx which is always followed by an underscore
-                    let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
-                    alpha_idx_to_uint_idx(alpha_idx)
-                        .map(|idx| Command::Terminal(Message::FocusSignal(idx)))
-                }),
-            ),
-            "unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
-            "load_vcd" => single_word_delayed_suggestions(
-                Box::new(vcd_files),
-                Box::new(|word| Some(Command::Terminal(Message::LoadVcd(word.into())))),
-            ),
-            _ => None,
+        vec![
+            "add_signal",
+            "add_signal_from_scope",
+            "add_scope",
+            "select_scope",
+            "focus",
+            "unfocus",
+            "load_vcd",
+        ]
+        .into_iter()
+        .map(|s| s.into())
+        .collect(),
+        Box::new(move |query, _| {
+            let signals_in_active_scope = signals_in_active_scope.clone();
+            match query {
+                "add_signal" => single_word(
+                    signals.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::AddSignal(
+                            crate::SignalDescriptor::Name(word.into()),
+                        )))
+                    }),
+                ),
+                "add_scope" => single_word(
+                    scopes.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::AddScope(
+                            crate::ScopeDescriptor::Name(word.into()),
+                        )))
+                    }),
+                ),
+                "add_signal_from_scope" => single_word(
+                    signals_in_active_scope.keys().cloned().collect(),
+                    Box::new(move |name| {
+                        signals_in_active_scope
+                            .get(name)
+                            .map(|idx| Command::Terminal(Message::AddSignal((*idx).into())))
+                    }),
+                ),
+                "select_scope" => single_word(
+                    scopes.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SetActiveScope(
+                            crate::ScopeDescriptor::Name(word.into()),
+                        )))
+                    }),
+                ),
+                "focus" => single_word(
+                    displayed_signals.clone(),
+                    Box::new(|word| {
+                        // split off the idx which is always followed by an underscore
+                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                        alpha_idx_to_uint_idx(alpha_idx)
+                            .map(|idx| Command::Terminal(Message::FocusSignal(idx)))
+                    }),
+                ),
+                "unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
+                "load_vcd" => single_word_delayed_suggestions(
+                    Box::new(vcd_files),
+                    Box::new(|word| Some(Command::Terminal(Message::LoadVcd(word.into())))),
+                ),
+                _ => None,
+            }
         }),
     )
 }
