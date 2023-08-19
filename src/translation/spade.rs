@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use camino::Utf8Path;
 use eframe::epaint::Color32;
 use num::ToPrimitive;
+use serde::Deserialize;
 use spade::compiler_state::CompilerState;
 
 use color_eyre::{
@@ -30,7 +31,13 @@ impl SpadeTranslator {
         let file_content = std::fs::read_to_string(&state_file)
             .with_context(|| format!("Failed to read {state_file}"))?;
 
-        let state: CompilerState = ron::from_str(&file_content)
+        let mut opt = ron::Options::default();
+        opt.recursion_limit = None;
+
+        let mut de = ron::Deserializer::from_str_with_options(&file_content, opt)
+            .context("Failed to initialize ron deserializer")?;
+        let de = serde_stacker::Deserializer::new(&mut de);
+        let state = CompilerState::deserialize(de)
             .with_context(|| format!("Failed to decode {state_file}"))?;
 
         let path = top.split("::").map(|s| Identifier(s.to_string()).nowhere());

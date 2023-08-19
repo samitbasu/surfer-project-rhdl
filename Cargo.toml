@@ -22,11 +22,13 @@ fern = { version = "0.6.1", features = ["colored"] }
 log = "0.4"
 progress-streams = "1.1.0"
 itertools = "0.10.5"
+serde = "1.0"
+serde_stacker = "0.1"
 spade = {path = "spade/spade-compiler"}
 spade-common = {path = "spade/spade-common"}
 spade-types = {path = "spade/spade-types"}
 spade-mir = {path = "spade/spade-mir"}
 spade-hir-lowering = {path = "spade/spade-hir-lowering"}
 vcd-translate = {path = "spade/vcd-translate"}
-ron = { version = "0.8.0", features = ["integer128"] }
+ron = { version = "0.8.1", features = ["integer128"] }
 fzcmd = {path = "fzcmd"}
