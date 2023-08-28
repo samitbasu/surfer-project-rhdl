@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use eframe::egui::{self, Painter, Sense};
 use eframe::emath::{self, Align2, RectTransform};
-use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, Rounding, Stroke, Vec2};
+use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::error;
 use num::BigRational;
 
@@ -311,8 +311,8 @@ impl State {
         {
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
-            let (old_height, old_color) = prev_value.bool_drawing_spec();
-            let (new_height, _) = new_value.bool_drawing_spec();
+            let (old_height, old_color, old_bg) = prev_value.bool_drawing_spec();
+            let (new_height, _, _) = new_value.bool_drawing_spec();
 
             let stroke = Stroke {
                 color: old_color,
@@ -328,6 +328,21 @@ impl State {
                 ],
                 stroke,
             ));
+
+            if let Some(old_bg) = old_bg {
+                ctx.painter.add(RectShape {
+                    fill: old_bg,
+                    rect: Rect {
+                        min: (ctx.to_screen)(*old_x, offset),
+                        max: (ctx.to_screen)(*new_x, offset + ctx.cfg.line_height),
+                    },
+                    rounding: Rounding::none(),
+                    stroke: Stroke {
+                        width: 0.,
+                        ..Default::default()
+                    },
+                });
+            }
         }
     }
 }
@@ -372,7 +387,7 @@ enum ValueKind {
 
 trait SignalExt {
     fn value_kind(&self) -> ValueKind;
-    fn bool_drawing_spec(&self) -> (f32, Color32);
+    fn bool_drawing_spec(&self) -> (f32, Color32, Option<Color32>);
 }
 
 impl SignalExt for String {
@@ -387,15 +402,15 @@ impl SignalExt for String {
     }
 
     /// Return the height and color with which to draw this value if it is a boolean
-    fn bool_drawing_spec(&self) -> (f32, Color32) {
+    fn bool_drawing_spec(&self) -> (f32, Color32, Option<Color32>) {
         match (self.value_kind(), self) {
-            (ValueKind::HighImp, _) => (0.5, style::c_yellow()),
-            (ValueKind::Undef, _) => (0.5, style::c_red()),
+            (ValueKind::HighImp, _) => (0.5, style::c_yellow(), None),
+            (ValueKind::Undef, _) => (0.5, style::c_red(), None),
             (ValueKind::Normal, other) => {
                 if other == "0" {
-                    (0., style::c_dark_green())
+                    (0., style::c_dark_green(), None)
                 } else {
-                    (1., style::c_green())
+                    (1., style::c_green(), Some(style::c_bool_background()))
                 }
             }
         }
@@ -428,5 +443,9 @@ mod style {
 
     pub fn c_yellow() -> Color32 {
         Color32::from_rgb(c_max(), c_max(), c_min())
+    }
+
+    pub fn c_bool_background() -> Color32 {
+        Color32::from_rgba_unmultiplied(c_min(), c_mid(), c_min(), 32)
     }
 }
