@@ -565,7 +565,7 @@ impl State {
 
                 signal_offsets.insert(path.clone(), response.1.response.rect.top());
             }
-            SignalInfo::Bool | SignalInfo::Bits => {
+            SignalInfo::Bool | SignalInfo::Bits | SignalInfo::Clock => {
                 let label = draw_label(ui);
                 signal_offsets.insert(path.clone(), label.inner.rect.top());
             }

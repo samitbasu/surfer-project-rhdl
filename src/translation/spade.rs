@@ -105,6 +105,10 @@ impl Translator for SpadeTranslator {
             .type_of_hierarchical_value(&self.top, &signal.path()[1..])?;
 
         match ty {
+            ConcreteType::Single {
+                base: PrimitiveType::Clock,
+                params: _,
+            } => Ok(TranslationPreference::Prefer),
             ConcreteType::Single { base: _, params: _ } => Ok(TranslationPreference::No),
             _ => Ok(TranslationPreference::Prefer),
         }
@@ -423,9 +427,13 @@ fn info_from_concrete(ty: &ConcreteType) -> Result<SignalInfo> {
                 .collect::<Result<_>>()?,
         },
         ConcreteType::Single {
-            base: PrimitiveType::Bool | PrimitiveType::Clock,
+            base: PrimitiveType::Bool,
             params: _,
         } => SignalInfo::Bool,
+        ConcreteType::Single {
+            base: PrimitiveType::Clock,
+            params: _,
+        } => SignalInfo::Clock,
         ConcreteType::Single { .. } => SignalInfo::Bits,
         ConcreteType::Integer(_) => SignalInfo::Bits,
         ConcreteType::Backward(inner) => info_from_concrete(inner)?,

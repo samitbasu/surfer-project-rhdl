@@ -92,6 +92,7 @@ impl State {
         painter.rect_filled(response.rect, Rounding::none(), Color32::from_rgb(0, 0, 0));
 
         let cfg = DrawConfig {
+            canvas_height: response.rect.size().y,
             line_height: 16.,
             max_transition_width: 6,
         };
@@ -115,6 +116,7 @@ impl State {
             .collect::<Vec<_>>();
 
         let mut timings = TranslationTimings::new();
+        let mut clock_edges = vec![];
 
         let draw_commands = vcd
             .signals
@@ -194,10 +196,24 @@ impl State {
                             *prev_values.entry(path.clone()).or_insert(value.clone()) =
                                 value.clone();
 
+                            if let SignalInfo::Clock = info.get_subinfo(&path) {
+                                match value.as_ref().map(|(val, _)| val.as_str()) {
+                                    Some("1") => {
+                                        if !is_last_timestep && !is_first_timestep {
+                                            clock_edges.push(*pixel)
+                                        }
+                                    }
+                                    Some(_) => {}
+                                    None => {}
+                                }
+                            }
+
                             local_commands
                                 .entry(path.clone())
                                 .or_insert_with(|| {
-                                    if let SignalInfo::Bool = info.get_subinfo(&path) {
+                                    if let SignalInfo::Bool | SignalInfo::Clock =
+                                        info.get_subinfo(&path)
+                                    {
                                         DrawingCommands::new_bool()
                                     } else {
                                         DrawingCommands::new_wide()
@@ -222,6 +238,10 @@ impl State {
             cfg: &cfg,
             to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y)),
         };
+
+        for clock_edge in clock_edges {
+            self.draw_clock_edge(clock_edge, &mut ctx);
+        }
 
         for (trace, commands) in &draw_commands {
             let offset = signal_offsets.get(trace);
@@ -345,6 +365,22 @@ impl State {
             }
         }
     }
+
+    fn draw_clock_edge(&self, x_pos: f32, ctx: &mut DrawingContext) {
+        let Pos2 {
+            x: x_pos,
+            y: y_start,
+        } = (ctx.to_screen)(x_pos, 0.);
+        ctx.painter.vline(
+            x_pos,
+            (y_start)..=(y_start + ctx.cfg.canvas_height),
+            Stroke {
+                color: Color32::from_rgb(64, 64, 128),
+                width: 2.,
+                ..Default::default()
+            },
+        );
+    }
 }
 
 struct DrawingContext<'a> {
@@ -375,6 +411,7 @@ impl VcdData {
 }
 
 struct DrawConfig {
+    canvas_height: f32,
     line_height: f32,
     max_transition_width: i32,
 }

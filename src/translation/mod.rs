@@ -256,13 +256,14 @@ impl TranslationResult {
 }
 
 /// Static information about the structure of a signal.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SignalInfo {
     Compound {
         subfields: Vec<(String, SignalInfo)>,
     },
     Bits,
     Bool,
+    Clock,
 }
 
 impl SignalInfo {
@@ -278,6 +279,7 @@ impl SignalInfo {
                     .get_subinfo(rest),
                 SignalInfo::Bits => panic!(),
                 SignalInfo::Bool => panic!(),
+                SignalInfo::Clock => panic!(),
             },
         }
     }
