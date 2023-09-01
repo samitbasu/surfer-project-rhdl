@@ -153,6 +153,18 @@ impl eframe::App for State {
                             },
                             layout,
                             |ui| {
+                                if self.vcd.is_none() {
+                                    ui.label(RichText::new(
+                                        "Drag and drop a VCD file here to open it",
+                                    ));
+
+                                    #[cfg(not(target_arch = "wasm32"))]
+                                    ui.label(RichText::new("Or press space and type load_vcd"));
+
+                                    ui.add_space(20.0);
+                                    ui.separator();
+                                    ui.add_space(20.0);
+                                }
                                 ui.label(
                                     RichText::new("🚀  Space:  Show command prompt").monospace(),
                                 );
@@ -176,6 +188,10 @@ impl eframe::App for State {
         }
 
         self.control_key = ctx.input().modifiers.ctrl;
+
+        for file in &ctx.input().raw.dropped_files {
+            msgs.push(Message::FileDroped(file.clone()))
+        }
 
         ctx.input().events.iter().for_each(|event| match event {
             Event::Key {

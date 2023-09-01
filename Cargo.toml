@@ -5,15 +5,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[profile.release]
-debug=true
-
-[profile.dev]
-opt-level=3
-
 [dependencies]
 fastwave_backend = {path = "FastWaveBackend"}
-eframe = "0.20.1"
+eframe = { version = "0.20.0", default-features = false, features = [
+    "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+    "persistence",   # Enable restoring app state when restarting the app.
+] }
 camino = "1.1.1"
 num = "0.4"
 color-eyre = "0.6.2"
@@ -32,3 +31,18 @@ spade-hir-lowering = {path = "spade/spade-hir-lowering"}
 vcd-translate = {path = "spade/vcd-translate"}
 ron = { version = "0.8.1", features = ["integer128"] }
 fzcmd = {path = "fzcmd"}
+
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1.6"
+tracing-wasm = "0.2"
+wasm_thread = {version = "0.2.0", features = ["es_modules"]}
+
+[profile.release]
+opt-level = 3 # fast and small wasm
+debug=true
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level=3

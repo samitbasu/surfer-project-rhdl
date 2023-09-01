@@ -7,6 +7,7 @@ mod translation;
 mod util;
 mod view;
 mod viewport;
+mod wasm_util;
 
 use camino::Utf8PathBuf;
 use clap::Parser;
@@ -16,6 +17,7 @@ use color_eyre::Result;
 use descriptors::ScopeDescriptor;
 use descriptors::SignalDescriptor;
 use eframe::egui;
+use eframe::egui::DroppedFile;
 use eframe::epaint::Vec2;
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
@@ -38,17 +40,20 @@ use translation::Translator;
 use translation::TranslatorList;
 use view::TraceIdx;
 use viewport::Viewport;
+use wasm_util::perform_work;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::fs::File;
+use std::io::Read;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Default)]
 struct Args {
     vcd_file: Option<Utf8PathBuf>,
     #[clap(long)]
@@ -57,6 +62,8 @@ struct Args {
     spade_top: Option<String>,
 }
 
+// When compiling natively:
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
     color_eyre::install()?;
 
@@ -89,6 +96,35 @@ fn main() -> Result<()> {
     };
 
     eframe::run_native("Surfer", options, Box::new(|_cc| Box::new(state)));
+
+    Ok(())
+}
+
+// When compiling to web using trunk:
+#[cfg(target_arch = "wasm32")]
+fn main() -> Result<()> {
+    color_eyre::install()?;
+
+    // Make sure panics are logged using `console.error`.
+    console_error_panic_hook::set_once();
+
+    // Redirect tracing to console.log and friends:
+    tracing_wasm::set_as_global_default();
+
+    let web_options = eframe::WebOptions::default();
+
+    let args = Args::default();
+    let state = State::new(args)?;
+
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::start_web(
+            "the_canvas_id", // hardcode it
+            web_options,
+            Box::new(|cc| Box::new(state)),
+        )
+        .await
+        .expect("failed to start eframe");
+    });
 
     Ok(())
 }
@@ -147,6 +183,7 @@ pub enum Message {
     BlacklistTranslator(SignalIdx, String),
     ToggleSidePanel,
     ShowCommandPrompt(bool),
+    FileDroped(DroppedFile),
 }
 
 pub struct State {
@@ -191,23 +228,24 @@ impl State {
         // Long running translators which we load in a thread
         {
             let sender = sender.clone();
-            std::thread::spawn(move || {
+            perform_work(move || {
                 if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
                     let t = SpadeTranslator::new(&top, &state);
                     match t {
-                        Ok(result) => sender.send(Message::TranslatorLoaded(Box::new(result))),
-                        Err(e) => sender.send(Message::Error(e)),
+                        Ok(result) => sender
+                            .send(Message::TranslatorLoaded(Box::new(result)))
+                            .unwrap(),
+                        Err(e) => sender.send(Message::Error(e)).unwrap(),
                     }
                 } else {
                     info!("spade-top and spade-state not set, not loading spade translator");
-                    Ok(())
                 }
             });
         }
 
         let vcd_load_status = args
             .vcd_file
-            .map(|path| State::load_vcd(path, sender.clone()).ok())
+            .map(|path| State::load_vcd_from_file(path, sender.clone()).ok())
             .flatten();
 
         Ok(State {
@@ -228,7 +266,7 @@ impl State {
         })
     }
 
-    fn load_vcd(
+    fn load_vcd_from_file(
         vcd_filename: Utf8PathBuf,
         sender: Sender<Message>,
     ) -> Result<(Option<u64>, Arc<AtomicU64>)> {
@@ -243,24 +281,64 @@ impl State {
             .map_err(|e| info!("Failed to get vcd file metadata {e}"))
             .ok();
 
+        Self::load_vcd(Some(vcd_filename), file, total_bytes, sender)
+    }
+
+    fn load_vcd_from_dropped(
+        file: DroppedFile,
+        sender: Sender<Message>,
+    ) -> Result<(Option<u64>, Arc<AtomicU64>)> {
+        info!("Got a dropped file");
+
+        let filename = file
+            .path
+            .map(|p| Utf8PathBuf::try_from(p).unwrap_or_default());
+        let bytes = file
+            .bytes
+            .ok_or_else(|| anyhow!("Dropped a file with no bytes"))?;
+
+        let total_bytes = bytes.len();
+
+        // TODO: Copying the whole vcd file here is inefficient. We should try to make
+        // a reader out of the Arc<[u8]>
+        Self::load_vcd(
+            filename,
+            VecDeque::from_iter(bytes.into_iter().cloned()),
+            Some(total_bytes as u64),
+            sender,
+        )
+    }
+
+    fn load_vcd(
+        filename: Option<Utf8PathBuf>,
+        reader: impl Read + Send + 'static,
+        total_bytes: Option<u64>,
+        sender: Sender<Message>,
+    ) -> Result<(Option<u64>, Arc<AtomicU64>)> {
         // Progress tracking in bytes
         let progress_bytes = Arc::new(AtomicU64::new(0));
         let reader = {
+            info!("Creating progress reader");
             let progress_bytes = progress_bytes.clone();
-            ProgressReader::new(file, move |progress: usize| {
+            ProgressReader::new(reader, move |progress: usize| {
                 progress_bytes.fetch_add(progress as u64, Ordering::SeqCst);
             })
         };
 
-        std::thread::spawn(move || {
+        perform_work(move || {
             info!("Loading VCD");
             let result = parse_vcd(reader)
                 .map_err(|e| anyhow!("{e}"))
-                .with_context(|| format!("Failed to parse parse {vcd_filename}"));
+                .with_context(|| format!("Failed to parse parse vcd file"));
 
             match result {
-                Ok(vcd) => sender.send(Message::VcdLoaded(vcd_filename, Box::new(vcd))),
-                Err(e) => sender.send(Message::Error(e)),
+                Ok(vcd) => sender
+                    .send(Message::VcdLoaded(
+                        filename.unwrap_or_default(),
+                        Box::new(vcd),
+                    ))
+                    .unwrap(),
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
         });
 
@@ -423,7 +501,14 @@ impl State {
                 self.vcd.as_mut().map(|vcd| vcd.cursor = Some(new));
             }
             Message::LoadVcd(filename) => {
-                self.vcd_progress = State::load_vcd(filename, self.msg_sender.clone()).ok();
+                self.vcd_progress =
+                    State::load_vcd_from_file(filename, self.msg_sender.clone()).ok();
+            }
+            Message::FileDroped(dropped_file) => {
+                self.vcd_progress =
+                    Self::load_vcd_from_dropped(dropped_file, self.msg_sender.clone())
+                        .map_err(|e| error!("{e:#?}"))
+                        .ok();
             }
             Message::VcdLoaded(filename, new_vcd_data) => {
                 info!("VCD file loaded");

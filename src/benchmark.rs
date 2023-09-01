@@ -8,6 +8,7 @@ pub struct TimedRegion {
     end: Option<Instant>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl TimedRegion {
     pub fn started() -> Self {
         Self {
@@ -24,6 +25,27 @@ impl TimedRegion {
         let result = (self.end.unwrap() - self.start.unwrap()).as_secs_f64();
         std::mem::forget(self);
         result
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl TimedRegion {
+    pub fn started() -> Self {
+        Self {
+            start: None,
+            end: None,
+        }
+    }
+
+    pub fn stop(&mut self) {
+        //self.end = Some(Instant::now())
+    }
+
+    pub fn secs(self) -> f64 {
+        // let result = (self.end.unwrap() - self.start.unwrap()).as_secs_f64();
+        // std::mem::forget(self);
+        // result
+        0.
     }
 }
 

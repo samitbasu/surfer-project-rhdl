@@ -28,7 +28,7 @@ pub fn show_command_prompt(
     egui::Window::new("Commands")
         .anchor(Align2::CENTER_TOP, Vec2::ZERO)
         .title_bar(false)
-        .min_width(frame.info().window_info.size.x * 0.3)
+        // .min_width(frame.info().web_info.size.x * 0.3)
         .resizable(true)
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
