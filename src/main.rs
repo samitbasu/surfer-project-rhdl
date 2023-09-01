@@ -183,7 +183,7 @@ pub enum Message {
     BlacklistTranslator(SignalIdx, String),
     ToggleSidePanel,
     ShowCommandPrompt(bool),
-    FileDroped(DroppedFile),
+    FileDropped(DroppedFile),
 }
 
 pub struct State {
@@ -299,7 +299,7 @@ impl State {
 
         let total_bytes = bytes.len();
 
-        // TODO: Copying the whole vcd file here is inefficient. We should try to make
+        // FIXME: Copying the whole vcd file here is inefficient. We should try to make
         // a reader out of the Arc<[u8]>
         Self::load_vcd(
             filename,
@@ -504,7 +504,7 @@ impl State {
                 self.vcd_progress =
                     State::load_vcd_from_file(filename, self.msg_sender.clone()).ok();
             }
-            Message::FileDroped(dropped_file) => {
+            Message::FileDropped(dropped_file) => {
                 self.vcd_progress =
                     Self::load_vcd_from_dropped(dropped_file, self.msg_sender.clone())
                         .map_err(|e| error!("{e:#?}"))

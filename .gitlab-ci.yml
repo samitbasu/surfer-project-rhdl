@@ -1,5 +1,5 @@
 # image: "scorpil/rust:nightly"
-image: rust:1.71
+image: rust:1.72-bookworm
 
 variables:
     CARGO_HOME: $CI_PROJECT_DIR/cargo
@@ -71,3 +71,23 @@ typos-and-todos:
               ./typos src || echo ""
               set -e; find src -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
             fi
+
+
+pages:
+    cache:
+        key:
+            files:
+                - Cargo.lock
+        paths:
+            - target
+            - $CARGO_HOME
+    script:
+        - rustup target add wasm32-unknown-unknown
+        - wget -qO- https://github.com/thedodd/trunk/releases/download/v0.17.5/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+        - ls ./trunk
+        - chmod +x trunk
+        - ./trunk build --release
+        - mv dist public
+    artifacts:
+        paths:
+            - public

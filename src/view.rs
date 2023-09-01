@@ -190,7 +190,7 @@ impl eframe::App for State {
         self.control_key = ctx.input().modifiers.ctrl;
 
         for file in &ctx.input().raw.dropped_files {
-            msgs.push(Message::FileDroped(file.clone()))
+            msgs.push(Message::FileDropped(file.clone()))
         }
 
         ctx.input().events.iter().for_each(|event| match event {
