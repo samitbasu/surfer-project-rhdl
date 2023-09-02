@@ -2,6 +2,7 @@ use super::{BasicTranslator, ValueColor};
 
 use fastwave_backend::SignalValue;
 use itertools::Itertools;
+use spade_common::num_ext::InfallibleToBigUint;
 
 // Forms groups of 4 chars from from a string. If the string size is
 // not divisible by 4, the first group will be smaller than 4
@@ -96,6 +97,44 @@ impl BasicTranslator for UnsignedTranslator {
                             .unwrap_or(s.clone()),
                         ValueColor::Normal,
                     )
+                }
+            }
+        }
+    }
+}
+
+pub struct SignedTranslator {}
+
+impl BasicTranslator for SignedTranslator {
+    fn name(&self) -> String {
+        String::from("Signed")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+        match value {
+            SignalValue::BigUint(v) => {
+                let signweight = 1u32.to_biguint() << (_num_bits - 1);
+                if *v < signweight {
+                    (format!("{v}"), ValueColor::Normal)
+                } else {
+                    let v2 = (signweight << 1) - v;
+                    (format!("-{v2}"), ValueColor::Normal)
+                }
+            }
+            SignalValue::String(s) => {
+                if s.contains("x") {
+                    (format!("UNDEF"), ValueColor::Undef)
+                } else if s.contains("z") {
+                    (format!("HIGHIMP"), ValueColor::HighImp)
+                } else {
+                    let v = u128::from_str_radix(s, 2).expect("Cannot parse");
+                    let signweight = 1u128 << (_num_bits - 1);
+                    if v < signweight {
+                        (format!("{v}"), ValueColor::Normal)
+                    } else {
+                        let v2 = (signweight << 1) - v;
+                        (format!("-{v2}"), ValueColor::Normal)
+                    }
                 }
             }
         }
@@ -206,5 +245,39 @@ mod test {
                 .0,
             "10 0000"
         )
+    }
+
+    #[test]
+    fn signed_translation_from_string() {
+        assert_eq!(
+            SignedTranslator {}
+                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .0,
+            "-16"
+        );
+
+        assert_eq!(
+            SignedTranslator {}
+                .basic_translate(5, &SignalValue::String("01000".to_string()))
+                .0,
+            "8"
+        );
+    }
+
+    #[test]
+    fn signed_translation_from_biguint() {
+        assert_eq!(
+            SignedTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0b10011u32.to_biguint()))
+                .0,
+            "-13"
+        );
+
+        assert_eq!(
+            SignedTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0b01000u32.to_biguint()))
+                .0,
+            "8"
+        );
     }
 }

@@ -182,6 +182,7 @@ impl State {
             vec![
                 Box::new(translation::HexTranslator {}),
                 Box::new(translation::UnsignedTranslator {}),
+                Box::new(translation::SignedTranslator {}),
                 Box::new(translation::ExtendingBinaryTranslator {}),
             ],
             vec![],
