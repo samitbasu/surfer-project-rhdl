@@ -312,26 +312,30 @@ impl State {
             }
             Message::MoveFocus(direction) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
-                match direction {
-                    MoveDir::Up => {
-                        vcd.focused_signal =
-                            vcd.focused_signal
-                                .map_or(Some(vcd.signals.len() - 1), |focused| {
+                let visible_signals_len = vcd.signals.len();
+                if visible_signals_len > 0 {
+                    match direction {
+                        MoveDir::Up => {
+                            vcd.focused_signal = vcd.focused_signal.map_or(
+                                Some(visible_signals_len - 1),
+                                |focused| {
                                     if focused > 0 {
                                         Some(focused - 1)
                                     } else {
                                         Some(focused)
                                     }
-                                })
-                    }
-                    MoveDir::Down => {
-                        vcd.focused_signal = vcd.focused_signal.map_or(Some(0), |focused| {
-                            if focused < (vcd.signals.len() - 1).try_into().unwrap_or(0) {
-                                Some(focused + 1)
-                            } else {
-                                Some(focused)
-                            }
-                        });
+                                },
+                            )
+                        }
+                        MoveDir::Down => {
+                            vcd.focused_signal = vcd.focused_signal.map_or(Some(0), |focused| {
+                                if focused < (visible_signals_len - 1).try_into().unwrap_or(0) {
+                                    Some(focused + 1)
+                                } else {
+                                    Some(focused)
+                                }
+                            });
+                        }
                     }
                 }
             }
