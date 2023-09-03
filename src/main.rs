@@ -218,6 +218,7 @@ impl State {
         let translators = TranslatorList::new(
             vec![
                 Box::new(translation::HexTranslator {}),
+                Box::new(translation::OctalTranslator {}),
                 Box::new(translation::UnsignedTranslator {}),
                 Box::new(translation::SignedTranslator {}),
                 Box::new(translation::ExtendingBinaryTranslator {}),

@@ -4,15 +4,15 @@ use fastwave_backend::SignalValue;
 use itertools::Itertools;
 use spade_common::num_ext::InfallibleToBigUint;
 
-// Forms groups of 4 chars from from a string. If the string size is
-// not divisible by 4, the first group will be smaller than 4
+// Forms groups of n chars from from a string. If the string size is
+// not divisible by n, the first group will be smaller than n
 // The string must only consist of ascii characters
-fn group_4_chars<'a>(s: &'a str) -> Vec<&'a str> {
-    let num_extra_chars = s.len() % 4;
+fn group_n_chars<'a>(s: &'a str, n: usize) -> Vec<&'a str> {
+    let num_extra_chars = s.len() % n;
 
     let last_group = &s[0..num_extra_chars];
 
-    let rest_groups = s.len() / 4;
+    let rest_groups = s.len() / n;
     let rest_str = &s[num_extra_chars..];
 
     if !last_group.is_empty() {
@@ -21,7 +21,7 @@ fn group_4_chars<'a>(s: &'a str) -> Vec<&'a str> {
         vec![]
     }
     .into_iter()
-    .chain((0..rest_groups).map(|start| &rest_str[start * 4..(start + 1) * 4]))
+    .chain((0..rest_groups).map(|start| &rest_str[start * n..(start + 1) * n]))
     .collect()
 }
 
@@ -34,15 +34,22 @@ impl BasicTranslator for HexTranslator {
 
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
         match value {
-            SignalValue::BigUint(v) => (
-                format!("{v:0width$x}", width = num_bits as usize / 4),
-                ValueColor::Normal,
-            ),
+            SignalValue::BigUint(v) => {
+                let digits = if (num_bits % 4) == 0 {
+                    num_bits / 4
+                } else {
+                    num_bits / 4 + 1
+                };
+                (
+                    format!("{v:0width$x}", width = digits as usize),
+                    ValueColor::Normal,
+                )
+            }
             SignalValue::String(s) => {
                 let mut is_undef = false;
                 let mut is_highimp = false;
 
-                let val = group_4_chars(s)
+                let val = group_n_chars(s, 4)
                     .into_iter()
                     .map(|g| {
                         if g.contains('x') {
@@ -54,7 +61,64 @@ impl BasicTranslator for HexTranslator {
                         } else {
                             format!(
                                 "{:x}",
-                                u8::from_str_radix(&g, 2).expect("Found non binary digit in value")
+                                u8::from_str_radix(&g, 2).expect("Found non-binary digit in value")
+                            )
+                        }
+                    })
+                    .join("");
+
+                (
+                    val,
+                    if is_undef {
+                        ValueColor::Undef
+                    } else if is_highimp {
+                        ValueColor::HighImp
+                    } else {
+                        ValueColor::Normal
+                    },
+                )
+            }
+        }
+    }
+}
+
+pub struct OctalTranslator {}
+
+impl BasicTranslator for OctalTranslator {
+    fn name(&self) -> String {
+        String::from("Octal")
+    }
+
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+        match value {
+            SignalValue::BigUint(v) => {
+                let digits = if (num_bits % 3) == 0 {
+                    num_bits / 3
+                } else {
+                    num_bits / 3 + 1
+                };
+                (
+                    format!("{v:0width$o}", width = digits as usize),
+                    ValueColor::Normal,
+                )
+            }
+            SignalValue::String(s) => {
+                let mut is_undef = false;
+                let mut is_highimp = false;
+
+                let val = group_n_chars(s, 3)
+                    .into_iter()
+                    .map(|g| {
+                        if g.contains('x') {
+                            is_undef = true;
+                            "x".to_string()
+                        } else if g.contains('z') {
+                            is_highimp = true;
+                            "z".to_string()
+                        } else {
+                            format!(
+                                "{:o}",
+                                u8::from_str_radix(&g, 2).expect("Found non-binary digit in value")
                             )
                         }
                     })
@@ -181,7 +245,7 @@ impl BasicTranslator for ExtendingBinaryTranslator {
         };
 
         (
-            group_4_chars(&format!("{extra_bits}{val}")).join(" "),
+            group_n_chars(&format!("{extra_bits}{val}"), 4).join(" "),
             color,
         )
     }
@@ -204,6 +268,13 @@ mod test {
 
         assert_eq!(
             HexTranslator {}
+                .basic_translate(5, &SignalValue::String("01000".to_string()))
+                .0,
+            "08"
+        );
+
+        assert_eq!(
+            HexTranslator {}
                 .basic_translate(5, &SignalValue::String("100000".to_string()))
                 .0,
             "20"
@@ -217,7 +288,46 @@ mod test {
                 .basic_translate(5, &SignalValue::BigUint(0b10000u32.to_biguint()))
                 .0,
             "10"
-        )
+        );
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0b01000u32.to_biguint()))
+                .0,
+            "08"
+        );
+    }
+
+    #[test]
+    fn octal_translation_groups_digits_correctly_string() {
+        assert_eq!(
+            OctalTranslator {}
+                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .0,
+            "20"
+        );
+
+        assert_eq!(
+            OctalTranslator {}
+                .basic_translate(5, &SignalValue::String("00100".to_string()))
+                .0,
+            "04"
+        );
+    }
+
+    #[test]
+    fn octal_translation_groups_digits_correctly_bigint() {
+        assert_eq!(
+            OctalTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0b10000u32.to_biguint()))
+                .0,
+            "20"
+        );
+        assert_eq!(
+            OctalTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0b00100u32.to_biguint()))
+                .0,
+            "04"
+        );
     }
 
     #[test]

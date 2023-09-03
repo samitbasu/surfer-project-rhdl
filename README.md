@@ -34,7 +34,7 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] Unsigned values
     - [x] [Spade](https://spade-lang.org) values
     - [x] Signed values
-    - [ ] Base 8-values
+    - [x] Base 8-values
     - [ ] RiscV instructions (probably via an extension)
     - [ ] Custom translation via python API
 - [ ] Wave file reloading
