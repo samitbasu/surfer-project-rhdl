@@ -181,6 +181,18 @@ impl eframe::App for State {
                                             .monospace(),
                                     );
                                 }
+
+                                #[cfg(target_arch = "wasm32")]
+                                {
+                                    ui.label(RichText::new(
+                                        "Note that this web based version is a bit slower than a natively installed version. There may also be a long delay with unresponsiveness when loading large waveforms because the web assembly version does not currently support multi threading.",
+                                    ));
+
+                                    ui.hyperlink_to(
+                                        "See https://gitlab.com/surfer-project/surfer for install instructions",
+                                        "https://gitlab.com/surfer-project/surfer"
+                                    );
+                                }
                             },
                         );
                     });
