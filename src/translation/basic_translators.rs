@@ -33,6 +33,26 @@ fn no_of_digits(num_bits: u64, digit_size: u64) -> usize {
     }
 }
 
+fn extend_string(val: &String, num_bits: u64) -> String {
+    // VCD spec'd bit extension
+    let extra_bits = if num_bits > val.len() as u64 {
+        let extra_count = num_bits - val.len() as u64;
+        let extra_value = match val.chars().next() {
+            Some('0') => "0",
+            Some('1') => "0",
+            Some('x') => "x",
+            Some('z') => "z",
+            // If we got weird characters, this is probably a string, so we don't
+            // do the extension
+            _ => "",
+        };
+        extra_value.repeat(extra_count as usize)
+    } else {
+        String::new()
+    };
+    return extra_bits;
+}
+
 pub struct HexTranslator {}
 
 impl BasicTranslator for HexTranslator {
@@ -42,17 +62,15 @@ impl BasicTranslator for HexTranslator {
 
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
         match value {
-            SignalValue::BigUint(v) => {
-                (
-                    format!("{v:0width$x}", width = no_of_digits(num_bits, 4)),
-                    ValueColor::Normal,
-                )
-            }
+            SignalValue::BigUint(v) => (
+                format!("{v:0width$x}", width = no_of_digits(num_bits, 4)),
+                ValueColor::Normal,
+            ),
             SignalValue::String(s) => {
                 let mut is_undef = false;
                 let mut is_highimp = false;
-
-                let val = group_n_chars(s, 4)
+                let extra_bits = extend_string(&s, num_bits);
+                let val = group_n_chars(&format!("{extra_bits}{s}"), 4)
                     .into_iter()
                     .map(|g| {
                         if g.contains('x') {
@@ -94,17 +112,15 @@ impl BasicTranslator for OctalTranslator {
 
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
         match value {
-            SignalValue::BigUint(v) => {
-                (
-                    format!("{v:0width$o}", width = no_of_digits(num_bits, 3)),
-                    ValueColor::Normal,
-                )
-            }
+            SignalValue::BigUint(v) => (
+                format!("{v:0width$o}", width = no_of_digits(num_bits, 3)),
+                ValueColor::Normal,
+            ),
             SignalValue::String(s) => {
                 let mut is_undef = false;
                 let mut is_highimp = false;
-
-                let val = group_n_chars(s, 3)
+                let extra_bits = extend_string(&s, num_bits);
+                let val = group_n_chars(&format!("{extra_bits}{s}"), 3)
                     .into_iter()
                     .map(|g| {
                         if g.contains('x') {
@@ -225,22 +241,7 @@ impl BasicTranslator for ExtendingBinaryTranslator {
             }
         };
 
-        // VCD spec'd bit extension
-        let extra_bits = if num_bits > val.len() as u64 {
-            let extra_count = num_bits - val.len() as u64;
-            let extra_value = match val.chars().next() {
-                Some('0') => "0",
-                Some('1') => "0",
-                Some('x') => "x",
-                Some('z') => "z",
-                // If we got weird characters, this is probably a string, so we don't
-                // do the extension
-                _ => "",
-            };
-            extra_value.repeat(extra_count as usize)
-        } else {
-            String::new()
-        };
+        let extra_bits = extend_string(&val, num_bits);
 
         (
             group_n_chars(&format!("{extra_bits}{val}"), 4).join(" "),
@@ -266,7 +267,7 @@ mod test {
 
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::String("01000".to_string()))
+                .basic_translate(5, &SignalValue::String("1000".to_string()))
                 .0,
             "08"
         );
@@ -276,6 +277,24 @@ mod test {
                 .basic_translate(5, &SignalValue::String("100000".to_string()))
                 .0,
             "20"
+        );
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(10, &SignalValue::String("1z00x0".to_string()))
+                .0,
+            "0zx"
+        );
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(10, &SignalValue::String("z0110".to_string()))
+                .0,
+            "zz6"
+        );
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(24, &SignalValue::String("xz0110".to_string()))
+                .0,
+            "xxxxx6"
         );
     }
 
@@ -303,12 +322,17 @@ mod test {
                 .0,
             "20"
         );
-
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(5, &SignalValue::String("00100".to_string()))
+                .basic_translate(5, &SignalValue::String("100".to_string()))
                 .0,
             "04"
+        );
+        assert_eq!(
+            OctalTranslator {}
+                .basic_translate(9, &SignalValue::String("x100".to_string()))
+                .0,
+            "xx4"
         );
     }
 
@@ -336,13 +360,24 @@ mod test {
                 .0,
             "1 0000"
         );
-
         assert_eq!(
             ExtendingBinaryTranslator {}
                 .basic_translate(5, &SignalValue::String("100000".to_string()))
                 .0,
             "10 0000"
-        )
+        );
+        assert_eq!(
+            ExtendingBinaryTranslator {}
+                .basic_translate(7, &SignalValue::String("10x00".to_string()))
+                .0,
+            "001 0x00"
+        );
+        assert_eq!(
+            ExtendingBinaryTranslator {}
+                .basic_translate(7, &SignalValue::String("z10x00".to_string()))
+                .0,
+            "zz1 0x00"
+        );
     }
 
     #[test]
