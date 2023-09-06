@@ -223,7 +223,7 @@ impl State {
                 Box::new(translation::SignedTranslator {}),
                 Box::new(translation::ExtendingBinaryTranslator {}),
             ],
-            vec![],
+            vec![Box::new(translation::clock::ClockTranslator::new())],
         );
 
         // Long running translators which we load in a thread

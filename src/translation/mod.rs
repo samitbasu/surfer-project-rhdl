@@ -5,6 +5,7 @@ use eframe::epaint::Color32;
 use fastwave_backend::{Signal, SignalValue};
 
 mod basic_translators;
+pub mod clock;
 pub mod spade;
 
 pub use basic_translators::*;

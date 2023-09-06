@@ -239,8 +239,15 @@ impl State {
             to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y)),
         };
 
-        for clock_edge in clock_edges {
-            self.draw_clock_edge(clock_edge, &mut ctx);
+        let draw_clock_edges = match clock_edges.as_slice() {
+            [] => false,
+            [_single] => true,
+            [first, second, ..] => second - first > 15.,
+        };
+        if draw_clock_edges {
+            for clock_edge in clock_edges {
+                self.draw_clock_edge(clock_edge, &mut ctx);
+            }
         }
 
         for (trace, commands) in &draw_commands {
