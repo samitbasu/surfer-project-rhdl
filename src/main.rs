@@ -448,12 +448,11 @@ impl State {
                 let Some(vcd) = self.vcd.as_mut() else { return };
 
                 let visible_signals_len = vcd.signals.len();
-                if visible_signals_len > 0 && idx <= visible_signals_len - 1 {
+                if visible_signals_len > 0 && idx < visible_signals_len {
                     vcd.focused_signal = Some(idx);
                 } else {
                     error!(
-                        "Can not focus signal {idx} because only {} signals are visible.",
-                        vcd.signals.len()
+                        "Can not focus signal {idx} because only {visible_signals_len} signals are visible.",
                     );
                 }
             }
