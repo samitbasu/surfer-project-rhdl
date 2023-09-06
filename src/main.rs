@@ -271,7 +271,8 @@ impl State {
                 Box::new(translation::OctalTranslator {}),
                 Box::new(translation::UnsignedTranslator {}),
                 Box::new(translation::SignedTranslator {}),
-                Box::new(translation::ExtendingBinaryTranslator {}),
+                Box::new(translation::GroupingBinaryTranslator {}),
+                Box::new(translation::BinaryTranslator {}),
             ],
             vec![Box::new(translation::clock::ClockTranslator::new())],
         );

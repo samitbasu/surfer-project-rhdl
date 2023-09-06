@@ -219,11 +219,11 @@ impl BasicTranslator for SignedTranslator {
     }
 }
 
-pub struct ExtendingBinaryTranslator {}
+pub struct GroupingBinaryTranslator {}
 
-impl BasicTranslator for ExtendingBinaryTranslator {
+impl BasicTranslator for GroupingBinaryTranslator {
     fn name(&self) -> String {
-        String::from("Binary (with extension)")
+        String::from("Binary (with groups)")
     }
 
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
@@ -247,6 +247,34 @@ impl BasicTranslator for ExtendingBinaryTranslator {
             group_n_chars(&format!("{extra_bits}{val}"), 4).join(" "),
             color,
         )
+    }
+}
+
+pub struct BinaryTranslator {}
+
+impl BasicTranslator for BinaryTranslator {
+    fn name(&self) -> String {
+        String::from("Binary")
+    }
+
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+        let (val, color) = match value {
+            SignalValue::BigUint(v) => (format!("{v:b}"), ValueColor::Normal),
+            SignalValue::String(s) => {
+                let val = s.clone();
+                if s.contains("x") {
+                    (val, ValueColor::Undef)
+                } else if s.contains("z") {
+                    (val, ValueColor::HighImp)
+                } else {
+                    (val, ValueColor::Normal)
+                }
+            }
+        };
+
+        let extra_bits = extend_string(&val, num_bits);
+
+        (format!("{extra_bits}{val}"), color)
     }
 }
 
@@ -353,27 +381,27 @@ mod test {
     }
 
     #[test]
-    fn binary_translation_groups_digits_correctly_string() {
+    fn grouping_binary_translation_groups_digits_correctly_string() {
         assert_eq!(
-            ExtendingBinaryTranslator {}
+            GroupingBinaryTranslator {}
                 .basic_translate(5, &SignalValue::String("10000".to_string()))
                 .0,
             "1 0000"
         );
         assert_eq!(
-            ExtendingBinaryTranslator {}
-                .basic_translate(5, &SignalValue::String("100000".to_string()))
+            GroupingBinaryTranslator {}
+                .basic_translate(8, &SignalValue::String("100000".to_string()))
                 .0,
-            "10 0000"
+            "0010 0000"
         );
         assert_eq!(
-            ExtendingBinaryTranslator {}
+            GroupingBinaryTranslator {}
                 .basic_translate(7, &SignalValue::String("10x00".to_string()))
                 .0,
             "001 0x00"
         );
         assert_eq!(
-            ExtendingBinaryTranslator {}
+            GroupingBinaryTranslator {}
                 .basic_translate(7, &SignalValue::String("z10x00".to_string()))
                 .0,
             "zz1 0x00"
@@ -381,12 +409,50 @@ mod test {
     }
 
     #[test]
+    fn grouping_binary_translation_groups_digits_correctly_bigint() {
+        assert_eq!(
+            GroupingBinaryTranslator {}
+                .basic_translate(7, &SignalValue::BigUint(0b100000u32.to_biguint()))
+                .0,
+            "010 0000"
+        )
+    }
+
+    #[test]
+    fn binary_translation_groups_digits_correctly_string() {
+        assert_eq!(
+            BinaryTranslator {}
+                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .0,
+            "10000"
+        );
+        assert_eq!(
+            BinaryTranslator {}
+                .basic_translate(8, &SignalValue::String("100000".to_string()))
+                .0,
+            "00100000"
+        );
+        assert_eq!(
+            BinaryTranslator {}
+                .basic_translate(7, &SignalValue::String("10x00".to_string()))
+                .0,
+            "0010x00"
+        );
+        assert_eq!(
+            BinaryTranslator {}
+                .basic_translate(7, &SignalValue::String("z10x00".to_string()))
+                .0,
+            "zz10x00"
+        );
+    }
+
+    #[test]
     fn binary_translation_groups_digits_correctly_bigint() {
         assert_eq!(
-            ExtendingBinaryTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b100000u32.to_biguint()))
+            BinaryTranslator {}
+                .basic_translate(7, &SignalValue::BigUint(0b100000u32.to_biguint()))
                 .0,
-            "10 0000"
+            "0100000"
         )
     }
 
