@@ -25,6 +25,14 @@ fn group_n_chars<'a>(s: &'a str, n: usize) -> Vec<&'a str> {
     .collect()
 }
 
+fn no_of_digits(num_bits: u64, digit_size: u64) -> usize {
+    if (num_bits % digit_size) == 0 {
+        (num_bits / digit_size) as usize
+    } else {
+        (num_bits / digit_size + 1) as usize
+    }
+}
+
 pub struct HexTranslator {}
 
 impl BasicTranslator for HexTranslator {
@@ -35,13 +43,8 @@ impl BasicTranslator for HexTranslator {
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
         match value {
             SignalValue::BigUint(v) => {
-                let digits = if (num_bits % 4) == 0 {
-                    num_bits / 4
-                } else {
-                    num_bits / 4 + 1
-                };
                 (
-                    format!("{v:0width$x}", width = digits as usize),
+                    format!("{v:0width$x}", width = no_of_digits(num_bits, 4)),
                     ValueColor::Normal,
                 )
             }
@@ -61,7 +64,7 @@ impl BasicTranslator for HexTranslator {
                         } else {
                             format!(
                                 "{:x}",
-                                u8::from_str_radix(&g, 2).expect("Found non-binary digit in value")
+                                u8::from_str_radix(g, 2).expect("Found non-binary digit in value")
                             )
                         }
                     })
@@ -92,13 +95,8 @@ impl BasicTranslator for OctalTranslator {
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
         match value {
             SignalValue::BigUint(v) => {
-                let digits = if (num_bits % 3) == 0 {
-                    num_bits / 3
-                } else {
-                    num_bits / 3 + 1
-                };
                 (
-                    format!("{v:0width$o}", width = digits as usize),
+                    format!("{v:0width$o}", width = no_of_digits(num_bits, 3)),
                     ValueColor::Normal,
                 )
             }
@@ -118,7 +116,7 @@ impl BasicTranslator for OctalTranslator {
                         } else {
                             format!(
                                 "{:o}",
-                                u8::from_str_radix(&g, 2).expect("Found non-binary digit in value")
+                                u8::from_str_radix(g, 2).expect("Found non-binary digit in value")
                             )
                         }
                     })
