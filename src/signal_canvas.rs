@@ -56,7 +56,7 @@ impl State {
         let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
 
-        let pointer_pos_global = ui.input().pointer.interact_pos();
+        let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
 
         let pointer_in_canvas = pointer_pos_global
@@ -65,24 +65,24 @@ impl State {
 
         if pointer_in_canvas {
             let pointer_pos = pointer_pos_global.unwrap();
-            let scroll_delta = ui.input().scroll_delta;
+            let scroll_delta = ui.input(|i| i.scroll_delta);
             let mouse_ptr_pos = to_screen.inverse().transform_pos(pointer_pos);
             if scroll_delta != Vec2::ZERO {
                 msgs.push(Message::CanvasScroll {
-                    delta: ui.input().scroll_delta,
+                    delta: ui.input(|i| i.scroll_delta),
                 })
             }
 
-            if ui.input().zoom_delta() != 1. {
+            if ui.input(|i| i.zoom_delta()) != 1. {
                 let mouse_ptr_timestamp = vcd.viewport.to_time(mouse_ptr_pos.x as f64, frame_width);
 
                 msgs.push(Message::CanvasZoom {
                     mouse_ptr_timestamp,
-                    delta: ui.input().zoom_delta(),
+                    delta: ui.input(|i| i.zoom_delta()),
                 })
             }
 
-            ui.input().pointer.primary_down().then(|| {
+            ui.input(|i| i.pointer.primary_down()).then(|| {
                 let x = pointer_pos_canvas.unwrap().x;
                 let timestamp = vcd.viewport.to_time(x as f64, frame_width);
                 msgs.push(Message::CursorSet(timestamp.round().to_integer()));

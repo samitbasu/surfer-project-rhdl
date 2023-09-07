@@ -24,6 +24,7 @@ pub struct CommandPrompt {
 pub fn show_command_prompt(
     state: &mut State,
     ctx: &egui::Context,
+    #[allow(unused_variables)] // Throws a warning on wasm but not on x86
     frame: &mut eframe::Frame,
     msgs: &mut Vec<Message>,
 ) {
@@ -58,7 +59,9 @@ pub fn show_command_prompt(
                         run_fuzzy_parser(state);
                     }
 
-                    if response.lost_focus() && response.ctx.input().key_pressed(egui::Key::Enter) {
+                    if response.lost_focus()
+                        && response.ctx.input(|i| i.key_pressed(egui::Key::Enter))
+                    {
                         let command_parsed =
                             parse_command(&state.command_prompt.expanded, get_parser(state)).ok();
 

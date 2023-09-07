@@ -105,6 +105,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "focus",
             "unfocus",
             "load_vcd",
+            "load_url",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -158,6 +159,15 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(vcd_files),
                     Box::new(|word| Some(Command::Terminal(Message::LoadVcd(word.into())))),
                 ),
+                "load_url" => Some(Command::NonTerminal(
+                    ParamGreed::Rest,
+                    vec![],
+                    Box::new(|query, _| {
+                        Some(Command::Terminal(Message::LoadVcdFromUrl(
+                            query.to_string(),
+                        )))
+                    }),
+                )),
                 _ => None,
             }
         }),

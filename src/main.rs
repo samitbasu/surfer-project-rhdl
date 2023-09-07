@@ -9,13 +9,17 @@ mod view;
 mod viewport;
 mod wasm_util;
 
+use bytes::Buf;
+use bytes::Bytes;
 use camino::Utf8PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use color_eyre::eyre::anyhow;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use descriptors::ScopeDescriptor;
 use descriptors::SignalDescriptor;
+#[cfg(not(target_arch = "wasm32"))]
 use eframe::egui;
 use eframe::egui::DroppedFile;
 use eframe::epaint::Vec2;
@@ -23,7 +27,10 @@ use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
 use fastwave_backend::VCD;
+#[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
+use futures_util::FutureExt;
+use futures_util::TryFutureExt;
 use log::error;
 use log::info;
 use num::bigint::ToBigInt;
@@ -87,6 +94,26 @@ fn main() -> Result<()> {
 
     fern::Dispatch::new().chain(stdout_config).apply()?;
 
+    // https://tokio.rs/tokio/topics/bridging
+    // We want to run the gui in the main thread, but some long running tasks like
+    // laoading VCDs should be done asynchronously. We can't just use std::thread to
+    // do that due to wasm support, so we'll start a tokio runtime
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let _enter = runtime.enter();
+
+    std::thread::spawn(move || {
+        runtime.block_on(async {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+            }
+        })
+    });
+
     let args = Args::parse();
     let state = State::new(args)?;
 
@@ -95,7 +122,7 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
-    eframe::run_native("Surfer", options, Box::new(|_cc| Box::new(state)));
+    eframe::run_native("Surfer", options, Box::new(|_cc| Box::new(state))).unwrap();
 
     Ok(())
 }
@@ -105,11 +132,8 @@ fn main() -> Result<()> {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    // Make sure panics are logged using `console.error`.
-    console_error_panic_hook::set_once();
-
-    // Redirect tracing to console.log and friends:
-    tracing_wasm::set_as_global_default();
+    // Redirect `log` message to `console.log` and friends:
+    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
     let web_options = eframe::WebOptions::default();
 
@@ -117,16 +141,34 @@ fn main() -> Result<()> {
     let state = State::new(args)?;
 
     wasm_bindgen_futures::spawn_local(async {
-        eframe::start_web(
-            "the_canvas_id", // hardcode it
-            web_options,
-            Box::new(|cc| Box::new(state)),
-        )
-        .await
-        .expect("failed to start eframe");
+        eframe::WebRunner::new()
+            .start(
+                "the_canvas_id", // hardcode it
+                web_options,
+                Box::new(|_cc| Box::new(state)),
+            )
+            .await
+            .expect("failed to start eframe");
     });
 
     Ok(())
+}
+
+pub enum WaveSource {
+    File(Utf8PathBuf),
+    DragAndDrop(Option<Utf8PathBuf>),
+    Url(String),
+}
+
+impl std::fmt::Display for WaveSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WaveSource::File(file) => write!(f, "{file}"),
+            WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
+            WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
+            WaveSource::Url(url) => write!(f, "{url}"),
+        }
+    }
 }
 
 pub struct VcdData {
@@ -175,7 +217,8 @@ pub enum Message {
     },
     CursorSet(BigInt),
     LoadVcd(Utf8PathBuf),
-    VcdLoaded(Utf8PathBuf, Box<VCD>),
+    LoadVcdFromUrl(String),
+    VcdLoaded(WaveSource, Box<VCD>),
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
@@ -184,6 +227,12 @@ pub enum Message {
     ToggleSidePanel,
     ShowCommandPrompt(bool),
     FileDropped(DroppedFile),
+    FileDownloaded(String, Bytes),
+}
+
+pub enum LoadProgress {
+    Downloading(String),
+    Loading(Option<u64>, Arc<AtomicU64>),
 }
 
 pub struct State {
@@ -198,7 +247,7 @@ pub struct State {
     msg_receiver: Receiver<Message>,
 
     /// The number of bytes loaded from the vcd file
-    vcd_progress: Option<(Option<u64>, Arc<AtomicU64>)>,
+    vcd_progress: Option<LoadProgress>,
 
     // Vector of translators which have failed at the `translates` function for a signal.
     blacklisted_translators: HashSet<(SignalIdx, String)>,
@@ -244,18 +293,13 @@ impl State {
             });
         }
 
-        let vcd_load_status = args
-            .vcd_file
-            .map(|path| State::load_vcd_from_file(path, sender.clone()).ok())
-            .flatten();
-
-        Ok(State {
+        let mut result = State {
             vcd: None,
             control_key: false,
             translators,
             msg_sender: sender,
             msg_receiver: receiver,
-            vcd_progress: vcd_load_status,
+            vcd_progress: None,
             blacklisted_translators: HashSet::new(),
             command_prompt: command_prompt::CommandPrompt {
                 visible: false,
@@ -264,13 +308,16 @@ impl State {
                 suggestions: vec![],
             },
             show_side_panel: true,
-        })
+        };
+
+        if let Some(vcd_file) = args.vcd_file {
+            result.load_vcd_from_file(vcd_file)?;
+        }
+
+        Ok(result)
     }
 
-    fn load_vcd_from_file(
-        vcd_filename: Utf8PathBuf,
-        sender: Sender<Message>,
-    ) -> Result<(Option<u64>, Arc<AtomicU64>)> {
+    fn load_vcd_from_file(&mut self, vcd_filename: Utf8PathBuf) -> Result<()> {
         // We'll open the file to check if it exists here to panic the main thread if not.
         // Then we pass the file into the thread for parsing
         info!("Load VCD: {vcd_filename}");
@@ -282,40 +329,61 @@ impl State {
             .map_err(|e| info!("Failed to get vcd file metadata {e}"))
             .ok();
 
-        Self::load_vcd(Some(vcd_filename), file, total_bytes, sender)
+        self.load_vcd(WaveSource::File(vcd_filename), file, total_bytes);
+
+        Ok(())
     }
 
-    fn load_vcd_from_dropped(
-        file: DroppedFile,
-        sender: Sender<Message>,
-    ) -> Result<(Option<u64>, Arc<AtomicU64>)> {
+    fn load_vcd_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
         info!("Got a dropped file");
 
-        let filename = file
-            .path
-            .map(|p| Utf8PathBuf::try_from(p).unwrap_or_default());
+        let filename = file.path.and_then(|p| Utf8PathBuf::try_from(p).ok());
         let bytes = file
             .bytes
             .ok_or_else(|| anyhow!("Dropped a file with no bytes"))?;
 
         let total_bytes = bytes.len();
 
-        // FIXME: Copying the whole vcd file here is inefficient. We should try to make
-        // a reader out of the Arc<[u8]>
-        Self::load_vcd(
-            filename,
+        self.load_vcd(
+            WaveSource::DragAndDrop(filename),
             VecDeque::from_iter(bytes.into_iter().cloned()),
             Some(total_bytes as u64),
-            sender,
-        )
+        );
+        Ok(())
+    }
+
+    fn load_vcd_from_url(&mut self, url: String) {
+        let sender = self.msg_sender.clone();
+        let url_ = url.clone();
+        let task = async move {
+            let bytes = reqwest::get(&url)
+                .map(|e| e.with_context(|| format!("Failed fetch download {url}")))
+                .and_then(|resp| {
+                    resp.bytes()
+                        .map(|e| e.with_context(|| format!("Failed to download {url}")))
+                })
+                .await;
+
+            match bytes {
+                Ok(b) => sender.send(Message::FileDownloaded(url, b)),
+                Err(e) => sender.send(Message::Error(e)),
+            }
+            .unwrap();
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(task);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(task);
+
+        self.vcd_progress = Some(LoadProgress::Downloading(url_))
     }
 
     fn load_vcd(
-        filename: Option<Utf8PathBuf>,
+        &mut self,
+        source: WaveSource,
         reader: impl Read + Send + 'static,
         total_bytes: Option<u64>,
-        sender: Sender<Message>,
-    ) -> Result<(Option<u64>, Arc<AtomicU64>)> {
+    ) {
         // Progress tracking in bytes
         let progress_bytes = Arc::new(AtomicU64::new(0));
         let reader = {
@@ -326,24 +394,23 @@ impl State {
             })
         };
 
+        let sender = self.msg_sender.clone();
+
         perform_work(move || {
-            info!("Loading VCD");
             let result = parse_vcd(reader)
                 .map_err(|e| anyhow!("{e}"))
                 .with_context(|| format!("Failed to parse parse vcd file"));
 
             match result {
                 Ok(vcd) => sender
-                    .send(Message::VcdLoaded(
-                        filename.unwrap_or_default(),
-                        Box::new(vcd),
-                    ))
+                    .send(Message::VcdLoaded(source, Box::new(vcd)))
                     .unwrap(),
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
         });
 
-        Ok((total_bytes, progress_bytes))
+        info!("Setting VCD progress");
+        self.vcd_progress = Some(LoadProgress::Loading(total_bytes, progress_bytes));
     }
 
     fn update(&mut self, message: Message) {
@@ -499,17 +566,20 @@ impl State {
                 self.vcd.as_mut().map(|vcd| vcd.signal_format.remove(&idx));
             }
             Message::CursorSet(new) => {
-                self.vcd.as_mut().map(|vcd| vcd.cursor = Some(new));
+                if let Some(vcd) = self.vcd.as_mut() {
+                    vcd.cursor = Some(new)
+                }
             }
             Message::LoadVcd(filename) => {
-                self.vcd_progress =
-                    State::load_vcd_from_file(filename, self.msg_sender.clone()).ok();
+                self.load_vcd_from_file(filename).ok();
+            }
+            Message::LoadVcdFromUrl(url) => {
+                self.load_vcd_from_url(url);
             }
             Message::FileDropped(dropped_file) => {
-                self.vcd_progress =
-                    Self::load_vcd_from_dropped(dropped_file, self.msg_sender.clone())
-                        .map_err(|e| error!("{e:#?}"))
-                        .ok();
+                self.load_vcd_from_dropped(dropped_file)
+                    .map_err(|e| error!("{e:#?}"))
+                    .ok();
             }
             Message::VcdLoaded(filename, new_vcd_data) => {
                 info!("VCD file loaded");
@@ -535,6 +605,7 @@ impl State {
                 new_vcd.initialize_signal_scope_maps();
 
                 self.vcd = Some(new_vcd);
+                self.vcd_progress = None;
                 info!("Done setting up vcd file");
             }
             Message::BlacklistTranslator(idx, translator) => {
@@ -558,6 +629,10 @@ impl State {
                 }
                 self.command_prompt.visible = new_visibility;
             }
+            Message::FileDownloaded(url, bytes) => {
+                let size = bytes.len() as u64;
+                self.load_vcd(WaveSource::Url(url), bytes.reader(), Some(size))
+            }
         }
     }
 
@@ -569,7 +644,7 @@ impl State {
         if let Some(vcd) = &mut self.vcd {
             // Scroll 5% of the viewport per scroll event.
             // One scroll event yields 50
-            let scroll_step = (&vcd.viewport.curr_right - &vcd.viewport.curr_left) / (50. * 20.);
+            let scroll_step = -(vcd.viewport.curr_right - vcd.viewport.curr_left) / (50. * 20.);
 
             let target_left = &vcd.viewport.curr_left + scroll_step * delta.y as f64;
             let target_right = &vcd.viewport.curr_right + scroll_step * delta.y as f64;

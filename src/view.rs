@@ -7,10 +7,11 @@ use eframe::egui::{self, style::Margin, Align, Color32, Event, Frame, Key, Layou
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
-use log::trace;
+use log::{info, trace};
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::util::uint_idx_to_alpha_idx;
+use crate::LoadProgress;
 use crate::{
     command_prompt::show_command_prompt,
     translation::{SignalInfo, TranslationPreference},
@@ -88,6 +89,33 @@ impl eframe::App for State {
             show_command_prompt(self, ctx, frame, &mut msgs);
         }
 
+        if let Some(vcd_progress_data) = &self.vcd_progress {
+            egui::TopBottomPanel::top("progress panel").show(ctx, |ui| {
+                ui.vertical_centered_justified(|ui| match vcd_progress_data {
+                    LoadProgress::Downloading(url) => {
+                        ui.spinner();
+                        ui.monospace(format!("Downloading {url}"));
+                    }
+                    LoadProgress::Loading(total_bytes, bytes_done) => {
+                        let num_bytes = bytes_done.load(std::sync::atomic::Ordering::Relaxed);
+
+                        if let Some(total) = total_bytes {
+                            ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
+                            let progress = num_bytes as f32 / *total as f32;
+                            let progress_bar = egui::ProgressBar::new(progress)
+                                .show_percentage()
+                                .desired_width(300.);
+
+                            ui.add(progress_bar);
+                        } else {
+                            ui.spinner();
+                            ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
+                        };
+                    }
+                });
+            });
+        }
+
         if let Some(vcd) = &self.vcd {
             if !vcd.signals.is_empty() {
                 let signal_offsets = egui::SidePanel::left("signal list")
@@ -126,27 +154,6 @@ impl eframe::App for State {
                     .show(ctx, |ui| {
                         self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
                     });
-            }
-        } else {
-            if let Some(vcd_progress_data) = &self.vcd_progress {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    ui.vertical_centered_justified(|ui| {
-                        let num_bytes = vcd_progress_data
-                            .1
-                            .load(std::sync::atomic::Ordering::Relaxed);
-                        if let Some(total) = vcd_progress_data.0 {
-                            ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
-                            let progress = num_bytes as f32 / total as f32;
-                            let progress_bar = egui::ProgressBar::new(progress)
-                                .show_percentage()
-                                .desired_width(300.);
-
-                            ui.add(progress_bar);
-                        } else {
-                            ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
-                        }
-                    });
-                });
             }
         };
 
@@ -217,66 +224,72 @@ impl eframe::App for State {
                 });
         }
 
-        self.control_key = ctx.input().modifiers.ctrl;
+        self.control_key = ctx.input(|i| i.modifiers.ctrl);
 
-        for file in &ctx.input().raw.dropped_files {
-            msgs.push(Message::FileDropped(file.clone()))
-        }
+        ctx.input(|i| {
+            i.raw.dropped_files.iter().for_each(|file| {
+                info!("Got dropped file");
+                msgs.push(Message::FileDropped(file.clone()))
+            })
+        });
 
-        ctx.input().events.iter().for_each(|event| match event {
-            Event::Key {
-                key,
-                pressed,
-                modifiers: _,
-            } => match (key, pressed, self.command_prompt.visible) {
-                (Key::Space, true, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                (Key::Escape, true, true) => msgs.push(Message::ShowCommandPrompt(false)),
-                (Key::B, true, false) => msgs.push(Message::ToggleSidePanel),
-                (Key::J, true, false) => {
-                    if self.control_key {
-                        msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
-                    } else {
-                        msgs.push(Message::MoveFocus(MoveDir::Down));
-                    }
-                }
-                (Key::K, true, false) => {
-                    if self.control_key {
-                        msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
-                    } else {
-                        msgs.push(Message::MoveFocus(MoveDir::Up));
-                    }
-                }
-                (Key::ArrowDown, true, false) => {
-                    if self.control_key {
-                        msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
-                    } else {
-                        msgs.push(Message::MoveFocus(MoveDir::Down));
-                    }
-                }
-                (Key::ArrowUp, true, false) => {
-                    if self.control_key {
-                        msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
-                    } else {
-                        msgs.push(Message::MoveFocus(MoveDir::Up));
-                    }
-                }
-                (Key::Delete, true, false) => {
-                    if let Some(vcd) = &self.vcd {
-                        if let Some(idx) = vcd.focused_signal {
-                            msgs.push(Message::RemoveSignal(idx));
+        ctx.input(|i| {
+            i.events.iter().for_each(|event| match event {
+                Event::Key {
+                    key,
+                    repeat: _,
+                    pressed,
+                    modifiers: _,
+                } => match (key, pressed, self.command_prompt.visible) {
+                    (Key::Space, true, false) => msgs.push(Message::ShowCommandPrompt(true)),
+                    (Key::Escape, true, true) => msgs.push(Message::ShowCommandPrompt(false)),
+                    (Key::B, true, false) => msgs.push(Message::ToggleSidePanel),
+                    (Key::J, true, false) => {
+                        if self.control_key {
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
+                        } else {
+                            msgs.push(Message::MoveFocus(MoveDir::Down));
                         }
                     }
-                }
-                // this should be a shortcut to focusing
-                // to make this functional we need to make the cursor of the prompt
-                // point to the end of the input
-                // (Key::F, true, false) => {
-                //     self.command_prompt.input = String::from("focus_signal ");
-                //     msgs.push(Message::ShowCommandPrompt(true));
-                // }
+                    (Key::K, true, false) => {
+                        if self.control_key {
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
+                        } else {
+                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                        }
+                    }
+                    (Key::ArrowDown, true, false) => {
+                        if self.control_key {
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
+                        } else {
+                            msgs.push(Message::MoveFocus(MoveDir::Down));
+                        }
+                    }
+                    (Key::ArrowUp, true, false) => {
+                        if self.control_key {
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
+                        } else {
+                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                        }
+                    }
+                    (Key::Delete, true, false) => {
+                        if let Some(vcd) = &self.vcd {
+                            if let Some(idx) = vcd.focused_signal {
+                                msgs.push(Message::RemoveSignal(idx));
+                            }
+                        }
+                    }
+                    // this should be a shortcut to focusing
+                    // to make this functional we need to make the cursor of the prompt
+                    // point to the end of the input
+                    // (Key::F, true, false) => {
+                    //     self.command_prompt.input = String::from("focus_signal ");
+                    //     msgs.push(Message::ShowCommandPrompt(true));
+                    // }
+                    _ => {}
+                },
                 _ => {}
-            },
-            _ => {}
+            })
         });
 
         self.handle_ctrlc(ctx, frame);
