@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, time::Instant};
 
-use itertools::Itertools;
 use log::warn;
 
 pub struct TimedRegion {
@@ -79,30 +78,5 @@ impl TranslationTimings {
         if subname.is_none() {
             target.0.push(timing)
         }
-    }
-
-    pub fn format(&self) -> String {
-        self.timings
-            .iter()
-            .sorted_by_key(|(name, _)| name.as_str())
-            .map(|(name, (counts, sub))| {
-                let total: f64 = counts.iter().sum();
-                let average = total / counts.len() as f64;
-
-                let substr = sub
-                    .iter()
-                    .sorted_by_key(|(name, _)| name.as_str())
-                    .map(|(name, counts)| {
-                        let subtotal: f64 = counts.iter().sum();
-                        let subaverage = total / counts.len() as f64;
-
-                        let pct = (subtotal / total) * 100.;
-                        format!("\t{name}: {subtotal:.05} {subaverage:.05} {pct:.05}%")
-                    })
-                    .join("\n");
-
-                format!("{name}: {total:.05} ({average:.05})\n{substr}")
-            })
-            .join("\n")
     }
 }

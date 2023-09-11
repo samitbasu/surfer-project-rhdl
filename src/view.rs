@@ -1,6 +1,3 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
 use color_eyre::eyre::Context;
 use eframe::egui::TextStyle;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Frame, Key, Layout, RichText};
@@ -152,7 +149,7 @@ impl eframe::App for State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_signals(&mut msgs, &signal_offsets, vcd, ui);
+                        self.draw_signals(&mut msgs, &signal_offsets, ui);
                     });
             }
         };
@@ -424,20 +421,20 @@ impl State {
         msgs: &mut Vec<Message>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
-    ) -> HashMap<TraceIdx, f32> {
-        let mut signal_offsets = HashMap::new();
+    ) -> Vec<(TraceIdx, f32)> {
+        let mut signal_offsets = Vec::new();
 
         for (vidx, (sig, info)) in vcd.signals.iter().enumerate() {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
+                    let signal = vcd.inner.signal_from_signal_idx(*sig);
 
                     self.draw_var(
                         msgs,
                         vidx,
-                        &name,
-                        &(*sig, vec![]),
+                        &signal.name(),
+                        &(signal.real_idx(), vec![]),
                         &mut signal_offsets,
                         info,
                         ui,
@@ -455,7 +452,7 @@ impl State {
         vidx: usize,
         name: &str,
         path: &(SignalIdx, Vec<String>),
-        signal_offsets: &mut HashMap<TraceIdx, f32>,
+        signal_offsets: &mut Vec<(TraceIdx, f32)>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
     ) {
@@ -594,18 +591,18 @@ impl State {
                     }
                 });
 
-                signal_offsets.insert(path.clone(), response.1.response.rect.top());
+                signal_offsets.push((path.clone(), response.1.response.rect.top()));
             }
             SignalInfo::Bool | SignalInfo::Bits | SignalInfo::Clock => {
                 let label = draw_label(ui);
-                signal_offsets.insert(path.clone(), label.inner.rect.top());
+                signal_offsets.push((path.clone(), label.inner.rect.top()));
             }
         }
     }
 
     fn draw_var_values(
         &self,
-        signal_offsets: &HashMap<TraceIdx, f32>,
+        signal_offsets: &Vec<(TraceIdx, f32)>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
     ) {
@@ -613,12 +610,7 @@ impl State {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
 
-            for (idx, offset) in signal_offsets
-                .iter()
-                .sorted_by(|(_, l_offset), (_, r_offset)| {
-                    l_offset.partial_cmp(r_offset).unwrap_or(Ordering::Equal)
-                })
-            {
+            for (idx, offset) in signal_offsets {
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,

@@ -11,13 +11,13 @@ use crate::translation::{SignalInfo, ValueColor};
 use crate::view::TraceIdx;
 use crate::{Message, State, VcdData};
 
-struct DrawnRegion {
+pub struct DrawnRegion {
     inner: Option<(String, ValueColor)>,
 }
 
 /// List of values to draw for a signal. It is an ordered list of values that should
 /// be drawn at the *start time* until the *start time* of the next value
-struct DrawingCommands {
+pub struct DrawingCommands {
     is_bool: bool,
     values: Vec<(f32, DrawnRegion)>,
 }
@@ -43,22 +43,185 @@ impl DrawingCommands {
 }
 
 impl State {
-    pub fn draw_signals(
-        &self,
+    pub fn invalidate_draw_commands(&mut self) {
+        self.draw_commands = None;
+    }
+
+    pub fn generate_draw_commands(
+        &mut self,
+        cfg: &DrawConfig,
+        width: f32,
         msgs: &mut Vec<Message>,
-        signal_offsets: &HashMap<TraceIdx, f32>,
-        vcd: &VcdData,
+    ) {
+        self.draw_commands = Some(HashMap::new());
+        if let Some(vcd) = &self.vcd {
+            let frame_width = width;
+            let max_time = BigRational::from_integer(vcd.num_timestamps.clone());
+            let mut timings = TranslationTimings::new();
+            let mut clock_edges = vec![];
+            // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
+            // width + transition_width in order to draw initial transitions outside the screen
+            let timestamps = (-cfg.max_transition_width
+                ..(frame_width as i32 + cfg.max_transition_width))
+                .filter_map(|x| {
+                    let time = vcd.viewport.to_time(x as f64, frame_width);
+                    if time < BigRational::from_float(0.).unwrap() || time > max_time {
+                        None
+                    } else {
+                        Some((x as f32, time.to_integer().to_biguint().unwrap()))
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            vcd.signals
+                .iter()
+                .map(|(idx, _)| {
+                    // check if the signal is an alias
+                    // if so get the real signal
+                    let signal = vcd.inner.signal_from_signal_idx(*idx);
+                    let real_idx = signal.real_idx();
+                    if real_idx == *idx {
+                        (*idx, signal)
+                    } else {
+                        (real_idx, vcd.inner.signal_from_signal_idx(real_idx))
+                    }
+                })
+                // Iterate over the signals, generating draw commands for all the
+                // subfields
+                .for_each(|(idx, sig)| {
+                    let translator = vcd.signal_translator((idx, vec![]), &self.translators);
+                    // we need to get the signal info here to get the correct info for aliases
+                    let info = translator.signal_info(&sig, &vcd.signal_name(idx)).unwrap();
+
+                    let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
+
+                    let mut prev_values = HashMap::new();
+
+                    // In order to insert a final draw command at the end of a trace,
+                    // we need to know if this is the last timestamp to draw
+                    let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
+                    // The first pixel we actually draw is the second pixel in the
+                    // list, since we skip one pixel to have a previous value
+                    let start_pixel = timestamps
+                        .iter()
+                        .skip(1)
+                        .next()
+                        .map(|t| t.0)
+                        .unwrap_or_default();
+
+                    // Iterate over all the time stamps to draw on
+                    for ((_, prev_time), (pixel, time)) in
+                        timestamps.iter().zip(timestamps.iter().skip(1))
+                    {
+                        let (change_time, val) =
+                            if let Ok(v) = sig.query_val_on_tmln(&time, &vcd.inner) {
+                                v
+                            } else {
+                                // If there is no value here, skip this iteration
+                                continue;
+                            };
+
+                        let is_last_timestep = pixel == &end_pixel;
+                        let is_first_timestep = pixel == &start_pixel;
+
+                        // Check if the value remains unchanged between this pixel
+                        // and the last
+                        if &change_time < prev_time && !is_first_timestep && !is_last_timestep {
+                            continue;
+                        }
+
+                        // Perform the translation
+                        let mut duration = TimedRegion::started();
+
+                        let translation_result = match translator.translate(&sig, &val) {
+                            Ok(result) => result,
+                            Err(e) => {
+                                error!(
+                                    "{translator_name} for {sig_name} failed. Disabling:",
+                                    translator_name = translator.name(),
+                                    sig_name = sig.name()
+                                );
+                                error!("{e:#}");
+                                msgs.push(Message::ResetSignalFormat((idx, vec![])));
+                                return;
+                            }
+                        };
+
+                        duration.stop();
+                        timings.push_timing(&translator.name(), None, duration.secs());
+                        let fields = translation_result
+                            .flatten((idx, vec![]), &vcd.signal_format, &self.translators)
+                            .as_fields();
+
+                        for (path, value) in fields {
+                            let prev = prev_values.get(&path);
+
+                            // This is not the value we drew last time
+                            if prev != Some(&value) || is_last_timestep {
+                                *prev_values.entry(path.clone()).or_insert(value.clone()) =
+                                    value.clone();
+
+                                if let SignalInfo::Clock = info.get_subinfo(&path) {
+                                    match value.as_ref().map(|(val, _)| val.as_str()) {
+                                        Some("1") => {
+                                            if !is_last_timestep && !is_first_timestep {
+                                                clock_edges.push(*pixel)
+                                            }
+                                        }
+                                        Some(_) => {}
+                                        None => {}
+                                    }
+                                }
+
+                                local_commands
+                                    .entry(path.clone())
+                                    .or_insert_with(|| {
+                                        if let SignalInfo::Bool | SignalInfo::Clock =
+                                            info.get_subinfo(&path)
+                                        {
+                                            DrawingCommands::new_bool()
+                                        } else {
+                                            DrawingCommands::new_wide()
+                                        }
+                                    })
+                                    .push((*pixel, DrawnRegion { inner: value }))
+                            }
+                        }
+                    }
+                    // Append the signal index to the fields
+                    if let Some(draw_commands) = &mut self.draw_commands {
+                        local_commands.into_iter().for_each(|(path, val)| {
+                            draw_commands.insert((sig.real_idx().clone(), path), val);
+                        });
+                    }
+                });
+        }
+    }
+
+    pub fn draw_signals(
+        &mut self,
+        msgs: &mut Vec<Message>,
+        signal_offsets: &Vec<(TraceIdx, f32)>,
         ui: &mut egui::Ui,
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
 
+        let cfg = DrawConfig {
+            canvas_height: response.rect.size().y,
+            line_height: 16.,
+            max_transition_width: 6,
+        };
+        // the draw commands have been invalidated, recompute
+        if self.draw_commands.is_none() {
+            self.generate_draw_commands(&cfg, response.rect.width(), msgs);
+        }
+
+        let Some(vcd) = &self.vcd else { return };
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
-
         let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
-
         let pointer_in_canvas = pointer_pos_global
             .map(|p| to_screen.transform_rect(container_rect).contains(p))
             .unwrap_or(false);
@@ -91,147 +254,9 @@ impl State {
 
         painter.rect_filled(response.rect, Rounding::none(), Color32::from_rgb(0, 0, 0));
 
-        let cfg = DrawConfig {
-            canvas_height: response.rect.size().y,
-            line_height: 16.,
-            max_transition_width: 6,
-        };
-
-        let max_time = BigRational::from_integer(vcd.num_timestamps.clone());
-
         vcd.draw_cursor(&mut painter, response.rect.size(), to_screen);
 
-        // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
-        // width + transition_width in order to draw initial transitions outside the screen
-        let timestamps = (-cfg.max_transition_width
-            ..(frame_width as i32 + cfg.max_transition_width))
-            .filter_map(|x| {
-                let time = vcd.viewport.to_time(x as f64, frame_width);
-                if time < BigRational::from_float(0.).unwrap() || time > max_time {
-                    None
-                } else {
-                    Some((x as f32, time.to_integer().to_biguint().unwrap()))
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let mut timings = TranslationTimings::new();
-        let mut clock_edges = vec![];
-
-        let draw_commands = vcd
-            .signals
-            .iter()
-            .map(|s| (s, vcd.inner.signal_from_signal_idx(s.0)))
-            // Iterate over the signals, generating draw commands for all the
-            // subfields
-            .map(|((idx, info), sig)| {
-                let translator = vcd.signal_translator((*idx, vec![]), &self.translators);
-
-                let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
-
-                let mut prev_values = HashMap::new();
-
-                // In order to insert a final draw command at the end of a trace,
-                // we need to know if this is the last timestamp to draw
-                let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
-                // The first pixel we actually draw is the second pixel in the
-                // list, since we skip one pixel to have a previous value
-                let start_pixel = timestamps
-                    .iter()
-                    .skip(1)
-                    .next()
-                    .map(|t| t.0)
-                    .unwrap_or_default();
-
-                // Iterate over all the time stamps to draw on
-                for ((_, prev_time), (pixel, time)) in
-                    timestamps.iter().zip(timestamps.iter().skip(1))
-                {
-                    let (change_time, val) = if let Ok(v) = sig.query_val_on_tmln(&time, &vcd.inner)
-                    {
-                        v
-                    } else {
-                        // If there is no value here, skip this iteration
-                        continue;
-                    };
-
-                    let is_last_timestep = pixel == &end_pixel;
-                    let is_first_timestep = pixel == &start_pixel;
-
-                    // Check if the value remains unchanged between this pixel
-                    // and the last
-                    if &change_time < prev_time && !is_first_timestep && !is_last_timestep {
-                        continue;
-                    }
-
-                    // Perform the translation
-                    let mut duration = TimedRegion::started();
-
-                    let translation_result = match translator.translate(&sig, &val) {
-                        Ok(result) => result,
-                        Err(e) => {
-                            error!(
-                                "{translator_name} for {sig_name} failed. Disabling:",
-                                translator_name = translator.name(),
-                                sig_name = sig.name()
-                            );
-                            error!("{e:#}");
-                            msgs.push(Message::ResetSignalFormat((*idx, vec![])));
-                            return vec![];
-                        }
-                    };
-
-                    duration.stop();
-                    timings.push_timing(&translator.name(), None, duration.secs());
-
-                    let fields = translation_result
-                        .flatten((*idx, vec![]), &vcd.signal_format, &self.translators)
-                        .as_fields();
-
-                    for (path, value) in fields {
-                        let prev = prev_values.get(&path);
-
-                        // This is not the value we drew last time
-                        if prev != Some(&value) || is_last_timestep {
-                            *prev_values.entry(path.clone()).or_insert(value.clone()) =
-                                value.clone();
-
-                            if let SignalInfo::Clock = info.get_subinfo(&path) {
-                                match value.as_ref().map(|(val, _)| val.as_str()) {
-                                    Some("1") => {
-                                        if !is_last_timestep && !is_first_timestep {
-                                            clock_edges.push(*pixel)
-                                        }
-                                    }
-                                    Some(_) => {}
-                                    None => {}
-                                }
-                            }
-
-                            local_commands
-                                .entry(path.clone())
-                                .or_insert_with(|| {
-                                    if let SignalInfo::Bool | SignalInfo::Clock =
-                                        info.get_subinfo(&path)
-                                    {
-                                        DrawingCommands::new_bool()
-                                    } else {
-                                        DrawingCommands::new_wide()
-                                    }
-                                })
-                                .push((*pixel, DrawnRegion { inner: value }))
-                        }
-                    }
-                }
-
-                // Append the signal index to the fields
-                local_commands
-                    .into_iter()
-                    .map(|(path, val)| ((idx.clone(), path), val))
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-            .collect::<Vec<_>>();
+        let clock_edges = vec![];
 
         let mut ctx = DrawingContext {
             painter: &mut painter,
@@ -244,28 +269,26 @@ impl State {
             [_single] => true,
             [first, second, ..] => second - first > 15.,
         };
+
         if draw_clock_edges {
             for clock_edge in clock_edges {
                 self.draw_clock_edge(clock_edge, &mut ctx);
             }
         }
 
-        for (trace, commands) in &draw_commands {
-            let offset = signal_offsets.get(trace);
-            if let Some(offset) = offset {
-                for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
-                    if commands.is_bool {
-                        self.draw_bool_transition((old, new), *offset, &mut ctx)
-                    } else {
-                        self.draw_region((old, new), *offset, &mut ctx)
+        if let Some(draw_commands) = &self.draw_commands {
+            for (trace, offset) in signal_offsets {
+                if let Some(commands) = draw_commands.get(trace) {
+                    for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
+                        if commands.is_bool {
+                            self.draw_bool_transition((old, new), *offset, &mut ctx)
+                        } else {
+                            self.draw_region((old, new), *offset, &mut ctx)
+                        }
                     }
                 }
             }
         }
-
-        egui::Window::new("Translation timings")
-            .anchor(Align2::RIGHT_BOTTOM, Vec2::ZERO)
-            .show(ui.ctx(), |ui| ui.label(timings.format()));
     }
 
     fn draw_region(
@@ -417,7 +440,7 @@ impl VcdData {
     }
 }
 
-struct DrawConfig {
+pub struct DrawConfig {
     canvas_height: f32,
     line_height: f32,
     max_transition_width: i32,

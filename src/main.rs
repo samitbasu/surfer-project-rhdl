@@ -255,8 +255,9 @@ pub struct State {
     command_prompt: command_prompt::CommandPrompt,
     /// Flag to show/hide the side panel
     show_side_panel: bool,
-    // Flag to show the signal selectors i.e., aa, ab, ac, ...
-    // show_signal_selectors: bool,
+
+    /// The draw commands for every signal currently selected
+    draw_commands: Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>,
 }
 
 impl State {
@@ -308,6 +309,7 @@ impl State {
                 suggestions: vec![],
             },
             show_side_panel: true,
+            draw_commands: None,
         };
 
         if let Some(vcd_file) = args.vcd_file {
@@ -422,6 +424,7 @@ impl State {
                 }
             }
             Message::AddSignal(descriptor) => {
+                self.invalidate_draw_commands();
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 if let Some(id) = descriptor.resolve(vcd) {
                     vcd.add_signal(&self.translators, id)
@@ -437,6 +440,7 @@ impl State {
                             vcd.add_signal(&self.translators, sidx);
                         }
                     }
+                    self.invalidate_draw_commands();
                 }
             }
             Message::FocusSignal(idx) => {
@@ -486,6 +490,7 @@ impl State {
                 }
             }
             Message::RemoveSignal(idx) => {
+                self.invalidate_draw_commands();
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 let visible_signals_len = vcd.signals.len();
                 if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
@@ -517,23 +522,29 @@ impl State {
                                 if idx > 0 {
                                     vcd.signals.swap(idx, idx - 1);
                                     vcd.focused_signal = Some(idx - 1);
+                                    self.invalidate_draw_commands();
                                 }
                             }
                             MoveDir::Down => {
                                 if idx < (visible_signals_len - 1) {
                                     vcd.signals.swap(idx, idx + 1);
                                     vcd.focused_signal = Some(idx + 1);
+                                    self.invalidate_draw_commands();
                                 }
                             }
                         }
                     }
                 }
             }
-            Message::CanvasScroll { delta } => self.handle_canvas_scroll(delta),
+            Message::CanvasScroll { delta } => {
+                self.invalidate_draw_commands();
+                self.handle_canvas_scroll(delta);
+            }
             Message::CanvasZoom {
                 delta,
                 mouse_ptr_timestamp,
             } => {
+                self.invalidate_draw_commands();
                 self.vcd
                     .as_mut()
                     .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
@@ -558,11 +569,13 @@ impl State {
                             }
                         }
                     }
+                    self.invalidate_draw_commands();
                 } else {
                     println!("WARN: No translator {format}")
                 }
             }
             Message::ResetSignalFormat(idx) => {
+                self.invalidate_draw_commands();
                 self.vcd.as_mut().map(|vcd| vcd.signal_format.remove(&idx));
             }
             Message::CursorSet(new) => {
