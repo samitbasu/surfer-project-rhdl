@@ -34,9 +34,10 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] Unsigned values
     - [x] [Spade](https://spade-lang.org) values
     - [x] Signed values
-    - [x] Base 8-values
+    - [x] Octal values
+    - [x] VHDL nine-valued std_ulogic support
     - [ ] RiscV instructions (probably via an extension)
-    - [ ] Custom translation via python API
+    - [ ] Custom translation via Python API
 - [ ] Wave file reloading
 - [ ] Saving and Loading selected waves
 - [ ] Cursors for measuring time

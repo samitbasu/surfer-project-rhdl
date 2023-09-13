@@ -71,6 +71,8 @@ pub enum ValueColor {
     HighImp,
     Custom(Color32),
     Warn,
+    DontCare,
+    Weak,
 }
 
 /// The representation of the value, compound values can be

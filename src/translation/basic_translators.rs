@@ -52,6 +52,101 @@ fn extend_string(val: &String, num_bits: u64) -> String {
     }
 }
 
+/// Turn vector signal string into name and corresponding color if it
+/// includes values other than 0 and 1. If only 0 and 1, return None.
+fn map_vector_signal(s: &str) -> Option<(String, ValueColor)> {
+    if s.contains('x') {
+        Some((format!("UNDEF"), ValueColor::Undef))
+    } else if s.contains('z') {
+        Some((format!("HIGHIMP"), ValueColor::HighImp))
+    } else if s.contains('-') {
+        Some((format!("DON'T CARE"), ValueColor::DontCare))
+    } else if s.contains('u') {
+        Some((format!("UNDEF"), ValueColor::Undef))
+    } else if s.contains('w') {
+        Some((format!("UNDEF WEAK"), ValueColor::Undef))
+    } else if s.contains('h') || s.contains('l') {
+        Some((format!("WEAK"), ValueColor::Weak))
+    } else {
+        None
+    }
+}
+
+/// Return color for a binary representation
+fn color_for_binary_representation(s: &str) -> ValueColor {
+    if s.contains('x') {
+        ValueColor::Undef
+    } else if s.contains('z') {
+        ValueColor::HighImp
+    } else if s.contains('-') {
+        ValueColor::DontCare
+    } else if s.contains('u') || s.contains('w') {
+        ValueColor::Undef
+    } else if s.contains('h') || s.contains('l') {
+        ValueColor::Weak
+    } else {
+        ValueColor::Normal
+    }
+}
+
+/// Map to radix-based representation, in practice hex or octal
+fn map_to_radix(s: &String, radix: usize, num_bits: u64) -> (String, ValueColor) {
+    let mut is_undef = false;
+    let mut is_highimp = false;
+    let mut is_dontcare = false;
+    let mut is_weak = false;
+    let val = group_n_chars(
+        &format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
+        radix,
+    )
+    .into_iter()
+    .map(|g| {
+        if g.contains('x') {
+            is_undef = true;
+            "x".to_string()
+        } else if g.contains('z') {
+            is_highimp = true;
+            "z".to_string()
+        } else if g.contains('-') {
+            is_dontcare = true;
+            "-".to_string()
+        } else if g.contains('u') {
+            is_undef = true;
+            "u".to_string()
+        } else if g.contains('w') {
+            is_undef = true;
+            "w".to_string()
+        } else if g.contains('h') {
+            is_weak = true;
+            "h".to_string()
+        } else if g.contains('l') {
+            is_weak = true;
+            "l".to_string()
+        } else {
+            format!(
+                "{:x}", // This works for radix up to 4, i.e., hex
+                u8::from_str_radix(g, 2).expect("Found non-binary digit in value")
+            )
+        }
+    })
+    .join("");
+
+    (
+        val,
+        if is_undef {
+            ValueColor::Undef
+        } else if is_highimp {
+            ValueColor::HighImp
+        } else if is_dontcare {
+            ValueColor::DontCare
+        } else if is_weak {
+            ValueColor::Weak
+        } else {
+            ValueColor::Normal
+        },
+    )
+}
+
 pub struct HexTranslator {}
 
 impl BasicTranslator for HexTranslator {
@@ -65,41 +160,7 @@ impl BasicTranslator for HexTranslator {
                 format!("{v:0width$x}", width = no_of_digits(num_bits, 4)),
                 ValueColor::Normal,
             ),
-            SignalValue::String(s) => {
-                let mut is_undef = false;
-                let mut is_highimp = false;
-                let val = group_n_chars(
-                    &format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
-                    4,
-                )
-                .into_iter()
-                .map(|g| {
-                    if g.contains('x') {
-                        is_undef = true;
-                        "x".to_string()
-                    } else if g.contains('z') {
-                        is_highimp = true;
-                        "z".to_string()
-                    } else {
-                        format!(
-                            "{:x}",
-                            u8::from_str_radix(g, 2).expect("Found non-binary digit in value")
-                        )
-                    }
-                })
-                .join("");
-
-                (
-                    val,
-                    if is_undef {
-                        ValueColor::Undef
-                    } else if is_highimp {
-                        ValueColor::HighImp
-                    } else {
-                        ValueColor::Normal
-                    },
-                )
-            }
+            SignalValue::String(s) => map_to_radix(s, 4, num_bits),
         }
     }
 }
@@ -117,41 +178,7 @@ impl BasicTranslator for OctalTranslator {
                 format!("{v:0width$o}", width = no_of_digits(num_bits, 3)),
                 ValueColor::Normal,
             ),
-            SignalValue::String(s) => {
-                let mut is_undef = false;
-                let mut is_highimp = false;
-                let val = group_n_chars(
-                    &format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
-                    3,
-                )
-                .into_iter()
-                .map(|g| {
-                    if g.contains('x') {
-                        is_undef = true;
-                        "x".to_string()
-                    } else if g.contains('z') {
-                        is_highimp = true;
-                        "z".to_string()
-                    } else {
-                        format!(
-                            "{:o}",
-                            u8::from_str_radix(g, 2).expect("Found non-binary digit in value")
-                        )
-                    }
-                })
-                .join("");
-
-                (
-                    val,
-                    if is_undef {
-                        ValueColor::Undef
-                    } else if is_highimp {
-                        ValueColor::HighImp
-                    } else {
-                        ValueColor::Normal
-                    },
-                )
-            }
+            SignalValue::String(s) => map_to_radix(s, 3, num_bits),
         }
     }
 }
@@ -166,20 +193,15 @@ impl BasicTranslator for UnsignedTranslator {
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
         match value {
             SignalValue::BigUint(v) => (format!("{v}"), ValueColor::Normal),
-            SignalValue::String(s) => {
-                if s.contains('x') {
-                    (format!("UNDEF"), ValueColor::Undef)
-                } else if s.contains('z') {
-                    (format!("HIGHIMP"), ValueColor::HighImp)
-                } else {
-                    (
-                        u128::from_str_radix(s, 2)
-                            .map(|val| format!("{val}"))
-                            .unwrap_or(s.clone()),
-                        ValueColor::Normal,
-                    )
-                }
-            }
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => (
+                    u128::from_str_radix(s, 2)
+                        .map(|val| format!("{val}"))
+                        .unwrap_or(s.clone()),
+                    ValueColor::Normal,
+                ),
+            },
         }
     }
 }
@@ -202,12 +224,9 @@ impl BasicTranslator for SignedTranslator {
                     (format!("-{v2}"), ValueColor::Normal)
                 }
             }
-            SignalValue::String(s) => {
-                if s.contains('x') {
-                    (format!("UNDEF"), ValueColor::Undef)
-                } else if s.contains('z') {
-                    (format!("HIGHIMP"), ValueColor::HighImp)
-                } else {
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
                     let v = u128::from_str_radix(s, 2).expect("Cannot parse");
                     let signweight = 1u128 << (_num_bits - 1);
                     if v < signweight {
@@ -217,7 +236,7 @@ impl BasicTranslator for SignedTranslator {
                         (format!("-{v2}"), ValueColor::Normal)
                     }
                 }
-            }
+            },
         }
     }
 }
@@ -235,16 +254,10 @@ impl BasicTranslator for GroupingBinaryTranslator {
                 format!("{v:0width$b}", width = num_bits as usize),
                 ValueColor::Normal,
             ),
-            SignalValue::String(s) => {
-                let val = format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits));
-                if s.contains('x') {
-                    (val, ValueColor::Undef)
-                } else if s.contains('z') {
-                    (val, ValueColor::HighImp)
-                } else {
-                    (val, ValueColor::Normal)
-                }
-            }
+            SignalValue::String(s) => (
+                format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
+                color_for_binary_representation(s),
+            ),
         };
 
         (group_n_chars(&val, 4).join(" "), color)
@@ -264,16 +277,10 @@ impl BasicTranslator for BinaryTranslator {
                 format!("{v:0width$b}", width = num_bits as usize),
                 ValueColor::Normal,
             ),
-            SignalValue::String(s) => {
-                let val = format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits));
-                if s.contains('x') {
-                    (val, ValueColor::Undef)
-                } else if s.contains('z') {
-                    (val, ValueColor::HighImp)
-                } else {
-                    (val, ValueColor::Normal)
-                }
-            }
+            SignalValue::String(s) => (
+                format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
+                color_for_binary_representation(s),
+            ),
         }
     }
 }

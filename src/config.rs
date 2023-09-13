@@ -47,6 +47,10 @@ pub struct SurferTheme {
     pub signal_highimp: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub signal_undef: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub signal_dontcare: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub signal_weak: Color32,
     #[serde(default = "default_colors", deserialize_with = "deserialize_color_map")]
     pub colors: HashMap<String, Color32>,
 
@@ -98,6 +102,8 @@ impl SurferConfig {
         let undef_color = "c42e2e".to_string();
         let highimp_color = "f3d54a".to_string();
         let cursor_color = "ff8080".to_string();
+        let dontcare_color = "4040ff".to_string();
+        let weak_color = "808080".to_string();
 
         let mut c = Config::builder()
             .set_default("layout.show_hierarchy", true)?
@@ -116,6 +122,8 @@ impl SurferConfig {
             .set_default("theme.signal_default", default_color.clone())?
             .set_default("theme.signal_undef", undef_color.clone())?
             .set_default("theme.signal_highimp", highimp_color.clone())?
+            .set_default("theme.signal_dontcare", dontcare_color.clone())?
+            .set_default("theme.signal_weak", weak_color.clone())?
             .set_default("theme.linewidth", "1")?
             // accent colors
             .set_default("theme.accent_error.foreground", bg2_color.clone())?

@@ -482,6 +482,8 @@ enum ValueKind {
     HighImp,
     Undef,
     Normal,
+    DontCare,
+    Weak,
 }
 
 trait SignalExt {
@@ -495,10 +497,14 @@ trait SignalExt {
 
 impl SignalExt for String {
     fn value_kind(&self) -> ValueKind {
-        if self.to_lowercase().contains("x") {
+        if self.contains('x') || self.contains('u') || self.contains('w') {
             ValueKind::Undef
-        } else if self.to_lowercase().contains("z") {
+        } else if self.contains('z') {
             ValueKind::HighImp
+        } else if self.contains('-') {
+            ValueKind::DontCare
+        } else if self.contains('h') || self.contains('l') {
+            ValueKind::Weak
         } else {
             ValueKind::Normal
         }
@@ -513,6 +519,18 @@ impl SignalExt for String {
         match (self.value_kind(), self) {
             (ValueKind::HighImp, _) => (0.5, theme.signal_highimp, None),
             (ValueKind::Undef, _) => (0.5, theme.signal_undef, None),
+            (ValueKind::DontCare, _) => (0.5, theme.signal_dontcare, None),
+            (ValueKind::Weak, other) => {
+                if other.to_lowercase() == "l" {
+                    (0., theme.signal_weak, None)
+                } else {
+                    (
+                        1.,
+                        theme.signal_weak,
+                        Some(theme.signal_weak.gamma_multiply(0.2)),
+                    )
+                }
+            }
             (ValueKind::Normal, other) => {
                 if other == "0" {
                     (0., user_color, None)
