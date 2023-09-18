@@ -31,6 +31,7 @@ tokio = {version = "1.32.0", features = ["rt", "time"]}
 vcd-translate = {path = "spade/vcd-translate"}
 ron = { version = "0.8.1", features = ["integer128"] }
 fzcmd = {path = "fzcmd"}
+web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -69,6 +69,30 @@ struct Args {
     spade_top: Option<String>,
 }
 
+struct StartupParams {
+    spade_state: Option<Utf8PathBuf>,
+    spade_top: Option<String>,
+    vcd: Option<WaveSource>,
+}
+
+impl StartupParams {
+    pub fn vcd_from_url(url: Option<String>) -> Self {
+        Self {
+            spade_state: None,
+            spade_top: None,
+            vcd: url.map(WaveSource::Url),
+        }
+    }
+
+    pub fn from_args(args: Args) -> Self {
+        Self {
+            spade_state: args.spade_state,
+            spade_top: args.spade_top,
+            vcd: args.vcd_file.map(WaveSource::File),
+        }
+    }
+}
+
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
@@ -115,7 +139,7 @@ fn main() -> Result<()> {
     });
 
     let args = Args::parse();
-    let state = State::new(args)?;
+    let state = State::new(StartupParams::from_args(args))?;
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1920., 1080.)),
@@ -137,8 +161,9 @@ fn main() -> Result<()> {
 
     let web_options = eframe::WebOptions::default();
 
-    let args = Args::default();
-    let state = State::new(args)?;
+    let url = wasm_util::vcd_from_url();
+
+    let state = State::new(StartupParams::vcd_from_url(url))?;
 
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
@@ -261,7 +286,7 @@ pub struct State {
 }
 
 impl State {
-    fn new(args: Args) -> Result<State> {
+    fn new(args: StartupParams) -> Result<State> {
         let (sender, receiver) = channel();
 
         // Basic translators that we can load quickly
@@ -313,8 +338,13 @@ impl State {
             draw_commands: None,
         };
 
-        if let Some(vcd_file) = args.vcd_file {
-            result.load_vcd_from_file(vcd_file)?;
+        match args.vcd {
+            Some(WaveSource::Url(url)) => result.load_vcd_from_url(url),
+            Some(WaveSource::File(file)) => result.load_vcd_from_file(file).unwrap(),
+            Some(WaveSource::DragAndDrop(_)) => {
+                error!("Attempted to load from drag and drop at startup (how?)")
+            }
+            None => {}
         }
 
         Ok(result)
