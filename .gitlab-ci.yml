@@ -86,8 +86,15 @@ pages:
         - wget -qO- https://github.com/thedodd/trunk/releases/download/v0.17.5/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
         - ls ./trunk
         - chmod +x trunk
-        - ./trunk build --release
-        - mv dist public
+          # https://github.com/thedodd/trunk/pull/361#issuecomment-1308487648 trunk can not
+          # generate relative urls which we want for external pipeliens to be able
+          # to download our artefacts and put them wherever on their webserver. To fix this,
+          # wel'll build with a dummy public URL, then replace it with ./
+        - ./trunk build --release --public-url /dist
+        - cp -r dist public
+          # We have to do this from the source file instead of public/ because sed
+          # does not replace in place
+        - sed -e "s|/dist/|./|g" dist/index.html > public/index.html
     artifacts:
         paths:
             - public
