@@ -1,5 +1,6 @@
 use log::info;
 
+#[cfg(target_arch = "wasm32")]
 use color_eyre::Result;
 
 // Wasm doesn't seem to support std::thread, so this spawns a thread where we can

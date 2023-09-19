@@ -1,0 +1,26 @@
+#!/bin/bash
+
+SOURCE_DIRS=('*/src/*')
+
+function check_untracked_srcs {(
+    untracked=$(git ls-files --others --exclude-standard -- ${SOURCE_DIRS[@]})
+    if [[ "$untracked" != "" ]]; then
+        echo -e "[\033[0;43mwarn\033[0m]Untracked files:\n\033[0;33m$untracked\033[0m"
+    fi
+)}
+
+# Parens are there to start a new shell where we can exit early on failure
+function run_tests {(
+    cargo +stable fmt -- --check && \
+    cargo test && \
+    # Remember to add && \ when adding more tests
+    true
+)}
+
+if ! run_tests ; then
+    echo "----------------------------------------------------"
+    echo -e "[\033[0;41merror\033[0m] Local tests failed. Force a commit using --no-verify"
+    exit 1
+fi
+
+check_untracked_srcs

@@ -1,6 +1,6 @@
 use color_eyre::eyre::Context;
-use eframe::egui::TextStyle;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Frame, Key, Layout, RichText};
+use eframe::egui::{Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
@@ -174,48 +174,7 @@ impl eframe::App for State {
                                 y: max_height * 0.5,
                             },
                             layout,
-                            |ui| {
-                                if self.vcd.is_none() {
-                                    ui.label(RichText::new(
-                                        "Drag and drop a VCD file here to open it",
-                                    ));
-
-                                    #[cfg(not(target_arch = "wasm32"))]
-                                    ui.label(RichText::new("Or press space and type load_vcd"));
-
-                                    ui.add_space(20.0);
-                                    ui.separator();
-                                    ui.add_space(20.0);
-                                }
-                                ui.label(
-                                    RichText::new("🚀  Space:  Show command prompt").monospace(),
-                                );
-                                ui.label(
-                                    RichText::new("〰  b    :  Show or hide the design hierarchy")
-                                        .monospace(),
-                                );
-                                ui.add_space(20.0);
-                                ui.separator();
-                                ui.add_space(20.0);
-                                if let Some(vcd) = &self.vcd {
-                                    ui.label(
-                                        RichText::new(format!("Filename: {}", vcd.filename))
-                                            .monospace(),
-                                    );
-                                }
-
-                                #[cfg(target_arch = "wasm32")]
-                                {
-                                    ui.label(RichText::new(
-                                        "Note that this web based version is a bit slower than a natively installed version. There may also be a long delay with unresponsiveness when loading large waveforms because the web assembly version does not currently support multi threading.",
-                                    ));
-
-                                    ui.hyperlink_to(
-                                        "See https://gitlab.com/surfer-project/surfer for install instructions",
-                                        "https://gitlab.com/surfer-project/surfer"
-                                    );
-                                }
-                            },
+                            |ui| self.help_message(ui),
                         );
                     });
                 });
@@ -645,6 +604,64 @@ impl State {
                     }
                 }
             }
+        }
+    }
+
+    fn controls_listing(&self, ui: &mut egui::Ui) {
+        let controls = vec![
+            ("🚀", "Space", "Show command prompt"),
+            ("↔", "Scroll", "Pan"),
+            ("🔎", "Ctrl+Scroll", "Zoom"),
+            ("〰", "b", "Show or hide the design hierarchy"),
+        ];
+
+        Grid::new("controls")
+            .num_columns(2)
+            .spacing([20., 5.])
+            .show(ui, |ui| {
+                for (symbol, control, description) in controls {
+                    ui.label(format!("{symbol}  {control}"));
+                    ui.label(description);
+                    ui.end_row();
+                }
+            });
+    }
+
+    fn help_message(&self, ui: &mut egui::Ui) {
+        if self.vcd.is_none() {
+            ui.label(RichText::new("Drag and drop a VCD file here to open it"));
+
+            #[cfg(target_arch = "wasm32")]
+            ui.label(RichText::new("Or press space and type load_url"));
+            #[cfg(not(target_arch = "wasm32"))]
+            ui.label(RichText::new(
+                "Or press space and type load_vcd or load_url",
+            ));
+
+            ui.add_space(20.0);
+            ui.separator();
+            ui.add_space(20.0);
+        }
+
+        self.controls_listing(ui);
+
+        ui.add_space(20.0);
+        ui.separator();
+        ui.add_space(20.0);
+        if let Some(vcd) = &self.vcd {
+            ui.label(RichText::new(format!("Filename: {}", vcd.filename)).monospace());
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            ui.label(RichText::new(
+                "Note that this web based version is a bit slower than a natively installed version. There may also be a long delay with unresponsiveness when loading large waveforms because the web assembly version does not currently support multi threading.",
+            ));
+
+            ui.hyperlink_to(
+                "See https://gitlab.com/surfer-project/surfer for install instructions",
+                "https://gitlab.com/surfer-project/surfer",
+            );
         }
     }
 }

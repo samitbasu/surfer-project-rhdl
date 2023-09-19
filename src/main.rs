@@ -76,6 +76,7 @@ struct StartupParams {
 }
 
 impl StartupParams {
+    #[allow(dead_code)] // NOTE: Only used in wasm version
     pub fn vcd_from_url(url: Option<String>) -> Self {
         Self {
             spade_state: None,
@@ -84,6 +85,7 @@ impl StartupParams {
         }
     }
 
+    #[allow(dead_code)] // NOTE: Only used in desktop version
     pub fn from_args(args: Args) -> Self {
         Self {
             spade_state: args.spade_state,
