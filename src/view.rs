@@ -38,7 +38,7 @@ impl eframe::App for State {
             });
         }
 
-        if self.show_side_panel {
+        if self.config.layout.show_hierarchy {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)

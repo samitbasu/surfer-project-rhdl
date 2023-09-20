@@ -1,6 +1,7 @@
 mod benchmark;
 mod command_prompt;
 mod commands;
+mod config;
 mod descriptors;
 mod signal_canvas;
 mod translation;
@@ -263,6 +264,7 @@ pub enum LoadProgress {
 }
 
 pub struct State {
+    config: config::SurferConfig,
     vcd: Option<VcdData>,
     /// The offset of the left side of the wave window in signal timestamps.
     control_key: bool,
@@ -280,8 +282,6 @@ pub struct State {
     blacklisted_translators: HashSet<(SignalIdx, String)>,
     /// buffer for the command input
     command_prompt: command_prompt::CommandPrompt,
-    /// Flag to show/hide the side panel
-    show_side_panel: bool,
 
     /// The draw commands for every signal currently selected
     draw_commands: Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>,
@@ -322,7 +322,10 @@ impl State {
             });
         }
 
+        // load config
+        let config = config::SurferConfig::new().with_context(|| "Failed to load config file")?;
         let mut result = State {
+            config,
             vcd: None,
             control_key: false,
             translators,
@@ -336,7 +339,6 @@ impl State {
                 expanded: String::from(""),
                 suggestions: vec![],
             },
-            show_side_panel: true,
             draw_commands: None,
         };
 
@@ -664,7 +666,7 @@ impl State {
                 self.translators.add(t)
             }
             Message::ToggleSidePanel => {
-                self.show_side_panel = !self.show_side_panel;
+                self.config.layout.show_hierarchy = !self.config.layout.show_hierarchy;
             }
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {

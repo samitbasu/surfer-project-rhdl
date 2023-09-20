@@ -20,7 +20,7 @@ log = "0.4"
 progress-streams = "1.1.0"
 itertools = "0.10.5"
 reqwest = {version = "0.11.20", features = ["stream"]}
-serde = "1.0"
+serde = {version = "1.0.188", features = ["derive"]}
 serde_stacker = "0.1"
 spade = {path = "spade/spade-compiler"}
 spade-common = {path = "spade/spade-common"}
@@ -32,6 +32,8 @@ vcd-translate = {path = "spade/vcd-translate"}
 ron = { version = "0.8.1", features = ["integer128"] }
 fzcmd = {path = "fzcmd"}
 web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
+config = "0.13.3"
+directories = "5.0"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
