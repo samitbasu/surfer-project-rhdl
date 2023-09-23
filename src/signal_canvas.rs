@@ -7,8 +7,9 @@ use log::error;
 use num::BigRational;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
+use crate::config::SurferTheme;
 use crate::translation::{SignalInfo, ValueColor};
-use crate::view::TraceIdx;
+use crate::view::SignalDrawingInfo;
 use crate::{Message, State, VcdData};
 
 pub struct DrawnRegion {
@@ -75,13 +76,14 @@ impl State {
 
             vcd.signals
                 .iter()
-                .map(|(idx, _)| {
+                .map(|displayed_signal| {
+                    let idx = displayed_signal.idx;
                     // check if the signal is an alias
                     // if so get the real signal
-                    let signal = vcd.inner.signal_from_signal_idx(*idx);
+                    let signal = vcd.inner.signal_from_signal_idx(idx);
                     let real_idx = signal.real_idx();
-                    if real_idx == *idx {
-                        (*idx, signal)
+                    if real_idx == idx {
+                        (idx, signal)
                     } else {
                         (real_idx, vcd.inner.signal_from_signal_idx(real_idx))
                     }
@@ -201,7 +203,7 @@ impl State {
     pub fn draw_signals(
         &mut self,
         msgs: &mut Vec<Message>,
-        signal_offsets: &Vec<(TraceIdx, f32)>,
+        signal_offsets: &Vec<SignalDrawingInfo>,
         ui: &mut egui::Ui,
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
@@ -252,9 +254,18 @@ impl State {
             });
         }
 
-        painter.rect_filled(response.rect, Rounding::none(), Color32::from_rgb(0, 0, 0));
+        painter.rect_filled(
+            response.rect,
+            Rounding::none(),
+            self.config.theme.background1.background,
+        );
 
-        vcd.draw_cursor(&mut painter, response.rect.size(), to_screen);
+        vcd.draw_cursor(
+            &self.config.theme,
+            &mut painter,
+            response.rect.size(),
+            to_screen,
+        );
 
         let clock_edges = vec![];
 
@@ -277,13 +288,25 @@ impl State {
         }
 
         if let Some(draw_commands) = &self.draw_commands {
-            for (trace, offset) in signal_offsets {
-                if let Some(commands) = draw_commands.get(trace) {
+            for drawing_info in signal_offsets {
+                let color = *vcd
+                    .signals
+                    .get(drawing_info.signal_list_idx)
+                    .and_then(|signal| signal.color.clone())
+                    .and_then(|color| self.config.theme.colors.get(&color))
+                    .unwrap_or(&self.config.theme.signal_default);
+
+                if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
                     for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
                         if commands.is_bool {
-                            self.draw_bool_transition((old, new), *offset, &mut ctx)
+                            self.draw_bool_transition(
+                                (old, new),
+                                color,
+                                drawing_info.offset,
+                                &mut ctx,
+                            )
                         } else {
-                            self.draw_region((old, new), *offset, &mut ctx)
+                            self.draw_region((old, new), color, drawing_info.offset, &mut ctx)
                         }
                     }
                 }
@@ -294,13 +317,14 @@ impl State {
     fn draw_region(
         &self,
         ((old_x, prev_region), (new_x, _)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
+        color: Color32,
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        if let Some((prev_value, prev_color)) = &prev_region.inner {
+        if let Some((prev_value, _)) = &prev_region.inner {
             let stroke = Stroke {
-                color: prev_color.to_color32(),
-                width: 1.,
+                color,
+                width: self.config.theme.linewidth,
                 ..Default::default()
             };
 
@@ -344,7 +368,7 @@ impl State {
                     Align2::LEFT_CENTER,
                     content,
                     FontId::monospace(text_size),
-                    Color32::from_rgb(255, 255, 255),
+                    self.config.theme.foreground,
                 );
             }
         }
@@ -353,6 +377,7 @@ impl State {
     fn draw_bool_transition(
         &self,
         ((old_x, prev_region), (new_x, new_region)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
+        color: Color32,
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
@@ -361,12 +386,13 @@ impl State {
         {
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
-            let (old_height, old_color, old_bg) = prev_value.bool_drawing_spec();
-            let (new_height, _, _) = new_value.bool_drawing_spec();
+            let (old_height, old_color, old_bg) =
+                prev_value.bool_drawing_spec(color, &self.config.theme);
+            let (new_height, _, _) = new_value.bool_drawing_spec(color, &self.config.theme);
 
             let stroke = Stroke {
                 color: old_color,
-                width: 1.,
+                width: self.config.theme.linewidth,
                 ..Default::default()
             };
 
@@ -405,7 +431,7 @@ impl State {
             x_pos,
             (y_start)..=(y_start + ctx.cfg.canvas_height),
             Stroke {
-                color: Color32::from_rgb(64, 64, 128),
+                color: self.config.theme.signal_highimp.gamma_multiply(0.7),
                 width: 2.,
                 ..Default::default()
             },
@@ -420,13 +446,19 @@ struct DrawingContext<'a> {
 }
 
 impl VcdData {
-    fn draw_cursor(&self, painter: &mut Painter, size: Vec2, to_screen: RectTransform) {
+    fn draw_cursor(
+        &self,
+        theme: &SurferTheme,
+        painter: &mut Painter,
+        size: Vec2,
+        to_screen: RectTransform,
+    ) {
         if let Some(cursor) = &self.cursor {
             let x = self.viewport.from_time(&cursor, size.x as f64);
 
             let stroke = Stroke {
-                color: Color32::from_rgb(255, 128, 128),
-                width: 2.,
+                color: theme.cursor.color,
+                width: theme.cursor.width,
                 ..Default::default()
             };
             painter.line_segment(
@@ -454,7 +486,11 @@ enum ValueKind {
 
 trait SignalExt {
     fn value_kind(&self) -> ValueKind;
-    fn bool_drawing_spec(&self) -> (f32, Color32, Option<Color32>);
+    fn bool_drawing_spec(
+        &self,
+        user_color: Color32,
+        theme: &SurferTheme,
+    ) -> (f32, Color32, Option<Color32>);
 }
 
 impl SignalExt for String {
@@ -469,50 +505,21 @@ impl SignalExt for String {
     }
 
     /// Return the height and color with which to draw this value if it is a boolean
-    fn bool_drawing_spec(&self) -> (f32, Color32, Option<Color32>) {
+    fn bool_drawing_spec(
+        &self,
+        user_color: Color32,
+        theme: &SurferTheme,
+    ) -> (f32, Color32, Option<Color32>) {
         match (self.value_kind(), self) {
-            (ValueKind::HighImp, _) => (0.5, style::c_yellow(), None),
-            (ValueKind::Undef, _) => (0.5, style::c_red(), None),
+            (ValueKind::HighImp, _) => (0.5, theme.signal_highimp, None),
+            (ValueKind::Undef, _) => (0.5, theme.signal_undef, None),
             (ValueKind::Normal, other) => {
                 if other == "0" {
-                    (0., style::c_dark_green(), None)
+                    (0., user_color, None)
                 } else {
-                    (1., style::c_green(), Some(style::c_bool_background()))
+                    (1., user_color, Some(user_color.gamma_multiply(0.2)))
                 }
             }
         }
-    }
-}
-
-mod style {
-    use eframe::epaint::Color32;
-
-    fn c_min() -> u8 {
-        64
-    }
-    fn c_max() -> u8 {
-        255
-    }
-    fn c_mid() -> u8 {
-        128
-    }
-
-    pub fn c_green() -> Color32 {
-        Color32::from_rgb(c_min(), c_max(), c_min())
-    }
-    pub fn c_dark_green() -> Color32 {
-        Color32::from_rgb(c_min(), c_mid(), c_min())
-    }
-
-    pub fn c_red() -> Color32 {
-        Color32::from_rgb(c_max(), c_min(), c_min())
-    }
-
-    pub fn c_yellow() -> Color32 {
-        Color32::from_rgb(c_max(), c_max(), c_min())
-    }
-
-    pub fn c_bool_background() -> Color32 {
-        Color32::from_rgba_unmultiplied(c_min(), c_mid(), c_min(), 32)
     }
 }

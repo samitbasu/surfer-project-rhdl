@@ -1,6 +1,6 @@
 use color_eyre::eyre::Context;
-use eframe::egui::{self, style::Margin, Align, Color32, Event, Frame, Key, Layout, RichText};
-use eframe::egui::{Grid, TextStyle};
+use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, RichText};
+use eframe::egui::{Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
@@ -18,6 +18,12 @@ use crate::{
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
 
+pub struct SignalDrawingInfo {
+    pub tidx: TraceIdx,
+    pub signal_list_idx: usize,
+    pub offset: f32,
+}
+
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let max_width = ctx.available_rect().width();
@@ -26,57 +32,75 @@ impl eframe::App for State {
         let mut msgs = vec![];
 
         if let Some(vcd) = &self.vcd {
-            egui::TopBottomPanel::bottom("modeline").show(ctx, |ui| {
-                ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
-                    ui.label(&vcd.filename);
-                    if let Some(time) = &vcd.cursor {
-                        ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
-                            ui.label(format!("{}", time));
-                        });
-                    }
+            egui::TopBottomPanel::bottom("modeline")
+                .frame(egui::containers::Frame {
+                    fill: self.config.theme.background3.background,
+                    ..Default::default()
+                })
+                .show(ctx, |ui| {
+                    ui.visuals_mut().override_text_color =
+                        Some(self.config.theme.background3.foreground);
+                    ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
+                        ui.add_space(10.0);
+                        ui.label(&vcd.filename);
+                        if let Some(time) = &vcd.cursor {
+                            ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
+                                ui.label(format!("{}", time));
+                                ui.add_space(10.0)
+                            });
+                        }
+                    });
                 });
-            });
         }
 
         if self.config.layout.show_hierarchy {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
+                .frame(egui::containers::Frame {
+                    fill: self.config.theme.background3.background,
+                    ..Default::default()
+                })
                 .show(ctx, |ui| {
+                    ui.visuals_mut().override_text_color =
+                        Some(self.config.theme.background3.foreground);
                     ui.with_layout(
                         Layout::top_down(Align::LEFT).with_cross_justify(true),
                         |ui| {
                             let total_space = ui.available_height();
+                            egui::Frame::none()
+                                .inner_margin(Margin::same(5.0))
+                                .show(ui, |ui| {
+                                    ui.set_max_height(total_space / 2.);
+                                    ui.set_min_height(total_space / 2.);
 
-                            egui::Frame::none().show(ui, |ui| {
-                                ui.set_max_height(total_space / 2.);
-                                ui.set_min_height(total_space / 2.);
+                                    ui.heading("Modules");
+                                    ui.add_space(3.0);
 
-                                ui.heading("Modules");
-                                ui.add_space(3.0);
+                                    egui::ScrollArea::both()
+                                        .id_source("modules")
+                                        .show(ui, |ui| {
+                                            ui.style_mut().wrap = Some(false);
+                                            if let Some(vcd) = &self.vcd {
+                                                self.draw_all_scopes(&mut msgs, vcd, ui);
+                                            }
+                                        });
+                                });
 
-                                egui::ScrollArea::both()
-                                    .id_source("modules")
-                                    .show(ui, |ui| {
-                                        ui.style_mut().wrap = Some(false);
-                                        if let Some(vcd) = &self.vcd {
-                                            self.draw_all_scopes(&mut msgs, vcd, ui);
-                                        }
-                                    });
-                            });
+                            egui::Frame::none()
+                                .inner_margin(Margin::same(5.0))
+                                .show(ui, |ui| {
+                                    ui.heading("Signals");
+                                    ui.add_space(3.0);
 
-                            egui::Frame::none().show(ui, |ui| {
-                                ui.heading("Signals");
-                                ui.add_space(3.0);
-
-                                egui::ScrollArea::both()
-                                    .id_source("signals")
-                                    .show(ui, |ui| {
-                                        if let Some(vcd) = &self.vcd {
-                                            self.draw_signal_list(&mut msgs, vcd, ui);
-                                        }
-                                    });
-                            });
+                                    egui::ScrollArea::both()
+                                        .id_source("signals")
+                                        .show(ui, |ui| {
+                                            if let Some(vcd) = &self.vcd {
+                                                self.draw_signal_list(&mut msgs, vcd, ui);
+                                            }
+                                        });
+                                });
                         },
                     )
                 });
@@ -161,7 +185,7 @@ impl eframe::App for State {
                 .map_or(false, |vcd| vcd.signals.is_empty())
         {
             egui::CentralPanel::default()
-                .frame(egui::Frame::none().fill(egui::Color32::BLACK))
+                .frame(egui::Frame::none().fill(self.config.theme.background1.background))
                 .show(ctx, |ui| {
                     ui.add_space(max_height * 0.3);
                     ui.vertical_centered(|ui| {
@@ -380,14 +404,16 @@ impl State {
         msgs: &mut Vec<Message>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
-    ) -> Vec<(TraceIdx, f32)> {
+    ) -> Vec<SignalDrawingInfo> {
         let mut signal_offsets = Vec::new();
 
-        for (vidx, (sig, info)) in vcd.signals.iter().enumerate() {
+        for (vidx, displayed_signal) in vcd.signals.iter().enumerate() {
+            let sig = displayed_signal.idx;
+            let info = &displayed_signal.info;
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    let signal = vcd.inner.signal_from_signal_idx(*sig);
+                    let signal = vcd.inner.signal_from_signal_idx(sig);
 
                     self.draw_var(
                         msgs,
@@ -411,7 +437,7 @@ impl State {
         vidx: usize,
         name: &str,
         path: &(SignalIdx, Vec<String>),
-        signal_offsets: &mut Vec<(TraceIdx, f32)>,
+        signal_offsets: &mut Vec<SignalDrawingInfo>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
     ) {
@@ -440,13 +466,13 @@ impl State {
                     );
                     ui.label(
                         egui::RichText::new(alpha_id)
-                            .background_color(Color32::GOLD)
+                            .background_color(self.config.theme.accent_warn.background)
                             .monospace()
-                            .color(Color32::BLACK),
+                            .color(self.config.theme.accent_warn.foreground),
                     );
                 }
 
-                let label_bg_color = if self
+                let focus_marker_color = if self
                     .vcd
                     .as_ref()
                     .expect("Can't draw a signal without a loaded waveform.")
@@ -454,15 +480,14 @@ impl State {
                     .map(|focused| focused == vidx)
                     .unwrap_or(false)
                 {
-                    Color32::DARK_RED
+                    self.config.theme.accent_info.background
                 } else {
                     Color32::TRANSPARENT
                 };
+                ui.colored_label(focus_marker_color, "▶");
+
                 let signal_label = ui
-                    .selectable_label(
-                        false,
-                        egui::RichText::new(name).background_color(label_bg_color),
-                    )
+                    .selectable_label(false, egui::RichText::new(name))
                     .on_hover_text(tooltip)
                     .context_menu(|ui| {
                         let available_translators = if path.1.is_empty() {
@@ -508,16 +533,28 @@ impl State {
                             self.translators.basic_translator_names()
                         };
 
-                        let ctx_menu = available_translators
+                        let format_menu = available_translators
                             .iter()
                             .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
                             .collect::<Vec<_>>();
 
                         ui.menu_button("Format", |ui| {
-                            for (name, msg) in ctx_menu {
+                            for (name, msg) in format_menu {
                                 ui.button(name).clicked().then(|| {
                                     ui.close_menu();
                                     msgs.push(msg);
+                                });
+                            }
+                        });
+
+                        ui.menu_button("Color", |ui| {
+                            for color_name in self.config.theme.colors.keys() {
+                                ui.button(color_name).clicked().then(|| {
+                                    ui.close_menu();
+                                    msgs.push(Message::SignalColorChange(
+                                        Some(vidx),
+                                        color_name.clone(),
+                                    ));
                                 });
                             }
                         });
@@ -550,18 +587,26 @@ impl State {
                     }
                 });
 
-                signal_offsets.push((path.clone(), response.1.response.rect.top()));
+                signal_offsets.push(SignalDrawingInfo {
+                    tidx: path.clone(),
+                    signal_list_idx: vidx,
+                    offset: response.1.response.rect.top(),
+                });
             }
             SignalInfo::Bool | SignalInfo::Bits | SignalInfo::Clock => {
                 let label = draw_label(ui);
-                signal_offsets.push((path.clone(), label.inner.rect.top()));
+                signal_offsets.push(SignalDrawingInfo {
+                    tidx: path.clone(),
+                    signal_list_idx: vidx,
+                    offset: label.inner.rect.top(),
+                });
             }
         }
     }
 
     fn draw_var_values(
         &self,
-        signal_offsets: &Vec<(TraceIdx, f32)>,
+        signal_offsets: &Vec<SignalDrawingInfo>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
     ) {
@@ -569,18 +614,19 @@ impl State {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
 
-            for (idx, offset) in signal_offsets {
+            for drawing_info in signal_offsets {
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,
                 // and compensate for it
-                if next_y < *offset {
-                    ui.add_space(offset - next_y);
+                if next_y < drawing_info.offset {
+                    ui.add_space(drawing_info.offset - next_y);
                 }
 
-                let translator = vcd.signal_translator((idx.0, vec![]), &self.translators);
+                let translator =
+                    vcd.signal_translator((drawing_info.tidx.0, vec![]), &self.translators);
 
-                let signal = vcd.inner.signal_from_signal_idx(idx.0);
+                let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
 
                 if cursor < &0.to_bigint() {
                     break;
@@ -592,10 +638,14 @@ impl State {
 
                 if let Ok(Ok(s)) = translation_result {
                     let subfields = s
-                        .flatten((idx.0, vec![]), &vcd.signal_format, &self.translators)
+                        .flatten(
+                            (drawing_info.tidx.0, vec![]),
+                            &vcd.signal_format,
+                            &self.translators,
+                        )
                         .as_fields();
 
-                    let subfield = subfields.iter().find(|(k, _)| k == &idx.1);
+                    let subfield = subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
 
                     if let Some((_, Some((v, _)))) = subfield {
                         ui.label(v);

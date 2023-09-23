@@ -1,0 +1,24 @@
+# Gruvbox theme
+[theme]
+foreground = "ebdbb2"
+background1 = { background = "282828", forefround = "ebdbb2" }
+background2 = { background = "1d2021", forefround = "ebdbb2" }
+background3 = { background = "32302f", forefround = "ebdbb2" }
+accent_info = { background = "d65d0e", foreground = "ebdbb2" }
+accent_warn = { background = "d79921", foreground = "ebdbb2" }
+accent_error = { background = "cc231f", foreground = "ebdbb2" }
+signal_default = "98971a"
+signal_undefined = "cc231f"
+signal_highimp = "d79921"
+cursor = { color = "e0a0a0", width = 4 }
+linewidth = 1
+
+[theme.colors]
+Green = "98971a"
+Red = "cc241f"
+Yellow = "d79921"
+Blue = "458588"
+Purple = "b16286"
+Aqua = "689d6a"
+Gray = "a89984"
+White = "ebdbb2"

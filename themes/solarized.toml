@@ -1,0 +1,25 @@
+# Surfer solarized
+[theme]
+foreground = "839496"
+background1 = { background = "002b36", foreground = "839496" }
+background2 = { background = "073642", foreground = "839496" }
+background3 = { background = "586e75", foreground = "839496" }
+accent_info = { background = "2aa198", foreground = "839496" }
+accent_warn = { background = "b58900", foreground = "839496" }
+accent_error = { background = "dc322f", foreground = "839496" }
+signal_default = "859900"
+signal_undefined = "dc322f"
+signal_highimp = "b58900"
+cursor = { color="a0a0a0", width=4 }
+linewidth = 1
+
+[theme.colors]
+Green = "859900"
+Red = "dc322f"
+Yellow = "b58900"
+Blue = "268bd2"
+Magenta = "d33682"
+Cyan = "2aa198"
+Orange = "cb4b16"
+Violet = "6c71c4"
+Gray = "fdf6e3"

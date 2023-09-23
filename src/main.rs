@@ -22,7 +22,13 @@ use descriptors::ScopeDescriptor;
 use descriptors::SignalDescriptor;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui;
+use eframe::egui::style::Selection;
+use eframe::egui::style::WidgetVisuals;
+use eframe::egui::style::Widgets;
 use eframe::egui::DroppedFile;
+use eframe::egui::Visuals;
+use eframe::epaint::Rounding;
+use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
@@ -142,14 +148,23 @@ fn main() -> Result<()> {
     });
 
     let args = Args::parse();
-    let state = State::new(StartupParams::from_args(args))?;
+    let mut state = State::new(StartupParams::from_args(args))?;
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1920., 1080.)),
         ..Default::default()
     };
 
-    eframe::run_native("Surfer", options, Box::new(|_cc| Box::new(state))).unwrap();
+    eframe::run_native(
+        "Surfer",
+        options,
+        Box::new(|cc| {
+            state.context = Some(cc.egui_ctx.clone());
+            cc.egui_ctx.set_visuals(state.get_visuals());
+            Box::new(state)
+        }),
+    )
+    .unwrap();
 
     Ok(())
 }
@@ -158,7 +173,6 @@ fn main() -> Result<()> {
 #[cfg(target_arch = "wasm32")]
 fn main() -> Result<()> {
     color_eyre::install()?;
-
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
@@ -173,7 +187,10 @@ fn main() -> Result<()> {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|_cc| Box::new(state)),
+                Box::new(|cc| {
+                    cc.egui_ctx.set_visuals(state.get_visuals());
+                    Box::new(state)
+                }),
             )
             .await
             .expect("failed to start eframe");
@@ -199,12 +216,18 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
+pub struct DisplayedSignal {
+    idx: SignalIdx,
+    info: SignalInfo,
+    color: Option<String>,
+}
+
 pub struct VcdData {
     inner: VCD,
     filename: String,
     active_scope: Option<ScopeIdx>,
     /// Root signals to display
-    signals: Vec<(SignalIdx, SignalInfo)>,
+    signals: Vec<DisplayedSignal>,
     /// These hashmaps contain a list of all full (i.e., top.dut.mod1.signal) signal or scope
     /// names to their indices. They have to be initialized using the initialize_signal_scope_maps
     /// function after this struct is created.
@@ -223,6 +246,11 @@ pub enum MoveDir {
     Down,
 }
 
+pub enum ColorSpecifier {
+    Index(usize),
+    Name(String),
+}
+
 pub enum Message {
     SetActiveScope(ScopeDescriptor),
     AddSignal(SignalDescriptor),
@@ -233,6 +261,7 @@ pub enum Message {
     MoveFocus(MoveDir),
     MoveFocusedSignal(MoveDir),
     SignalFormatChange(TraceIdx, String),
+    SignalColorChange(Option<usize>, String),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
     ResetSignalFormat(TraceIdx),
@@ -256,6 +285,7 @@ pub enum Message {
     ShowCommandPrompt(bool),
     FileDropped(DroppedFile),
     FileDownloaded(String, Bytes),
+    ReloadConfig,
 }
 
 pub enum LoadProgress {
@@ -285,6 +315,8 @@ pub struct State {
 
     /// The draw commands for every signal currently selected
     draw_commands: Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>,
+    /// The context to egui, we need this to change the visual settings when the config is reloaded
+    context: Option<eframe::egui::Context>,
 }
 
 impl State {
@@ -340,6 +372,7 @@ impl State {
                 suggestions: vec![],
             },
             draw_commands: None,
+            context: None,
         };
 
         match args.vcd {
@@ -596,9 +629,9 @@ impl State {
                             .signal_info(&signal, &vcd.signal_name(idx.0))
                             .unwrap();
 
-                        for (i, info) in &mut vcd.signals {
-                            if i == signal_idx {
-                                *info = new_info;
+                        for displayed_signal in &mut vcd.signals {
+                            if &displayed_signal.idx == signal_idx {
+                                displayed_signal.info = new_info;
                                 break;
                             }
                         }
@@ -606,6 +639,15 @@ impl State {
                     self.invalidate_draw_commands();
                 } else {
                     println!("WARN: No translator {format}")
+                }
+            }
+            Message::SignalColorChange(vidx, color_name) => {
+                let Some(vcd) = self.vcd.as_mut() else {
+                    return;
+                };
+
+                if let Some(idx) = vidx.or(vcd.focused_signal) {
+                    vcd.signals[idx].color = Some(color_name);
                 }
             }
             Message::ResetSignalFormat(idx) => {
@@ -680,6 +722,17 @@ impl State {
                 let size = bytes.len() as u64;
                 self.load_vcd(WaveSource::Url(url), bytes.reader(), Some(size))
             }
+            Message::ReloadConfig => {
+                // FIXME think about a structured way to collect errors
+                if let Ok(config) =
+                    config::SurferConfig::new().with_context(|| "Failed to load config file")
+                {
+                    self.config = config;
+                    if let Some(ctx) = &self.context {
+                        ctx.set_visuals(self.get_visuals())
+                    }
+                }
+            }
         }
     }
 
@@ -698,6 +751,52 @@ impl State {
 
             vcd.viewport.curr_left = target_left;
             vcd.viewport.curr_right = target_right;
+        }
+    }
+
+    pub fn get_visuals(&self) -> Visuals {
+        let widget_style = WidgetVisuals {
+            bg_fill: self.config.theme.background2.background,
+            fg_stroke: Stroke {
+                color: self.config.theme.background2.foreground,
+                width: 1.0,
+            },
+            weak_bg_fill: self.config.theme.background2.background,
+            bg_stroke: Stroke {
+                color: self.config.theme.background1.foreground,
+                width: 1.0,
+            },
+            rounding: Rounding::none(),
+            expansion: 0.0,
+        };
+
+        Visuals {
+            override_text_color: Some(self.config.theme.foreground),
+            extreme_bg_color: self.config.theme.background2.background,
+            panel_fill: self.config.theme.background2.background,
+            window_fill: self.config.theme.background3.background,
+            window_rounding: Rounding::none(),
+            menu_rounding: Rounding::none(),
+            window_stroke: Stroke {
+                width: 1.0,
+                color: self.config.theme.background1.foreground,
+            },
+            selection: Selection {
+                bg_fill: self.config.theme.background2.background,
+                stroke: Stroke {
+                    color: self.config.theme.background2.foreground,
+                    width: 1.0,
+                },
+            },
+            widgets: Widgets {
+                noninteractive: widget_style,
+                inactive: widget_style,
+                hovered: widget_style,
+                active: widget_style,
+                open: widget_style,
+                ..Default::default()
+            },
+            ..Visuals::dark()
         }
     }
 }
@@ -815,6 +914,11 @@ impl VcdData {
         let info = translator
             .signal_info(&signal, &self.signal_name(sidx))
             .unwrap();
-        self.signals.push((sidx, info))
+
+        self.signals.push(DisplayedSignal {
+            idx: sidx,
+            info,
+            color: None,
+        })
     }
 }

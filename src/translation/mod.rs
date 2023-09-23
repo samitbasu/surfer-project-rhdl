@@ -72,17 +72,6 @@ pub enum ValueColor {
     Custom(Color32),
     Warn,
 }
-impl ValueColor {
-    pub(crate) fn to_color32(&self) -> Color32 {
-        match self {
-            ValueColor::Normal => Color32::GREEN,
-            ValueColor::Undef => Color32::RED,
-            ValueColor::HighImp => Color32::YELLOW,
-            ValueColor::Warn => Color32::from_rgb(255, 102, 0),
-            ValueColor::Custom(inner) => inner.clone(),
-        }
-    }
-}
 
 /// The representation of the value, compound values can be
 /// be represented by the repr of their subfields

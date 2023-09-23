@@ -56,7 +56,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 format!(
                     "{}_{}",
                     uint_idx_to_alpha_idx(idx, v.signals.len()),
-                    v.inner.signal_from_signal_idx(s.0).name()
+                    v.inner.signal_from_signal_idx(s.idx).name()
                 )
             })
             .collect_vec(),
@@ -80,6 +80,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
             })
         })
         .unwrap_or_default();
+
+    let color_names = state
+        .config
+        .theme
+        .colors
+        .keys()
+        .map(|k| k.clone())
+        .collect_vec();
 
     fn vcd_files() -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
@@ -106,6 +114,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "unfocus",
             "load_vcd",
             "load_url",
+            "set_signal_color",
+            "reload_config",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -168,6 +178,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 )),
+                "set_signal_color" => single_word(
+                    color_names.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SignalColorChange(
+                            None,
+                            word.to_string(),
+                        )))
+                    }),
+                ),
+                "reload_config" => Some(Command::Terminal(Message::ReloadConfig)),
                 _ => None,
             }
         }),

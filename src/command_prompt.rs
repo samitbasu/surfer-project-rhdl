@@ -3,7 +3,7 @@ use std::iter::zip;
 use eframe::egui::{self};
 use eframe::emath::Align2;
 use eframe::epaint::Vec2;
-use eframe::epaint::{Color32, FontFamily, FontId};
+use eframe::epaint::{FontFamily, FontId};
 #[cfg(target_arch = "wasm32")]
 use eframe::web::canvas_element;
 use egui::text::{LayoutJob, TextFormat};
@@ -47,7 +47,7 @@ pub fn show_command_prompt(
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                    ui.label("🏄");
+                    ui.colored_label(state.config.theme.background3.foreground, "🏄");
 
                     let response = ui.add(
                         egui::TextEdit::singleline(&mut state.command_prompt.input)
@@ -86,6 +86,7 @@ pub fn show_command_prompt(
                     0.0,
                     TextFormat {
                         font_id: FontId::new(14.0, FontFamily::Monospace),
+                        color: state.config.theme.accent_info.background,
                         ..Default::default()
                     },
                 );
@@ -94,7 +95,7 @@ pub fn show_command_prompt(
                     0.0,
                     TextFormat {
                         font_id: FontId::new(14.0, FontFamily::Monospace),
-                        color: Color32::LIGHT_GRAY,
+                        color: state.config.theme.accent_info.background,
                         ..Default::default()
                     },
                 );
@@ -109,7 +110,7 @@ pub fn show_command_prompt(
                     0.0,
                     TextFormat {
                         font_id: FontId::new(14.0, FontFamily::Monospace),
-                        color: Color32::LIGHT_GRAY,
+                        color: state.config.theme.background3.foreground,
                         ..Default::default()
                     },
                 );
@@ -123,9 +124,9 @@ pub fn show_command_prompt(
                         TextFormat {
                             font_id: FontId::new(14.0, FontFamily::Monospace),
                             color: if *highlight {
-                                Color32::RED
+                                state.config.theme.accent_info.background
                             } else {
-                                Color32::GRAY
+                                state.config.theme.background3.foreground
                             },
                             ..Default::default()
                         },

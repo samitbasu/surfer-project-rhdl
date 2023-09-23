@@ -1,0 +1,20 @@
+# Surfer default theme
+[theme]
+foreground = "b2b2b2"
+background = "0b151d"
+background_dark = "0b151d"
+background_faint = "0b151d"
+signal_default = "a7e47e"
+signal_undefined = "c53e3e"
+signal_highimp = "f3d54a"
+cursor = { color="a0a0a0", width=4 }
+linewidth = 1
+
+[theme.colors]
+Green = "a7e47e"
+Red = "c53e3e"
+Yellow = "f3d54a"
+Blue = "81a2be"
+Purple = "b294bb"
+Aqua = "8abeb7"
+Gray = "c5c8c6"

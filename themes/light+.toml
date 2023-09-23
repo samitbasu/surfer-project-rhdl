@@ -1,0 +1,26 @@
+# VSCode Light+ theme
+[theme]
+foreground = "343434"
+background1 = { background = "ffffff", foreground = "343434" }
+background2 = { background = "f3f3f3", foreground = "343434" }
+background3 = { background = "2c2c2c", foreground = "f3f3f3" }
+# accent_info = { background = "6a9955", foreground = "343434" }
+accent_info = { background = "007acc", foreground = "343434" }
+accent_warn = { background = "dcdcaa", foreground = "343434" }
+accent_error = { background = "f44747", foreground = "343434" }
+signal_default = "6a9955"
+signal_undefined = "f44747"
+signal_highimp = "dcdcaa"
+cursor = { color="aeafad", width=4 }
+linewidth = 1
+
+[theme.colors]
+Green = "6a9955"
+Red = "f44747"
+Yellow = "ffd602"
+Blue = "569cd6"
+BlueGreen = "16825D"
+Pink = "c586c0"
+Orange = "ce9178"
+Gray = "808080"
+Violet = "646695"
