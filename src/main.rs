@@ -38,6 +38,7 @@ use fastwave_backend::VCD;
 use fern::colors::ColoredLevelConfig;
 use futures_util::FutureExt;
 use futures_util::TryFutureExt;
+use itertools::Itertools;
 use log::error;
 use log::info;
 use num::bigint::ToBigInt;
@@ -61,6 +62,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::Read;
+use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
@@ -216,10 +218,31 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
+pub enum SignalNameType {
+    Local,  // local signal name only (i.e. for tb.dut.clk => clk)
+    Unique, // add unique prefix, prefix + local
+    Global, // full signal name (i.e. tb.dut.clk => tb.dut.clk)
+}
+
+impl FromStr for SignalNameType {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<SignalNameType, Self::Err> {
+        match input {
+            "Local" => Ok(SignalNameType::Local),
+            "Unique" => Ok(SignalNameType::Unique),
+            "Global" => Ok(SignalNameType::Global),
+            _ => Err(()),
+        }
+    }
+}
+
 pub struct DisplayedSignal {
     idx: SignalIdx,
     info: SignalInfo,
     color: Option<String>,
+    display_name: String,
+    display_name_type: SignalNameType,
 }
 
 pub struct VcdData {
@@ -233,6 +256,8 @@ pub struct VcdData {
     /// function after this struct is created.
     signals_to_ids: HashMap<String, SignalIdx>,
     scopes_to_ids: HashMap<String, ScopeIdx>,
+    /// Maps signal indices to the corresponding full signal name (i.e. top.sub.signal)
+    ids_to_fullnames: HashMap<SignalIdx, String>,
     viewport: Viewport,
     num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
@@ -286,6 +311,7 @@ pub enum Message {
     FileDropped(DroppedFile),
     FileDownloaded(String, Bytes),
     ReloadConfig,
+    ChangeSignalNameType(SignalNameType),
 }
 
 pub enum LoadProgress {
@@ -685,6 +711,7 @@ impl State {
                     signals: vec![],
                     signals_to_ids: HashMap::new(),
                     scopes_to_ids: HashMap::new(),
+                    ids_to_fullnames: HashMap::new(),
                     viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
                     signal_format: HashMap::new(),
                     num_timestamps,
@@ -730,6 +757,15 @@ impl State {
                     self.config = config;
                     if let Some(ctx) = &self.context {
                         ctx.set_visuals(self.get_visuals())
+                    }
+                }
+            }
+            Message::ChangeSignalNameType(name_type) => {
+                let Some(vcd) = self.vcd.as_mut() else { return };
+                if let Some(idx) = vcd.focused_signal {
+                    if vcd.signals.len() > idx {
+                        vcd.signals[idx].display_name_type = name_type;
+                        vcd.compute_signal_display_names();
                     }
                 }
             }
@@ -893,8 +929,9 @@ impl VcdData {
             for signal in signal_idxs {
                 let signal_name = vcd.inner.signal_from_signal_idx(signal).name();
                 if !signal_name.starts_with('_') {
-                    vcd.signals_to_ids
-                        .insert(format!("{}.{}", full_scope_name, signal_name), signal);
+                    let fullname = format!("{}.{}", full_scope_name, signal_name);
+                    vcd.signals_to_ids.insert(fullname.clone(), signal);
+                    vcd.ids_to_fullnames.insert(signal, fullname);
                 }
             }
 
@@ -919,6 +956,40 @@ impl VcdData {
             idx: sidx,
             info,
             color: None,
-        })
+            display_name: signal.name().clone(),
+            display_name_type: SignalNameType::Local,
+        });
+        self.compute_signal_display_names();
+    }
+
+    pub fn compute_signal_display_names(&mut self) {
+        let local_names = self
+            .signals
+            .iter()
+            .map(|sig| self.inner.signal_from_signal_idx(sig.idx).name())
+            .collect_vec();
+
+        for signal in &mut self.signals {
+            let this_signal = signal.display_name.clone();
+            signal.display_name = match signal.display_name_type {
+                SignalNameType::Local => this_signal,
+                SignalNameType::Unique => this_signal,
+                SignalNameType::Global => {
+                    if local_names
+                        .iter()
+                        .filter(|&other| *other == this_signal)
+                        .count()
+                        > 1
+                    {
+                        self.ids_to_fullnames
+                            .get(&signal.idx)
+                            .unwrap_or(&this_signal)
+                            .clone()
+                    } else {
+                        this_signal
+                    }
+                }
+            };
+        }
     }
 }

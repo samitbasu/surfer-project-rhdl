@@ -418,7 +418,7 @@ impl State {
                     self.draw_var(
                         msgs,
                         vidx,
-                        &signal.name(),
+                        &displayed_signal.display_name,
                         &(signal.real_idx(), vec![]),
                         &mut signal_offsets,
                         info,
