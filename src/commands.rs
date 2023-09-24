@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, fs};
+use std::{collections::BTreeMap, fs, str::FromStr};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    Message, State,
+    Message, SignalNameType, State,
 };
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};
@@ -122,6 +122,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "zoom_out",
             "zoom_to_fit",
             "toggle_menu",
+            "signal_name_type_set",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -206,6 +207,18 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     delta: 2.0,
                 })),
                 "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
+                "signal_name_type_set" => single_word(
+                    vec![
+                        "Local".to_string(),
+                        "Unique".to_string(),
+                        "Global".to_string(),
+                    ],
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::ChangeSignalNameType(
+                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                        )))
+                    }),
+                ),
                 _ => None,
             }
         }),
