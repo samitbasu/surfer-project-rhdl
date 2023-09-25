@@ -218,6 +218,7 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
+#[derive(PartialEq, Copy, Clone)]
 pub enum SignalNameType {
     Local,  // local signal name only (i.e. for tb.dut.clk => clk)
     Unique, // add unique prefix, prefix + local
@@ -311,7 +312,7 @@ pub enum Message {
     FileDropped(DroppedFile),
     FileDownloaded(String, Bytes),
     ReloadConfig,
-    ChangeSignalNameType(SignalNameType),
+    ChangeSignalNameType(Option<usize>, SignalNameType),
 }
 
 pub enum LoadProgress {
@@ -588,6 +589,7 @@ impl State {
                 let visible_signals_len = vcd.signals.len();
                 if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
                     vcd.signals.remove(idx);
+                    vcd.compute_signal_display_names();
                     if let Some(focused) = vcd.focused_signal {
                         if focused == idx {
                             if (idx > 0) && (idx == (visible_signals_len - 1)) {
@@ -760,9 +762,10 @@ impl State {
                     }
                 }
             }
-            Message::ChangeSignalNameType(name_type) => {
+            Message::ChangeSignalNameType(vidx, name_type) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
-                if let Some(idx) = vcd.focused_signal {
+                // checks if vidx is Some then use that, else try focused signal
+                if let Some(idx) = vidx.or(vcd.focused_signal) {
                     if vcd.signals.len() > idx {
                         vcd.signals[idx].display_name_type = name_type;
                         vcd.compute_signal_display_names();
@@ -957,37 +960,75 @@ impl VcdData {
             info,
             color: None,
             display_name: signal.name().clone(),
-            display_name_type: SignalNameType::Local,
+            display_name_type: SignalNameType::Unique,
         });
         self.compute_signal_display_names();
     }
 
     pub fn compute_signal_display_names(&mut self) {
-        let local_names = self
+        let full_names = self
             .signals
             .iter()
-            .map(|sig| self.inner.signal_from_signal_idx(sig.idx).name())
+            .map(|sig| sig.idx)
+            .unique()
+            .map(|idx| {
+                self.ids_to_fullnames
+                    .get(&idx)
+                    .map(|name| name.clone())
+                    .unwrap_or_else(|| self.inner.signal_from_signal_idx(idx).name())
+                    .clone()
+            })
             .collect_vec();
 
         for signal in &mut self.signals {
-            let this_signal = signal.display_name.clone();
+            let local_name = self.inner.signal_from_signal_idx(signal.idx).name();
             signal.display_name = match signal.display_name_type {
-                SignalNameType::Local => this_signal,
-                SignalNameType::Unique => this_signal,
-                SignalNameType::Global => {
-                    if local_names
-                        .iter()
-                        .filter(|&other| *other == this_signal)
-                        .count()
-                        > 1
-                    {
-                        self.ids_to_fullnames
-                            .get(&signal.idx)
-                            .unwrap_or(&this_signal)
-                            .clone()
-                    } else {
-                        this_signal
+                SignalNameType::Local => local_name,
+                SignalNameType::Global => self
+                    .ids_to_fullnames
+                    .get(&signal.idx)
+                    .unwrap_or(&local_name)
+                    .clone(),
+                SignalNameType::Unique => {
+                    /// This function takes a full signal name and a list of other
+                    /// full signal names and returns a minimal unique signal name.
+                    /// It takes scopes from the back of the signal until the name is unique.
+                    fn unique(signal: String, signals: &Vec<String>) -> String {
+                        // if the full signal name is very short just return it
+                        if signal.len() < 20 {
+                            return signal;
+                        }
+
+                        let split_this = signal.split('.').map(|p| p.to_string()).collect_vec();
+                        let split_signals = signals
+                            .iter()
+                            .filter(|&s| *s != signal)
+                            .map(|s| s.split('.').map(|p| p.to_string()).collect_vec())
+                            .collect_vec();
+
+                        fn take_front(s: &Vec<String>, l: usize) -> String {
+                            if l == 0 {
+                                s.last().unwrap().clone()
+                            } else if l < s.len() - 1 {
+                                format!("...{}", s.iter().rev().take(l + 1).rev().join("."))
+                            } else {
+                                s.join(".")
+                            }
+                        }
+
+                        let mut l = 0;
+                        while split_signals
+                            .iter()
+                            .map(|s| take_front(s, l))
+                            .contains(&take_front(&split_this, l))
+                        {
+                            l += 1;
+                        }
+                        take_front(&split_this, l)
                     }
+
+                    let full_name = self.ids_to_fullnames.get(&signal.idx).unwrap().clone();
+                    unique(full_name, &full_names)
                 }
             };
         }
