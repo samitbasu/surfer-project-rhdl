@@ -94,13 +94,13 @@ fn default_colors() -> HashMap<String, Color32> {
 
 impl SurferConfig {
     pub fn new() -> Result<Self, ConfigError> {
-        let fg_color = "b2b2b2".to_string();
+        let fg_color = "ffffff".to_string();
         let bg1_color = "0b151d".to_string();
-        let bg2_color = "1a3244".to_string();
-        let bg3_color = "203d54".to_string();
-        let default_color = "a7e47e".to_string();
-        let undef_color = "c42e2e".to_string();
-        let highimp_color = "f3d54a".to_string();
+        let bg2_color = "0d1317".to_string();
+        let bg3_color = "171717".to_string();
+        let default_color = "8aea49".to_string();
+        let undef_color = "dd1e1e".to_string();
+        let highimp_color = "fad52c".to_string();
         let cursor_color = "ff8080".to_string();
         let dontcare_color = "4040ff".to_string();
         let weak_color = "808080".to_string();
