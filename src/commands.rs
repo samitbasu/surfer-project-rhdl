@@ -197,6 +197,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     ],
                     Box::new(|word| {
                         Some(Command::Terminal(Message::ChangeSignalNameType(
+                            None,
                             SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
                         )))
                     }),
