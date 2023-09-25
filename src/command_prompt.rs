@@ -47,7 +47,7 @@ pub fn show_command_prompt(
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                    ui.colored_label(state.config.theme.background3.foreground, "🏄");
+                    ui.colored_label(state.config.theme.primary_ui_color.foreground, "🏄");
 
                     let response = ui.add(
                         egui::TextEdit::singleline(&mut state.command_prompt.input)
@@ -110,7 +110,7 @@ pub fn show_command_prompt(
                     0.0,
                     TextFormat {
                         font_id: FontId::new(14.0, FontFamily::Monospace),
-                        color: state.config.theme.background3.foreground,
+                        color: state.config.theme.primary_ui_color.foreground,
                         ..Default::default()
                     },
                 );
@@ -126,7 +126,7 @@ pub fn show_command_prompt(
                             color: if *highlight {
                                 state.config.theme.accent_info.background
                             } else {
-                                state.config.theme.background3.foreground
+                                state.config.theme.primary_ui_color.foreground
                             },
                             ..Default::default()
                         },

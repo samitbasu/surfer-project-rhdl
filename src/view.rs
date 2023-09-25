@@ -34,12 +34,12 @@ impl eframe::App for State {
         if let Some(vcd) = &self.vcd {
             egui::TopBottomPanel::bottom("modeline")
                 .frame(egui::containers::Frame {
-                    fill: self.config.theme.background3.background,
+                    fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
                 .show(ctx, |ui| {
                     ui.visuals_mut().override_text_color =
-                        Some(self.config.theme.background3.foreground);
+                        Some(self.config.theme.primary_ui_color.foreground);
                     ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
                         ui.add_space(10.0);
                         ui.label(&vcd.filename);
@@ -58,12 +58,12 @@ impl eframe::App for State {
                 .default_width(300.)
                 .width_range(100.0..=max_width)
                 .frame(egui::containers::Frame {
-                    fill: self.config.theme.background3.background,
+                    fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
                 .show(ctx, |ui| {
                     ui.visuals_mut().override_text_color =
-                        Some(self.config.theme.background3.foreground);
+                        Some(self.config.theme.primary_ui_color.foreground);
                     ui.with_layout(
                         Layout::top_down(Align::LEFT).with_cross_justify(true),
                         |ui| {
@@ -185,7 +185,7 @@ impl eframe::App for State {
                 .map_or(false, |vcd| vcd.signals.is_empty())
         {
             egui::CentralPanel::default()
-                .frame(egui::Frame::none().fill(self.config.theme.background1.background))
+                .frame(egui::Frame::none().fill(self.config.theme.canvas_colors.background))
                 .show(ctx, |ui| {
                     ui.add_space(max_height * 0.3);
                     ui.vertical_centered(|ui| {

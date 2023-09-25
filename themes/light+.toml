@@ -1,25 +1,26 @@
 # VSCode Light+ theme
 [theme]
 foreground = "343434"
-background1 = { background = "ffffff", foreground = "343434" }
-background2 = { background = "f3f3f3", foreground = "343434" }
-background3 = { background = "2c2c2c", foreground = "f3f3f3" }
-# accent_info = { background = "6a9955", foreground = "343434" }
-accent_info = { background = "007acc", foreground = "343434" }
-accent_warn = { background = "dcdcaa", foreground = "343434" }
-accent_error = { background = "f44747", foreground = "343434" }
-signal_default = "6a9955"
-signal_undefined = "f44747"
-signal_highimp = "dcdcaa"
-cursor = { color="aeafad", width=4 }
-linewidth = 1
+border_color = "282b2d"
+canvas_colors = { background = "ffffff", foreground = "343434" }
+primary_ui_color = { background = "f3f3f3", foreground = "343434" }
+secondary_ui_color = { background = "f3f3f3", foreground = "2c2c2c" }
+accent_info = { background = "007acc", foreground = "d4d4d4" }
+accent_warn = { background = "32302f", foreground = "d4d4d4" }
+accent_error = { background = "32302f", foreground = "d4d4d4" }
+signal_default = "1f6102"
+signal_undefined = "46000c"
+# Convention dictates this being yellow, but yellow is super hard
+# to make visible on a white background, so we'll make it blue
+signal_highimp = "000347"
+cursor = { color="b63935", width=2 }
+linewidth = 1.5
 
 [theme.colors]
 Green = "6a9955"
 Red = "f44747"
 Yellow = "ffd602"
 Blue = "569cd6"
-BlueGreen = "16825D"
 Pink = "c586c0"
 Orange = "ce9178"
 Gray = "808080"

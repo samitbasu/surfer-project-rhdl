@@ -30,11 +30,20 @@ pub struct SurferCursor {
 
 #[derive(Debug, Deserialize)]
 pub struct SurferTheme {
+    /// The color used for text across the UI
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub foreground: Color32,
-    pub background1: ThemeColorPair,
-    pub background2: ThemeColorPair,
-    pub background3: ThemeColorPair,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    /// The color of borders between UI elements
+    pub border_color: Color32,
+    /// The colors used for the background and text of the wave view
+    pub canvas_colors: ThemeColorPair,
+    /// The colors used for most UI elements not on the signal canvas
+    pub primary_ui_color: ThemeColorPair,
+    /// The colors used for the variable and value list, as well as secondary elements
+    /// like text fields
+    pub secondary_ui_color: ThemeColorPair,
+
     pub accent_info: ThemeColorPair,
     pub accent_warn: ThemeColorPair,
     pub accent_error: ThemeColorPair,

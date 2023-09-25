@@ -756,35 +756,35 @@ impl State {
 
     pub fn get_visuals(&self) -> Visuals {
         let widget_style = WidgetVisuals {
-            bg_fill: self.config.theme.background2.background,
+            bg_fill: self.config.theme.secondary_ui_color.background,
             fg_stroke: Stroke {
-                color: self.config.theme.background2.foreground,
+                color: self.config.theme.secondary_ui_color.foreground,
                 width: 1.0,
             },
-            weak_bg_fill: self.config.theme.background2.background,
+            weak_bg_fill: self.config.theme.secondary_ui_color.background,
             bg_stroke: Stroke {
-                color: self.config.theme.background1.foreground,
+                color: self.config.theme.border_color,
                 width: 1.0,
             },
-            rounding: Rounding::none(),
+            rounding: Rounding::same(2.),
             expansion: 0.0,
         };
 
         Visuals {
             override_text_color: Some(self.config.theme.foreground),
-            extreme_bg_color: self.config.theme.background2.background,
-            panel_fill: self.config.theme.background2.background,
-            window_fill: self.config.theme.background3.background,
+            extreme_bg_color: self.config.theme.secondary_ui_color.background,
+            panel_fill: self.config.theme.secondary_ui_color.background,
+            window_fill: self.config.theme.primary_ui_color.background,
             window_rounding: Rounding::none(),
             menu_rounding: Rounding::none(),
             window_stroke: Stroke {
                 width: 1.0,
-                color: self.config.theme.background1.foreground,
+                color: self.config.theme.border_color,
             },
             selection: Selection {
-                bg_fill: self.config.theme.background2.background,
+                bg_fill: self.config.theme.secondary_ui_color.background,
                 stroke: Stroke {
-                    color: self.config.theme.background2.foreground,
+                    color: self.config.theme.border_color,
                     width: 1.0,
                 },
             },

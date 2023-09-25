@@ -257,7 +257,7 @@ impl State {
         painter.rect_filled(
             response.rect,
             Rounding::none(),
-            self.config.theme.background1.background,
+            self.config.theme.canvas_colors.background,
         );
 
         vcd.draw_cursor(

@@ -1,19 +1,17 @@
-[layout]
-show_hierarchy = false
-
 # VSCode Dark+ theme
 [theme]
 foreground = "d4d4d4"
-background1 = { background = "1e1e1e", foreground = "d4d4d4" }
-background2 = { background = "272727", foreground = "d4d4d4" }
-background3 = { background = "32302f", foreground = "d4d4d4" }
+border_color = "424242"
+canvas_colors = { background = "1e1e1e", foreground = "d4d4d4" }
+primary_ui_color = { background = "32302f", foreground = "d4d4d4" }
+secondary_ui_color = { background = "272727", foreground = "d4d4d4" }
 accent_info = { background = "007acc", foreground = "d4d4d4" }
 accent_warn = { background = "32302f", foreground = "d4d4d4" }
 accent_error = { background = "32302f", foreground = "d4d4d4" }
-signal_default = "6a9955"
+signal_default = "56c126"
 signal_undefined = "f44747"
-signal_highimp = "dcdcaa"
-cursor = { color="aeafad", width=4 }
+signal_highimp = "c9e124"
+cursor = { color="b63935", width=2 }
 linewidth = 1.5
 
 [theme.colors]
