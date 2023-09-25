@@ -272,7 +272,9 @@ impl State {
         let mut ctx = DrawingContext {
             painter: &mut painter,
             cfg: &cfg,
-            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y)),
+            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
+            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
+            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
         };
 
         let draw_clock_edges = match clock_edges.as_slice() {
@@ -464,8 +466,8 @@ impl VcdData {
             };
             painter.line_segment(
                 [
-                    to_screen.transform_pos(Pos2::new(x as f32, 0.)),
-                    to_screen.transform_pos(Pos2::new(x as f32, size.y)),
+                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, 0.)),
+                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, size.y)),
                 ],
                 stroke,
             )
