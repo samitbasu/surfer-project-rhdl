@@ -253,11 +253,8 @@ impl State {
         let frame_width = response.rect.width();
         let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
-        let pointer_in_canvas = pointer_pos_global
-            .map(|p| to_screen.transform_rect(container_rect).contains(p))
-            .unwrap_or(false);
 
-        if pointer_in_canvas {
+        if ui.ui_contains_pointer() {
             let pointer_pos = pointer_pos_global.unwrap();
             let scroll_delta = ui.input(|i| i.scroll_delta);
             let mouse_ptr_pos = to_screen.inverse().transform_pos(pointer_pos);

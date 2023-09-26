@@ -1,6 +1,6 @@
 use color_eyre::eyre::Context;
-use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, RichText};
-use eframe::egui::{menu, Frame, Grid, TextStyle};
+use eframe::egui::{self, menu, style::Margin, Align, Color32, Event, Key, Layout, RichText};
+use eframe::egui::{Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use itertools::Itertools;
@@ -76,8 +76,8 @@ impl State {
                                 ui.label(format!("Generated: {datetime}"));
                             }
                         }
-                        if let Some(time) = &vcd.cursor {
-                            ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
+                            if let Some(time) = &vcd.cursor {
                                 ui.label(time_string(
                                     time,
                                     &vcd.inner.metadata,
@@ -87,8 +87,12 @@ impl State {
                                     timescale_menu(ui, &mut msgs, &self.wanted_timescale)
                                 });
                                 ui.add_space(10.0)
-                            });
-                        }
+                            }
+                            if let Some(count) = &self.count {
+                                ui.label(format!("Count: {}", count));
+                                ui.add_space(20.0);
+                            }
+                        });
                     });
                 });
         }
@@ -351,18 +355,35 @@ impl State {
             })
         });
 
-        let control_key = ctx.input(|i| i.modifiers.ctrl);
-
         ctx.input(|i| {
             i.events.iter().for_each(|event| match event {
                 Event::Key {
                     key,
                     repeat: _,
                     pressed,
-                    modifiers: _,
+                    modifiers,
                 } => match (key, pressed, self.command_prompt.visible) {
+                    (Key::Num0, true, false) => msgs.push(Message::AddCount('0')),
+                    (Key::Num1, true, false) => msgs.push(Message::AddCount('1')),
+                    (Key::Num2, true, false) => msgs.push(Message::AddCount('2')),
+                    (Key::Num3, true, false) => msgs.push(Message::AddCount('3')),
+                    (Key::Num4, true, false) => msgs.push(Message::AddCount('4')),
+                    (Key::Num5, true, false) => msgs.push(Message::AddCount('5')),
+                    (Key::Num6, true, false) => msgs.push(Message::AddCount('6')),
+                    (Key::Num7, true, false) => msgs.push(Message::AddCount('7')),
+                    (Key::Num8, true, false) => msgs.push(Message::AddCount('8')),
+                    (Key::Num9, true, false) => msgs.push(Message::AddCount('9')),
+                    (Key::Home, true, false) => msgs.push(Message::SetVerticalScroll(0)),
+                    (Key::End, true, false) => {
+                        if let Some(vcd) = &self.vcd {
+                            if vcd.signals.len() > 1 {
+                                msgs.push(Message::SetVerticalScroll(vcd.signals.len() - 1));
+                            }
+                        }
+                    }
                     (Key::Space, true, false) => msgs.push(Message::ShowCommandPrompt(true)),
                     (Key::Escape, true, true) => msgs.push(Message::ShowCommandPrompt(false)),
+                    (Key::Escape, true, false) => msgs.push(Message::InvalidateCount),
                     (Key::B, true, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false) => msgs.push(Message::ToggleMenu),
                     (Key::S, true, false) => msgs.push(Message::ScrollToStart),
@@ -376,31 +397,39 @@ impl State {
                         delta: 0.5,
                     }),
                     (Key::J, true, false) => {
-                        if control_key {
+                        if modifiers.alt {
+                            msgs.push(Message::MoveFocus(MoveDir::Down));
+                        } else if modifiers.ctrl {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
                         } else {
-                            msgs.push(Message::MoveFocus(MoveDir::Down));
+                            msgs.push(Message::Scroll(MoveDir::Down));
                         }
                     }
                     (Key::K, true, false) => {
-                        if control_key {
+                        if modifiers.alt {
+                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                        } else if modifiers.ctrl {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
                         } else {
-                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                            msgs.push(Message::Scroll(MoveDir::Up));
                         }
                     }
                     (Key::ArrowDown, true, false) => {
-                        if control_key {
+                        if modifiers.alt {
+                            msgs.push(Message::MoveFocus(MoveDir::Down));
+                        } else if modifiers.ctrl {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
                         } else {
-                            msgs.push(Message::MoveFocus(MoveDir::Down));
+                            msgs.push(Message::Scroll(MoveDir::Down));
                         }
                     }
                     (Key::ArrowUp, true, false) => {
-                        if control_key {
+                        if modifiers.alt {
+                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                        } else if modifiers.ctrl {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
                         } else {
-                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                            msgs.push(Message::Scroll(MoveDir::Up));
                         }
                     }
                     (Key::Delete, true, false) => {
@@ -410,6 +439,7 @@ impl State {
                             }
                         }
                     }
+                    // (Key::Num0, true, false) => self.vcd. b
                     // this should be a shortcut to focusing
                     // to make this functional we need to make the cursor of the prompt
                     // point to the end of the input
@@ -521,7 +551,7 @@ impl State {
     ) -> Vec<SignalDrawingInfo> {
         let mut signal_offsets = Vec::new();
 
-        for (vidx, displayed_signal) in vcd.signals.iter().enumerate() {
+        for (vidx, displayed_signal) in vcd.signals.iter().enumerate().skip(vcd.scroll) {
             let sig = displayed_signal.idx;
             let info = &displayed_signal.info;
             ui.with_layout(
@@ -765,6 +795,16 @@ impl State {
         ui: &mut egui::Ui,
         msgs: &mut Vec<Message>,
     ) {
+        // // if ui.ui_contains_pointer() {
+        // if false {
+        //     let scroll_delta = ui.input(|i| i.scroll_delta);
+        //     if scroll_delta.y > 0.0 {
+        //         msgs.push(Message::VerticalScroll(MoveDir::Down));
+        //     } else if scroll_delta.y < 0.0 {
+        //         msgs.push(Message::VerticalScroll(MoveDir::Up));
+        //     }
+        // }
+
         if let Some(cursor) = &vcd.cursor {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
@@ -821,7 +861,10 @@ impl State {
     fn controls_listing(&self, ui: &mut egui::Ui) {
         let controls = vec![
             ("🚀", "Space", "Show command prompt"),
-            ("↔", "Scroll", "Pan"),
+            ("↔", "Horizontal Scroll", "Pan"),
+            ("↕", "j, k, Up, Down", "Scroll down/up"),
+            ("⌖", "Ctrl+j, k, Up, Down", "Move focus down/up"),
+            ("🔃", "Alt+j, k, Up, Down", "Move focused signal down/up"),
             ("🔎", "Ctrl+Scroll", "Zoom"),
             ("〰", "b", "Show or hide the design hierarchy"),
         ];
@@ -836,6 +879,9 @@ impl State {
                     ui.end_row();
                 }
             });
+
+        ui.add_space(20.);
+        ui.label(RichText::new("Hint: You can repeat keybinds by typing a number before them. For example, 10k scrolls 10 steps up."));
     }
 
     fn key_listing(&self, ui: &mut egui::Ui) {
@@ -847,10 +893,12 @@ impl State {
             ("☰", "m", "Show or hide menu"),
             ("🔎➕", "+", "Zoom in"),
             ("🔎➖", "-", "Zoom out"),
-            ("", "k/⬆", "Move focus up"),
-            ("", "j/⬇", "Move focus down"),
+            ("", "k/⬆", "Scroll up"),
+            ("", "j/⬇", "Scroll down"),
             ("", "Ctrl+k/⬆", "Move focused signal up"),
             ("", "Ctrl+j/⬇", "Move focused signal down"),
+            ("", "Alt+k/⬆", "Move focus up"),
+            ("", "Alt+j/⬇", "Move focus down"),
             ("🔙", "s", "Scroll to start"),
             ("🔚", "e", "Scroll to end"),
             ("🗙", "Delete", "Delete focused signal"),
