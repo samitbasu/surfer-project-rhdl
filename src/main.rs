@@ -295,6 +295,7 @@ pub struct VcdData {
     cursor: Option<BigInt>,
     focused_signal: Option<usize>,
     default_signal_name_type: SignalNameType,
+    scroll: usize,
 }
 
 #[derive(Debug)]
@@ -314,11 +315,15 @@ pub enum Message {
     SetActiveScope(ScopeDescriptor),
     AddSignal(SignalDescriptor),
     AddScope(ScopeDescriptor),
+    AddCount(char),
+    InvalidateCount,
     RemoveSignal(usize),
     FocusSignal(usize),
     UnfocusSignal,
     MoveFocus(MoveDir),
     MoveFocusedSignal(MoveDir),
+    Scroll(MoveDir),
+    SetVerticalScroll(usize),
     SignalFormatChange(PathDescriptor, String),
     SignalColorChange(Option<usize>, String),
     ChangeSignalNameType(Option<usize>, SignalNameType),
@@ -384,6 +389,8 @@ struct CachedDrawData {
 pub struct State {
     config: config::SurferConfig,
     vcd: Option<VcdData>,
+    /// Count argument for movements
+    count: Option<String>,
     /// Which translator to use for each signal
     translators: TranslatorList,
 
@@ -481,6 +488,7 @@ impl State {
         let mut result = State {
             config,
             vcd: None,
+            count: None,
             translators,
             msg_sender: sender,
             msg_receiver: receiver,
@@ -642,6 +650,14 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
+            Message::AddCount(digit) => {
+                if let Some(count) = &mut self.count {
+                    count.push(digit);
+                } else {
+                    self.count = Some(digit.to_string())
+                }
+            }
+            Message::InvalidateCount => self.count = None,
             Message::FocusSignal(idx) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
 
@@ -659,76 +675,108 @@ impl State {
                 vcd.focused_signal = None;
             }
             Message::MoveFocus(direction) => {
+                let count = self.get_count();
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 let visible_signals_len = vcd.signals.len();
                 if visible_signals_len > 0 {
+                    self.count = None;
                     match direction {
                         MoveDir::Up => {
-                            vcd.focused_signal = vcd.focused_signal.map_or(
-                                Some(visible_signals_len - 1),
-                                |focused| {
-                                    if focused > 0 {
-                                        Some(focused - 1)
-                                    } else {
-                                        Some(focused)
-                                    }
-                                },
-                            )
+                            vcd.focused_signal = vcd
+                                .focused_signal
+                                .map_or(Some(visible_signals_len - 1), |focused| {
+                                    Some(focused - count.clamp(0, focused))
+                                })
                         }
                         MoveDir::Down => {
-                            vcd.focused_signal = vcd.focused_signal.map_or(Some(0), |focused| {
-                                if focused < (visible_signals_len - 1).try_into().unwrap_or(0) {
-                                    Some(focused + 1)
-                                } else {
-                                    Some(focused)
-                                }
-                            });
+                            vcd.focused_signal = vcd.focused_signal.map_or(
+                                Some(vcd.scroll + (count - 1).clamp(0, visible_signals_len - 1)),
+                                |focused| Some((focused + count).clamp(0, visible_signals_len - 1)),
+                            );
                         }
                     }
                 }
+            }
+            Message::SetVerticalScroll(position) => {
+                if let Some(vcd) = &mut self.vcd {
+                    vcd.scroll = position.clamp(0, vcd.signals.len() - 1);
+                }
+            }
+            Message::Scroll(direction) => {
+                let count = self.get_count();
+                let Some(vcd) = self.vcd.as_mut() else { return };
+                match direction {
+                    MoveDir::Down => {
+                        if vcd.scroll + count < vcd.signals.len() {
+                            vcd.scroll += count;
+                        } else {
+                            vcd.scroll = vcd.signals.len() - 1;
+                        }
+                    }
+                    MoveDir::Up => {
+                        if vcd.scroll > count {
+                            vcd.scroll -= count;
+                        } else {
+                            vcd.scroll = 0;
+                        }
+                    }
+                }
+                self.count = None;
+                self.invalidate_draw_commands();
             }
             Message::RemoveSignal(idx) => {
                 self.invalidate_draw_commands();
+                let count = self.get_count();
+                self.count = None;
+
                 let Some(vcd) = self.vcd.as_mut() else { return };
-                let visible_signals_len = vcd.signals.len();
-                if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
-                    vcd.signals.remove(idx);
-                    vcd.compute_signal_display_names();
-                    if let Some(focused) = vcd.focused_signal {
-                        if focused == idx {
-                            if (idx > 0) && (idx == (visible_signals_len - 1)) {
-                                // if the end of list is selected
-                                vcd.focused_signal = Some(idx - 1);
+                for _ in 0..count {
+                    let visible_signals_len = vcd.signals.len();
+                    if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
+                        vcd.signals.remove(idx);
+                        if let Some(focused) = vcd.focused_signal {
+                            if focused == idx {
+                                if (idx > 0) && (idx == (visible_signals_len - 1)) {
+                                    // if the end of list is selected
+                                    vcd.focused_signal = Some(idx - 1);
+                                }
+                            } else {
+                                if idx < focused {
+                                    vcd.focused_signal = Some(focused - 1)
+                                }
                             }
-                        } else {
-                            if idx < focused {
-                                vcd.focused_signal = Some(focused - 1)
+                            if vcd.signals.is_empty() {
+                                vcd.focused_signal = None;
                             }
-                        }
-                        if vcd.signals.is_empty() {
-                            vcd.focused_signal = None;
                         }
                     }
                 }
+                vcd.compute_signal_display_names();
             }
             Message::MoveFocusedSignal(direction) => {
+                let count = self.get_count();
+                self.count = None;
+                self.invalidate_draw_commands();
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 if let Some(idx) = vcd.focused_signal {
                     let visible_signals_len = vcd.signals.len();
                     if visible_signals_len > 0 {
                         match direction {
                             MoveDir::Up => {
-                                if idx > 0 {
-                                    vcd.signals.swap(idx, idx - 1);
-                                    vcd.focused_signal = Some(idx - 1);
-                                    self.invalidate_draw_commands();
+                                for i in (idx
+                                    .saturating_sub(count - 1)
+                                    .clamp(1, visible_signals_len - 1)
+                                    ..=idx)
+                                    .rev()
+                                {
+                                    vcd.signals.swap(i, i - 1);
+                                    vcd.focused_signal = Some(i - 1);
                                 }
                             }
                             MoveDir::Down => {
-                                if idx < (visible_signals_len - 1) {
-                                    vcd.signals.swap(idx, idx + 1);
-                                    vcd.focused_signal = Some(idx + 1);
-                                    self.invalidate_draw_commands();
+                                for i in idx..(idx + count).clamp(0, visible_signals_len - 1) {
+                                    vcd.signals.swap(i, i + 1);
+                                    vcd.focused_signal = Some(i + 1);
                                 }
                             }
                         }
@@ -853,6 +901,7 @@ impl State {
                     cursor: None,
                     focused_signal: None,
                     default_signal_name_type: self.config.default_signal_name_type,
+                    scroll: 0,
                 };
                 new_vcd.initialize_signal_scope_maps();
 
@@ -1042,6 +1091,14 @@ impl State {
                 ..Default::default()
             },
             ..Visuals::dark()
+        }
+    }
+
+    fn get_count(&self) -> usize {
+        if let Some(count) = &self.count {
+            usize::from_str_radix(count, 10).unwrap_or(1)
+        } else {
+            1
         }
     }
 }
