@@ -25,6 +25,7 @@ fn group_n_chars<'a>(s: &'a str, n: usize) -> Vec<&'a str> {
     .collect()
 }
 
+/// Number of digits for digit_size, simply ceil(num_bits/digit_size)
 fn no_of_digits(num_bits: u64, digit_size: u64) -> usize {
     if (num_bits % digit_size) == 0 {
         (num_bits / digit_size) as usize
@@ -33,8 +34,8 @@ fn no_of_digits(num_bits: u64, digit_size: u64) -> usize {
     }
 }
 
+/// VCD bit extension
 fn extend_string(val: &String, num_bits: u64) -> String {
-    // VCD spec'd bit extension
     if num_bits > val.len() as u64 {
         let extra_count = num_bits - val.len() as u64;
         let extra_value = match val.chars().next() {
@@ -44,6 +45,7 @@ fn extend_string(val: &String, num_bits: u64) -> String {
             Some('z') => "z",
             // If we got weird characters, this is probably a string, so we don't
             // do the extension
+            // We may have to add extensions for std_logic values though if simulators save without extension
             _ => "",
         };
         extra_value.repeat(extra_count as usize)
@@ -391,15 +393,15 @@ mod test {
     fn grouping_binary_translation_groups_digits_correctly_string() {
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .basic_translate(5, &SignalValue::String("1000w".to_string()))
                 .0,
-            "1 0000"
+            "1 000w"
         );
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(8, &SignalValue::String("100000".to_string()))
+                .basic_translate(8, &SignalValue::String("100l00".to_string()))
                 .0,
-            "0010 0000"
+            "0010 0l00"
         );
         assert_eq!(
             GroupingBinaryTranslator {}
@@ -435,15 +437,15 @@ mod test {
         );
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(8, &SignalValue::String("100000".to_string()))
+                .basic_translate(8, &SignalValue::String("100h00".to_string()))
                 .0,
-            "00100000"
+            "00100h00"
         );
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(7, &SignalValue::String("10x00".to_string()))
+                .basic_translate(7, &SignalValue::String("10x0-".to_string()))
                 .0,
-            "0010x00"
+            "0010x0-"
         );
         assert_eq!(
             BinaryTranslator {}
