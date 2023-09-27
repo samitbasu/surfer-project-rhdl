@@ -116,7 +116,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "load_url",
             "set_signal_color",
             "reload_config",
-            "signal_name_type_set",
+            "signal_name_type_change",
+            "signal_name_type_force",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -189,7 +190,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "reload_config" => Some(Command::Terminal(Message::ReloadConfig)),
-                "signal_name_type_set" => single_word(
+                "signal_name_type_change" => single_word(
                     vec![
                         "Local".to_string(),
                         "Unique".to_string(),
@@ -198,6 +199,18 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|word| {
                         Some(Command::Terminal(Message::ChangeSignalNameType(
                             None,
+                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                        )))
+                    }),
+                ),
+                "signal_name_type_force" => single_word(
+                    vec![
+                        "Local".to_string(),
+                        "Unique".to_string(),
+                        "Global".to_string(),
+                    ],
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::ForceSignalNameTypes(
                             SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
                         )))
                     }),

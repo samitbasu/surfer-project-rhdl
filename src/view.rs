@@ -146,7 +146,7 @@ impl eframe::App for State {
                         ui.style_mut().wrap = Some(false);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| self.draw_var_list(&mut msgs, &vcd, ui),
+                            |ui| self.draw_var_list(&mut msgs, vcd, ui),
                         )
                         .inner
                     })
@@ -426,6 +426,25 @@ impl State {
                     );
                 },
             );
+        }
+
+        if self.config.layout.show_signal_naming_button {
+            ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+                ui.menu_button("Signal Naming", |ui| {
+                    if ui.button("Local").clicked() {
+                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Local));
+                        ui.close_menu();
+                    }
+                    if ui.button("Global").clicked() {
+                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Global));
+                        ui.close_menu();
+                    }
+                    if ui.button("Unique").clicked() {
+                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Unique));
+                        ui.close_menu();
+                    }
+                });
+            });
         }
 
         signal_offsets

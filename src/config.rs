@@ -19,6 +19,8 @@ pub struct SurferConfig {
 pub struct SurferLayout {
     /// Flag to show/hide the hierarchy view
     pub show_hierarchy: bool,
+    /// Flag to show/hide the naming style button in the var list
+    pub show_signal_naming_button: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,6 +103,7 @@ impl SurferConfig {
 
         let mut c = Config::builder()
             .set_default("layout.show_hierarchy", true)?
+            .set_default("layout.show_signal_naming_button", true)?
             // Colors
             .set_default("theme.foreground", fg_color.clone())?
             .set_default("theme.background1.foreground", fg_color.clone())?
@@ -127,8 +130,10 @@ impl SurferConfig {
 
         if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
             let config_file = proj_dirs.config_dir().join("config.toml");
-            info!("Add configuration from {:?}", config_file);
-            c = c.add_source(File::from(config_file).required(false));
+            if config_file.exists() {
+                info!("Add configuration from {:?}", config_file);
+                c = c.add_source(File::from(config_file).required(false));
+            }
         }
 
         c.add_source(File::from(Path::new("surfer.toml")).required(false))
