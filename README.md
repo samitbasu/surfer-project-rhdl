@@ -12,7 +12,7 @@ the instructions at [https://rustup.rs](rustup.rs)
 Once cargo is installed, you can install the latest development version of surfer by
 running:
 ```
-cargo install --git https://gitlab.com/surfer-project/surfer
+cargo install --git https://gitlab.com/surfer-project/surfer surfer
 ```
 
 ## Project Status
