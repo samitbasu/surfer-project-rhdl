@@ -123,6 +123,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "zoom_to_fit",
             "toggle_menu",
             "signal_name_type_set",
+            "signal_name_type_change",
+            "signal_name_type_force",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -207,7 +209,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     delta: 2.0,
                 })),
                 "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
-                "signal_name_type_set" => single_word(
+                "signal_name_type_change" => single_word(
                     vec![
                         "Local".to_string(),
                         "Unique".to_string(),
@@ -216,6 +218,18 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|word| {
                         Some(Command::Terminal(Message::ChangeSignalNameType(
                             None,
+                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                        )))
+                    }),
+                ),
+                "signal_name_type_force" => single_word(
+                    vec![
+                        "Local".to_string(),
+                        "Unique".to_string(),
+                        "Global".to_string(),
+                    ],
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::ForceSignalNameTypes(
                             SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
                         )))
                     }),
