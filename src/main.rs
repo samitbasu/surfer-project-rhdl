@@ -265,6 +265,7 @@ pub struct VcdData {
     signal_format: HashMap<TraceIdx, String>,
     cursor: Option<BigInt>,
     focused_signal: Option<usize>,
+    default_signal_name_type: SignalNameType,
 }
 
 pub enum MoveDir {
@@ -288,6 +289,8 @@ pub enum Message {
     MoveFocusedSignal(MoveDir),
     SignalFormatChange(TraceIdx, String),
     SignalColorChange(Option<usize>, String),
+    ChangeSignalNameType(Option<usize>, SignalNameType),
+    ForceSignalNameTypes(SignalNameType),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
     ResetSignalFormat(TraceIdx),
@@ -316,8 +319,6 @@ pub enum Message {
     ScrollToStart,
     ScrollToEnd,
     ToggleMenu,
-    ChangeSignalNameType(SignalNameType),
-    ChangeSignalNameType(Option<usize>, SignalNameType),
 }
 
 pub enum LoadProgress {
@@ -760,6 +761,7 @@ impl State {
                     num_timestamps,
                     cursor: None,
                     focused_signal: None,
+                    default_signal_name_type: SignalNameType::Unique,
                 };
                 new_vcd.initialize_signal_scope_maps();
 
@@ -813,6 +815,14 @@ impl State {
                         vcd.compute_signal_display_names();
                     }
                 }
+            }
+            Message::ForceSignalNameTypes(name_type) => {
+                let Some(vcd) = self.vcd.as_mut() else { return };
+                for signal in &mut vcd.signals {
+                    signal.display_name_type = name_type;
+                }
+                vcd.default_signal_name_type = name_type;
+                vcd.compute_signal_display_names();
             }
         }
     }
@@ -1036,7 +1046,7 @@ impl VcdData {
             info,
             color: None,
             display_name: signal.name().clone(),
-            display_name_type: SignalNameType::Unique,
+            display_name_type: self.default_signal_name_type,
         });
         self.compute_signal_display_names();
     }
