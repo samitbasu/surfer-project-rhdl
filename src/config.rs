@@ -3,7 +3,6 @@ use color_eyre::Report;
 use config::{Config, ConfigError, Environment, File};
 use directories::ProjectDirs;
 use eframe::epaint::Color32;
-use log::info;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -103,48 +102,15 @@ fn default_colors() -> HashMap<String, Color32> {
 
 impl SurferConfig {
     pub fn new() -> Result<Self, ConfigError> {
-        let fg_color = "ffffff".to_string();
-        let bg1_color = "0b151d".to_string();
-        let bg2_color = "0d1317".to_string();
-        let bg3_color = "171717".to_string();
-        let default_color = "8aea49".to_string();
-        let undef_color = "dd1e1e".to_string();
-        let highimp_color = "fad52c".to_string();
-        let cursor_color = "ff8080".to_string();
-        let dontcare_color = "4040ff".to_string();
-        let weak_color = "808080".to_string();
+        let default_config = String::from(include_str!("../default_config.toml"));
 
-        let mut c = Config::builder()
-            .set_default("layout.show_hierarchy", true)?
-            // Colors
-            .set_default("theme.foreground", fg_color.clone())?
-            .set_default("theme.background1.foreground", fg_color.clone())?
-            .set_default("theme.background1.background", bg1_color.clone())?
-            .set_default("theme.background2.foreground", fg_color.clone())?
-            .set_default("theme.background2.background", bg2_color.clone())?
-            .set_default("theme.background3.foreground", fg_color.clone())?
-            .set_default("theme.background3.background", bg3_color.clone())?
-            // cursor theme
-            .set_default("theme.cursor.color", cursor_color.clone())?
-            .set_default("theme.cursor.width", "3")?
-            // signal colors
-            .set_default("theme.signal_default", default_color.clone())?
-            .set_default("theme.signal_undef", undef_color.clone())?
-            .set_default("theme.signal_highimp", highimp_color.clone())?
-            .set_default("theme.signal_dontcare", dontcare_color.clone())?
-            .set_default("theme.signal_weak", weak_color.clone())?
-            .set_default("theme.linewidth", "1")?
-            // accent colors
-            .set_default("theme.accent_error.foreground", bg2_color.clone())?
-            .set_default("theme.accent_error.background", undef_color)?
-            .set_default("theme.accent_warn.foreground", bg2_color.clone())?
-            .set_default("theme.accent_warn.background", highimp_color)?
-            .set_default("theme.accent_info.foreground", bg2_color.clone())?
-            .set_default("theme.accent_info.background", default_color)?;
+        let mut c = Config::builder().add_source(config::File::from_str(
+            &default_config,
+            config::FileFormat::Toml,
+        ));
 
         if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
             let config_file = proj_dirs.config_dir().join("config.toml");
-            info!("Add configuration from {:?}", config_file);
             c = c.add_source(File::from(config_file).required(false));
         }
 
