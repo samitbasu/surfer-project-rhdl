@@ -275,6 +275,7 @@ impl State {
             // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
             // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
             to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
+            theme: &self.config.theme,
         };
 
         let draw_clock_edges = match clock_edges.as_slice() {
@@ -319,13 +320,13 @@ impl State {
     fn draw_region(
         &self,
         ((old_x, prev_region), (new_x, _)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
-        color: Color32,
+        user_color: Color32,
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        if let Some((prev_value, _)) = &prev_region.inner {
+        if let Some((prev_value, color)) = &prev_region.inner {
             let stroke = Stroke {
-                color,
+                color: color.color(user_color, ctx.theme),
                 width: self.config.theme.linewidth,
                 ..Default::default()
             };
@@ -446,6 +447,7 @@ struct DrawingContext<'a> {
     painter: &'a mut Painter,
     cfg: &'a DrawConfig,
     to_screen: &'a dyn Fn(f32, f32) -> Pos2,
+    theme: &'a SurferTheme,
 }
 
 impl VcdData {
@@ -490,6 +492,20 @@ trait SignalExt {
     ) -> (f32, Color32, Option<Color32>);
 }
 
+impl ValueKind {
+    fn color(&self, user_color: Color32, theme: &SurferTheme) -> Color32 {
+        match self {
+            ValueKind::HighImp => theme.signal_highimp,
+            ValueKind::Undef => theme.signal_undef,
+            ValueKind::DontCare => theme.signal_dontcare,
+            ValueKind::Warn => theme.signal_undef,
+            ValueKind::Custom(custom_color) => custom_color.clone(),
+            ValueKind::Weak => theme.signal_weak,
+            ValueKind::Normal => user_color,
+        }
+    }
+}
+
 impl SignalExt for String {
     /// Return the height and color with which to draw this value if it is a boolean
     fn bool_drawing_spec(
@@ -498,30 +514,28 @@ impl SignalExt for String {
         theme: &SurferTheme,
         value_kind: ValueKind,
     ) -> (f32, Color32, Option<Color32>) {
-        match (value_kind, self) {
-            (ValueKind::HighImp, _) => (0.5, theme.signal_highimp, None),
-            (ValueKind::Undef, _) => (0.5, theme.signal_undef, None),
-            (ValueKind::DontCare, _) => (0.5, theme.signal_dontcare, None),
-            (ValueKind::Warn, _) => (0.5, theme.signal_undef, None),
-            (ValueKind::Custom(custom_color), _) => (0.5, custom_color, None),
+        let color = value_kind.color(user_color, theme);
+        let (height, background) = match (value_kind, self) {
+            (ValueKind::HighImp, _) => (0.5, None),
+            (ValueKind::Undef, _) => (0.5, None),
+            (ValueKind::DontCare, _) => (0.5, None),
+            (ValueKind::Warn, _) => (0.5, None),
+            (ValueKind::Custom(_), _) => (0.5, None),
             (ValueKind::Weak, other) => {
                 if other.to_lowercase() == "l" {
-                    (0., theme.signal_weak, None)
+                    (0., None)
                 } else {
-                    (
-                        1.,
-                        theme.signal_weak,
-                        Some(theme.signal_weak.gamma_multiply(0.2)),
-                    )
+                    (1., Some(color.gamma_multiply(0.2)))
                 }
             }
             (ValueKind::Normal, other) => {
                 if other == "0" {
-                    (0., user_color, None)
+                    (0., None)
                 } else {
-                    (1., user_color, Some(user_color.gamma_multiply(0.2)))
+                    (1., Some(color.gamma_multiply(0.2)))
                 }
             }
-        }
+        };
+        (height, color, background)
     }
 }
