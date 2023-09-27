@@ -65,7 +65,7 @@ impl TranslatorList {
 }
 
 #[derive(Clone, PartialEq, Copy)]
-pub enum ValueColor {
+pub enum ValueKind {
     Normal,
     Undef,
     HighImp,
@@ -104,14 +104,14 @@ pub enum ValueRepr {
 
 pub struct FlatTranslationResult {
     /// The string representation of the translated result
-    pub this: Option<(String, ValueColor)>,
+    pub this: Option<(String, ValueKind)>,
     /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
     /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<(Vec<String>, Option<(String, ValueColor)>)>,
+    pub fields: Vec<(Vec<String>, Option<(String, ValueKind)>)>,
 }
 
 impl FlatTranslationResult {
-    pub fn as_fields(self) -> Vec<(Vec<String>, Option<(String, ValueColor)>)> {
+    pub fn as_fields(self) -> Vec<(Vec<String>, Option<(String, ValueKind)>)> {
         vec![(vec![], self.this)]
             .into_iter()
             .chain(self.fields.into_iter())
@@ -123,7 +123,7 @@ impl FlatTranslationResult {
 pub struct TranslationResult {
     pub val: ValueRepr,
     pub subfields: Vec<(String, TranslationResult)>,
-    pub color: ValueColor,
+    pub color: ValueKind,
     /// Durations of different steps that were performed by the translator.
     /// Used for benchmarks
     pub durations: HashMap<String, f64>,
@@ -299,7 +299,7 @@ pub trait Translator {
 
 pub trait BasicTranslator {
     fn name(&self) -> String;
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor);
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
 }
 
 impl Translator for Box<dyn BasicTranslator> {

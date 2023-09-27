@@ -1,4 +1,4 @@
-use super::{BasicTranslator, ValueColor};
+use super::{BasicTranslator, ValueKind};
 
 use fastwave_backend::SignalValue;
 use itertools::Itertools;
@@ -56,43 +56,43 @@ fn extend_string(val: &String, num_bits: u64) -> String {
 
 /// Turn vector signal string into name and corresponding color if it
 /// includes values other than 0 and 1. If only 0 and 1, return None.
-fn map_vector_signal(s: &str) -> Option<(String, ValueColor)> {
+fn map_vector_signal(s: &str) -> Option<(String, ValueKind)> {
     if s.contains('x') {
-        Some((format!("UNDEF"), ValueColor::Undef))
+        Some((format!("UNDEF"), ValueKind::Undef))
     } else if s.contains('z') {
-        Some((format!("HIGHIMP"), ValueColor::HighImp))
+        Some((format!("HIGHIMP"), ValueKind::HighImp))
     } else if s.contains('-') {
-        Some((format!("DON'T CARE"), ValueColor::DontCare))
+        Some((format!("DON'T CARE"), ValueKind::DontCare))
     } else if s.contains('u') {
-        Some((format!("UNDEF"), ValueColor::Undef))
+        Some((format!("UNDEF"), ValueKind::Undef))
     } else if s.contains('w') {
-        Some((format!("UNDEF WEAK"), ValueColor::Undef))
+        Some((format!("UNDEF WEAK"), ValueKind::Undef))
     } else if s.contains('h') || s.contains('l') {
-        Some((format!("WEAK"), ValueColor::Weak))
+        Some((format!("WEAK"), ValueKind::Weak))
     } else {
         None
     }
 }
 
-/// Return color for a binary representation
-fn color_for_binary_representation(s: &str) -> ValueColor {
+/// Return kind for a binary representation
+fn color_for_binary_representation(s: &str) -> ValueKind {
     if s.contains('x') {
-        ValueColor::Undef
+        ValueKind::Undef
     } else if s.contains('z') {
-        ValueColor::HighImp
+        ValueKind::HighImp
     } else if s.contains('-') {
-        ValueColor::DontCare
+        ValueKind::DontCare
     } else if s.contains('u') || s.contains('w') {
-        ValueColor::Undef
+        ValueKind::Undef
     } else if s.contains('h') || s.contains('l') {
-        ValueColor::Weak
+        ValueKind::Weak
     } else {
-        ValueColor::Normal
+        ValueKind::Normal
     }
 }
 
 /// Map to radix-based representation, in practice hex or octal
-fn map_to_radix(s: &String, radix: usize, num_bits: u64) -> (String, ValueColor) {
+fn map_to_radix(s: &String, radix: usize, num_bits: u64) -> (String, ValueKind) {
     let mut is_undef = false;
     let mut is_highimp = false;
     let mut is_dontcare = false;
@@ -136,15 +136,15 @@ fn map_to_radix(s: &String, radix: usize, num_bits: u64) -> (String, ValueColor)
     (
         val,
         if is_undef {
-            ValueColor::Undef
+            ValueKind::Undef
         } else if is_highimp {
-            ValueColor::HighImp
+            ValueKind::HighImp
         } else if is_dontcare {
-            ValueColor::DontCare
+            ValueKind::DontCare
         } else if is_weak {
-            ValueColor::Weak
+            ValueKind::Weak
         } else {
-            ValueColor::Normal
+            ValueKind::Normal
         },
     )
 }
@@ -156,11 +156,11 @@ impl BasicTranslator for HexTranslator {
         String::from("Hexadecimal")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
             SignalValue::BigUint(v) => (
                 format!("{v:0width$x}", width = no_of_digits(num_bits, 4)),
-                ValueColor::Normal,
+                ValueKind::Normal,
             ),
             SignalValue::String(s) => map_to_radix(s, 4, num_bits),
         }
@@ -174,11 +174,11 @@ impl BasicTranslator for OctalTranslator {
         String::from("Octal")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
             SignalValue::BigUint(v) => (
                 format!("{v:0width$o}", width = no_of_digits(num_bits, 3)),
-                ValueColor::Normal,
+                ValueKind::Normal,
             ),
             SignalValue::String(s) => map_to_radix(s, 3, num_bits),
         }
@@ -192,16 +192,16 @@ impl BasicTranslator for UnsignedTranslator {
         String::from("Unsigned")
     }
 
-    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => (format!("{v}"), ValueColor::Normal),
+            SignalValue::BigUint(v) => (format!("{v}"), ValueKind::Normal),
             SignalValue::String(s) => match map_vector_signal(s) {
                 Some(v) => v,
                 None => (
                     u128::from_str_radix(s, 2)
                         .map(|val| format!("{val}"))
                         .unwrap_or(s.clone()),
-                    ValueColor::Normal,
+                    ValueKind::Normal,
                 ),
             },
         }
@@ -215,15 +215,15 @@ impl BasicTranslator for SignedTranslator {
         String::from("Signed")
     }
 
-    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
             SignalValue::BigUint(v) => {
                 let signweight = 1u32.to_biguint() << (_num_bits - 1);
                 if *v < signweight {
-                    (format!("{v}"), ValueColor::Normal)
+                    (format!("{v}"), ValueKind::Normal)
                 } else {
                     let v2 = (signweight << 1) - v;
-                    (format!("-{v2}"), ValueColor::Normal)
+                    (format!("-{v2}"), ValueKind::Normal)
                 }
             }
             SignalValue::String(s) => match map_vector_signal(s) {
@@ -232,10 +232,10 @@ impl BasicTranslator for SignedTranslator {
                     let v = u128::from_str_radix(s, 2).expect("Cannot parse");
                     let signweight = 1u128 << (_num_bits - 1);
                     if v < signweight {
-                        (format!("{v}"), ValueColor::Normal)
+                        (format!("{v}"), ValueKind::Normal)
                     } else {
                         let v2 = (signweight << 1) - v;
-                        (format!("-{v2}"), ValueColor::Normal)
+                        (format!("-{v2}"), ValueKind::Normal)
                     }
                 }
             },
@@ -250,11 +250,11 @@ impl BasicTranslator for GroupingBinaryTranslator {
         String::from("Binary (with groups)")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         let (val, color) = match value {
             SignalValue::BigUint(v) => (
                 format!("{v:0width$b}", width = num_bits as usize),
-                ValueColor::Normal,
+                ValueKind::Normal,
             ),
             SignalValue::String(s) => (
                 format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
@@ -273,11 +273,11 @@ impl BasicTranslator for BinaryTranslator {
         String::from("Binary")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueColor) {
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
             SignalValue::BigUint(v) => (
                 format!("{v:0width$b}", width = num_bits as usize),
-                ValueColor::Normal,
+                ValueKind::Normal,
             ),
             SignalValue::String(s) => (
                 format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),

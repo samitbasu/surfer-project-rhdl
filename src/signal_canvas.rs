@@ -8,12 +8,12 @@ use num::BigRational;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
-use crate::translation::{SignalInfo, ValueColor};
+use crate::translation::{SignalInfo, ValueKind};
 use crate::view::SignalDrawingInfo;
 use crate::{Message, State, VcdData};
 
 pub struct DrawnRegion {
-    inner: Option<(String, ValueColor)>,
+    inner: Option<(String, ValueKind)>,
 }
 
 /// List of values to draw for a signal. It is an ordered list of values that should
@@ -381,14 +381,15 @@ impl State {
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        if let (Some((prev_value, _)), Some((new_value, _))) =
+        if let (Some((prev_value, prev_kind)), Some((new_value, new_kind))) =
             (&prev_region.inner, &new_region.inner)
         {
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
             let (old_height, old_color, old_bg) =
-                prev_value.bool_drawing_spec(color, &self.config.theme);
-            let (new_height, _, _) = new_value.bool_drawing_spec(color, &self.config.theme);
+                prev_value.bool_drawing_spec(color, &self.config.theme, *prev_kind);
+            let (new_height, _, _) =
+                new_value.bool_drawing_spec(color, &self.config.theme, *new_kind);
 
             let stroke = Stroke {
                 color: old_color,
@@ -478,48 +479,29 @@ pub struct DrawConfig {
     max_transition_width: i32,
 }
 
-enum ValueKind {
-    HighImp,
-    Undef,
-    Normal,
-    DontCare,
-    Weak,
-}
-
 trait SignalExt {
-    fn value_kind(&self) -> ValueKind;
     fn bool_drawing_spec(
         &self,
         user_color: Color32,
         theme: &SurferTheme,
+        value_kind: ValueKind,
     ) -> (f32, Color32, Option<Color32>);
 }
 
 impl SignalExt for String {
-    fn value_kind(&self) -> ValueKind {
-        if self.contains('x') || self.contains('u') || self.contains('w') {
-            ValueKind::Undef
-        } else if self.contains('z') {
-            ValueKind::HighImp
-        } else if self.contains('-') {
-            ValueKind::DontCare
-        } else if self.contains('h') || self.contains('l') {
-            ValueKind::Weak
-        } else {
-            ValueKind::Normal
-        }
-    }
-
     /// Return the height and color with which to draw this value if it is a boolean
     fn bool_drawing_spec(
         &self,
         user_color: Color32,
         theme: &SurferTheme,
+        value_kind: ValueKind,
     ) -> (f32, Color32, Option<Color32>) {
-        match (self.value_kind(), self) {
+        match (value_kind, self) {
             (ValueKind::HighImp, _) => (0.5, theme.signal_highimp, None),
             (ValueKind::Undef, _) => (0.5, theme.signal_undef, None),
             (ValueKind::DontCare, _) => (0.5, theme.signal_dontcare, None),
+            (ValueKind::Warn, _) => (0.5, theme.signal_undef, None),
+            (ValueKind::Custom(custom_color), _) => (0.5, custom_color, None),
             (ValueKind::Weak, other) => {
                 if other.to_lowercase() == "l" {
                     (0., theme.signal_weak, None)

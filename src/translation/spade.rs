@@ -18,7 +18,7 @@ use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
 use super::{
-    SignalInfo, TranslationPreference, TranslationResult, Translator, ValueColor, ValueRepr,
+    SignalInfo, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
 };
 
 pub struct SpadeTranslator {
@@ -140,7 +140,7 @@ fn not_present_value(ty: &ConcreteType) -> TranslationResult {
     TranslationResult {
         val: ValueRepr::NotPresent,
         subfields,
-        color: ValueColor::Normal,
+        color: ValueKind::Normal,
         durations: HashMap::new(),
     }
 }
@@ -165,7 +165,7 @@ fn not_present_enum_options(
                 TranslationResult {
                     val: ValueRepr::NotPresent,
                     subfields: not_present_enum_fields(opt_fields),
-                    color: ValueColor::Normal,
+                    color: ValueKind::Normal,
                     durations: HashMap::new(),
                 },
             )
@@ -181,9 +181,9 @@ fn translate_concrete(
     macro_rules! handle_problematic {
         () => {
             if *problematic {
-                ValueColor::Warn
+                ValueKind::Warn
             } else {
-                ValueColor::Normal
+                ValueKind::Normal
             }
         };
     }
@@ -270,7 +270,7 @@ fn translate_concrete(
                 TranslationResult {
                     val: ValueRepr::String(format!("xTAG(0b{tag_section})")),
                     subfields: not_present_enum_options(&options),
-                    color: ValueColor::Undef,
+                    color: ValueKind::Undef,
                     durations: HashMap::new(),
                 }
             } else if tag_section.contains('z') {
@@ -278,7 +278,7 @@ fn translate_concrete(
                 TranslationResult {
                     val: ValueRepr::String(format!("zTAG(0b{tag_section})")),
                     subfields: not_present_enum_options(&options),
-                    color: ValueColor::HighImp,
+                    color: ValueKind::HighImp,
                     durations: HashMap::new(),
                 }
             } else {
@@ -290,7 +290,7 @@ fn translate_concrete(
                     TranslationResult {
                         val: ValueRepr::String(format!("?TAG(0b{tag_section})")),
                         subfields: not_present_enum_options(&options),
-                        color: ValueColor::Undef,
+                        color: ValueKind::Undef,
                         durations: HashMap::new(),
                     }
                 } else {
@@ -299,7 +299,7 @@ fn translate_concrete(
                             idx: tag,
                             name: options[tag].0 .1.tail().0.clone(),
                         },
-                        color: ValueColor::Normal,
+                        color: ValueKind::Normal,
                         subfields: options
                             .iter()
                             .enumerate()
@@ -362,7 +362,7 @@ fn translate_concrete(
             params: _,
         } => TranslationResult {
             val: ValueRepr::Bit(val.chars().next().unwrap()),
-            color: ValueColor::Normal,
+            color: ValueKind::Normal,
             subfields: vec![],
             durations: HashMap::new(),
         },
@@ -372,14 +372,14 @@ fn translate_concrete(
                     mir_ty.size().to_u64().context("Size did not fit in u64")?,
                     val.to_string(),
                 ),
-                color: ValueColor::Normal,
+                color: ValueKind::Normal,
                 subfields: vec![],
                 durations: HashMap::new(),
             }
         }
         ConcreteType::Backward(_) => TranslationResult {
             val: ValueRepr::String("*backward*".to_string()),
-            color: ValueColor::Custom(Color32::from_gray(128)),
+            color: ValueKind::Custom(Color32::from_gray(128)),
             subfields: vec![],
             durations: HashMap::new(),
         },
