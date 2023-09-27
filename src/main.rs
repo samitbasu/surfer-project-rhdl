@@ -471,7 +471,7 @@ impl State {
         perform_work(move || {
             let result = parse_vcd(reader)
                 .map_err(|e| anyhow!("{e}"))
-                .with_context(|| format!("Failed to parse parse vcd file"));
+                .with_context(|| format!("Failed to parse VCD file: {source}"));
 
             match result {
                 Ok(vcd) => sender
