@@ -11,8 +11,10 @@ accent_error = { background = "32302f", foreground = "d4d4d4" }
 signal_default = "1f6102"
 signal_undefined = "46000c"
 # Convention dictates this being yellow, but yellow is super hard
-# to make visible on a white background, so we'll make it blue
-signal_highimp = "000347"
+# to make visible on a white background, so we'll make it Purple
+signal_highimp = "46175e"
+signal_dontcare = "17265e"
+signal_weak = "808080"
 cursor = { color="b63935", width=2 }
 linewidth = 1.5
 

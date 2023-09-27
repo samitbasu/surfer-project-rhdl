@@ -1,5 +1,5 @@
 [layout]
-show_hierarchy = false
+show_hierarchy = true
 
 [theme]
 foreground = "d4d4d4"
