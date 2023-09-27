@@ -42,6 +42,8 @@ pub struct SurferTheme {
     /// The colors used for the variable and value list, as well as secondary elements
     /// like text fields
     pub secondary_ui_color: ThemeColorPair,
+    /// The color used for selected ui elements such as the currently selected hierarchy
+    pub selected_elements_colors: ThemeColorPair,
 
     pub accent_info: ThemeColorPair,
     pub accent_warn: ThemeColorPair,

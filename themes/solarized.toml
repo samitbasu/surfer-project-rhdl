@@ -2,6 +2,7 @@
 [theme]
 foreground = "839496"
 border_color = "282b2d"
+selected_elements_colors = { background = "2c3b3d", foreground = "839496" }
 canvas_colors = { background = "002b36", foreground = "839496" }
 primary_ui_color = { background = "274d5a", foreground = "839496" }
 secondary_ui_color = { background = "073642", foreground = "839496" }

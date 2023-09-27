@@ -782,9 +782,9 @@ impl State {
                 color: self.config.theme.border_color,
             },
             selection: Selection {
-                bg_fill: self.config.theme.secondary_ui_color.background,
+                bg_fill: self.config.theme.selected_elements_colors.background,
                 stroke: Stroke {
-                    color: self.config.theme.border_color,
+                    color: self.config.theme.selected_elements_colors.foreground,
                     width: 1.0,
                 },
             },
