@@ -332,6 +332,7 @@ impl State {
                 Box::new(translation::SignedTranslator {}),
                 Box::new(translation::GroupingBinaryTranslator {}),
                 Box::new(translation::BinaryTranslator {}),
+                Box::new(translation::ASCIITranslator {}),
             ],
             vec![Box::new(translation::clock::ClockTranslator::new())],
         );

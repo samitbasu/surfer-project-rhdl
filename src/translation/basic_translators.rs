@@ -287,6 +287,43 @@ impl BasicTranslator for BinaryTranslator {
     }
 }
 
+pub struct ASCIITranslator {}
+
+impl BasicTranslator for ASCIITranslator {
+    fn name(&self) -> String {
+        String::from("ASCII")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => (
+                v.to_bytes_be()
+                    .into_iter()
+                    .map(|val| format!("{cval}", cval = val as char))
+                    .join(""),
+                ValueKind::Normal,
+            ),
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => (
+                    group_n_chars(s, 8)
+                        .into_iter()
+                        .map(|substr| {
+                            format!(
+                                "{cval}",
+                                cval = u8::from_str_radix(substr, 2)
+                                    .expect("Found non-binary digit in value")
+                                    as char
+                            )
+                        })
+                        .join(""),
+                    ValueKind::Normal,
+                ),
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use spade_common::num_ext::InfallibleToBigUint;
@@ -496,6 +533,50 @@ mod test {
                 .basic_translate(5, &SignalValue::BigUint(0b01000u32.to_biguint()))
                 .0,
             "8"
+        );
+    }
+
+    #[test]
+    fn ascii_translation_from_biguint() {
+        assert_eq!(
+            ASCIITranslator {}
+                .basic_translate(15, &SignalValue::BigUint(0b100111101001011u32.to_biguint()))
+                .0,
+            "OK"
+        );
+        assert_eq!(
+            ASCIITranslator {}
+                .basic_translate(72, &SignalValue::BigUint(0b010011000110111101101110011001110010000001110100011001010111001101110100u128.to_biguint()))
+                .0,
+            "Long test"
+        );
+    }
+
+    #[test]
+    fn ascii_translation_from_string() {
+        assert_eq!(
+            ASCIITranslator {}
+                .basic_translate(15, &SignalValue::String("100111101001011".to_string()))
+                .0,
+            "OK"
+        );
+        assert_eq!(
+            ASCIITranslator {}
+                .basic_translate(
+                    72,
+                    &SignalValue::String(
+                        "010011000110111101101110011001110010000001110100011001010111001101110100"
+                            .to_string()
+                    )
+                )
+                .0,
+            "Long test"
+        );
+        assert_eq!(
+            ASCIITranslator {}
+                .basic_translate(16, &SignalValue::String("010x111101001011".to_string()))
+                .0,
+            "UNDEF"
         );
     }
 }

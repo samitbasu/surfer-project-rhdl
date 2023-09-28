@@ -36,6 +36,7 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] Signed values
     - [x] Octal values
     - [x] VHDL nine-valued std_ulogic support
+    - [x] ASCII
     - [ ] RiscV instructions (probably via an extension)
     - [ ] Custom translation via Python API
 - [ ] Wave file reloading
