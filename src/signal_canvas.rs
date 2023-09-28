@@ -206,7 +206,7 @@ impl State {
         signal_offsets: &Vec<SignalDrawingInfo>,
         ui: &mut egui::Ui,
     ) {
-        let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
+        let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
         let cfg = DrawConfig {
             canvas_height: response.rect.size().y,
@@ -246,13 +246,13 @@ impl State {
                     delta: ui.input(|i| i.zoom_delta()),
                 })
             }
-
-            ui.input(|i| i.pointer.primary_down()).then(|| {
-                let x = pointer_pos_canvas.unwrap().x;
-                let timestamp = vcd.viewport.to_time(x as f64, frame_width);
-                msgs.push(Message::CursorSet(timestamp.round().to_integer()));
-            });
         }
+
+        response.dragged().then(|| {
+            let x = pointer_pos_canvas.unwrap().x;
+            let timestamp = vcd.viewport.to_time(x as f64, frame_width);
+            msgs.push(Message::CursorSet(timestamp.round().to_integer()));
+        });
 
         painter.rect_filled(
             response.rect,
