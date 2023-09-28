@@ -146,7 +146,11 @@ impl eframe::App for State {
                         ui.style_mut().wrap = Some(false);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| self.draw_var_list(&mut msgs, &vcd, ui),
+                            |ui| {
+                                egui::ScrollArea::horizontal()
+                                    .show(ui, |ui| self.draw_var_list(&mut msgs, &vcd, ui))
+                                    .inner
+                            },
                         )
                         .inner
                     })
