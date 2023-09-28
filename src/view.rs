@@ -488,7 +488,7 @@ impl State {
                 } else {
                     Color32::TRANSPARENT
                 };
-                ui.colored_label(focus_marker_color, "▶");
+                ui.colored_label(focus_marker_color, "♦");
 
                 let signal_label = ui
                     .selectable_label(false, egui::RichText::new(name))
