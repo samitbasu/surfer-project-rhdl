@@ -172,6 +172,7 @@ fn main() -> Result<()> {
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() -> Result<()> {
+    console_error_panic_hook::set_once();
     color_eyre::install()?;
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();

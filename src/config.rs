@@ -1,11 +1,14 @@
 use color_eyre::eyre::{Context, Result};
 use color_eyre::Report;
-use config::{Config, ConfigError, Environment, File};
+#[cfg(not(target_arch = "wasm32"))]
+use config::{Config, Environment, File};
+#[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
 use eframe::epaint::Color32;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
 #[derive(Debug, Deserialize)]
@@ -103,7 +106,16 @@ fn default_colors() -> HashMap<String, Color32> {
 }
 
 impl SurferConfig {
-    pub fn new() -> Result<Self, ConfigError> {
+    #[cfg(target_arch = "wasm32")]
+    pub fn new() -> Result<Self> {
+        let default_config = String::from(include_str!("../default_config.toml"));
+        Ok(toml::from_str(&default_config)?)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new() -> color_eyre::Result<Self> {
+        use color_eyre::eyre::anyhow;
+
         let default_config = String::from(include_str!("../default_config.toml"));
 
         let mut c = Config::builder().add_source(config::File::from_str(
@@ -120,6 +132,7 @@ impl SurferConfig {
             .add_source(Environment::with_prefix("surfer"))
             .build()?
             .try_deserialize()
+            .map_err(|e| anyhow!("Failed to parse config {e}"))
     }
 }
 

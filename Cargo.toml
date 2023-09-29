@@ -34,13 +34,14 @@ fzcmd = {path = "fzcmd"}
 web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
 config = "0.13.3"
 directories = "5.0"
+toml = "0.8.1"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
-console_error_panic_hook = "0.1.6"
 tracing-wasm = "0.2"
 wasm_thread = {version = "0.2.0", features = ["es_modules"]}
+console_error_panic_hook = "0.1.6"
 
 [profile.release]
 opt-level = 3 # fast and small wasm

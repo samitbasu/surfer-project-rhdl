@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, time::Instant};
 
 use log::warn;
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub struct TimedRegion {
     start: Option<Instant>,
     end: Option<Instant>,
