@@ -4,6 +4,14 @@ A VCD viewer with a focus on a snappy usable interface, and extensibility
 
 ![A screenshot of surfer](misc/screenshot.png)
 
+## Download
+Whilst Surfer should work without issue on Windows, MacOS, and Linux, we provide
+a pre-built Linux binary
+[here](https://gitlab.com/surfer-project/surfer/-/jobs/5189765014/artifacts/browse/target/release/) for convenience.
+
+The binary is a bit large. It is known that Rust generates static binaries.
+More work is needed to determine why the binary is so large however.
+
 ## Installation
 
 ### Dependencies
