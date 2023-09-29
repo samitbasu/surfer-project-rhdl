@@ -3220,7 +3220,7 @@ dependencies = [
 
 [[package]]
 name = "spade"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "atty",
  "clap 4.4.4",
@@ -3253,7 +3253,7 @@ dependencies = [
 
 [[package]]
 name = "spade-ast"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "num",
  "spade-common",
@@ -3261,7 +3261,7 @@ dependencies = [
 
 [[package]]
 name = "spade-ast-lowering"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "local-impl",
  "num",
@@ -3277,7 +3277,7 @@ dependencies = [
 
 [[package]]
 name = "spade-common"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -3289,7 +3289,7 @@ dependencies = [
 
 [[package]]
 name = "spade-diagnostics"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -3305,7 +3305,7 @@ dependencies = [
 
 [[package]]
 name = "spade-hir"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan-reporting",
  "colored 2.0.4",
@@ -3323,7 +3323,7 @@ dependencies = [
 
 [[package]]
 name = "spade-hir-lowering"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -3345,7 +3345,7 @@ dependencies = [
 
 [[package]]
 name = "spade-macros"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -3355,7 +3355,7 @@ dependencies = [
 
 [[package]]
 name = "spade-mir"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -3374,7 +3374,7 @@ dependencies = [
 
 [[package]]
 name = "spade-parser"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -3393,7 +3393,7 @@ dependencies = [
 
 [[package]]
 name = "spade-typeinference"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -3412,7 +3412,7 @@ dependencies = [
 
 [[package]]
 name = "spade-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "num",
  "serde",
@@ -3421,7 +3421,7 @@ dependencies = [
 
 [[package]]
 name = "spade-wordlength-inference"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
