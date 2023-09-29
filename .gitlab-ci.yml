@@ -9,7 +9,7 @@ variables:
 
 stages:
     - test
-    - build
+    - deploy
 
 clippy:
     stage: test
@@ -86,7 +86,7 @@ typos-and-todos:
         - when: always
 
 linux_build:
-    stage: build
+    stage: deploy
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev
@@ -108,24 +108,17 @@ linux_build:
           when: always
         - when: never
 
-# Modified from https://dev.to/zenika/gitlab-pages-preview-the-no-compromise-hack-to-serve-per-branch-pages-5599
-# in order to get preview pages for WIP branches
-pages:
-    # Perhaps this makes more sense in the build, but doing it in parallel should give
-    # us a gitlab pages-thing quicker
+
+pages_build:
     stage: test
     cache:
-        key: gitlab-pages
-        paths: [public]
+        key:
+            files:
+                - Cargo.lock
+        paths:
+            - target
+            - $CARGO_HOME
     before_script:
-        # CURRENT_CONTENT_PATH is defined in rules, different between main branch and ephemeral branches
-        - mkdir -p public/$CURRENT_CONTENT_PATH && ls public/$CURRENT_CONTENT_PATH/..
-        - | # avoid deleting main branch content when cache has been erased
-          if [ "$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH" ] && [ ! -d public/$CI_DEFAULT_BRANCH ]; then
-            echo -e "💥\e[91;1m Unable to retrieve $CI_DEFAULT_BRANCH generated files from cache ; please regenerate $CI_DEFAULT_BRANCH files first\e[0m"
-            exit 1
-          fi
-        - rm -rf public/$CURRENT_CONTENT_PATH || true # remove last version of current branch
     script:
         - rustup target add wasm32-unknown-unknown
         - wget -qO- https://github.com/thedodd/trunk/releases/download/v0.17.5/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
@@ -136,22 +129,61 @@ pages:
           # to download our artefacts and put them wherever on their webserver. To fix this,
           # wel'll build with a dummy public URL, then replace it with ./
         - ./trunk build --release --public-url /dist
-        - cp -r dist public/$CURRENT_CONTENT_PATH
+        - cp -r dist pages_build
           # We have to do this from the source file instead of public/ because sed
           # does not replace in place
-        - sed -e "s|/dist/|./|g" dist/index.html > public/$CURRENT_CONTENT_PATH/index.html
-        - echo "PreviewUrl surfer-project.org/$CURRENT_CONTENT_PATH/index.html" > metrics.txt
+        - sed -e "s|/dist/|./|g" dist/index.html > pages_build/index.html
     rules:
-        # 'main branch' is exposed at GitLab Pages root
-        - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-          variables:
-            CURRENT_CONTENT_PATH: "."
-        # other (short-lived) branches generation are exposed in 'EPHEMERAL_BRANCHES_PATH/branch-name-sanitized' sub path
-        - variables:
-            CURRENT_CONTENT_PATH: $EPHEMERAL_BRANCHES_PATH/$CI_COMMIT_REF_SLUG
+        - when: always
+    artifacts:
+        paths:
+            - pages_build
+        expire_in: 1h
+
+# https://k33g.gitlab.io/articles/2020-07-23-GITLAB-PAGES-EN.html
+# Deploy gitlab pages 
+pages_deploy_main:
+    stage: deploy
+    dependencies: [pages_build]
+    script:
+        - mkdir -p public
+        - cp pages_build/* public
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main"
+          when: always
+        - when: never
     artifacts:
         paths:
             - public
-        reports:
-            metrics: metrics.txt
         expire_in: 1h
+
+
+pages_preview:
+    stage: deploy
+    dependencies: [pages_build]
+    script:
+        - mkdir -p public
+        - cp pages_build/* public
+    artifacts:
+        paths:
+            - public
+    rules:
+        - if: $CI_MERGE_REQUEST_IID
+    environment:
+        name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+        url: https://${CI_PROJECT_NAMESPACE}.gitlab.io/-/${CI_PROJECT_NAME}/-/jobs/${CI_JOB_ID}/artifacts/public/index.html
+        on_stop: pages_preview_stop
+
+
+pages_preview_stop:
+  stage: deploy
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+      when: manual
+  allow_failure: true
+  environment:
+    name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+    action: stop
+  script:
+    - echo "👋 bye"
+
