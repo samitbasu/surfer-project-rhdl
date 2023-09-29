@@ -11,7 +11,7 @@ stages:
     - build
     - pages
 
-before_script_global:
+before_script:
     - apt-get update -y
     - apt-get install -y openssl libssl-dev
 
