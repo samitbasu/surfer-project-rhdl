@@ -6,12 +6,24 @@ A VCD viewer with a focus on a snappy usable interface, and extensibility
 
 ## Installation
 
-Surfer is installed using the rust package manager cargo, rust and cargo are pre-requisite. To install rust and cargo, follow
-the instructions at [https://rustup.rs](rustup.rs)
+### Dependencies
+ - [Rust via Rustup](https://rustup.rs)
+ - libssl
 
-Once cargo is installed, you can install the latest development version of surfer by
-running:
-```
+    Ubuntu:
+    ```bash
+    $sudo apt install openssl
+    $sudo apt install libssl-dev
+    ```
+
+    Fedora:
+    ```bash
+    $sudo dnf update
+    $sudo dnf install openssl
+    $sudo dnf install openssl-devel
+    ```
+### Compiling
+```bash
 cargo install --git https://gitlab.com/surfer-project/surfer surfer
 ```
 
