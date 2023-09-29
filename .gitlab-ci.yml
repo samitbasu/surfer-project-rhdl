@@ -6,6 +6,15 @@ variables:
     FF_ENABLE_BASH_EXIT_CODE_CHECK: "true"
     GIT_SUBMODULE_STRATEGY: normal
 
+stages:
+    - test
+    - build
+    - pages
+
+before_script_global:
+    - apt-get update -y
+    - apt-get install -y openssl libssl-dev
+
 clippy:
     stage: test
     before_script:
@@ -72,6 +81,23 @@ typos-and-todos:
               set -e; find src -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
             fi
 
+build_surfer:
+    stage: build
+    before_script:
+        - source before_script_global
+    script:
+        - cargo build --release
+    artifacts:
+        paths:
+            - target/release/surfer
+        expire_in: 1 week
+    cache:
+        key:
+            files:
+                - Cargo.lock
+        paths:
+            - target
+            - $CARGO_HOME
 
 pages:
     cache:
