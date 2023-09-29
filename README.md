@@ -4,36 +4,52 @@ A VCD viewer with a focus on a snappy usable interface, and extensibility
 
 ![A screenshot of surfer](misc/screenshot.png)
 
-## Download
-Whilst Surfer should work without issue on Windows, MacOS, and Linux, we provide
-a pre-built Linux binary
-[here](https://gitlab.com/surfer-project/surfer/-/jobs/5189765014/artifacts/browse/target/release/) for convenience.
-
-The binary is a bit large. It is known that Rust generates static binaries.
-More work is needed to determine why the binary is so large however.
-
 ## Installation
 
-### Dependencies
- - [Rust via Rustup](https://rustup.rs)
- - libssl
+If you just want to try things out, you can try surfer right in the web-browser
+at https://app.surfer-project.org/. However, performance is a bit worse than
+native, and some features are missing so for day-to-day use it is recommended
+to install the native version.
 
-    Ubuntu:
-    ```bash
-    $sudo apt install openssl
-    $sudo apt install libssl-dev
-    ```
 
-    Fedora:
-    ```bash
-    $sudo dnf update
-    $sudo dnf install openssl
-    $sudo dnf install openssl-devel
-    ```
-### Compiling
+The primary way to install surfer to build it from source which should work on
+Linux, Mac and Windows. For convenience we also provide a pre-built Linux
+binary.
+
+### Compiling from source
+
+Surfer depends on openssl, install it via your package manager
+
+Debian/Ubuntu:
+```bash
+$sudo apt install openssl
+$sudo apt install libssl-dev
+```
+
+Fedora:
+```bash
+$sudo dnf install openssl
+$sudo dnf install openssl-devel
+```
+
+Arch:
+```bash
+$sudo pacman -S openssl
+```
+
+Then, install [Rust via Rustup](https://rustup.rs) and run
 ```bash
 cargo install --git https://gitlab.com/surfer-project/surfer surfer
 ```
+
+### Pre-built linux binary
+
+
+You can download a pre-built linux binary
+[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=linux_build).
+It is built on a debian system with some dynamically linked libs, so it might
+not work on all systems.
+
 
 ## Project Status
 

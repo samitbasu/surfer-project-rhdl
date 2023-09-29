@@ -77,15 +77,16 @@ typos-and-todos:
               set -e; find src -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
             fi
 
-build_surfer:
+linux_build:
     stage: build
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev
         - cargo build --release
+        - cp target/release/surfer surfer
     artifacts:
         paths:
-            - target/release/surfer
+            - surfer
         expire_in: 1 week
     cache:
         key:
