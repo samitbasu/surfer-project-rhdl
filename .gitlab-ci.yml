@@ -11,10 +11,6 @@ stages:
     - build
     - pages
 
-before_script:
-    - apt-get update -y
-    - apt-get install -y openssl libssl-dev
-
 clippy:
     stage: test
     before_script:
@@ -83,9 +79,9 @@ typos-and-todos:
 
 build_surfer:
     stage: build
-    before_script:
-        - source before_script_global
     script:
+        - apt-get update -y
+        - apt-get install -y openssl libssl-dev
         - cargo build --release
     artifacts:
         paths:
