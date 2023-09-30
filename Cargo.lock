@@ -1675,6 +1675,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
+name = "human-sort"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "140a09c9305e6d5e557e2ed7cbc68e05765a7d4213975b87cb04920689cc6219"
+
+[[package]]
 name = "hyper"
 version = "0.14.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3495,6 +3501,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "fzcmd",
+ "human-sort",
  "itertools",
  "log",
  "num",

@@ -490,7 +490,7 @@ impl State {
                     .selectable_label(false, egui::RichText::new(name))
                     .on_hover_text(tooltip)
                     .context_menu(|ui| {
-                        let available_translators = if path.1.is_empty() {
+                        let mut available_translators = if path.1.is_empty() {
                             self.translators
                                 .all_translator_names()
                                 .into_iter()
@@ -533,6 +533,7 @@ impl State {
                             self.translators.basic_translator_names()
                         };
 
+                        available_translators.sort_by(|a, b| human_sort::compare(a, b));
                         let format_menu = available_translators
                             .iter()
                             .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))

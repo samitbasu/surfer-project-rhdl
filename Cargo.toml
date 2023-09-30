@@ -33,6 +33,7 @@ ron = { version = "0.8.1", features = ["integer128"] }
 fzcmd = {path = "fzcmd"}
 web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
 config = "0.13.3"
+human-sort = "0.2.2"
 directories = "5.0"
 toml = "0.8.1"
 
