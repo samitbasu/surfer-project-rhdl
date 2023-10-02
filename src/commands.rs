@@ -121,6 +121,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "zoom_in",
             "zoom_out",
             "zoom_to_fit",
+            "toggle_menu",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -204,6 +205,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     mouse_ptr_timestamp: None,
                     delta: 2.0,
                 })),
+                "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
                 _ => None,
             }
         }),
