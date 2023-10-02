@@ -388,7 +388,7 @@ impl State {
                         None
                     }
                 })
-                .sorted_by_key(|(_, name)| name.clone());
+                .sorted_by(|a, b| human_sort::compare(&a.1, &b.1));
 
             for (sig, name) in listed {
                 ui.with_layout(
