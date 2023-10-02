@@ -116,6 +116,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "load_url",
             "set_signal_color",
             "reload_config",
+            "toggle_menu",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -188,6 +189,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "reload_config" => Some(Command::Terminal(Message::ReloadConfig)),
+                "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
                 _ => None,
             }
         }),

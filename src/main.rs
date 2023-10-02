@@ -287,6 +287,7 @@ pub enum Message {
     FileDropped(DroppedFile),
     FileDownloaded(String, Bytes),
     ReloadConfig,
+    ToggleMenu,
 }
 
 pub enum LoadProgress {
@@ -318,6 +319,10 @@ pub struct State {
     draw_commands: Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>,
     /// The context to egui, we need this to change the visual settings when the config is reloaded
     context: Option<eframe::egui::Context>,
+
+    file_dialog: Option<egui_file::FileDialog>,
+    show_about: bool,
+    show_menu: bool,
 }
 
 impl State {
@@ -384,6 +389,9 @@ impl State {
             },
             draw_commands: None,
             context: None,
+            file_dialog: None,
+            show_about: false,
+            show_menu: true,
         };
 
         match args.vcd {
@@ -721,6 +729,7 @@ impl State {
             Message::ToggleSidePanel => {
                 self.config.layout.show_hierarchy = !self.config.layout.show_hierarchy;
             }
+            Message::ToggleMenu => self.show_menu = !self.show_menu,
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
                     self.command_prompt.input = "".to_string();

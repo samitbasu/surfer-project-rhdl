@@ -1113,6 +1113,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_file"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d36bb265b94d54e34378528b5895fbf132db63a8547376947f452edfda98d2d"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui_glow"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3528,6 +3537,7 @@ dependencies = [
  "console_error_panic_hook",
  "directories",
  "eframe",
+ "egui_file",
  "fastwave_backend",
  "fern",
  "futures-core",
