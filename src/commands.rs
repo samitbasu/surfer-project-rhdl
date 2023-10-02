@@ -116,6 +116,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "load_url",
             "set_signal_color",
             "reload_config",
+            "scroll_to_start",
+            "scroll_to_end",
+            "zoom_in",
+            "zoom_out",
+            "zoom_to_fit",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -188,6 +193,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "reload_config" => Some(Command::Terminal(Message::ReloadConfig)),
+                "zoom_to_fit" => Some(Command::Terminal(Message::ZoomToFit)),
+                "scroll_to_start" => Some(Command::Terminal(Message::ScrollToStart)),
+                "scroll_to_end" => Some(Command::Terminal(Message::ScrollToEnd)),
+                "zoom_in" => Some(Command::Terminal(Message::ZoomScale(1.0 / 2.0))),
+                "zoom_out" => Some(Command::Terminal(Message::ZoomScale(2.0))),
                 _ => None,
             }
         }),
