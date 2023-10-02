@@ -142,7 +142,8 @@ pages_build:
 
 # https://k33g.gitlab.io/articles/2020-07-23-GITLAB-PAGES-EN.html
 # Deploy gitlab pages 
-pages_deploy_main:
+# The name of this job *must* be pages:, otherwise no deploymet happens D:
+pages:
     stage: deploy
     dependencies: [pages_build]
     script:
