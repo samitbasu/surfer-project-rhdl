@@ -1,6 +1,6 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, RichText};
-use eframe::egui::{Frame, Grid, TextStyle};
+use eframe::egui::{menu, Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
@@ -30,7 +30,11 @@ impl eframe::App for State {
         let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
-
+        if self.show_menu {
+            egui::TopBottomPanel::top("menu").show(ctx, |ui| {
+                self.create_menu(ui, frame, &mut msgs);
+            });
+        }
         if let Some(vcd) = &self.vcd {
             egui::TopBottomPanel::bottom("modeline")
                 .frame(egui::containers::Frame {
@@ -51,6 +55,16 @@ impl eframe::App for State {
                         }
                     });
                 });
+        }
+
+        if let Some(dialog) = &mut self.file_dialog {
+            if dialog.show(ctx).selected() {
+                if let Some(file) = dialog.path() {
+                    msgs.push(Message::LoadVcd(
+                        camino::Utf8PathBuf::from_path_buf(file.to_path_buf()).expect("Unicode"),
+                    ));
+                }
+            }
         }
 
         if self.config.layout.show_hierarchy {
@@ -208,6 +222,75 @@ impl eframe::App for State {
                 });
         }
 
+        if self.show_about {
+            egui::Window::new("About Surfer")
+                .collapsible(false)
+                .resizable(true)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
+                        ui.add_space(20.);
+                        ui.label(format!("Version: {ver}", ver = env!("CARGO_PKG_VERSION")));
+                        ui.label(format!(
+                            "Exact version: {info}",
+                            info = env!("VERGEN_GIT_DESCRIBE")
+                        ));
+                        ui.label(format!(
+                            "Build date: {date}",
+                            date = env!("VERGEN_BUILD_DATE")
+                        ));
+                        ui.hyperlink_to("GitLab repo", "https://gitlab.com/surfer-project/surfer");
+                        ui.add_space(10.);
+                        if ui.button("Close").clicked() {
+                            self.show_about = false;
+                        }
+                    });
+                });
+        }
+
+        if self.show_keys {
+            egui::Window::new("Surfer key bindings")
+                .collapsible(true)
+                .resizable(true)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        let layout = egui::Layout::top_down(egui::Align::LEFT);
+                        ui.allocate_ui_with_layout(
+                            Vec2 {
+                                x: max_width * 0.35,
+                                y: max_height * 0.5,
+                            },
+                            layout,
+                            |ui| self.key_listing(ui),
+                        );
+                        ui.add_space(10.);
+                        if ui.button("Close").clicked() {
+                            self.show_keys = false;
+                        }
+                    });
+                });
+        }
+
+        if self.open_url {
+            egui::Window::new("Load URL")
+                .collapsible(false)
+                .resizable(true)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.text_edit_singleline(&mut self.url);
+                        ui.horizontal(|ui| {
+                            if ui.button("Load URL").clicked() {
+                                msgs.push(Message::LoadVcdFromUrl(self.url.clone()));
+                                self.open_url = false;
+                            }
+                            if ui.button("Cancel").clicked() {
+                                self.open_url = false;
+                            }
+                        });
+                    });
+                });
+        }
+
         self.control_key = ctx.input(|i| i.modifiers.ctrl);
 
         ctx.input(|i| {
@@ -228,6 +311,17 @@ impl eframe::App for State {
                     (Key::Space, true, false) => msgs.push(Message::ShowCommandPrompt(true)),
                     (Key::Escape, true, true) => msgs.push(Message::ShowCommandPrompt(false)),
                     (Key::B, true, false) => msgs.push(Message::ToggleSidePanel),
+                    (Key::M, true, false) => msgs.push(Message::ToggleMenu),
+                    (Key::S, true, false) => msgs.push(Message::ScrollToStart),
+                    (Key::E, true, false) => msgs.push(Message::ScrollToEnd),
+                    (Key::Minus, true, false) => msgs.push(Message::CanvasZoom {
+                        mouse_ptr_timestamp: None,
+                        delta: 2.0,
+                    }),
+                    (Key::PlusEquals, true, false) => msgs.push(Message::CanvasZoom {
+                        mouse_ptr_timestamp: None,
+                        delta: 0.5,
+                    }),
                     (Key::J, true, false) => {
                         if self.control_key {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
@@ -682,6 +776,36 @@ impl State {
             });
     }
 
+    fn key_listing(&self, ui: &mut egui::Ui) {
+        let controls = vec![
+            ("🚀", "Space", "Show command prompt"),
+            ("↔", "Scroll", "Pan"),
+            ("🔎", "Ctrl+Scroll", "Zoom"),
+            ("〰", "b", "Show or hide the design hierarchy"),
+            ("☰", "m", "Show or hide menu"),
+            ("🔎+", "+", "Zoom in"),
+            ("🔎-", "-", "Zoom out"),
+            ("", "k/⬆", "Move focus up"),
+            ("", "j/⬇", "Move focus down"),
+            ("", "Ctrl+k/⬆", "Move focused signal up"),
+            ("", "Ctrl+j/⬇", "Move focused signal down"),
+            ("🔙", "s", "Scroll to start"),
+            ("🔚", "e", "Scroll to end"),
+        ];
+
+        Grid::new("keys")
+            .num_columns(3)
+            .spacing([20., 5.])
+            .show(ui, |ui| {
+                for (symbol, control, description) in controls {
+                    ui.label(symbol);
+                    ui.label(control);
+                    ui.label(description);
+                    ui.end_row();
+                }
+            });
+    }
+
     fn help_message(&self, ui: &mut egui::Ui) {
         if self.vcd.is_none() {
             ui.label(RichText::new("Drag and drop a VCD file here to open it"));
@@ -718,5 +842,111 @@ impl State {
                 "https://gitlab.com/surfer-project/surfer",
             );
         }
+    }
+
+    fn create_menu(
+        &mut self,
+        ui: &mut egui::Ui,
+        frame: &mut eframe::Frame,
+        msgs: &mut Vec<Message>,
+    ) {
+        menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                #[cfg(not(target_arch = "wasm32"))]
+                if ui.button("Open file...").clicked() {
+                    let mut dialog = egui_file::FileDialog::open_file(None);
+                    dialog.open();
+                    self.file_dialog = Some(dialog);
+                    ui.close_menu();
+                }
+                if ui.button("Open URL...").clicked() {
+                    self.open_url = true;
+                    ui.close_menu();
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                ui.separator();
+                #[cfg(not(target_arch = "wasm32"))]
+                if ui.button("Exit").clicked() {
+                    frame.close()
+                }
+            });
+            ui.menu_button("View", |ui| {
+                if ui
+                    .add(egui::Button::new("Zoom in").shortcut_text("+"))
+                    .clicked()
+                {
+                    msgs.push(Message::CanvasZoom {
+                        mouse_ptr_timestamp: None,
+                        delta: 0.5,
+                    });
+                }
+                if ui
+                    .add(egui::Button::new("Zoom out").shortcut_text("-"))
+                    .clicked()
+                {
+                    msgs.push(Message::CanvasZoom {
+                        mouse_ptr_timestamp: None,
+                        delta: 2.0,
+                    });
+                }
+                if ui.button("Zoom to fit").clicked() {
+                    ui.close_menu();
+                    msgs.push(Message::ZoomToFit);
+                }
+                ui.separator();
+                if ui
+                    .add(egui::Button::new("Scroll to start").shortcut_text("s"))
+                    .clicked()
+                {
+                    ui.close_menu();
+                    msgs.push(Message::ScrollToStart);
+                }
+                if ui
+                    .add(egui::Button::new("Scroll to end").shortcut_text("e"))
+                    .clicked()
+                {
+                    ui.close_menu();
+                    msgs.push(Message::ScrollToEnd);
+                }
+                ui.separator();
+                ui.menu_button("Signal names", |ui| {
+                    if ui.button("Global").clicked() {
+                        // …
+                    }
+                    if ui.button("Local").clicked() {
+                        // …
+                    }
+                    if ui.button("Unique").clicked() {
+                        // …
+                    }
+                });
+                ui.separator();
+                if ui
+                    .add(egui::Button::new("Toggle side panel").shortcut_text("b"))
+                    .clicked()
+                {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleSidePanel);
+                }
+                if ui
+                    .add(egui::Button::new("Toggle menu").shortcut_text("m"))
+                    .clicked()
+                {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleMenu);
+                }
+            });
+            ui.menu_button("Help", |ui| {
+                if ui.button("Key bindings").clicked() {
+                    ui.close_menu();
+                    self.show_keys = true;
+                }
+                ui.separator();
+                if ui.button("About").clicked() {
+                    ui.close_menu();
+                    self.show_about = true;
+                }
+            });
+        });
     }
 }
