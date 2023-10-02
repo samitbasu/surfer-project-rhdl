@@ -289,6 +289,7 @@ pub enum Message {
     ZoomToFit,
     ScrollToStart,
     ScrollToEnd,
+    ToggleMenu,
 }
 
 pub enum LoadProgress {
@@ -320,6 +321,13 @@ pub struct State {
     draw_commands: Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>,
     /// The context to egui, we need this to change the visual settings when the config is reloaded
     context: Option<eframe::egui::Context>,
+
+    file_dialog: Option<egui_file::FileDialog>,
+    show_about: bool,
+    show_menu: bool,
+    show_keys: bool,
+    open_url: bool,
+    url: String,
 }
 
 impl State {
@@ -387,6 +395,12 @@ impl State {
             },
             draw_commands: None,
             context: None,
+            file_dialog: None,
+            show_about: false,
+            show_menu: true,
+            show_keys: false,
+            open_url: false,
+            url: "".to_owned(),
         };
 
         match args.vcd {
@@ -736,6 +750,7 @@ impl State {
             Message::ToggleSidePanel => {
                 self.config.layout.show_hierarchy = !self.config.layout.show_hierarchy;
             }
+            Message::ToggleMenu => self.show_menu = !self.show_menu,
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
                     self.command_prompt.input = "".to_string();
