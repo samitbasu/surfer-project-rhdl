@@ -256,7 +256,7 @@ impl State {
 
         painter.rect_filled(
             response.rect,
-            Rounding::none(),
+            Rounding::ZERO,
             self.config.theme.canvas_colors.background,
         );
 
@@ -416,11 +416,13 @@ impl State {
                         min: (ctx.to_screen)(*old_x, offset),
                         max: (ctx.to_screen)(*new_x, offset + ctx.cfg.line_height),
                     },
-                    rounding: Rounding::none(),
+                    rounding: Rounding::ZERO,
                     stroke: Stroke {
                         width: 0.,
                         ..Default::default()
                     },
+                    fill_texture_id: Default::default(),
+                    uv: Rect::ZERO,
                 });
             }
         }
