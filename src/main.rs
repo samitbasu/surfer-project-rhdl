@@ -287,6 +287,10 @@ pub enum Message {
     FileDropped(DroppedFile),
     FileDownloaded(String, Bytes),
     ReloadConfig,
+    ZoomToFit,
+    ZoomScale(f64),
+    ScrollToStart,
+    ScrollToEnd,
 }
 
 pub enum LoadProgress {
@@ -618,6 +622,22 @@ impl State {
                     .as_mut()
                     .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
             }
+            Message::ZoomToFit => {
+                self.invalidate_draw_commands();
+                self.zoom_to_fit();
+            }
+            Message::ZoomScale(scale) => {
+                self.invalidate_draw_commands();
+                self.zoom_scale(scale);
+            }
+            Message::ScrollToEnd => {
+                self.invalidate_draw_commands();
+                self.scroll_to_end();
+            }
+            Message::ScrollToStart => {
+                self.invalidate_draw_commands();
+                self.scroll_to_start();
+            }
             Message::SignalFormatChange(ref idx @ (ref signal_idx, ref path), format) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
 
@@ -750,6 +770,50 @@ impl State {
 
             let target_left = &vcd.viewport.curr_left + scroll_step * delta.y as f64;
             let target_right = &vcd.viewport.curr_right + scroll_step * delta.y as f64;
+
+            vcd.viewport.curr_left = target_left;
+            vcd.viewport.curr_right = target_right;
+        }
+    }
+
+    pub fn scroll_to_start(&mut self) {
+        if let Some(vcd) = &mut self.vcd {
+            let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
+
+            vcd.viewport.curr_left = 0.0;
+            vcd.viewport.curr_right = width;
+        }
+    }
+
+    pub fn scroll_to_end(&mut self) {
+        if let Some(vcd) = &mut self.vcd {
+            let end_point = vcd.num_timestamps.clone().to_f64().unwrap();
+            let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
+
+            vcd.viewport.curr_left = end_point - width;
+            vcd.viewport.curr_right = end_point;
+        }
+    }
+
+    pub fn zoom_to_fit(&mut self) {
+        if let Some(vcd) = &mut self.vcd {
+            vcd.viewport.curr_left = 0.0;
+            vcd.viewport.curr_right = vcd.num_timestamps.clone().to_f64().unwrap();
+        }
+    }
+
+    pub fn zoom_scale(
+        &mut self,
+        // Canvas relative
+        scale: f64,
+    ) {
+        if let Some(vcd) = &mut self.vcd {
+            let current_range = vcd.viewport.curr_left - vcd.viewport.curr_right;
+            let mid_point = (vcd.viewport.curr_right + vcd.viewport.curr_left) / 2.0;
+            let delta = current_range * scale / 2.0;
+
+            let target_left = mid_point - delta;
+            let target_right = mid_point + delta;
 
             vcd.viewport.curr_left = target_left;
             vcd.viewport.curr_right = target_right;
