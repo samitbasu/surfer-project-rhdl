@@ -327,6 +327,7 @@ impl State {
         // Basic translators that we can load quickly
         let translators = TranslatorList::new(
             vec![
+                Box::new(translation::BitTranslator {}),
                 Box::new(translation::HexTranslator {}),
                 Box::new(translation::OctalTranslator {}),
                 Box::new(translation::UnsignedTranslator {}),
