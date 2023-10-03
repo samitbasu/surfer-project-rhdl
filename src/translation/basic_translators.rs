@@ -1,6 +1,7 @@
-use super::{BasicTranslator, ValueKind};
+use super::{BasicTranslator, TranslationPreference, ValueKind};
 
-use fastwave_backend::SignalValue;
+use color_eyre::Result;
+use fastwave_backend::{Signal, SignalValue};
 use half::{bf16, f16};
 use itertools::Itertools;
 use softposit::p16e1::P16E1;
@@ -353,6 +354,14 @@ impl BasicTranslator for SinglePrecisionTranslator {
             },
         }
     }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 32u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    }
 }
 
 pub struct DoublePrecisionTranslator {}
@@ -380,6 +389,14 @@ impl BasicTranslator for DoublePrecisionTranslator {
             },
         }
     }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 64u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    }
 }
 
 pub struct HalfPrecisionTranslator {}
@@ -405,6 +422,14 @@ impl BasicTranslator for HalfPrecisionTranslator {
                     (format!("{fp:e}", fp = f16::from_bits(v)), ValueKind::Normal)
                 }
             },
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 16u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
         }
     }
 }
@@ -437,6 +462,14 @@ impl BasicTranslator for BFloat16Translator {
             },
         }
     }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 16u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    }
 }
 
 pub struct Posit32Translator {}
@@ -459,6 +492,14 @@ impl BasicTranslator for Posit32Translator {
                     (format!("{p}", p = P32E2::from_bits(v)), ValueKind::Normal)
                 }
             },
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 32u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
         }
     }
 }
@@ -488,6 +529,14 @@ impl BasicTranslator for Posit16Translator {
             },
         }
     }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 16u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    }
 }
 
 pub struct Posit8Translator {}
@@ -513,6 +562,14 @@ impl BasicTranslator for Posit8Translator {
                     (format!("{p}", p = P8E0::from_bits(v)), ValueKind::Normal)
                 }
             },
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 8u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
         }
     }
 }
@@ -562,6 +619,14 @@ impl BasicTranslator for E5M2Translator {
             },
         }
     }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 8u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    }
 }
 
 /// Decode u8 as 8-bit float with four exponent bits and three mantissa bits
@@ -603,6 +668,14 @@ impl BasicTranslator for E4M3Translator {
                 Some(v) => v,
                 None => decode_e4m3(u8::from_str_radix(s, 2).expect("Cannot parse")),
             },
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 8u16 {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
         }
     }
 }
