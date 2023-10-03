@@ -786,8 +786,8 @@ impl State {
             extreme_bg_color: self.config.theme.secondary_ui_color.background,
             panel_fill: self.config.theme.secondary_ui_color.background,
             window_fill: self.config.theme.primary_ui_color.background,
-            window_rounding: Rounding::none(),
-            menu_rounding: Rounding::none(),
+            window_rounding: Rounding::ZERO,
+            menu_rounding: Rounding::ZERO,
             window_stroke: Stroke {
                 width: 1.0,
                 color: self.config.theme.border_color,
