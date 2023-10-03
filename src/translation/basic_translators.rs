@@ -1,7 +1,11 @@
 use super::{BasicTranslator, ValueKind};
 
 use fastwave_backend::SignalValue;
+use half::{bf16, f16};
 use itertools::Itertools;
+use softposit::p16e1::P16E1;
+use softposit::p32e2::P32E2;
+use softposit::p8e0::P8E0;
 use spade_common::num_ext::InfallibleToBigUint;
 
 // Forms groups of n chars from from a string. If the string size is
@@ -324,6 +328,285 @@ impl BasicTranslator for ASCIITranslator {
     }
 }
 
+pub struct SinglePrecisionTranslator {}
+
+impl BasicTranslator for SinglePrecisionTranslator {
+    fn name(&self) -> String {
+        String::from("FP: 32-bit IEEE 754")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+                Some(val) => (
+                    format!("{fp:e}", fp = f32::from_bits(val)),
+                    ValueKind::Normal,
+                ),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u32::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{fp:e}", fp = f32::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+}
+
+pub struct DoublePrecisionTranslator {}
+
+impl BasicTranslator for DoublePrecisionTranslator {
+    fn name(&self) -> String {
+        String::from("FP: 64-bit IEEE 754")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u64_digits().last() {
+                Some(val) => (
+                    format!("{fp:e}", fp = f64::from_bits(val)),
+                    ValueKind::Normal,
+                ),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u64::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{fp:e}", fp = f64::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+}
+
+pub struct HalfPrecisionTranslator {}
+
+impl BasicTranslator for HalfPrecisionTranslator {
+    fn name(&self) -> String {
+        String::from("FP: 16-bit IEEE 754")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+                Some(val) => (
+                    format!("{fp:e}", fp = f16::from_bits(val as u16)),
+                    ValueKind::Normal,
+                ),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u16::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{fp:e}", fp = f16::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+}
+
+pub struct BFloat16Translator {}
+
+impl BasicTranslator for BFloat16Translator {
+    fn name(&self) -> String {
+        String::from("FP: bfloat16")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u64_digits().last() {
+                Some(val) => (
+                    format!("{fp:e}", fp = bf16::from_bits(val as u16)),
+                    ValueKind::Normal,
+                ),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u16::from_str_radix(s, 2).expect("Cannot parse");
+                    (
+                        format!("{fp:e}", fp = bf16::from_bits(v)),
+                        ValueKind::Normal,
+                    )
+                }
+            },
+        }
+    }
+}
+
+pub struct Posit32Translator {}
+
+impl BasicTranslator for Posit32Translator {
+    fn name(&self) -> String {
+        String::from("Posit: 32-bit (two exponent bits)")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+                Some(val) => (format!("{p}", p = P32E2::from_bits(val)), ValueKind::Normal),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u32::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{p}", p = P32E2::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+}
+
+pub struct Posit16Translator {}
+
+impl BasicTranslator for Posit16Translator {
+    fn name(&self) -> String {
+        String::from("Posit: 16-bit (one exponent bit)")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+                Some(val) => (
+                    format!("{p}", p = P16E1::from_bits(val as u16)),
+                    ValueKind::Normal,
+                ),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u16::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{p}", p = P16E1::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+}
+
+pub struct Posit8Translator {}
+
+impl BasicTranslator for Posit8Translator {
+    fn name(&self) -> String {
+        String::from("Posit: 8-bit (no exponent bit)")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+                Some(val) => (
+                    format!("{p}", p = P8E0::from_bits(val as u8)),
+                    ValueKind::Normal,
+                ),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u8::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{p}", p = P8E0::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+}
+
+/// Decode u8 as 8-bit float with five exponent bits and two mantissa bits
+fn decode_e5m2(v: u8) -> (String, ValueKind) {
+    let mant = v & 3;
+    let exp = v >> 2 & 31;
+    let sign: i8 = 1 - (v >> 6) as i8; // 1 - 2*signbit
+    match (exp, mant) {
+        (31, 0) => ("∞".to_string(), ValueKind::Normal),
+        (31, ..) => ("NaN".to_string(), ValueKind::Normal),
+        (0, 0) => ("0.0".to_string(), ValueKind::Normal),
+        (0, ..) => (
+            format!(
+                "{fp:e}",
+                fp = ((sign * mant as i8) as f32) * 0.0000152587890625f32 // 0.0000152587890625 = 2^-16
+            ),
+            ValueKind::Normal,
+        ),
+        _ => (
+            format!(
+                "{fp:e}",
+                fp = ((sign * (4 + mant as i8)) as f32) * 2.0f32.powi(exp as i32 - 17) // 17 = 15 (bias) + 2 (mantissa bits)
+            ),
+            ValueKind::Normal,
+        ),
+    }
+}
+
+pub struct E5M2Translator {}
+
+impl BasicTranslator for E5M2Translator {
+    fn name(&self) -> String {
+        String::from("FP: 8-bit (E5M2)")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+                Some(val) => decode_e5m2(val as u8),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => decode_e5m2(u8::from_str_radix(s, 2).expect("Cannot parse")),
+            },
+        }
+    }
+}
+
+/// Decode u8 as 8-bit float with four exponent bits and three mantissa bits
+fn decode_e4m3(v: u8) -> (String, ValueKind) {
+    let mant = v & 7;
+    let exp = v >> 3 & 15;
+    let sign: i8 = 1 - (v >> 6) as i8; // 1 - 2*signbit
+    match (exp, mant) {
+        (15, 7) => ("NaN".to_string(), ValueKind::Normal),
+        (0, 0) => ("0.0".to_string(), ValueKind::Normal),
+        (0, ..) => (
+            format!("{fp:e}", fp = ((sign * mant as i8) as f32) * 0.001953125f32), // 0.001953125 = 2^-9
+            ValueKind::Normal,
+        ),
+        _ => (
+            format!(
+                "{fp:e}",
+                fp = ((sign * (8 + mant) as i8) as f32) * 2.0f32.powi(exp as i32 - 10) // 10 = 7 (bias) + 3 (mantissa bits)
+            ),
+            ValueKind::Normal,
+        ),
+    }
+}
+
+pub struct E4M3Translator {}
+
+impl BasicTranslator for E4M3Translator {
+    fn name(&self) -> String {
+        String::from("FP: 8-bit (E4M3)")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+                Some(val) => decode_e4m3(val as u8),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => decode_e4m3(u8::from_str_radix(s, 2).expect("Cannot parse")),
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use spade_common::num_ext::InfallibleToBigUint;
@@ -577,6 +860,76 @@ mod test {
                 .basic_translate(16, &SignalValue::String("010x111101001011".to_string()))
                 .0,
             "UNDEF"
+        );
+    }
+
+    #[test]
+    fn e4m3_translation_from_biguint() {
+        assert_eq!(
+            E4M3Translator {}
+                .basic_translate(8, &SignalValue::BigUint(0b10001000u8.to_biguint()))
+                .0,
+            "-1.5625e-2"
+        );
+    }
+
+    #[test]
+    fn e4m3_translation_from_string() {
+        assert_eq!(
+            E4M3Translator {}
+                .basic_translate(8, &SignalValue::String("11111111".to_string()))
+                .0,
+            "NaN"
+        );
+        assert_eq!(
+            E4M3Translator {}
+                .basic_translate(8, &SignalValue::String("00000011".to_string()))
+                .0,
+            "5.859375e-3"
+        );
+        assert_eq!(
+            E4M3Translator {}
+                .basic_translate(8, &SignalValue::String("10000000".to_string()))
+                .0,
+            "0.0"
+        );
+    }
+
+    #[test]
+    fn e5m2_translation_from_biguint() {
+        assert_eq!(
+            E5M2Translator {}
+                .basic_translate(8, &SignalValue::BigUint(0b10000100u8.to_biguint()))
+                .0,
+            "-6.1035156e-5"
+        );
+        assert_eq!(
+            E5M2Translator {}
+                .basic_translate(8, &SignalValue::BigUint(0b11111100u8.to_biguint()))
+                .0,
+            "∞"
+        );
+    }
+
+    #[test]
+    fn e5m2_translation_from_string() {
+        assert_eq!(
+            E5M2Translator {}
+                .basic_translate(8, &SignalValue::String("11111111".to_string()))
+                .0,
+            "NaN"
+        );
+        assert_eq!(
+            E5M2Translator {}
+                .basic_translate(8, &SignalValue::String("00000011".to_string()))
+                .0,
+            "4.5776367e-5"
+        );
+        assert_eq!(
+            E5M2Translator {}
+                .basic_translate(8, &SignalValue::String("10000000".to_string()))
+                .0,
+            "0.0"
         );
     }
 }

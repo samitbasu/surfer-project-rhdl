@@ -36,7 +36,8 @@ config = "0.13.3"
 human-sort = "0.2.2"
 directories = "5.0"
 toml = "0.8.1"
-
+half = "2.3.1"
+softposit = "0.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
