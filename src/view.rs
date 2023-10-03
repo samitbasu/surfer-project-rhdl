@@ -1,6 +1,6 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, RichText};
-use eframe::egui::{Frame, Grid, TextStyle};
+use eframe::egui::{menu, Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
@@ -30,7 +30,67 @@ impl eframe::App for State {
         let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
-
+        if self.show_menu {
+            egui::TopBottomPanel::top("menu").show(ctx, |ui| {
+                menu::bar(ui, |ui| {
+                    ui.menu_button("File", |ui| {
+                        if ui.button("Open file...").clicked() {
+                            let mut dialog = egui_file::FileDialog::open_file(None);
+                            dialog.open();
+                            self.file_dialog = Some(dialog);
+                        }
+                        if ui.button("Open URL...").clicked() {
+                            // …
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        ui.separator();
+                        #[cfg(not(target_arch = "wasm32"))]
+                        if ui.button("Exit").clicked() {
+                            frame.close()
+                        }
+                    });
+                    ui.menu_button("View", |ui| {
+                        if ui.button("Zoom in").clicked() {
+                            // …
+                        }
+                        if ui.button("Zoom out").clicked() {
+                            // …
+                        }
+                        if ui.button("Zoom to fit").clicked() {
+                            // …
+                        }
+                        ui.separator();
+                        if ui.button("Scroll to start").clicked() {
+                            // …
+                        }
+                        if ui.button("Scroll to end").clicked() {
+                            // …
+                        }
+                        ui.separator();
+                        ui.menu_button("Signal names", |ui| {
+                            if ui.button("Global").clicked() {
+                                // …
+                            }
+                            if ui.button("Local").clicked() {
+                                // …
+                            }
+                            if ui.button("Unique").clicked() {
+                                // …
+                            }
+                        });
+                    });
+                    ui.menu_button("Help", |ui| {
+                        if ui.button("Key bindings").clicked() {
+                            // …
+                        }
+                        ui.separator();
+                        if ui.button("About").clicked() {
+                            self.show_about = true
+                        }
+                    });
+                });
+            });
+        }
         if let Some(vcd) = &self.vcd {
             egui::TopBottomPanel::bottom("modeline")
                 .frame(egui::containers::Frame {
@@ -51,6 +111,16 @@ impl eframe::App for State {
                         }
                     });
                 });
+        }
+
+        if let Some(dialog) = &mut self.file_dialog {
+            if dialog.show(ctx).selected() {
+                if let Some(file) = dialog.path() {
+                    msgs.push(Message::LoadVcd(
+                        camino::Utf8PathBuf::from_path_buf(file.to_path_buf()).expect("Unicode"),
+                    ));
+                }
+            }
         }
 
         if self.config.layout.show_hierarchy {
@@ -204,6 +274,24 @@ impl eframe::App for State {
                             layout,
                             |ui| self.help_message(ui),
                         );
+                    });
+                });
+        }
+
+        if self.show_about {
+            egui::Window::new("About Surfer")
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
+                        ui.add_space(20.);
+                        ui.label(format!("Version: {ver}", ver = env!("CARGO_PKG_VERSION")));
+                        ui.hyperlink_to("GitLab repo", "https://gitlab.com/surfer-project/surfer");
+                        ui.add_space(10.);
+                        if ui.button("Close").clicked() {
+                            self.show_about = false;
+                        }
                     });
                 });
         }
