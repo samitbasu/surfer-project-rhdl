@@ -73,6 +73,19 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] Octal values
     - [x] VHDL nine-valued std_ulogic support
     - [x] ASCII
+    - [x] Floating-point
+          - [ ] IEEE 754 binary128 (quad)
+          - [x] IEEE 754 binary64 (double)
+          - [x] IEEE 754 binary32 (single)
+          - [x] IEEE 754 binary16 (half)
+          - [x] bfloat16
+          - [x] 8-bit E5M2
+          - [x] 8-bit E4M3
+    - [x] Posit
+          - [x] 32-bit, two exponent bits
+          - [x] 16-bit, one exponent bit
+          - [x] 8-bit, no exponent bit
+          - [ ] Quire formats
     - [ ] RiscV instructions (probably via an extension)
     - [ ] Custom translation via Python API
 - [ ] Wave file reloading
