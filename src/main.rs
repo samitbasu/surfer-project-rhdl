@@ -42,7 +42,6 @@ use log::error;
 use log::info;
 use num::bigint::ToBigInt;
 use num::BigInt;
-use num::BigRational;
 use num::FromPrimitive;
 use num::ToPrimitive;
 use progress_streams::ProgressReader;
@@ -270,7 +269,7 @@ pub enum Message {
         delta: Vec2,
     },
     CanvasZoom {
-        mouse_ptr_timestamp: BigRational,
+        mouse_ptr_timestamp: Option<f64>,
         delta: f32,
     },
     CursorSet(BigInt),
@@ -287,6 +286,9 @@ pub enum Message {
     FileDropped(DroppedFile),
     FileDownloaded(String, Bytes),
     ReloadConfig,
+    ZoomToFit,
+    ScrollToStart,
+    ScrollToEnd,
 }
 
 pub enum LoadProgress {
@@ -627,6 +629,18 @@ impl State {
                     .as_mut()
                     .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
             }
+            Message::ZoomToFit => {
+                self.invalidate_draw_commands();
+                self.zoom_to_fit();
+            }
+            Message::ScrollToEnd => {
+                self.invalidate_draw_commands();
+                self.scroll_to_end();
+            }
+            Message::ScrollToStart => {
+                self.invalidate_draw_commands();
+                self.scroll_to_start();
+            }
             Message::SignalFormatChange(ref idx @ (ref signal_idx, ref path), format) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
 
@@ -765,6 +779,32 @@ impl State {
         }
     }
 
+    pub fn scroll_to_start(&mut self) {
+        if let Some(vcd) = &mut self.vcd {
+            let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
+
+            vcd.viewport.curr_left = 0.0;
+            vcd.viewport.curr_right = width;
+        }
+    }
+
+    pub fn scroll_to_end(&mut self) {
+        if let Some(vcd) = &mut self.vcd {
+            let end_point = vcd.num_timestamps.clone().to_f64().unwrap();
+            let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
+
+            vcd.viewport.curr_left = end_point - width;
+            vcd.viewport.curr_right = end_point;
+        }
+    }
+
+    pub fn zoom_to_fit(&mut self) {
+        if let Some(vcd) = &mut self.vcd {
+            vcd.viewport.curr_left = 0.0;
+            vcd.viewport.curr_right = vcd.num_timestamps.clone().to_f64().unwrap();
+        }
+    }
+
     pub fn get_visuals(&self) -> Visuals {
         let widget_style = WidgetVisuals {
             bg_fill: self.config.theme.secondary_ui_color.background,
@@ -864,7 +904,7 @@ impl VcdData {
     pub fn handle_canvas_zoom(
         &mut self,
         // Canvas relative
-        mouse_ptr_timestamp: BigRational,
+        mouse_ptr_timestamp: Option<f64>,
         delta: f64,
     ) {
         // Zoom or scroll
@@ -874,10 +914,18 @@ impl VcdData {
             ..
         } = &self.viewport;
 
-        let target_left = (left - mouse_ptr_timestamp.to_f64().unwrap()) / delta
-            + &mouse_ptr_timestamp.to_f64().unwrap();
-        let target_right = (right - mouse_ptr_timestamp.to_f64().unwrap()) / delta
-            + &mouse_ptr_timestamp.to_f64().unwrap();
+        let (target_left, target_right) = match mouse_ptr_timestamp {
+            Some(mouse_location) => (
+                (left - mouse_location) / delta + mouse_location,
+                (right - mouse_location) / delta + mouse_location,
+            ),
+            None => {
+                let mid_point = (right + left) * 0.5;
+                let offset = (left - right) * delta * 0.5;
+
+                (mid_point - offset, mid_point + offset)
+            }
+        };
 
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
