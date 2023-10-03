@@ -4,8 +4,6 @@ use eframe::egui::{self};
 use eframe::emath::Align2;
 use eframe::epaint::Vec2;
 use eframe::epaint::{FontFamily, FontId};
-#[cfg(target_arch = "wasm32")]
-use eframe::web::canvas_element;
 use egui::text::{LayoutJob, TextFormat};
 use fzcmd::parse_command;
 
@@ -36,11 +34,8 @@ pub fn show_command_prompt(
             let width = frame.info().window_info.size.x * 0.3;
 
             #[cfg(target_arch = "wasm32")]
-            let width = {
-                let canvas_id = "the_canvas_id"; // may differ your page configuration.
-                let canvas = canvas_element(canvas_id).unwrap();
-                canvas.width() as f32 * 0.3
-            };
+            let width = 200.0;
+
             width
         })
         .resizable(true)
