@@ -300,6 +300,9 @@ pub trait Translator {
 pub trait BasicTranslator {
     fn name(&self) -> String;
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
+    fn translates(&self, _signal: &Signal) -> Result<TranslationPreference> {
+        Ok(TranslationPreference::Yes)
+    }
 }
 
 impl Translator for Box<dyn BasicTranslator> {
@@ -327,7 +330,7 @@ impl Translator for Box<dyn BasicTranslator> {
         }
     }
 
-    fn translates(&self, _signal: &Signal) -> Result<TranslationPreference> {
-        Ok(TranslationPreference::Yes)
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        self.as_ref().translates(signal)
     }
 }
