@@ -5,6 +5,7 @@ use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::error;
 use num::BigRational;
+use num::ToPrimitive;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
@@ -239,10 +240,13 @@ impl State {
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr_timestamp = vcd.viewport.to_time(mouse_ptr_pos.x as f64, frame_width);
+                let mouse_ptr_timestamp = vcd
+                    .viewport
+                    .to_time(mouse_ptr_pos.x as f64, frame_width)
+                    .to_f64();
 
                 msgs.push(Message::CanvasZoom {
-                    mouse_ptr_timestamp,
+                    mouse_ptr_timestamp: mouse_ptr_timestamp,
                     delta: ui.input(|i| i.zoom_delta()),
                 })
             }
