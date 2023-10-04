@@ -246,7 +246,7 @@ impl State {
                     .to_f64();
 
                 msgs.push(Message::CanvasZoom {
-                    mouse_ptr_timestamp: mouse_ptr_timestamp,
+                    mouse_ptr_timestamp,
                     delta: ui.input(|i| i.zoom_delta()),
                 })
             }
@@ -305,15 +305,14 @@ impl State {
 
                 if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
                     for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
+                        // We draw in absolute coords, but the signal offset in the y
+                        // direction is also in absolute coordinates, so we need to
+                        // compensate for that
+                        let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
                         if commands.is_bool {
-                            self.draw_bool_transition(
-                                (old, new),
-                                color,
-                                drawing_info.offset,
-                                &mut ctx,
-                            )
+                            self.draw_bool_transition((old, new), color, y_offset, &mut ctx)
                         } else {
-                            self.draw_region((old, new), color, drawing_info.offset, &mut ctx)
+                            self.draw_region((old, new), color, y_offset, &mut ctx)
                         }
                     }
                 }
