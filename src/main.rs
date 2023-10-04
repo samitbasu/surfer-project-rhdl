@@ -444,7 +444,7 @@ impl State {
 
         self.load_vcd(
             WaveSource::DragAndDrop(filename),
-            VecDeque::from_iter(bytes.into_iter().cloned()),
+            VecDeque::from_iter(bytes.iter().cloned()),
             Some(total_bytes as u64),
         );
         Ok(())
@@ -532,7 +532,7 @@ impl State {
                 if let Some(s) = descriptor.resolve(vcd) {
                     let signals = vcd.inner.get_children_signal_idxs(s);
                     for sidx in signals {
-                        if !vcd.signal_name(sidx).starts_with("_") {
+                        if !vcd.signal_name(sidx).starts_with('_') {
                             vcd.add_signal(&self.translators, sidx);
                         }
                     }
@@ -596,10 +596,8 @@ impl State {
                                 // if the end of list is selected
                                 vcd.focused_signal = Some(idx - 1);
                             }
-                        } else {
-                            if idx < focused {
-                                vcd.focused_signal = Some(focused - 1)
-                            }
+                        } else if idx < focused {
+                            vcd.focused_signal = Some(focused - 1)
                         }
                         if vcd.signals.is_empty() {
                             vcd.focused_signal = None;
@@ -640,9 +638,9 @@ impl State {
                 mouse_ptr_timestamp,
             } => {
                 self.invalidate_draw_commands();
-                self.vcd
-                    .as_mut()
-                    .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
+                if let Some(vcd) = self.vcd.as_mut() {
+                    vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64)
+                }
             }
             Message::ZoomToFit => {
                 self.invalidate_draw_commands();
