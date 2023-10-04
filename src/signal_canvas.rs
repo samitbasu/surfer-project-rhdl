@@ -13,6 +13,13 @@ use crate::translation::{SignalInfo, ValueKind};
 use crate::view::SignalDrawingInfo;
 use crate::{Message, State, VcdData};
 
+#[derive(Clone, PartialEq, Copy)]
+pub enum GestureKind {
+    ZoomToFit,
+    ZoomIn,
+    ZoomOut,
+}
+
 pub struct DrawnRegion {
     inner: Option<(String, ValueKind)>,
 }
@@ -252,7 +259,7 @@ impl State {
             }
         }
 
-        response.dragged().then(|| {
+        response.dragged_by(egui::PointerButton::Primary).then(|| {
             let x = pointer_pos_canvas.unwrap().x;
             let timestamp = vcd.viewport.to_time(x as f64, frame_width);
             msgs.push(Message::CursorSet(timestamp.round().to_integer()));
@@ -263,6 +270,121 @@ impl State {
             Rounding::ZERO,
             self.config.theme.canvas_colors.background,
         );
+
+        response
+            .drag_started_by(egui::PointerButton::Middle)
+            .then(|| {
+                self.gesture_start_location = pointer_pos_canvas;
+            });
+
+        if let Some(start_location) = self.gesture_start_location {
+            response.dragged_by(egui::PointerButton::Middle).then(|| {
+                let current_location = pointer_pos_canvas.unwrap();
+                match gesture_type(self.gesture_start_location.unwrap(), current_location) {
+                    Some(GestureKind::ZoomToFit) => {
+                        let stroke = Stroke {
+                            color: self.config.theme.gesture.color,
+                            width: self.config.theme.gesture.width,
+                            ..Default::default()
+                        };
+                        painter.line_segment(
+                            [
+                                to_screen.transform_pos(current_location),
+                                to_screen.transform_pos(start_location),
+                            ],
+                            stroke,
+                        );
+                        painter.text(
+                            to_screen.transform_pos(current_location),
+                            Align2::LEFT_CENTER,
+                            "Zoom to fit".to_string(),
+                            FontId::monospace(20.0),
+                            self.config.theme.foreground,
+                        );
+                    }
+                    Some(GestureKind::ZoomIn) => {
+                        let stroke = Stroke {
+                            color: self.config.theme.gesture.color,
+                            width: self.config.theme.gesture.width,
+                            ..Default::default()
+                        };
+                        let startx = start_location.x;
+                        let starty = start_location.y;
+                        let endx = current_location.x;
+                        let endy = current_location.y;
+                        let delta = 10.0;
+
+                        painter.line_segment(
+                            [
+                                to_screen.transform_pos(Pos2 {
+                                    x: startx,
+                                    y: starty - delta,
+                                }),
+                                to_screen.transform_pos(Pos2 {
+                                    x: startx,
+                                    y: starty + delta,
+                                }),
+                            ],
+                            stroke,
+                        );
+                        painter.line_segment(
+                            [
+                                to_screen.transform_pos(Pos2 {
+                                    x: endx,
+                                    y: endy.min(starty - delta),
+                                }),
+                                to_screen.transform_pos(Pos2 {
+                                    x: endx,
+                                    y: endy.max(starty + delta),
+                                }),
+                            ],
+                            stroke,
+                        );
+                        painter.line_segment(
+                            [
+                                to_screen.transform_pos(Pos2 {
+                                    x: startx,
+                                    y: starty,
+                                }),
+                                to_screen.transform_pos(Pos2 { x: endx, y: starty }),
+                            ],
+                            stroke,
+                        );
+                        painter.text(
+                            to_screen.transform_pos(current_location),
+                            Align2::LEFT_CENTER,
+                            format!(
+                                "Zoom in: {} to {}",
+                                vcd.viewport
+                                    .to_time(endx as f64, frame_width)
+                                    .round()
+                                    .to_integer(),
+                                vcd.viewport
+                                    .to_time(startx as f64, frame_width)
+                                    .round()
+                                    .to_integer()
+                            ),
+                            FontId::monospace(20.0),
+                            self.config.theme.foreground,
+                        );
+                    }
+                    _ => {}
+                }
+            });
+
+            response
+                .drag_released_by(egui::PointerButton::Middle)
+                .then(|| {
+                    let end_location = pointer_pos_canvas.unwrap();
+                    match gesture_type(start_location, end_location) {
+                        Some(GestureKind::ZoomToFit) => {
+                            msgs.push(Message::ZoomToFit);
+                        }
+                        _ => {}
+                    }
+                    self.gesture_start_location = None;
+                });
+        };
 
         vcd.draw_cursor(
             &self.config.theme,
@@ -542,5 +664,23 @@ impl SignalExt for String {
             }
         };
         (height, color, background)
+    }
+}
+
+fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind> {
+    let deltax = end_location.x - start_location.x;
+    let deltay = end_location.y - start_location.y;
+    if deltax < 0.0 {
+        if deltay < deltax {
+            Some(GestureKind::ZoomToFit)
+        } else {
+            Some(GestureKind::ZoomIn)
+        }
+    } else {
+        if deltay < deltax {
+            Some(GestureKind::ZoomOut)
+        } else {
+            None
+        }
     }
 }
