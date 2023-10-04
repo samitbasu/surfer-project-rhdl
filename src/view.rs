@@ -1045,7 +1045,7 @@ impl State {
     }
 }
 
-fn time_string(time: &BigInt, metadata: &Metadata, wanted_timescale: &Timescale) -> String {
+pub fn time_string(time: &BigInt, metadata: &Metadata, wanted_timescale: &Timescale) -> String {
     let wanted_exponent = timescale_to_exponent(wanted_timescale);
     let data_exponent = timescale_to_exponent(&metadata.timescale.1);
     let exponent_diff = wanted_exponent - data_exponent;
