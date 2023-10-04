@@ -29,11 +29,7 @@ pub fn show_command_prompt(
     egui::Window::new("Commands")
         .anchor(Align2::CENTER_TOP, Vec2::ZERO)
         .title_bar(false)
-        .min_width({
-            let width = window_size.map(|s| s.x * 0.3).unwrap_or(200.);
-
-            width
-        })
+        .min_width({ window_size.map(|s| s.x * 0.3).unwrap_or(200.) })
         .resizable(true)
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
@@ -69,7 +65,7 @@ pub fn show_command_prompt(
             ui.separator();
 
             // show expanded command below textedit
-            if state.command_prompt.expanded != "" {
+            if !state.command_prompt.expanded.is_empty() {
                 let mut job = LayoutJob::default();
                 // // indicate that the first row is selected
                 job.append(
