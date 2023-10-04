@@ -353,7 +353,6 @@ pub struct State {
 
     file_dialog: Option<egui_file::FileDialog>,
     show_about: bool,
-    show_menu: bool,
     show_keys: bool,
     open_url: bool,
     url: String,
@@ -426,7 +425,6 @@ impl State {
             context: None,
             file_dialog: None,
             show_about: false,
-            show_menu: true,
             show_keys: false,
             open_url: false,
             url: "".to_owned(),
@@ -782,7 +780,7 @@ impl State {
             Message::ToggleSidePanel => {
                 self.config.layout.show_hierarchy = !self.config.layout.show_hierarchy;
             }
-            Message::ToggleMenu => self.show_menu = !self.show_menu,
+            Message::ToggleMenu => self.config.layout.show_menu = !self.config.layout.show_menu,
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
                     self.command_prompt.input = "".to_string();
