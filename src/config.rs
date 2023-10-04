@@ -53,6 +53,7 @@ pub struct SurferTheme {
     pub accent_error: ThemeColorPair,
 
     pub cursor: SurferCursor,
+    pub gesture: SurferCursor,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub signal_default: Color32,
