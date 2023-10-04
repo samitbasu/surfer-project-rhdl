@@ -27,6 +27,7 @@ use eframe::egui::style::WidgetVisuals;
 use eframe::egui::style::Widgets;
 use eframe::egui::DroppedFile;
 use eframe::egui::Visuals;
+use eframe::emath;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
@@ -328,6 +329,7 @@ pub struct State {
     show_keys: bool,
     open_url: bool,
     url: String,
+    gesture_start_location: Option<emath::Pos2>,
 }
 
 impl State {
@@ -401,6 +403,7 @@ impl State {
             show_keys: false,
             open_url: false,
             url: "".to_owned(),
+            gesture_start_location: None,
         };
 
         match args.vcd {
