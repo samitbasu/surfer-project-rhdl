@@ -30,7 +30,7 @@ pub struct SurferLayout {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct SurferCursor {
+pub struct SurferLineStyle {
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub color: Color32,
     pub width: f32,
@@ -58,7 +58,8 @@ pub struct SurferTheme {
     pub accent_warn: ThemeColorPair,
     pub accent_error: ThemeColorPair,
 
-    pub cursor: SurferCursor,
+    pub cursor: SurferLineStyle,
+    pub gesture: SurferLineStyle,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub signal_default: Color32,
