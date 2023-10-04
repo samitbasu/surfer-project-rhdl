@@ -73,7 +73,7 @@ pub fn show_command_prompt(
             ui.separator();
 
             // show expanded command below textedit
-            if state.command_prompt.expanded != "" {
+            if !state.command_prompt.expanded.is_empty() {
                 let mut job = LayoutJob::default();
                 // // indicate that the first row is selected
                 job.append(

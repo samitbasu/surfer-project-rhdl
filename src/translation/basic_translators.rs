@@ -13,7 +13,7 @@ use spade_common::num_ext::InfallibleToBigUint;
 // Forms groups of n chars from from a string. If the string size is
 // not divisible by n, the first group will be smaller than n
 // The string must only consist of ascii characters
-fn group_n_chars<'a>(s: &'a str, n: usize) -> Vec<&'a str> {
+fn group_n_chars(s: &str, n: usize) -> Vec<&str> {
     let num_extra_chars = s.len() % n;
 
     let last_group = &s[0..num_extra_chars];
@@ -617,7 +617,7 @@ fn decode_e5m2(v: u8) -> (String, ValueKind) {
         (0, ..) => (
             format!(
                 "{fp:e}",
-                fp = ((sign * mant as i8) as f32) * 0.0000152587890625f32 // 0.0000152587890625 = 2^-16
+                fp = ((sign * mant as i8) as f32) * 0.000_015_258_789_f32 // 0.0000152587890625 = 2^-16
             ),
             ValueKind::Normal,
         ),
