@@ -4,6 +4,7 @@ use color_eyre::Result;
 use fastwave_backend::{Signal, SignalValue};
 use half::{bf16, f16};
 use itertools::Itertools;
+use num::Zero;
 use softposit::p16e1::P16E1;
 use softposit::p32e2::P32E2;
 use softposit::p8e0::P8E0;
@@ -63,17 +64,17 @@ fn extend_string(val: &String, num_bits: u64) -> String {
 /// includes values other than 0 and 1. If only 0 and 1, return None.
 fn map_vector_signal(s: &str) -> Option<(String, ValueKind)> {
     if s.contains('x') {
-        Some((format!("UNDEF"), ValueKind::Undef))
+        Some(("UNDEF".to_string(), ValueKind::Undef))
     } else if s.contains('z') {
-        Some((format!("HIGHIMP"), ValueKind::HighImp))
+        Some(("HIGHIMP".to_string(), ValueKind::HighImp))
     } else if s.contains('-') {
-        Some((format!("DON'T CARE"), ValueKind::DontCare))
+        Some(("DON'T CARE".to_string(), ValueKind::DontCare))
     } else if s.contains('u') {
-        Some((format!("UNDEF"), ValueKind::Undef))
+        Some(("UNDEF".to_string(), ValueKind::Undef))
     } else if s.contains('w') {
-        Some((format!("UNDEF WEAK"), ValueKind::Undef))
+        Some(("UNDEF WEAK".to_string(), ValueKind::Undef))
     } else if s.contains('h') || s.contains('l') {
-        Some((format!("WEAK"), ValueKind::Weak))
+        Some(("WEAK".to_string(), ValueKind::Weak))
     } else {
         None
     }
@@ -168,6 +169,36 @@ impl BasicTranslator for HexTranslator {
                 ValueKind::Normal,
             ),
             SignalValue::String(s) => map_to_radix(s, 4, num_bits),
+        }
+    }
+}
+
+pub struct BitTranslator {}
+
+impl BasicTranslator for BitTranslator {
+    fn name(&self) -> String {
+        String::from("Bit")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => (
+                if (*v).is_zero() {
+                    "0".to_string()
+                } else {
+                    "1".to_string()
+                },
+                ValueKind::Normal,
+            ),
+            SignalValue::String(s) => (s.to_string(), color_for_binary_representation(s)),
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.num_bits().unwrap() == 1u16 {
+            Ok(TranslationPreference::Prefer)
+        } else {
+            Ok(TranslationPreference::No)
         }
     }
 }
@@ -1003,6 +1034,44 @@ mod test {
                 .basic_translate(8, &SignalValue::String("10000000".to_string()))
                 .0,
             "0.0"
+        );
+    }
+
+    #[test]
+    fn bit_translation_from_biguint() {
+        assert_eq!(
+            BitTranslator {}
+                .basic_translate(1, &SignalValue::BigUint(0b1u8.to_biguint()))
+                .0,
+            "1"
+        );
+        assert_eq!(
+            BitTranslator {}
+                .basic_translate(1, &SignalValue::BigUint(0b0u8.to_biguint()))
+                .0,
+            "0"
+        );
+    }
+
+    #[test]
+    fn bit_translation_from_string() {
+        assert_eq!(
+            BitTranslator {}
+                .basic_translate(1, &SignalValue::String("1".to_string()))
+                .0,
+            "1"
+        );
+        assert_eq!(
+            BitTranslator {}
+                .basic_translate(1, &SignalValue::String("0".to_string()))
+                .0,
+            "0"
+        );
+        assert_eq!(
+            BitTranslator {}
+                .basic_translate(1, &SignalValue::String("x".to_string()))
+                .0,
+            "x"
         );
     }
 }
