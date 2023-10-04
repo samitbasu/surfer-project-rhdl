@@ -21,6 +21,8 @@ pub struct SurferConfig {
 pub struct SurferLayout {
     /// Flag to show/hide the hierarchy view
     pub show_hierarchy: bool,
+    /// Flag to show/hide the menu
+    pub show_menu: bool,
 }
 
 #[derive(Debug, Deserialize)]
