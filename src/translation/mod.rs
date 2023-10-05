@@ -295,6 +295,14 @@ pub trait Translator {
     fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo>;
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference>;
+
+    fn numerical_val(&self, _signal: &Signal, _value: &SignalValue) -> Option<f64> {
+        None
+    }
+
+    fn numerical_range(&self, _signal: &Signal) -> Option<(f64, f64)> {
+        None
+    }
 }
 
 pub trait BasicTranslator {
@@ -302,6 +310,12 @@ pub trait BasicTranslator {
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
     fn translates(&self, _signal: &Signal) -> Result<TranslationPreference> {
         Ok(TranslationPreference::Yes)
+    }
+    fn basic_numerical_val(&self, _num_bits: u64, _value: &SignalValue) -> Option<f64> {
+        None
+    }
+    fn basic_numerical_range(&self, _num_bits: u64) -> Option<(f64, f64)> {
+        None
     }
 }
 
@@ -332,5 +346,18 @@ impl Translator for Box<dyn BasicTranslator> {
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
         self.as_ref().translates(signal)
+    }
+
+    fn numerical_val(&self, signal: &Signal, value: &SignalValue) -> Option<f64> {
+        self.as_ref()
+            .basic_numerical_val(signal.num_bits().unwrap_or(0) as u64, value)
+    }
+
+    fn numerical_range(&self, signal: &Signal) -> Option<(f64, f64)> {
+        if let Some(num_bits) = signal.num_bits() {
+            self.as_ref().basic_numerical_range(num_bits as u64)
+        } else {
+            None
+        }
     }
 }
