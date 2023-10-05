@@ -4,10 +4,11 @@ use color_eyre::Result;
 use fastwave_backend::{Signal, SignalValue};
 use half::{bf16, f16};
 use itertools::Itertools;
-use num::Zero;
+use num::{ToPrimitive, Zero};
 use softposit::p16e1::P16E1;
 use softposit::p32e2::P32E2;
 use softposit::p8e0::P8E0;
+use spade_common::num_ext::InfallibleToBigInt;
 use spade_common::num_ext::InfallibleToBigUint;
 
 // Forms groups of n chars from from a string. If the string size is
@@ -242,6 +243,24 @@ impl BasicTranslator for UnsignedTranslator {
             },
         }
     }
+
+    fn basic_numerical_range(&self, num_bits: u64) -> Option<(f64, f64)> {
+        if let Some(maxpow) = (1u32.to_biguint() << num_bits).to_f64() {
+            Some((0.0, maxpow - 1.0))
+        } else {
+            None
+        }
+    }
+
+    fn basic_numerical_val(&self, _num_bits: u64, value: &SignalValue) -> Option<f64> {
+        match value {
+            SignalValue::BigUint(v) => v.to_f64(),
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(_) => None,
+                None => u128::from_str_radix(s, 2).unwrap().to_f64(),
+            },
+        }
+    }
 }
 
 pub struct SignedTranslator {}
@@ -272,6 +291,39 @@ impl BasicTranslator for SignedTranslator {
                     } else {
                         let v2 = (signweight << 1) - v;
                         (format!("-{v2}"), ValueKind::Normal)
+                    }
+                }
+            },
+        }
+    }
+
+    fn basic_numerical_range(&self, num_bits: u64) -> Option<(f64, f64)> {
+        if let Some(signweight) = (1u32.to_bigint() << (num_bits - 1)).to_f64() {
+            Some((-signweight, signweight - 1.0))
+        } else {
+            None
+        }
+    }
+
+    fn basic_numerical_val(&self, num_bits: u64, value: &SignalValue) -> Option<f64> {
+        match value {
+            SignalValue::BigUint(v) => {
+                let signweight = 1u32.to_biguint() << (num_bits - 1);
+                if *v < signweight {
+                    v.to_f64()
+                } else {
+                    (v.to_bigint() - 2u16 * signweight.to_bigint()).to_f64()
+                }
+            }
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(_) => None,
+                None => {
+                    let v = u128::from_str_radix(s, 2).expect("Cannot decode");
+                    let signweight = 1u128 << (num_bits - 1);
+                    if v < signweight {
+                        v.to_f64()
+                    } else {
+                        (v as i128 - (signweight << 1) as i128).to_f64()
                     }
                 }
             },
@@ -1072,6 +1124,36 @@ mod test {
                 .basic_translate(1, &SignalValue::String("x".to_string()))
                 .0,
             "x"
+        );
+    }
+
+    #[test]
+    fn numerical_range() {
+        assert_eq!(
+            UnsignedTranslator {}.basic_numerical_range(7),
+            Some((0.0, 127.0))
+        );
+        assert_eq!(
+            SignedTranslator {}.basic_numerical_range(7),
+            Some((-64.0, 63.0))
+        );
+    }
+
+    #[test]
+    fn numerical_value() {
+        assert_eq!(
+            UnsignedTranslator {}
+                .basic_numerical_val(7, &SignalValue::String("00000011".to_string())),
+            Some(3.0)
+        );
+        assert_eq!(
+            SignedTranslator {}
+                .basic_numerical_val(7, &SignalValue::String("00000011".to_string())),
+            Some(3.0)
+        );
+        assert_eq!(
+            SignedTranslator {}.basic_numerical_val(7, &SignalValue::String("1111101".to_string())),
+            Some(-3.0)
         );
     }
 }
