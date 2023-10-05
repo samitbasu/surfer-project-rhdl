@@ -155,6 +155,18 @@ fn map_to_radix(s: &String, radix: usize, num_bits: u64) -> (String, ValueKind) 
     )
 }
 
+fn check_single_wordlength(num_bits: Option<u16>, required: u16) -> Result<TranslationPreference> {
+    if let Some(num_bits) = num_bits {
+        if num_bits == required {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    } else {
+        Ok(TranslationPreference::No)
+    }
+}
+
 pub struct HexTranslator {}
 
 impl BasicTranslator for HexTranslator {
@@ -195,8 +207,12 @@ impl BasicTranslator for BitTranslator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 1u16 {
-            Ok(TranslationPreference::Prefer)
+        if let Some(num_bits) = signal.num_bits() {
+            if num_bits == 1u16 {
+                Ok(TranslationPreference::Prefer)
+            } else {
+                Ok(TranslationPreference::No)
+            }
         } else {
             Ok(TranslationPreference::No)
         }
@@ -387,11 +403,7 @@ impl BasicTranslator for SinglePrecisionTranslator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 32u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 32)
     }
 }
 
@@ -422,11 +434,7 @@ impl BasicTranslator for DoublePrecisionTranslator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 64u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 64)
     }
 }
 
@@ -457,11 +465,7 @@ impl BasicTranslator for HalfPrecisionTranslator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 16u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 16)
     }
 }
 
@@ -495,11 +499,7 @@ impl BasicTranslator for BFloat16Translator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 16u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 16)
     }
 }
 
@@ -527,11 +527,7 @@ impl BasicTranslator for Posit32Translator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 32u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 32)
     }
 }
 
@@ -562,11 +558,7 @@ impl BasicTranslator for Posit16Translator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 16u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 16)
     }
 }
 
@@ -597,11 +589,7 @@ impl BasicTranslator for Posit8Translator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 8u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 8)
     }
 }
 
@@ -652,11 +640,7 @@ impl BasicTranslator for E5M2Translator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 8u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 8)
     }
 }
 
@@ -703,11 +687,7 @@ impl BasicTranslator for E4M3Translator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.num_bits().unwrap() == 8u16 {
-            Ok(TranslationPreference::Yes)
-        } else {
-            Ok(TranslationPreference::No)
-        }
+        check_single_wordlength(signal.num_bits(), 8)
     }
 }
 
