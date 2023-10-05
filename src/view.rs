@@ -475,7 +475,7 @@ impl State {
             let listed = signals
                 .iter()
                 .filter_map(|sig| {
-                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
+                    let name = vcd.inner.signal_from_signal_idx(*sig).name_with_size();
                     if !name.starts_with("_e_") {
                         Some((sig, name.clone()))
                     } else {
