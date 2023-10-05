@@ -68,6 +68,7 @@ use viewport::Viewport;
 use wasm_util::perform_work;
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -374,7 +375,10 @@ pub struct VcdData {
     /// These hashmaps contain a list of all full (i.e., top.dut.mod1.signal) signal or scope
     /// names to their indices. They have to be initialized using the initialize_signal_scope_maps
     /// function after this struct is created.
-    signals_to_ids: HashMap<String, SignalIdx>,
+    /// The Option<String> part is the index of the signal. It is only present if it is needed
+    /// disambiguate signals, for example when modelsim generates input[0], input[1] instead
+    /// of input[1:0]
+    signals_to_ids: HashMap<(String, Option<String>), SignalIdx>,
     scopes_to_ids: HashMap<String, ScopeIdx>,
     /// Maps signal indices to the corresponding full signal name (i.e. top.sub.signal)
     ids_to_fullnames: HashMap<SignalIdx, String>,
@@ -1332,13 +1336,30 @@ impl VcdData {
             vcd.scopes_to_ids.insert(full_scope_name.clone(), scope);
 
             let signal_idxs = vcd.inner.get_children_signal_idxs(scope);
-            for signal in signal_idxs {
-                let signal_name = vcd.inner.signal_from_signal_idx(signal).name();
-                if !signal_name.starts_with('_') {
-                    let fullname = format!("{}.{}", full_scope_name, signal_name);
-                    vcd.signals_to_ids.insert(fullname.clone(), signal);
-                    vcd.ids_to_fullnames.insert(signal, fullname);
-                }
+            let names_and_indices = signal_idxs
+                .iter()
+                .map(|idx| {
+                    let sig = vcd.inner.signal_from_signal_idx(*idx);
+                    let fullname = format!("{}.{}", full_scope_name, sig.name());
+
+                    (fullname, sig.index(), *idx)
+                })
+                .collect::<Vec<_>>();
+
+            let mut name_count = BTreeMap::new();
+            for (name, _, _) in &names_and_indices {
+                *name_count.entry(name).or_insert(0u64) += 1;
+            }
+
+            for (name, index, signal) in &names_and_indices {
+                let index = if name_count[&name] != 1 {
+                    index.clone()
+                } else {
+                    None
+                };
+                vcd.signals_to_ids
+                    .insert((name.clone(), index), signal.clone());
+                vcd.ids_to_fullnames.insert(signal.clone(), name.clone());
             }
 
             for sub_scope in vcd.inner.child_scopes_by_idx(scope) {

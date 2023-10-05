@@ -613,7 +613,7 @@ impl State {
             let listed = signals
                 .iter()
                 .filter_map(|sig| {
-                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
+                    let name = vcd.inner.signal_from_signal_idx(*sig).name_with_index();
                     if (!name.starts_with("_e_"))
                         && matcher.fuzzy_match(name.as_str(), filter).is_some()
                     {

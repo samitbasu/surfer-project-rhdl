@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fs, str::FromStr};
 
 use crate::{
+    descriptors::NameWithIndex,
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
     ClockHighlightType, DisplayedItem, Message, SignalNameType, State,
 };
@@ -43,7 +44,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
         Some(v) => v
             .signals_to_ids
             .keys()
-            .map(|s| s.clone())
+            .map(|(name, idx)| {
+                format!(
+                    "{name}{}",
+                    idx.as_ref()
+                        .map(|idx| format!(" {idx}"))
+                        .unwrap_or_default()
+                )
+            })
             .collect::<Vec<_>>(),
         None => vec![],
     };
@@ -188,7 +196,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     signals.clone(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::AddSignal(
-                            crate::SignalDescriptor::Name(word.into()),
+                            // TODO: Allow specifying an extra parameter for the index
+                            crate::SignalDescriptor::Name(NameWithIndex::from_full_string(
+                                word.to_string(),
+                            )),
                         )))
                     }),
                 ),
