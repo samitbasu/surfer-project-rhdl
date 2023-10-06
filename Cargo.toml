@@ -48,6 +48,16 @@ tracing-wasm = "0.2"
 wasm_thread = {version = "0.2.0", features = ["es_modules"]}
 console_error_panic_hook = "0.1.6"
 
+[dev-dependencies]
+egui_skia = {version = "0.3.0", features = ["cpu_fix"]}
+skia-safe = "0.66.3"
+dssim = "3.2.4"
+rgb = "0.8.34"
+image = "0.24.7"
+imgref = "1.9.4"
+project-root = "0.2.2"
+base64 = "0.21.4"
+
 [profile.release]
 opt-level = 3 # fast and small wasm
 

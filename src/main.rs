@@ -4,6 +4,8 @@ mod commands;
 mod config;
 mod descriptors;
 mod signal_canvas;
+#[cfg(test)]
+mod tests;
 mod translation;
 mod util;
 mod view;
@@ -86,6 +88,14 @@ struct StartupParams {
 }
 
 impl StartupParams {
+    pub fn empty() -> Self {
+        Self {
+            spade_state: None,
+            spade_top: None,
+            vcd: None,
+        }
+    }
+
     #[allow(dead_code)] // NOTE: Only used in wasm version
     pub fn vcd_from_url(url: Option<String>) -> Self {
         Self {
