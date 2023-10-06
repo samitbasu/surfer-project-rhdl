@@ -22,19 +22,15 @@ pub struct CommandPrompt {
 pub fn show_command_prompt(
     state: &mut State,
     ctx: &egui::Context,
-    #[allow(unused_variables)] // Throws a warning on wasm but not on x86
-    frame: &mut eframe::Frame,
+    // Window size if known. If unknown defaults to a width of 200pts
+    window_size: Option<Vec2>,
     msgs: &mut Vec<Message>,
 ) {
     egui::Window::new("Commands")
         .anchor(Align2::CENTER_TOP, Vec2::ZERO)
         .title_bar(false)
         .min_width({
-            #[cfg(not(target_arch = "wasm32"))]
-            let width = frame.info().window_info.size.x * 0.3;
-
-            #[cfg(target_arch = "wasm32")]
-            let width = 200.0;
+            let width = window_size.map(|s| s.x * 0.3).unwrap_or(200.);
 
             width
         })

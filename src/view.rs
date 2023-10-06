@@ -27,13 +27,24 @@ pub struct SignalDrawingInfo {
 
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let window_size = Some(frame.info().window_info.size);
+        #[cfg(target_arch = "wasm32")]
+        let window_size = None;
+
+        self.draw(ctx, window_size)
+    }
+}
+
+impl State {
+    pub(crate) fn draw(&mut self, ctx: &egui::Context, window_size: Option<Vec2>) {
         let max_width = ctx.available_rect().width();
         let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
         if self.config.layout.show_menu {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
-                self.draw_menu(ui, frame, &mut msgs);
+                self.draw_menu(ui, &mut msgs);
             });
         }
         if let Some(vcd) = &self.vcd {
@@ -126,7 +137,7 @@ impl eframe::App for State {
         }
 
         if self.command_prompt.visible {
-            show_command_prompt(self, ctx, frame, &mut msgs);
+            show_command_prompt(self, ctx, window_size, &mut msgs);
         }
 
         if let Some(vcd_progress_data) = &self.vcd_progress {
@@ -390,18 +401,7 @@ impl eframe::App for State {
             })
         });
 
-        self.handle_ctrlc(ctx, frame);
-
-        loop {
-            match self.msg_receiver.try_recv() {
-                Ok(msg) => msgs.push(msg),
-                Err(std::sync::mpsc::TryRecvError::Empty) => break,
-                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                    trace!("Message sender disconnected");
-                    break;
-                }
-            }
-        }
+        self.handle_ctrlc(ctx);
 
         while let Some(msg) = msgs.pop() {
             self.update(msg);
@@ -410,7 +410,7 @@ impl eframe::App for State {
 }
 
 impl State {
-    fn handle_ctrlc(&self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn handle_ctrlc(&self, ctx: &egui::Context) {
         // Always repaint even if we're in the background. This is needed in order
         // to handle ctrl+c correctly
         ctx.request_repaint();
@@ -895,7 +895,11 @@ impl State {
         }
     }
 
-    fn draw_menu(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, msgs: &mut Vec<Message>) {
+    fn draw_menu(
+        &mut self,
+        ui: &mut egui::Ui,
+        msgs: &mut Vec<Message>,
+    ) {
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]
@@ -908,12 +912,6 @@ impl State {
                 if ui.button("Open URL...").clicked() {
                     self.open_url = true;
                     ui.close_menu();
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                ui.separator();
-                #[cfg(not(target_arch = "wasm32"))]
-                if ui.button("Exit").clicked() {
-                    frame.close()
                 }
             });
             ui.menu_button("View", |ui| {
