@@ -1,6 +1,5 @@
 [layout]
 show_hierarchy = true
-show_signal_naming_button = true
 
 [theme]
 foreground = "d4d4d4"
