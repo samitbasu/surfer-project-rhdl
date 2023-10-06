@@ -8,12 +8,12 @@ use log::{info, trace};
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::util::uint_idx_to_alpha_idx;
-use crate::LoadProgress;
 use crate::{
     command_prompt::show_command_prompt,
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, SignalDescriptor, State, VcdData,
 };
+use crate::{LoadProgress, SignalNameType};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -516,7 +516,7 @@ impl State {
                     self.draw_var(
                         msgs,
                         vidx,
-                        &signal.name(),
+                        &displayed_signal.display_name,
                         &(signal.real_idx(), vec![]),
                         &mut signal_offsets,
                         info,
@@ -543,7 +543,8 @@ impl State {
             let tooltip = if let Some(vcd) = &self.vcd {
                 if path.1.len() == 0 {
                     format!(
-                        "Num bits: {}",
+                        "{}\nNum bits: {}",
+                        vcd.ids_to_fullnames.get(&path.0).unwrap_or(&"".to_string()),
                         vcd.inner
                             .signal_from_signal_idx(path.0)
                             .num_bits()
@@ -653,6 +654,34 @@ impl State {
                                     msgs.push(Message::SignalColorChange(
                                         Some(vidx),
                                         color_name.clone(),
+                                    ));
+                                });
+                            }
+                        });
+
+                        ui.menu_button("Name", |ui| {
+                            let name_types = vec![
+                                ("Local", SignalNameType::Local),
+                                ("Global", SignalNameType::Global),
+                                ("Unique", SignalNameType::Unique),
+                            ];
+                            let signal_name_type = self
+                                .vcd
+                                .as_ref()
+                                .map(|vcd| vcd.signals[vidx].display_name_type)
+                                .unwrap();
+                            for name_type in name_types {
+                                let label_text = if signal_name_type == name_type.1 {
+                                    RichText::new(name_type.0)
+                                        .color(self.config.theme.accent_info.background)
+                                } else {
+                                    RichText::new(name_type.0)
+                                };
+                                ui.button(label_text).clicked().then(|| {
+                                    ui.close_menu();
+                                    msgs.push(Message::ChangeSignalNameType(
+                                        Some(vidx),
+                                        name_type.1,
                                     ));
                                 });
                             }
@@ -911,13 +940,16 @@ impl State {
                 ui.separator();
                 ui.menu_button("Signal names", |ui| {
                     if ui.button("Global").clicked() {
-                        // …
+                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Global));
+                        ui.close_menu();
                     }
                     if ui.button("Local").clicked() {
-                        // …
+                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Local));
+                        ui.close_menu();
                     }
                     if ui.button("Unique").clicked() {
-                        // …
+                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Unique));
+                        ui.close_menu();
                     }
                 });
                 ui.separator();
