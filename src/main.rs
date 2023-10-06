@@ -218,7 +218,7 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum SignalNameType {
     Local,  // local signal name only (i.e. for tb.dut.clk => clk)
     Unique, // add unique prefix, prefix + local
@@ -226,14 +226,14 @@ pub enum SignalNameType {
 }
 
 impl FromStr for SignalNameType {
-    type Err = ();
+    type Err = String;
 
     fn from_str(input: &str) -> Result<SignalNameType, Self::Err> {
         match input {
             "Local" => Ok(SignalNameType::Local),
             "Unique" => Ok(SignalNameType::Unique),
             "Global" => Ok(SignalNameType::Global),
-            _ => Err(()),
+            _ => Err(format!("'{}' is not a valid SignalNameType", input)),
         }
     }
 }
@@ -761,7 +761,7 @@ impl State {
                     num_timestamps,
                     cursor: None,
                     focused_signal: None,
-                    default_signal_name_type: SignalNameType::Unique,
+                    default_signal_name_type: self.config.default_signal_name_type,
                 };
                 new_vcd.initialize_signal_scope_maps();
 
