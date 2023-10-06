@@ -38,6 +38,7 @@ use fastwave_backend::VCD;
 use fern::colors::ColoredLevelConfig;
 use futures_util::FutureExt;
 use futures_util::TryFutureExt;
+use itertools::Itertools;
 use log::error;
 use log::info;
 use num::bigint::ToBigInt;
@@ -60,6 +61,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::Read;
+use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
@@ -216,10 +218,32 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum SignalNameType {
+    Local,  // local signal name only (i.e. for tb.dut.clk => clk)
+    Unique, // add unique prefix, prefix + local
+    Global, // full signal name (i.e. tb.dut.clk => tb.dut.clk)
+}
+
+impl FromStr for SignalNameType {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<SignalNameType, Self::Err> {
+        match input {
+            "Local" => Ok(SignalNameType::Local),
+            "Unique" => Ok(SignalNameType::Unique),
+            "Global" => Ok(SignalNameType::Global),
+            _ => Err(format!("'{}' is not a valid SignalNameType", input)),
+        }
+    }
+}
+
 pub struct DisplayedSignal {
     idx: SignalIdx,
     info: SignalInfo,
     color: Option<String>,
+    display_name: String,
+    display_name_type: SignalNameType,
 }
 
 pub struct VcdData {
@@ -233,12 +257,15 @@ pub struct VcdData {
     /// function after this struct is created.
     signals_to_ids: HashMap<String, SignalIdx>,
     scopes_to_ids: HashMap<String, ScopeIdx>,
+    /// Maps signal indices to the corresponding full signal name (i.e. top.sub.signal)
+    ids_to_fullnames: HashMap<SignalIdx, String>,
     viewport: Viewport,
     num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
     signal_format: HashMap<TraceIdx, String>,
     cursor: Option<BigInt>,
     focused_signal: Option<usize>,
+    default_signal_name_type: SignalNameType,
 }
 
 pub enum MoveDir {
@@ -262,6 +289,8 @@ pub enum Message {
     MoveFocusedSignal(MoveDir),
     SignalFormatChange(TraceIdx, String),
     SignalColorChange(Option<usize>, String),
+    ChangeSignalNameType(Option<usize>, SignalNameType),
+    ForceSignalNameTypes(SignalNameType),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
     ResetSignalFormat(TraceIdx),
@@ -590,6 +619,7 @@ impl State {
                 let visible_signals_len = vcd.signals.len();
                 if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
                     vcd.signals.remove(idx);
+                    vcd.compute_signal_display_names();
                     if let Some(focused) = vcd.focused_signal {
                         if focused == idx {
                             if (idx > 0) && (idx == (visible_signals_len - 1)) {
@@ -725,11 +755,13 @@ impl State {
                     signals: vec![],
                     signals_to_ids: HashMap::new(),
                     scopes_to_ids: HashMap::new(),
+                    ids_to_fullnames: HashMap::new(),
                     viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
                     signal_format: HashMap::new(),
                     num_timestamps,
                     cursor: None,
                     focused_signal: None,
+                    default_signal_name_type: self.config.default_signal_name_type,
                 };
                 new_vcd.initialize_signal_scope_maps();
 
@@ -773,6 +805,24 @@ impl State {
                         ctx.set_visuals(self.get_visuals())
                     }
                 }
+            }
+            Message::ChangeSignalNameType(vidx, name_type) => {
+                let Some(vcd) = self.vcd.as_mut() else { return };
+                // checks if vidx is Some then use that, else try focused signal
+                if let Some(idx) = vidx.or(vcd.focused_signal) {
+                    if vcd.signals.len() > idx {
+                        vcd.signals[idx].display_name_type = name_type;
+                        vcd.compute_signal_display_names();
+                    }
+                }
+            }
+            Message::ForceSignalNameTypes(name_type) => {
+                let Some(vcd) = self.vcd.as_mut() else { return };
+                for signal in &mut vcd.signals {
+                    signal.display_name_type = name_type;
+                }
+                vcd.default_signal_name_type = name_type;
+                vcd.compute_signal_display_names();
             }
         }
     }
@@ -968,8 +1018,9 @@ impl VcdData {
             for signal in signal_idxs {
                 let signal_name = vcd.inner.signal_from_signal_idx(signal).name();
                 if !signal_name.starts_with('_') {
-                    vcd.signals_to_ids
-                        .insert(format!("{}.{}", full_scope_name, signal_name), signal);
+                    let fullname = format!("{}.{}", full_scope_name, signal_name);
+                    vcd.signals_to_ids.insert(fullname.clone(), signal);
+                    vcd.ids_to_fullnames.insert(signal, fullname);
                 }
             }
 
@@ -994,6 +1045,78 @@ impl VcdData {
             idx: sidx,
             info,
             color: None,
-        })
+            display_name: signal.name().clone(),
+            display_name_type: self.default_signal_name_type,
+        });
+        self.compute_signal_display_names();
+    }
+
+    pub fn compute_signal_display_names(&mut self) {
+        let full_names = self
+            .signals
+            .iter()
+            .map(|sig| sig.idx)
+            .unique()
+            .map(|idx| {
+                self.ids_to_fullnames
+                    .get(&idx)
+                    .map(|name| name.clone())
+                    .unwrap_or_else(|| self.inner.signal_from_signal_idx(idx).name())
+                    .clone()
+            })
+            .collect_vec();
+
+        for signal in &mut self.signals {
+            let local_name = self.inner.signal_from_signal_idx(signal.idx).name();
+            signal.display_name = match signal.display_name_type {
+                SignalNameType::Local => local_name,
+                SignalNameType::Global => self
+                    .ids_to_fullnames
+                    .get(&signal.idx)
+                    .unwrap_or(&local_name)
+                    .clone(),
+                SignalNameType::Unique => {
+                    /// This function takes a full signal name and a list of other
+                    /// full signal names and returns a minimal unique signal name.
+                    /// It takes scopes from the back of the signal until the name is unique.
+                    fn unique(signal: String, signals: &Vec<String>) -> String {
+                        // if the full signal name is very short just return it
+                        if signal.len() < 20 {
+                            return signal;
+                        }
+
+                        let split_this = signal.split('.').map(|p| p.to_string()).collect_vec();
+                        let split_signals = signals
+                            .iter()
+                            .filter(|&s| *s != signal)
+                            .map(|s| s.split('.').map(|p| p.to_string()).collect_vec())
+                            .collect_vec();
+
+                        fn take_front(s: &Vec<String>, l: usize) -> String {
+                            if l == 0 {
+                                s.last().unwrap().clone()
+                            } else if l < s.len() - 1 {
+                                format!("...{}", s.iter().rev().take(l + 1).rev().join("."))
+                            } else {
+                                s.join(".")
+                            }
+                        }
+
+                        let mut l = 0;
+                        while split_signals
+                            .iter()
+                            .map(|s| take_front(s, l))
+                            .contains(&take_front(&split_this, l))
+                        {
+                            l += 1;
+                        }
+                        take_front(&split_this, l)
+                    }
+
+                    let full_name = self.ids_to_fullnames.get(&signal.idx).unwrap().clone();
+                    unique(full_name, &full_names)
+                }
+            };
+        }
     }
 }

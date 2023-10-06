@@ -1,3 +1,5 @@
+default_signal_name_type = "Global"
+
 [layout]
 show_hierarchy = true
 
