@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, fs};
+use std::{collections::BTreeMap, fs, str::FromStr};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    Message, State,
+    Message, SignalNameType, State,
 };
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};
@@ -106,22 +106,24 @@ pub fn get_parser(state: &State) -> Command<Message> {
     Command::NonTerminal(
         ParamGreed::Word,
         vec![
-            "add_signal",
-            "add_signal_from_scope",
-            "add_scope",
-            "select_scope",
-            "focus",
-            "unfocus",
             "load_vcd",
             "load_url",
-            "set_signal_color",
-            "reload_config",
+            "config_reload",
             "scroll_to_start",
             "scroll_to_end",
             "zoom_in",
             "zoom_out",
-            "zoom_to_fit",
+            "zoom_fit",
             "toggle_menu",
+            "module_add",
+            "module_select",
+            "signal_add",
+            "signal_add_from_scope",
+            "signal_set_color",
+            "signal_set_name_type",
+            "signal_force_name_type",
+            "signal_focus",
+            "signal_unfocus",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -129,48 +131,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
         Box::new(move |query, _| {
             let signals_in_active_scope = signals_in_active_scope.clone();
             match query {
-                "add_signal" => single_word(
-                    signals.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::AddSignal(
-                            crate::SignalDescriptor::Name(word.into()),
-                        )))
-                    }),
-                ),
-                "add_scope" => single_word(
-                    scopes.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::AddScope(
-                            crate::ScopeDescriptor::Name(word.into()),
-                        )))
-                    }),
-                ),
-                "add_signal_from_scope" => single_word(
-                    signals_in_active_scope.keys().cloned().collect(),
-                    Box::new(move |name| {
-                        signals_in_active_scope
-                            .get(name)
-                            .map(|idx| Command::Terminal(Message::AddSignal((*idx).into())))
-                    }),
-                ),
-                "select_scope" => single_word(
-                    scopes.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::SetActiveScope(
-                            crate::ScopeDescriptor::Name(word.into()),
-                        )))
-                    }),
-                ),
-                "focus" => single_word(
-                    displayed_signals.clone(),
-                    Box::new(|word| {
-                        // split off the idx which is always followed by an underscore
-                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
-                        alpha_idx_to_uint_idx(alpha_idx)
-                            .map(|idx| Command::Terminal(Message::FocusSignal(idx)))
-                    }),
-                ),
-                "unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
                 "load_vcd" => single_word_delayed_suggestions(
                     Box::new(vcd_files),
                     Box::new(|word| Some(Command::Terminal(Message::LoadVcd(word.into())))),
@@ -184,17 +144,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 )),
-                "set_signal_color" => single_word(
-                    color_names.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::SignalColorChange(
-                            None,
-                            word.to_string(),
-                        )))
-                    }),
-                ),
-                "reload_config" => Some(Command::Terminal(Message::ReloadConfig)),
-                "zoom_to_fit" => Some(Command::Terminal(Message::ZoomToFit)),
+                "config_reload" => Some(Command::Terminal(Message::ReloadConfig)),
                 "scroll_to_start" => Some(Command::Terminal(Message::ScrollToStart)),
                 "scroll_to_end" => Some(Command::Terminal(Message::ScrollToEnd)),
                 "zoom_in" => Some(Command::Terminal(Message::CanvasZoom {
@@ -205,7 +155,86 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     mouse_ptr_timestamp: None,
                     delta: 2.0,
                 })),
+                "zoom_fit" => Some(Command::Terminal(Message::ZoomToFit)),
                 "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
+                // Module commands
+                "module_add" => single_word(
+                    scopes.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::AddScope(
+                            crate::ScopeDescriptor::Name(word.into()),
+                        )))
+                    }),
+                ),
+                "module_select" => single_word(
+                    scopes.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SetActiveScope(
+                            crate::ScopeDescriptor::Name(word.into()),
+                        )))
+                    }),
+                ),
+                // Signal commands
+                "signal_add" => single_word(
+                    signals.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::AddSignal(
+                            crate::SignalDescriptor::Name(word.into()),
+                        )))
+                    }),
+                ),
+                "signal_add_from_module" => single_word(
+                    signals_in_active_scope.keys().cloned().collect(),
+                    Box::new(move |name| {
+                        signals_in_active_scope
+                            .get(name)
+                            .map(|idx| Command::Terminal(Message::AddSignal((*idx).into())))
+                    }),
+                ),
+                "signal_set_color" => single_word(
+                    color_names.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SignalColorChange(
+                            None,
+                            word.to_string(),
+                        )))
+                    }),
+                ),
+                "signal_set_name_type" => single_word(
+                    vec![
+                        "Local".to_string(),
+                        "Unique".to_string(),
+                        "Global".to_string(),
+                    ],
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::ChangeSignalNameType(
+                            None,
+                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                        )))
+                    }),
+                ),
+                "signal_force_name_type" => single_word(
+                    vec![
+                        "Local".to_string(),
+                        "Unique".to_string(),
+                        "Global".to_string(),
+                    ],
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::ForceSignalNameTypes(
+                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                        )))
+                    }),
+                ),
+                "signal_focus" => single_word(
+                    displayed_signals.clone(),
+                    Box::new(|word| {
+                        // split off the idx which is always followed by an underscore
+                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                        alpha_idx_to_uint_idx(alpha_idx)
+                            .map(|idx| Command::Terminal(Message::FocusSignal(idx)))
+                    }),
+                ),
+                "signal_unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
                 _ => None,
             }
         }),
