@@ -33,6 +33,7 @@ use eframe::epaint::Vec2;
 use fastwave_backend::parse_vcd;
 use fastwave_backend::ScopeIdx;
 use fastwave_backend::SignalIdx;
+use fastwave_backend::Timescale;
 use fastwave_backend::VCD;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
@@ -319,6 +320,7 @@ pub enum Message {
     ScrollToStart,
     ScrollToEnd,
     ToggleMenu,
+    SetTimeScale(Timescale),
 }
 
 pub enum LoadProgress {
@@ -356,6 +358,7 @@ pub struct State {
     show_keys: bool,
     open_url: bool,
     url: String,
+    wanted_timescale: Timescale,
 }
 
 impl State {
@@ -428,6 +431,7 @@ impl State {
             show_keys: false,
             open_url: false,
             url: "".to_owned(),
+            wanted_timescale: Timescale::Unit,
         };
 
         match args.vcd {
@@ -684,6 +688,10 @@ impl State {
                 self.invalidate_draw_commands();
                 self.scroll_to_start();
             }
+            Message::SetTimeScale(timescale) => {
+                self.invalidate_draw_commands();
+                self.wanted_timescale = timescale;
+            }
             Message::SignalFormatChange(ref idx @ (ref signal_idx, ref path), format) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
 
@@ -763,6 +771,8 @@ impl State {
                 };
                 new_vcd.initialize_signal_scope_maps();
 
+                // Must clone timescale before consuming new_vcd
+                self.wanted_timescale = new_vcd.inner.metadata.timescale.1.clone();
                 self.vcd = Some(new_vcd);
                 self.vcd_progress = None;
                 info!("Done setting up vcd file");
