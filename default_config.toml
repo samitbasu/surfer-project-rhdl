@@ -2,6 +2,7 @@ default_signal_name_type = "Global"
 
 [layout]
 show_hierarchy = true
+show_menu = true
 
 [theme]
 foreground = "d4d4d4"

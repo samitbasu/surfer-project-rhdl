@@ -30,9 +30,9 @@ impl eframe::App for State {
         let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
-        if self.show_menu {
+        if self.config.layout.show_menu {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
-                self.create_menu(ui, frame, &mut msgs);
+                self.draw_menu(ui, frame, &mut msgs);
             });
         }
         if let Some(vcd) = &self.vcd {
@@ -223,7 +223,9 @@ impl eframe::App for State {
         }
 
         if self.show_about {
+            let mut open = true;
             egui::Window::new("About Surfer")
+                .open(&mut open)
                 .collapsible(false)
                 .resizable(true)
                 .show(ctx, |ui| {
@@ -239,19 +241,24 @@ impl eframe::App for State {
                             "Build date: {date}",
                             date = env!("VERGEN_BUILD_DATE")
                         ));
-                        ui.hyperlink_to("GitLab repo", "https://gitlab.com/surfer-project/surfer");
+                        ui.hyperlink_to(" repository", "https://gitlab.com/surfer-project/surfer");
                         ui.add_space(10.);
                         if ui.button("Close").clicked() {
                             self.show_about = false;
                         }
                     });
                 });
+            if !open {
+                self.show_about = false;
+            }
         }
 
         if self.show_keys {
-            egui::Window::new("Surfer key bindings")
+            let mut open = true;
+            egui::Window::new("🖮 Surfer control")
                 .collapsible(true)
                 .resizable(true)
+                .open(&mut open)
                 .show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         let layout = egui::Layout::top_down(egui::Align::LEFT);
@@ -269,10 +276,15 @@ impl eframe::App for State {
                         }
                     });
                 });
+            if !open {
+                self.show_keys = false;
+            }
         }
 
         if self.open_url {
+            let mut open = true;
             egui::Window::new("Load URL")
+                .open(&mut open)
                 .collapsible(false)
                 .resizable(true)
                 .show(ctx, |ui| {
@@ -289,6 +301,9 @@ impl eframe::App for State {
                         });
                     });
                 });
+            if !open {
+                self.open_url = false;
+            }
         }
 
         self.control_key = ctx.input(|i| i.modifiers.ctrl);
@@ -806,27 +821,28 @@ impl State {
     }
 
     fn key_listing(&self, ui: &mut egui::Ui) {
-        let controls = vec![
+        let keys = vec![
             ("🚀", "Space", "Show command prompt"),
             ("↔", "Scroll", "Pan"),
             ("🔎", "Ctrl+Scroll", "Zoom"),
             ("〰", "b", "Show or hide the design hierarchy"),
             ("☰", "m", "Show or hide menu"),
-            ("🔎+", "+", "Zoom in"),
-            ("🔎-", "-", "Zoom out"),
+            ("🔎➕", "+", "Zoom in"),
+            ("🔎➖", "-", "Zoom out"),
             ("", "k/⬆", "Move focus up"),
             ("", "j/⬇", "Move focus down"),
             ("", "Ctrl+k/⬆", "Move focused signal up"),
             ("", "Ctrl+j/⬇", "Move focused signal down"),
             ("🔙", "s", "Scroll to start"),
             ("🔚", "e", "Scroll to end"),
+            ("🗙", "Delete", "Delete focused signal"),
         ];
 
         Grid::new("keys")
             .num_columns(3)
-            .spacing([20., 5.])
+            .spacing([5., 5.])
             .show(ui, |ui| {
-                for (symbol, control, description) in controls {
+                for (symbol, control, description) in keys {
                     ui.label(symbol);
                     ui.label(control);
                     ui.label(description);
@@ -873,12 +889,7 @@ impl State {
         }
     }
 
-    fn create_menu(
-        &mut self,
-        ui: &mut egui::Ui,
-        frame: &mut eframe::Frame,
-        msgs: &mut Vec<Message>,
-    ) {
+    fn draw_menu(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, msgs: &mut Vec<Message>) {
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]
@@ -969,7 +980,7 @@ impl State {
                 }
             });
             ui.menu_button("Help", |ui| {
-                if ui.button("Key bindings").clicked() {
+                if ui.button("Control keys").clicked() {
                     ui.close_menu();
                     self.show_keys = true;
                 }
