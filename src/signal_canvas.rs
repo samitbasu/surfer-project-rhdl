@@ -311,27 +311,21 @@ impl State {
                         let startx = start_location.x;
                         let starty = start_location.y;
                         let endx = current_location.x;
-                        let endy = current_location.y;
-                        let delta = 10.0;
-                        let ydelta = Vec2 { x: 0.0, y: delta };
-
+                        let height = response.rect.size().y;
                         painter.line_segment(
                             [
-                                to_screen.transform_pos(start_location - ydelta),
-                                to_screen.transform_pos(start_location + ydelta),
+                                to_screen.transform_pos(Pos2 { x: startx, y: 0.0 }),
+                                to_screen.transform_pos(Pos2 {
+                                    x: startx,
+                                    y: height,
+                                }),
                             ],
                             stroke,
                         );
                         painter.line_segment(
                             [
-                                to_screen.transform_pos(Pos2 {
-                                    x: endx,
-                                    y: endy.min(starty - delta),
-                                }),
-                                to_screen.transform_pos(Pos2 {
-                                    x: endx,
-                                    y: endy.max(starty + delta),
-                                }),
+                                to_screen.transform_pos(Pos2 { x: endx, y: 0.0 }),
+                                to_screen.transform_pos(Pos2 { x: endx, y: height }),
                             ],
                             stroke,
                         );
