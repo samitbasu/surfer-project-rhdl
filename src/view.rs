@@ -845,6 +845,17 @@ impl State {
             ui.label(RichText::new(
                 "Or press space and type load_vcd or load_url",
             ));
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Or click"));
+                if ui.link("here").clicked() {
+                    self.msg_sender
+                        .send(Message::LoadVcdFromUrl(
+                            "https://gitlab.com/surfer-project/surfer/uploads/aff71a356d7f74c586b54a9cd76b498c/test.vcd".to_string()
+                        ))
+                        .ok();
+                }
+                ui.label("here to open an example");
+            });
 
             ui.add_space(20.0);
             ui.separator();

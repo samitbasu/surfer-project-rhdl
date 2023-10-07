@@ -130,6 +130,7 @@ pages_build:
           # wel'll build with a dummy public URL, then replace it with ./
         - ./trunk build --release --public-url /dist
         - cp -r dist pages_build
+        - cp examples/counter.vcd /dist
           # We have to do this from the source file instead of public/ because sed
           # does not replace in place
         - sed -e "s|/dist/|./|g" dist/index.html > pages_build/index.html
