@@ -25,7 +25,7 @@ impl TranslatorList {
         translators: Vec<Box<dyn Translator>>,
     ) -> Self {
         Self {
-            default: basic.first().unwrap().name(),
+            default: "Hexadecimal".to_string(),
             basic: basic.into_iter().map(|t| (t.name(), t)).collect(),
             inner: translators.into_iter().map(|t| (t.name(), t)).collect(),
         }
