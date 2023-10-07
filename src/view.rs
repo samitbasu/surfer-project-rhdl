@@ -4,7 +4,7 @@ use eframe::egui::{menu, Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::SignalIdx;
 use itertools::Itertools;
-use log::{info, trace};
+use log::info;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::util::uint_idx_to_alpha_idx;
@@ -386,6 +386,7 @@ impl State {
         while let Some(msg) = msgs.pop() {
             self.update(msg);
         }
+        self.handle_async_messages();
     }
 }
 

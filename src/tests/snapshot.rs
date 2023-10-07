@@ -12,7 +12,7 @@ use image::{DynamicImage, ImageOutputFormat, RgbImage};
 use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
 
-use crate::{StartupParams, State};
+use crate::{Message, StartupParams, State, WaveSource};
 
 fn print_image(img: &DynamicImage) {
     if std::io::stdout().is_terminal() {
@@ -194,4 +194,42 @@ macro_rules! snapshot_ui {
 
 snapshot_ui! {startup_screen_looks_fine, || {
     State::new(StartupParams::empty()).unwrap()
+}}
+
+snapshot_ui!(menu_can_be_hidden, || {
+    let mut state = State::new(StartupParams::empty()).unwrap();
+    let msgs = [Message::ToggleMenu];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state
+});
+
+snapshot_ui!(side_panel_can_be_hidden, || {
+    let mut state = State::new(StartupParams::empty()).unwrap();
+    let msgs = [Message::ToggleSidePanel];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state
+});
+
+snapshot_ui! {example_vcd_renders, || {
+    let mut state = State::new(StartupParams {
+        vcd: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
+        spade_top: None,
+        spade_state: None,
+    }).unwrap();
+
+    loop {
+        state.handle_async_messages();
+        if state.vcd.is_some() {
+            break;
+        }
+    }
+
+    state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())));
+    state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb.dut".to_string())));
+
+    state
 }}

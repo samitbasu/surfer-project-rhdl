@@ -42,6 +42,7 @@ use futures_util::FutureExt;
 use futures_util::TryFutureExt;
 use log::error;
 use log::info;
+use log::trace;
 use num::bigint::ToBigInt;
 use num::BigInt;
 use num::FromPrimitive;
@@ -78,9 +79,9 @@ struct Args {
 }
 
 struct StartupParams {
-    spade_state: Option<Utf8PathBuf>,
-    spade_top: Option<String>,
-    vcd: Option<WaveSource>,
+    pub spade_state: Option<Utf8PathBuf>,
+    pub spade_top: Option<String>,
+    pub vcd: Option<WaveSource>,
 }
 
 impl StartupParams {
@@ -784,6 +785,24 @@ impl State {
                     }
                 }
             }
+        }
+    }
+
+    fn handle_async_messages(&mut self) {
+        let mut msgs = vec![];
+        loop {
+            match self.msg_receiver.try_recv() {
+                Ok(msg) => msgs.push(msg),
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    trace!("Message sender disconnected");
+                    break;
+                }
+            }
+        }
+
+        while let Some(msg) = msgs.pop() {
+            self.update(msg);
         }
     }
 
