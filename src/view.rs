@@ -2,9 +2,10 @@ use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, RichText};
 use eframe::egui::{menu, Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
-use fastwave_backend::SignalIdx;
+use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use itertools::Itertools;
 use log::{info, trace};
+use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::util::uint_idx_to_alpha_idx;
@@ -49,7 +50,7 @@ impl eframe::App for State {
                         ui.label(&vcd.filename);
                         if let Some(time) = &vcd.cursor {
                             ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
-                                ui.label(format!("{}", time));
+                                ui.label(time_string(time, &vcd.inner.metadata));
                                 ui.add_space(10.0)
                             });
                         }
@@ -992,4 +993,20 @@ impl State {
             });
         });
     }
+}
+
+fn time_string(time: &BigInt, metadata: &Metadata) -> String {
+    let timeunit = match metadata.timescale.1 {
+        Timescale::Fs => "fs".to_string(),
+        Timescale::Ps => "ps".to_string(),
+        Timescale::Ns => "ns".to_string(),
+        Timescale::Us => "μs".to_string(),
+        Timescale::Ms => "ms".to_string(),
+        Timescale::S => "s".to_string(),
+        _ => "".to_string(),
+    };
+    format!(
+        "{scaledtime} {timeunit}",
+        scaledtime = time * metadata.timescale.0.unwrap_or(1)
+    )
 }
