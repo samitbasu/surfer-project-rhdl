@@ -62,6 +62,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     });
 
     let mut state = state();
+    state.show_wave_source = false;
 
     let size = Vec2::new(1280., 720.);
 
@@ -133,7 +134,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     }
 
     match (write_new_file, diff) {
-        (true, Some((_, maps))) => {
+        (true, Some((score, maps))) => {
             let map = maps.first().unwrap();
             let avgssim = map.ssim as f32;
             let out: Vec<_> = map
@@ -172,7 +173,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
 
             assert!(
                 false,
-                "Snapshot diff\n\told: {previous_image_file:?}\n\tnew: {new_file:?}"
+                "Snapshot diff. Score: {score}\n\told: {previous_image_file:?}\n\tnew: {new_file:?}"
             )
         }
         (true, None) => {

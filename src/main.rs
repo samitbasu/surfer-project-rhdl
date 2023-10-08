@@ -373,6 +373,9 @@ pub struct State {
     show_about: bool,
     show_keys: bool,
     open_url: bool,
+    /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
+    /// with absolute path diffs
+    show_wave_source: bool,
     url: String,
     wanted_timescale: Timescale,
     gesture_start_location: Option<emath::Pos2>,
@@ -448,6 +451,7 @@ impl State {
             show_about: false,
             show_keys: false,
             open_url: false,
+            show_wave_source: true,
             url: "".to_owned(),
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,

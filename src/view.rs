@@ -58,7 +58,9 @@ impl State {
                         Some(self.config.theme.primary_ui_color.foreground);
                     ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
                         ui.add_space(10.0);
-                        ui.label(&vcd.filename);
+                        if self.show_wave_source {
+                            ui.label(&vcd.filename);
+                        }
                         if let Some(time) = &vcd.cursor {
                             ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
                                 ui.label(time_string(
