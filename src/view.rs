@@ -730,10 +730,11 @@ impl State {
                     }
                 });
 
+                let offset = response.0.rect.top();
                 signal_offsets.push(SignalDrawingInfo {
                     tidx: path.clone(),
                     signal_list_idx: vidx,
-                    offset: response.1.response.rect.top(),
+                    offset,
                 });
             }
             SignalInfo::Bool | SignalInfo::Bits | SignalInfo::Clock => {
@@ -757,7 +758,7 @@ impl State {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
 
-            for drawing_info in signal_offsets {
+            for drawing_info in signal_offsets.iter().sorted_by_key(|o| o.offset as i32) {
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,
