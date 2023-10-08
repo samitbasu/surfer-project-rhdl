@@ -241,12 +241,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
     )
 }
 
-pub fn run_fuzzy_parser(state: &mut State) {
+pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
     let FuzzyOutput {
         expanded,
         suggestions,
-    } = expand_command(&state.command_prompt.input, get_parser(state));
+    } = expand_command(input, get_parser(state));
 
-    state.command_prompt.expanded = expanded;
-    state.command_prompt.suggestions = suggestions.unwrap_or(vec![]);
+    msgs.push(Message::CommandPromptUpdate {
+        expanded,
+        suggestions: suggestions.unwrap_or(vec![]),
+    })
 }

@@ -20,6 +20,7 @@ use clap::Parser;
 use color_eyre::eyre::anyhow;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
+use derivative::Derivative;
 use descriptors::ScopeDescriptor;
 use descriptors::SignalDescriptor;
 #[cfg(not(target_arch = "wasm32"))]
@@ -30,6 +31,7 @@ use eframe::egui::style::Widgets;
 use eframe::egui::DroppedFile;
 use eframe::egui::Visuals;
 use eframe::emath;
+use eframe::epaint::Pos2;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
@@ -61,6 +63,7 @@ use view::TraceIdx;
 use viewport::Viewport;
 use wasm_util::perform_work;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -214,6 +217,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
 pub enum WaveSource {
     File(Utf8PathBuf),
     DragAndDrop(Option<Utf8PathBuf>),
@@ -281,6 +285,7 @@ pub struct VcdData {
     default_signal_name_type: SignalNameType,
 }
 
+#[derive(Debug)]
 pub enum MoveDir {
     Up,
     Down,
@@ -291,6 +296,8 @@ pub enum ColorSpecifier {
     Name(String),
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub enum Message {
     SetActiveScope(ScopeDescriptor),
     AddSignal(SignalDescriptor),
@@ -323,7 +330,7 @@ pub enum Message {
     LoadVcdFromUrl(String),
     VcdLoaded(WaveSource, Box<VCD>),
     Error(color_eyre::eyre::Error),
-    TranslatorLoaded(Box<dyn Translator + Send>),
+    TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified signal
     BlacklistTranslator(SignalIdx, String),
@@ -337,6 +344,18 @@ pub enum Message {
     ScrollToEnd,
     ToggleMenu,
     SetTimeScale(Timescale),
+    CommandPromptUpdate {
+        expanded: String,
+        suggestions: Vec<(String, Vec<bool>)>,
+    },
+    OpenFileDialog,
+    SetAboutVisible(bool),
+    SetKeyHelpVisible(bool),
+    SetUrlEntryVisible(bool),
+    SetDragStart(Option<Pos2>),
+    /// Exit the application. This has no effect on wasm and closes the window
+    /// on other platforms
+    Exit,
 }
 
 pub enum LoadProgress {
@@ -347,8 +366,6 @@ pub enum LoadProgress {
 pub struct State {
     config: config::SurferConfig,
     vcd: Option<VcdData>,
-    /// The offset of the left side of the wave window in signal timestamps.
-    control_key: bool,
     /// Which translator to use for each signal
     translators: TranslatorList,
 
@@ -364,21 +381,29 @@ pub struct State {
     /// buffer for the command input
     command_prompt: command_prompt::CommandPrompt,
 
-    /// The draw commands for every signal currently selected
-    draw_commands: Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>,
     /// The context to egui, we need this to change the visual settings when the config is reloaded
     context: Option<eframe::egui::Context>,
 
-    file_dialog: Option<egui_file::FileDialog>,
     show_about: bool,
     show_keys: bool,
-    open_url: bool,
     /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
-    url: String,
     wanted_timescale: Timescale,
     gesture_start_location: Option<emath::Pos2>,
+    show_url_entry: bool,
+
+    /// The draw commands for every signal currently selected
+    // For performance reasons, these need caching so we have them in a RefCell for interior
+    // mutability
+    draw_commands:
+        RefCell<Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>>,
+
+    // The file dialog requires mutable access to its stuff, so we need a ref cell
+    file_dialog: RefCell<Option<egui_file::FileDialog>>,
+    // Egui requires a place to store text field content between frames
+    url: RefCell<String>,
+    command_prompt_text: RefCell<String>,
 }
 
 impl State {
@@ -433,7 +458,6 @@ impl State {
         let mut result = State {
             config,
             vcd: None,
-            control_key: false,
             translators,
             msg_sender: sender,
             msg_receiver: receiver,
@@ -445,16 +469,17 @@ impl State {
                 expanded: String::from(""),
                 suggestions: vec![],
             },
-            draw_commands: None,
+            draw_commands: RefCell::new(None),
             context: None,
-            file_dialog: None,
+            file_dialog: RefCell::new(None),
             show_about: false,
             show_keys: false,
-            open_url: false,
-            show_wave_source: true,
-            url: "".to_owned(),
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,
+            show_url_entry: false,
+            show_wave_source: true,
+            url: RefCell::new(String::new()),
+            command_prompt_text: RefCell::new(String::new()),
         };
 
         match args.vcd {
@@ -862,6 +887,23 @@ impl State {
                 vcd.default_signal_name_type = name_type;
                 vcd.compute_signal_display_names();
             }
+            Message::CommandPromptUpdate {
+                expanded,
+                suggestions,
+            } => {
+                self.command_prompt.expanded = expanded;
+                self.command_prompt.suggestions = suggestions;
+            }
+            Message::OpenFileDialog => {
+                let mut dialog = egui_file::FileDialog::open_file(None);
+                dialog.open();
+                *self.file_dialog.borrow_mut() = Some(dialog)
+            }
+            Message::SetAboutVisible(s) => self.show_about = s,
+            Message::SetKeyHelpVisible(s) => self.show_keys = s,
+            Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
+            Message::SetDragStart(pos) => self.gesture_start_location = pos,
+            Message::Exit => {} // Handled in eframe::update
         }
     }
 

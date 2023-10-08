@@ -55,16 +55,11 @@ impl DrawingCommands {
 
 impl State {
     pub fn invalidate_draw_commands(&mut self) {
-        self.draw_commands = None;
+        *self.draw_commands.borrow_mut() = None;
     }
 
-    pub fn generate_draw_commands(
-        &mut self,
-        cfg: &DrawConfig,
-        width: f32,
-        msgs: &mut Vec<Message>,
-    ) {
-        self.draw_commands = Some(HashMap::new());
+    pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
+        let mut draw_commands = HashMap::new();
         if let Some(vcd) = &self.vcd {
             let frame_width = width;
             let max_time = BigRational::from_integer(vcd.num_timestamps.clone());
@@ -201,17 +196,17 @@ impl State {
                         }
                     }
                     // Append the signal index to the fields
-                    if let Some(draw_commands) = &mut self.draw_commands {
-                        local_commands.into_iter().for_each(|(path, val)| {
-                            draw_commands.insert((sig.real_idx().clone(), path), val);
-                        });
-                    }
+                    local_commands.into_iter().for_each(|(path, val)| {
+                        draw_commands.insert((sig.real_idx().clone(), path), val);
+                    });
                 });
+
+            *self.draw_commands.borrow_mut() = Some(draw_commands);
         }
     }
 
     pub fn draw_signals(
-        &mut self,
+        &self,
         msgs: &mut Vec<Message>,
         signal_offsets: &Vec<SignalDrawingInfo>,
         ui: &mut egui::Ui,
@@ -224,7 +219,7 @@ impl State {
             max_transition_width: 6,
         };
         // the draw commands have been invalidated, recompute
-        if self.draw_commands.is_none() {
+        if self.draw_commands.borrow().is_none() {
             self.generate_draw_commands(&cfg, response.rect.width(), msgs);
         }
 
@@ -275,9 +270,7 @@ impl State {
 
         response
             .drag_started_by(egui::PointerButton::Middle)
-            .then(|| {
-                self.gesture_start_location = pointer_pos_canvas;
-            });
+            .then(|| msgs.push(Message::SetDragStart(pointer_pos_canvas)));
 
         if let Some(start_location) = self.gesture_start_location {
             response.dragged_by(egui::PointerButton::Middle).then(|| {
@@ -474,7 +467,7 @@ impl State {
                         }
                         _ => {}
                     }
-                    self.gesture_start_location = None;
+                    msgs.push(Message::SetDragStart(None))
                 });
         };
 
@@ -508,7 +501,7 @@ impl State {
             }
         }
 
-        if let Some(draw_commands) = &self.draw_commands {
+        if let Some(draw_commands) = &*self.draw_commands.borrow() {
             for drawing_info in signal_offsets {
                 let color = *vcd
                     .signals
