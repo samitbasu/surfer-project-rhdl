@@ -850,11 +850,11 @@ impl State {
                 if ui.link("here").clicked() {
                     self.msg_sender
                         .send(Message::LoadVcdFromUrl(
-                            "https://gitlab.com/surfer-project/surfer/uploads/aff71a356d7f74c586b54a9cd76b498c/test.vcd".to_string()
+                            "https://gitlab.com/surfer-project/surfer/uploads/aff71a356d7f74c586b54a9cd76b498c/counter.vcd".to_string()
                         ))
                         .ok();
                 }
-                ui.label("here to open an example");
+                ui.label("to open an example waveform");
             });
 
             ui.add_space(20.0);
