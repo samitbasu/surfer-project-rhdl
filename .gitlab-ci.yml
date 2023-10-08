@@ -45,6 +45,11 @@ test:
         paths:
             - target
             - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
     rules:
         - when: always
 

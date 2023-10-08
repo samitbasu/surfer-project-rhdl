@@ -338,6 +338,9 @@ pub struct State {
     show_menu: bool,
     show_keys: bool,
     open_url: bool,
+    /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
+    /// with absolute path diffs
+    show_wave_source: bool,
     url: String,
 }
 
@@ -411,6 +414,7 @@ impl State {
             show_menu: true,
             show_keys: false,
             open_url: false,
+            show_wave_source: true,
             url: "".to_owned(),
         };
 
