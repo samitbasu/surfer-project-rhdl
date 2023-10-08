@@ -211,8 +211,9 @@ impl State {
 
         let cfg = DrawConfig {
             canvas_height: response.rect.size().y,
-            line_height: 16.,
-            max_transition_width: 6,
+            line_height: self.config.theme.signalheight,
+            max_transition_width: self.config.theme.maxtransitionwidth,
+            text_height: self.config.theme.textheight,
         };
         // the draw commands have been invalidated, recompute
         if self.draw_commands.is_none() {
@@ -331,10 +332,9 @@ impl State {
             let stroke = Stroke {
                 color: color.color(user_color, ctx.theme),
                 width: self.config.theme.linewidth,
-                ..Default::default()
             };
 
-            let transition_width = (new_x - old_x).min(6.) as f32;
+            let transition_width = (new_x - old_x).min(self.config.theme.maxtransitionwidth as f32);
 
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
@@ -351,8 +351,7 @@ impl State {
                 stroke,
             ));
 
-            let text_size = ctx.cfg.line_height - 5.;
-            let char_width = text_size * (20. / 31.);
+            let char_width = ctx.cfg.text_height * (20. / 31.);
 
             let text_area = (new_x - old_x) as f32 - transition_width;
             let num_chars = (text_area / char_width).floor();
@@ -373,7 +372,7 @@ impl State {
                     trace_coords(*old_x + transition_width, 0.5),
                     Align2::LEFT_CENTER,
                     content,
-                    FontId::monospace(text_size),
+                    FontId::monospace(ctx.cfg.text_height),
                     self.config.theme.foreground,
                 );
             }
@@ -486,6 +485,7 @@ pub struct DrawConfig {
     canvas_height: f32,
     line_height: f32,
     max_transition_width: i32,
+    text_height: f32,
 }
 
 trait SignalExt {

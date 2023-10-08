@@ -76,6 +76,9 @@ pub struct SurferTheme {
     pub colors: HashMap<String, Color32>,
 
     pub linewidth: f32,
+    pub signalheight: f32,
+    pub textheight: f32,
+    pub maxtransitionwidth: i32,
 }
 
 #[derive(Debug, Deserialize)]

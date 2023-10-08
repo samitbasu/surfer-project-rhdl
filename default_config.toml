@@ -21,6 +21,9 @@ signal_dontcare = "4040ff"
 signal_weak = "808080"
 cursor = { color="b63935", width=2 }
 linewidth = 1.5
+signalheight = 16.0
+textheight = 11.0
+maxtransitionwidth = 2
 
 [theme.colors]
 Green = "6a9955"

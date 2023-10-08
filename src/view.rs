@@ -581,6 +581,7 @@ impl State {
                     ui.label(
                         egui::RichText::new(alpha_id)
                             .background_color(self.config.theme.accent_warn.background)
+                            .size(self.config.theme.textheight)
                             .monospace()
                             .color(self.config.theme.accent_warn.foreground),
                     );
@@ -598,10 +599,16 @@ impl State {
                 } else {
                     Color32::TRANSPARENT
                 };
-                ui.colored_label(focus_marker_color, "♦");
+                ui.colored_label(
+                    focus_marker_color,
+                    egui::RichText::new("♦").size(self.config.theme.textheight),
+                );
 
                 let signal_label = ui
-                    .selectable_label(false, egui::RichText::new(name))
+                    .selectable_label(
+                        false,
+                        egui::RichText::new(name).size(self.config.theme.textheight),
+                    )
                     .on_hover_text(tooltip)
                     .context_menu(|ui| {
                         let mut available_translators = if path.1.is_empty() {
@@ -755,6 +762,7 @@ impl State {
     ) {
         if let Some(cursor) = &vcd.cursor {
             let text_style = TextStyle::Monospace;
+            let text_size = self.config.theme.textheight;
             ui.style_mut().override_text_style = Some(text_style);
 
             for drawing_info in signal_offsets {
@@ -791,9 +799,9 @@ impl State {
                     let subfield = subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
 
                     if let Some((_, Some((v, _)))) = subfield {
-                        ui.label(v);
+                        ui.label(RichText::new(v).size(text_size));
                     } else {
-                        ui.label("-");
+                        ui.label(RichText::new("-").size(text_size));
                     }
                 }
             }
