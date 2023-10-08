@@ -2,6 +2,7 @@ use fastwave_backend::{ScopeIdx, SignalIdx};
 
 use crate::VcdData;
 
+#[derive(Debug)]
 pub enum SignalDescriptor {
     Id(SignalIdx),
     Name(String),
@@ -22,6 +23,7 @@ impl From<SignalIdx> for SignalDescriptor {
     }
 }
 
+#[derive(Debug)]
 pub enum ScopeDescriptor {
     Id(ScopeIdx),
     Name(String),

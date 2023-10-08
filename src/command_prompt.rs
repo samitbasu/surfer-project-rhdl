@@ -20,7 +20,7 @@ pub struct CommandPrompt {
 }
 
 pub fn show_command_prompt(
-    state: &mut State,
+    state: &State,
     ctx: &egui::Context,
     // Window size if known. If unknown defaults to a width of 200pts
     window_size: Option<Vec2>,
@@ -40,14 +40,15 @@ pub fn show_command_prompt(
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                     ui.colored_label(state.config.theme.primary_ui_color.foreground, "🏄");
 
+                    let input = &mut *state.command_prompt_text.borrow_mut();
                     let response = ui.add(
-                        egui::TextEdit::singleline(&mut state.command_prompt.input)
+                        egui::TextEdit::singleline(input)
                             .desired_width(f32::INFINITY)
                             .lock_focus(true),
                     );
 
                     if response.changed() {
-                        run_fuzzy_parser(state);
+                        run_fuzzy_parser(&input, state, msgs);
                     }
 
                     if response.lost_focus()
