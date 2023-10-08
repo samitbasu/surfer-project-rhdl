@@ -303,12 +303,12 @@ impl State {
                     .and_then(|color| self.config.theme.colors.get(&color))
                     .unwrap_or(&self.config.theme.signal_default);
 
+                // We draw in absolute coords, but the signal offset in the y
+                // direction is also in absolute coordinates, so we need to
+                // compensate for that
+                let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
                 if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
                     for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
-                        // We draw in absolute coords, but the signal offset in the y
-                        // direction is also in absolute coordinates, so we need to
-                        // compensate for that
-                        let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
                         if commands.is_bool {
                             self.draw_bool_transition((old, new), color, y_offset, &mut ctx)
                         } else {
