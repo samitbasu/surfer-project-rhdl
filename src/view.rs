@@ -867,6 +867,17 @@ impl State {
             ui.label(RichText::new(
                 "Or press space and type load_vcd or load_url",
             ));
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Or click"));
+                if ui.link("here").clicked() {
+                    self.msg_sender
+                        .send(Message::LoadVcdFromUrl(
+                            "https://app.surfer-project.org/counter.vcd".to_string(),
+                        ))
+                        .ok();
+                }
+                ui.label("to open an example waveform");
+            });
 
             ui.add_space(20.0);
             ui.separator();
