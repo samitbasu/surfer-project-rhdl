@@ -2,9 +2,10 @@ use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, RichText};
 use eframe::egui::{menu, Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
-use fastwave_backend::SignalIdx;
+use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use itertools::Itertools;
 use log::{info, trace};
+use num::{BigInt, BigRational, ToPrimitive};
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::util::uint_idx_to_alpha_idx;
@@ -49,7 +50,11 @@ impl eframe::App for State {
                         ui.label(&vcd.filename);
                         if let Some(time) = &vcd.cursor {
                             ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
-                                ui.label(format!("{}", time));
+                                ui.label(time_string(
+                                    time,
+                                    &vcd.inner.metadata,
+                                    &self.wanted_timescale,
+                                ));
                                 ui.add_space(10.0)
                             });
                         }
@@ -979,6 +984,51 @@ impl State {
                     ui.close_menu();
                     msgs.push(Message::ToggleMenu);
                 }
+                ui.separator();
+                ui.menu_button("Time scale", |ui| {
+                    if ui
+                        .radio(self.wanted_timescale == Timescale::Fs, "fs")
+                        .clicked()
+                    {
+                        msgs.push(Message::SetTimeScale(Timescale::Fs));
+                        ui.close_menu();
+                    }
+                    if ui
+                        .radio(self.wanted_timescale == Timescale::Ps, "ps")
+                        .clicked()
+                    {
+                        msgs.push(Message::SetTimeScale(Timescale::Ps));
+                        ui.close_menu();
+                    }
+                    if ui
+                        .radio(self.wanted_timescale == Timescale::Ns, "ns")
+                        .clicked()
+                    {
+                        msgs.push(Message::SetTimeScale(Timescale::Ns));
+                        ui.close_menu();
+                    }
+                    if ui
+                        .radio(self.wanted_timescale == Timescale::Us, "μs")
+                        .clicked()
+                    {
+                        msgs.push(Message::SetTimeScale(Timescale::Us));
+                        ui.close_menu();
+                    }
+                    if ui
+                        .radio(self.wanted_timescale == Timescale::Ms, "ms")
+                        .clicked()
+                    {
+                        msgs.push(Message::SetTimeScale(Timescale::Ms));
+                        ui.close_menu();
+                    }
+                    if ui
+                        .radio(self.wanted_timescale == Timescale::S, "s")
+                        .clicked()
+                    {
+                        msgs.push(Message::SetTimeScale(Timescale::S));
+                        ui.close_menu();
+                    }
+                });
             });
             ui.menu_button("Help", |ui| {
                 if ui.button("Control keys").clicked() {
@@ -992,5 +1042,42 @@ impl State {
                 }
             });
         });
+    }
+}
+
+fn time_string(time: &BigInt, metadata: &Metadata, wanted_timescale: &Timescale) -> String {
+    let wanted_exponent = timescale_to_exponent(wanted_timescale);
+    let data_exponent = timescale_to_exponent(&metadata.timescale.1);
+    let exponent_diff = wanted_exponent - data_exponent;
+    if exponent_diff >= 0 {
+        let precision = exponent_diff as usize;
+        format!(
+            "{scaledtime:.precision$} {wanted_timescale}",
+            scaledtime = BigRational::new(
+                time * metadata.timescale.0.unwrap_or(1),
+                (BigInt::from(10)).pow(exponent_diff as u32)
+            )
+            .to_f64()
+            .unwrap_or(f64::NAN)
+        )
+    } else {
+        format!(
+            "{scaledtime} {wanted_timescale}",
+            scaledtime = time
+                * metadata.timescale.0.unwrap_or(1)
+                * (BigInt::from(10)).pow(-exponent_diff as u32)
+        )
+    }
+}
+
+fn timescale_to_exponent(timescale: &Timescale) -> i8 {
+    match timescale {
+        Timescale::Fs => -15,
+        Timescale::Ps => -12,
+        Timescale::Ns => -9,
+        Timescale::Us => -6,
+        Timescale::Ms => -3,
+        Timescale::S => 0,
+        _ => 0,
     }
 }
