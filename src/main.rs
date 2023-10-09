@@ -27,6 +27,7 @@ use eframe::egui::style::WidgetVisuals;
 use eframe::egui::style::Widgets;
 use eframe::egui::DroppedFile;
 use eframe::egui::Visuals;
+use eframe::emath;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
@@ -302,6 +303,10 @@ pub enum Message {
         mouse_ptr_timestamp: Option<f64>,
         delta: f32,
     },
+    ZoomToRange {
+        start: f64,
+        end: f64,
+    },
     CursorSet(BigInt),
     LoadVcd(Utf8PathBuf),
     LoadVcdFromUrl(String),
@@ -359,6 +364,7 @@ pub struct State {
     open_url: bool,
     url: String,
     wanted_timescale: Timescale,
+    gesture_start_location: Option<emath::Pos2>,
 }
 
 impl State {
@@ -432,6 +438,7 @@ impl State {
             open_url: false,
             url: "".to_owned(),
             wanted_timescale: Timescale::Unit,
+            gesture_start_location: None,
         };
 
         match args.vcd {
@@ -691,6 +698,13 @@ impl State {
             Message::SetTimeScale(timescale) => {
                 self.invalidate_draw_commands();
                 self.wanted_timescale = timescale;
+            }
+            Message::ZoomToRange { start, end } => {
+                if let Some(vcd) = &mut self.vcd {
+                    vcd.viewport.curr_left = start;
+                    vcd.viewport.curr_right = end;
+                }
+                self.invalidate_draw_commands();
             }
             Message::SignalFormatChange(ref idx @ (ref signal_idx, ref path), format) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
