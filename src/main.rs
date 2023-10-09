@@ -4,6 +4,8 @@ mod commands;
 mod config;
 mod descriptors;
 mod signal_canvas;
+#[cfg(test)]
+mod tests;
 mod translation;
 mod util;
 mod view;
@@ -43,6 +45,7 @@ use futures_util::TryFutureExt;
 use itertools::Itertools;
 use log::error;
 use log::info;
+use log::trace;
 use num::bigint::ToBigInt;
 use num::BigInt;
 use num::FromPrimitive;
@@ -80,12 +83,20 @@ struct Args {
 }
 
 struct StartupParams {
-    spade_state: Option<Utf8PathBuf>,
-    spade_top: Option<String>,
-    vcd: Option<WaveSource>,
+    pub spade_state: Option<Utf8PathBuf>,
+    pub spade_top: Option<String>,
+    pub vcd: Option<WaveSource>,
 }
 
 impl StartupParams {
+    pub fn empty() -> Self {
+        Self {
+            spade_state: None,
+            spade_top: None,
+            vcd: None,
+        }
+    }
+
     #[allow(dead_code)] // NOTE: Only used in wasm version
     pub fn vcd_from_url(url: Option<String>) -> Self {
         Self {
@@ -362,6 +373,9 @@ pub struct State {
     show_about: bool,
     show_keys: bool,
     open_url: bool,
+    /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
+    /// with absolute path diffs
+    show_wave_source: bool,
     url: String,
     wanted_timescale: Timescale,
     gesture_start_location: Option<emath::Pos2>,
@@ -437,6 +451,7 @@ impl State {
             show_about: false,
             show_keys: false,
             open_url: false,
+            show_wave_source: true,
             url: "".to_owned(),
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,
@@ -847,6 +862,24 @@ impl State {
                 vcd.default_signal_name_type = name_type;
                 vcd.compute_signal_display_names();
             }
+        }
+    }
+
+    fn handle_async_messages(&mut self) {
+        let mut msgs = vec![];
+        loop {
+            match self.msg_receiver.try_recv() {
+                Ok(msg) => msgs.push(msg),
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    trace!("Message sender disconnected");
+                    break;
+                }
+            }
+        }
+
+        while let Some(msg) = msgs.pop() {
+            self.update(msg);
         }
     }
 
