@@ -183,8 +183,9 @@ impl eframe::App for State {
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
-                                egui::ScrollArea::horizontal()
-                                    .show(ui, |ui| self.draw_var_values(&signal_offsets, vcd, ui))
+                                egui::ScrollArea::horizontal().show(ui, |ui| {
+                                    self.draw_var_values(&signal_offsets, vcd, ui, &mut msgs)
+                                })
                             },
                         )
                     });
@@ -609,108 +610,7 @@ impl State {
                     .selectable_label(false, egui::RichText::new(name))
                     .on_hover_text(tooltip)
                     .context_menu(|ui| {
-                        let mut available_translators = if path.1.is_empty() {
-                            self.translators
-                                .all_translator_names()
-                                .into_iter()
-                                .filter(|translator_name| {
-                                    let t = self.translators.get_translator(translator_name);
-
-                                    if self
-                                        .blacklisted_translators
-                                        .contains(&(path.0, (*translator_name).clone()))
-                                    {
-                                        false
-                                    } else {
-                                        self.vcd
-                                            .as_ref()
-                                            .map(|vcd| {
-                                                let sig = vcd.inner.signal_from_signal_idx(path.0);
-
-                                                match t.translates(&sig).context(format!(
-                                            "Failed to check if {translator_name} translates {:?}",
-                                            sig.path(),
-                                        )) {
-                                                    Ok(TranslationPreference::Yes) => true,
-                                                    Ok(TranslationPreference::Prefer) => true,
-                                                    Ok(TranslationPreference::No) => false,
-                                                    Err(e) => {
-                                                        msgs.push(Message::BlacklistTranslator(
-                                                            path.0,
-                                                            (*translator_name).clone(),
-                                                        ));
-                                                        msgs.push(Message::Error(e));
-                                                        false
-                                                    }
-                                                }
-                                            })
-                                            .unwrap_or(false)
-                                    }
-                                })
-                                .collect()
-                        } else {
-                            self.translators.basic_translator_names()
-                        };
-
-                        available_translators.sort_by(|a, b| human_sort::compare(a, b));
-                        let format_menu = available_translators
-                            .iter()
-                            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
-                            .collect::<Vec<_>>();
-
-                        ui.menu_button("Format", |ui| {
-                            for (name, msg) in format_menu {
-                                ui.button(name).clicked().then(|| {
-                                    ui.close_menu();
-                                    msgs.push(msg);
-                                });
-                            }
-                        });
-
-                        ui.menu_button("Color", |ui| {
-                            for color_name in self.config.theme.colors.keys() {
-                                ui.button(color_name).clicked().then(|| {
-                                    ui.close_menu();
-                                    msgs.push(Message::SignalColorChange(
-                                        Some(vidx),
-                                        color_name.clone(),
-                                    ));
-                                });
-                            }
-                        });
-
-                        ui.menu_button("Name", |ui| {
-                            let name_types = vec![
-                                ("Local", SignalNameType::Local),
-                                ("Global", SignalNameType::Global),
-                                ("Unique", SignalNameType::Unique),
-                            ];
-                            let signal_name_type = self
-                                .vcd
-                                .as_ref()
-                                .map(|vcd| vcd.signals[vidx].display_name_type)
-                                .unwrap();
-                            for name_type in name_types {
-                                let label_text = if signal_name_type == name_type.1 {
-                                    RichText::new(name_type.0)
-                                        .color(self.config.theme.accent_info.background)
-                                } else {
-                                    RichText::new(name_type.0)
-                                };
-                                ui.button(label_text).clicked().then(|| {
-                                    ui.close_menu();
-                                    msgs.push(Message::ChangeSignalNameType(
-                                        Some(vidx),
-                                        name_type.1,
-                                    ));
-                                });
-                            }
-                        });
-
-                        if ui.button("Remove").clicked() {
-                            msgs.push(Message::RemoveSignal(vidx));
-                            ui.close_menu();
-                        }
+                        self.signal_context_menu(path, msgs, ui, vidx);
                     });
                 if signal_label.clicked() {
                     msgs.push(Message::FocusSignal(vidx))
@@ -753,17 +653,126 @@ impl State {
         }
     }
 
+    fn signal_context_menu(
+        &self,
+        path: &(SignalIdx, Vec<String>),
+        msgs: &mut Vec<Message>,
+        ui: &mut egui::Ui,
+        vidx: usize,
+    ) {
+        let mut available_translators = if path.1.is_empty() {
+            self.translators
+                .all_translator_names()
+                .into_iter()
+                .filter(|translator_name| {
+                    let t = self.translators.get_translator(translator_name);
+
+                    if self
+                        .blacklisted_translators
+                        .contains(&(path.0, (*translator_name).clone()))
+                    {
+                        false
+                    } else {
+                        self.vcd
+                            .as_ref()
+                            .map(|vcd| {
+                                let sig = vcd.inner.signal_from_signal_idx(path.0);
+
+                                match t.translates(&sig).context(format!(
+                                    "Failed to check if {translator_name} translates {:?}",
+                                    sig.path(),
+                                )) {
+                                    Ok(TranslationPreference::Yes) => true,
+                                    Ok(TranslationPreference::Prefer) => true,
+                                    Ok(TranslationPreference::No) => false,
+                                    Err(e) => {
+                                        msgs.push(Message::BlacklistTranslator(
+                                            path.0,
+                                            (*translator_name).clone(),
+                                        ));
+                                        msgs.push(Message::Error(e));
+                                        false
+                                    }
+                                }
+                            })
+                            .unwrap_or(false)
+                    }
+                })
+                .collect()
+        } else {
+            self.translators.basic_translator_names()
+        };
+
+        available_translators.sort_by(|a, b| human_sort::compare(a, b));
+        let format_menu = available_translators
+            .iter()
+            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
+            .collect::<Vec<_>>();
+
+        ui.menu_button("Format", |ui| {
+            for (name, msg) in format_menu {
+                ui.button(name).clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(msg);
+                });
+            }
+        });
+
+        ui.menu_button("Color", |ui| {
+            for color_name in self.config.theme.colors.keys() {
+                ui.button(color_name).clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SignalColorChange(Some(vidx), color_name.clone()));
+                });
+            }
+        });
+
+        ui.menu_button("Name", |ui| {
+            let name_types = vec![
+                ("Local", SignalNameType::Local),
+                ("Global", SignalNameType::Global),
+                ("Unique", SignalNameType::Unique),
+            ];
+            let signal_name_type = self
+                .vcd
+                .as_ref()
+                .map(|vcd| vcd.signals[vidx].display_name_type)
+                .unwrap();
+            for name_type in name_types {
+                let label_text = if signal_name_type == name_type.1 {
+                    RichText::new(name_type.0).color(self.config.theme.accent_info.background)
+                } else {
+                    RichText::new(name_type.0)
+                };
+                ui.button(label_text).clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type.1));
+                });
+            }
+        });
+
+        if ui.button("Remove").clicked() {
+            msgs.push(Message::RemoveSignal(vidx));
+            ui.close_menu();
+        }
+    }
+
     fn draw_var_values(
         &self,
         signal_offsets: &Vec<SignalDrawingInfo>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
+        msgs: &mut Vec<Message>,
     ) {
         if let Some(cursor) = &vcd.cursor {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
 
-            for drawing_info in signal_offsets.iter().sorted_by_key(|o| o.offset as i32) {
+            for (vidx, drawing_info) in signal_offsets
+                .iter()
+                .sorted_by_key(|o| o.offset as i32)
+                .enumerate()
+            {
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,
@@ -797,7 +806,9 @@ impl State {
                     let subfield = subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
 
                     if let Some((_, Some((v, _)))) = subfield {
-                        ui.label(v);
+                        ui.label(v).context_menu(|ui| {
+                            self.signal_context_menu(&(signal.real_idx(), vec![]), msgs, ui, vidx);
+                        });
                     } else {
                         ui.label("-");
                     }
