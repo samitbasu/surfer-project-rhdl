@@ -4,8 +4,8 @@ use eframe::egui::{menu, Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use itertools::Itertools;
-use num::{BigInt, BigRational, ToPrimitive};
 use log::info;
+use num::{BigInt, BigRational, ToPrimitive};
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::util::uint_idx_to_alpha_idx;
@@ -920,11 +920,7 @@ impl State {
         }
     }
 
-    fn draw_menu(
-        &mut self,
-        ui: &mut egui::Ui,
-        msgs: &mut Vec<Message>,
-    ) {
+    fn draw_menu(&mut self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]

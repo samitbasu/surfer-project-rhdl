@@ -69,6 +69,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     let mut surface = rasterize(
         (size.x as i32, size.y as i32),
         |ctx| {
+            ctx.memory_mut(|mem| mem.options.tessellation_options.feathering = false);
             ctx.set_visuals(state.get_visuals());
 
             state.draw(ctx, Some(size));
