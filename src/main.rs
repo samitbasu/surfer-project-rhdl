@@ -385,6 +385,7 @@ impl State {
                 Box::new(translation::Posit8Translator {}),
                 Box::new(translation::E5M2Translator {}),
                 Box::new(translation::E4M3Translator {}),
+                Box::new(translation::RiscvTranslator {}),
             ],
             vec![Box::new(translation::clock::ClockTranslator::new())],
         );
