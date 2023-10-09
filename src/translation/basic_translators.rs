@@ -691,6 +691,78 @@ impl BasicTranslator for E4M3Translator {
     }
 }
 
+pub struct RiscvTranslator {}
+
+impl BasicTranslator for RiscvTranslator {
+    fn name(&self) -> String {
+        "RV32I".to_string()
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        let u32_value = match value {
+            SignalValue::BigUint(v) => v.to_u32_digits().last().cloned(),
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => return v,
+                None => s.parse().ok(),
+            },
+        };
+
+        match asm_riscv::I::try_from(u32_value.unwrap_or(0)) {
+            Ok(insn) => (format!("{}", riscv_to_string(&insn)), ValueKind::Normal),
+            Err(_) => (format!("UNKNOWN INSN"), ValueKind::Warn),
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        check_single_wordlength(signal.num_bits(), 32)
+    }
+}
+
+fn riscv_to_string(i: &asm_riscv::I) -> String {
+    match i {
+        asm_riscv::I::LUI { d, im } => format!("lui {d:?}, {im:?}"),
+        asm_riscv::I::AUIPC { d, im } => format!("auipc {d:?}, {im:?}"),
+        asm_riscv::I::JAL { d, im } => format!("jal {d:?}, {im:?}"),
+        asm_riscv::I::JALR { d, s, im } => format!("jalr {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::BEQ { s1, s2, im } => format!("beq {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::BNE { s1, s2, im } => format!("bne {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::BLT { s1, s2, im } => format!("blt {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::BGE { s1, s2, im } => format!("bge {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::BLTU { s1, s2, im } => format!("bltu {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::BGEU { s1, s2, im } => format!("bgeu {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::LB { d, s, im } => format!("lb {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::LH { d, s, im } => format!("lh {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::LW { d, s, im } => format!("lw {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::LBU { d, s, im } => format!("lbu {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::LHU { d, s, im } => format!("lhu {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::SB { s1, s2, im } => format!("sb {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::SH { s1, s2, im } => format!("sh {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::SW { s1, s2, im } => format!("sw {s1:?}, {s2:?}, {im:?}"),
+        asm_riscv::I::ADDI { d, s, im } => format!("addi {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::SLTI { d, s, im } => format!("slti {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::SLTUI { d, s, im } => format!("sltui {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::XORI { d, s, im } => format!("xori {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::ORI { d, s, im } => format!("ori {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::ANDI { d, s, im } => format!("andi {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::SLLI { d, s, im } => format!("slli {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::SRLI { d, s, im } => format!("srli {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::SRAI { d, s, im } => format!("srai {d:?}, {s:?}, {im:?}"),
+        asm_riscv::I::ADD { d, s1, s2 } => format!("add {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::SUB { d, s1, s2 } => format!("sub {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::SLL { d, s1, s2 } => format!("sll {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::SLT { d, s1, s2 } => format!("slt {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::SLTU { d, s1, s2 } => format!("sltu {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::XOR { d, s1, s2 } => format!("xor {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::SRL { d, s1, s2 } => format!("srl {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::SRA { d, s1, s2 } => format!("sra {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::OR { d, s1, s2 } => format!("or {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::AND { d, s1, s2 } => format!("and {d:?}, {s1:?}, {s2:?}"),
+        asm_riscv::I::ECALL {} => format!("ecall"),
+        asm_riscv::I::EBREAK {} => format!("ebreak"),
+        asm_riscv::I::FENCE { im } => format!("fence {im:?}"),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use spade_common::num_ext::InfallibleToBigUint;

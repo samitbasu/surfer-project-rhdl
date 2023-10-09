@@ -31,6 +31,7 @@ spade-hir-lowering = {path = "spade/spade-hir-lowering"}
 tokio = {version = "1.32.0", features = ["rt", "time"]}
 vcd-translate = {path = "spade/vcd-translate"}
 ron = { version = "0.8.1", features = ["integer128"] }
+asm_riscv = "0.2.0"
 fzcmd = {path = "fzcmd"}
 web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
 config = "0.13.3"
