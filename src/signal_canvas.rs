@@ -170,7 +170,7 @@ impl State {
                             // If the value changed between this and the previous pixel, we want to
                             // draw a transition even if the translated value didn't change.  We
                             // only want to do this for root signals, because resolving when a
-                            // sub-field change is tricky wihtout more information from the
+                            // sub-field change is tricky without more information from the
                             // translators
                             let anti_alias = &change_time > prev_time && path.is_empty();
                             let new_value = prev != Some(&value);
@@ -236,9 +236,12 @@ impl State {
             line_height: 16.,
             max_transition_width: 6,
         };
-        // the draw commands have been invalidated, recompute
-        if self.draw_commands.borrow().is_none() {
+        // the draw commands have been invalidated or the viewport has been resized, recompute
+        if self.draw_commands.borrow().is_none()
+            || Some(response.rect) != *self.last_canvas_rect.borrow()
+        {
             self.generate_draw_commands(&cfg, response.rect.width(), msgs);
+            *self.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
         let Some(vcd) = &self.vcd else { return };
