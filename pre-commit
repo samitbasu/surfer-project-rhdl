@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SOURCE_DIRS=('*/src/*')
+SOURCE_DIRS=('*/src/*' "snapshots/*")
 
 function check_untracked_srcs {(
     untracked=$(git ls-files --others --exclude-standard -- ${SOURCE_DIRS[@]})

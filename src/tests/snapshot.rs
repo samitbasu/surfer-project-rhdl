@@ -11,6 +11,7 @@ use egui_skia::rasterize;
 use image::{DynamicImage, ImageOutputFormat, RgbImage};
 use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
+use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::{Message, StartupParams, State, WaveSource};
 
@@ -292,3 +293,38 @@ snapshot_empty_state_with_msgs! {
 snapshot_ui_with_file_msgs! {top_level_signals_have_no_aliasing, "examples/picorv32.vcd", [
     Message::AddScope(crate::descriptors::ScopeDescriptor::Name("testbench".to_string()))
 ]}
+
+snapshot_ui! {resizing_the_canvas_redraws, || {
+    let mut state = State::new(StartupParams {
+        vcd: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
+        spade_top: None,
+        spade_state: None,
+    }).unwrap();
+
+    loop {
+        state.handle_async_messages();
+        if state.vcd.is_some() {
+            break;
+        }
+    }
+
+    state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())));
+    state.update(Message::CursorSet(100u32.to_bigint()));
+
+    // Render the UI once with the sidebar shown
+    let size = Vec2::new(1280., 720.);
+    rasterize(
+        (size.x as i32, size.y as i32),
+        |ctx| {
+            ctx.memory_mut(|mem| mem.options.tessellation_options.feathering = false);
+            ctx.set_visuals(state.get_visuals());
+
+            state.draw(ctx, Some(size));
+        },
+        None,
+    );
+
+    state.update(Message::ToggleSidePanel);
+
+    state
+}}
