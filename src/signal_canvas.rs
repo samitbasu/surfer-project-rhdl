@@ -272,30 +272,116 @@ impl State {
             .drag_started_by(egui::PointerButton::Middle)
             .then(|| msgs.push(Message::SetDragStart(pointer_pos_canvas)));
 
+        vcd.draw_cursor(
+            &self.config.theme,
+            &mut painter,
+            response.rect.size(),
+            to_screen,
+        );
+
+        let clock_edges = vec![];
+
+        let mut ctx = DrawingContext {
+            painter: &mut painter,
+            cfg: &cfg,
+            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
+            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
+            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
+            theme: &self.config.theme,
+        };
+
+        self.draw_mouse_gesture_widget(vcd, pointer_pos_canvas, &response, msgs, &mut ctx);
+
+        let draw_clock_edges = match clock_edges.as_slice() {
+            [] => false,
+            [_single] => true,
+            [first, second, ..] => second - first > 15.,
+        };
+
+        if draw_clock_edges {
+            for clock_edge in clock_edges {
+                self.draw_clock_edge(clock_edge, &mut ctx);
+            }
+        }
+
+        if let Some(draw_commands) = &*self.draw_commands.borrow() {
+            for drawing_info in signal_offsets {
+                let color = *vcd
+                    .signals
+                    .get(drawing_info.signal_list_idx)
+                    .and_then(|signal| signal.color.clone())
+                    .and_then(|color| self.config.theme.colors.get(&color))
+                    .unwrap_or(&self.config.theme.signal_default);
+
+                // We draw in absolute coords, but the signal offset in the y
+                // direction is also in absolute coordinates, so we need to
+                // compensate for that
+                let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
+                if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
+                    for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
+                        if commands.is_bool {
+                            self.draw_bool_transition((old, new), color, y_offset, &mut ctx)
+                        } else {
+                            self.draw_region((old, new), color, y_offset, &mut ctx)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn draw_gesture_line(
+        &self,
+        start: Pos2,
+        end: Pos2,
+        text: &str,
+        active: bool,
+        ctx: &mut DrawingContext,
+    ) {
+        let stroke = Stroke {
+            color: if active {
+                self.config.theme.gesture.color
+            } else {
+                self.config.theme.gesture.color.gamma_multiply(0.3)
+            },
+            width: self.config.theme.gesture.width,
+        };
+        ctx.painter.line_segment(
+            [
+                (ctx.to_screen)(end.x, end.y),
+                (ctx.to_screen)(start.x, start.y),
+            ],
+            stroke,
+        );
+        ctx.painter.text(
+            (ctx.to_screen)(end.x, end.y),
+            Align2::LEFT_CENTER,
+            text.to_string(),
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+    }
+
+    fn draw_mouse_gesture_widget(
+        &self,
+        vcd: &VcdData,
+        pointer_pos_canvas: Option<Pos2>,
+        response: &egui::Response,
+        msgs: &mut Vec<Message>,
+        ctx: &mut DrawingContext,
+    ) {
+        let frame_width = response.rect.width();
         if let Some(start_location) = self.gesture_start_location {
             response.dragged_by(egui::PointerButton::Middle).then(|| {
                 let current_location = pointer_pos_canvas.unwrap();
                 match gesture_type(start_location, current_location) {
-                    Some(GestureKind::ZoomToFit) => {
-                        let stroke = Stroke {
-                            color: self.config.theme.gesture.color,
-                            width: self.config.theme.gesture.width,
-                        };
-                        painter.line_segment(
-                            [
-                                to_screen.transform_pos(current_location),
-                                to_screen.transform_pos(start_location),
-                            ],
-                            stroke,
-                        );
-                        painter.text(
-                            to_screen.transform_pos(current_location),
-                            Align2::LEFT_CENTER,
-                            "Zoom to fit".to_string(),
-                            FontId::default(),
-                            self.config.theme.foreground,
-                        );
-                    }
+                    Some(GestureKind::ZoomToFit) => self.draw_gesture_line(
+                        start_location,
+                        current_location,
+                        "Zoom to fit",
+                        true,
+                        ctx,
+                    ),
                     Some(GestureKind::ZoomIn) => {
                         let stroke = Stroke {
                             color: self.config.theme.gesture.color,
@@ -305,27 +391,21 @@ impl State {
                         let starty = start_location.y;
                         let endx = current_location.x;
                         let height = response.rect.size().y;
-                        painter.line_segment(
+                        ctx.painter.line_segment(
                             [
-                                to_screen.transform_pos(Pos2 { x: startx, y: 0.0 }),
-                                to_screen.transform_pos(Pos2 {
-                                    x: startx,
-                                    y: height,
-                                }),
+                                (ctx.to_screen)(startx, 0.0),
+                                (ctx.to_screen)(startx, height),
                             ],
                             stroke,
                         );
-                        painter.line_segment(
-                            [
-                                to_screen.transform_pos(Pos2 { x: endx, y: 0.0 }),
-                                to_screen.transform_pos(Pos2 { x: endx, y: height }),
-                            ],
+                        ctx.painter.line_segment(
+                            [(ctx.to_screen)(endx, 0.0), (ctx.to_screen)(endx, height)],
                             stroke,
                         );
-                        painter.line_segment(
+                        ctx.painter.line_segment(
                             [
-                                to_screen.transform_pos(start_location),
-                                to_screen.transform_pos(Pos2 { x: endx, y: starty }),
+                                (ctx.to_screen)(start_location.x, start_location.y),
+                                (ctx.to_screen)(endx, starty),
                             ],
                             stroke,
                         );
@@ -334,8 +414,8 @@ impl State {
                         } else {
                             (startx, endx)
                         };
-                        painter.text(
-                            to_screen.transform_pos(current_location),
+                        ctx.painter.text(
+                            (ctx.to_screen)(current_location.x, current_location.y),
                             Align2::LEFT_CENTER,
                             format!(
                                 "Zoom in: {} to {}",
@@ -363,66 +443,35 @@ impl State {
                         );
                     }
                     Some(GestureKind::ScrollToStart) => {
-                        let stroke = Stroke {
-                            color: self.config.theme.gesture.color,
-                            width: self.config.theme.gesture.width,
-                        };
-                        painter.line_segment(
-                            [
-                                to_screen.transform_pos(current_location),
-                                to_screen.transform_pos(start_location),
-                            ],
-                            stroke,
-                        );
-                        painter.text(
-                            to_screen.transform_pos(current_location),
-                            Align2::LEFT_CENTER,
-                            "Scroll to start".to_string(),
-                            FontId::default(),
-                            self.config.theme.foreground,
+                        self.draw_gesture_line(
+                            start_location,
+                            current_location,
+                            "Scroll to start",
+                            true,
+                            ctx,
                         );
                     }
                     Some(GestureKind::ScrollToEnd) => {
-                        let stroke = Stroke {
-                            color: self.config.theme.gesture.color,
-                            width: self.config.theme.gesture.width,
-                        };
-                        painter.line_segment(
-                            [
-                                to_screen.transform_pos(current_location),
-                                to_screen.transform_pos(start_location),
-                            ],
-                            stroke,
-                        );
-                        painter.text(
-                            to_screen.transform_pos(current_location),
-                            Align2::LEFT_CENTER,
-                            "Scroll to end".to_string(),
-                            FontId::default(),
-                            self.config.theme.foreground,
+                        self.draw_gesture_line(
+                            start_location,
+                            current_location,
+                            "Scroll to end",
+                            true,
+                            ctx,
                         );
                     }
                     Some(GestureKind::ZoomOut) => {
-                        let stroke = Stroke {
-                            color: self.config.theme.gesture.color,
-                            width: self.config.theme.gesture.width,
-                        };
-                        painter.line_segment(
-                            [
-                                to_screen.transform_pos(current_location),
-                                to_screen.transform_pos(start_location),
-                            ],
-                            stroke,
-                        );
-                        painter.text(
-                            to_screen.transform_pos(current_location),
-                            Align2::LEFT_CENTER,
-                            "Zoom out".to_string(),
-                            FontId::default(),
-                            self.config.theme.foreground,
+                        self.draw_gesture_line(
+                            start_location,
+                            current_location,
+                            "Zoom out",
+                            true,
+                            ctx,
                         );
                     }
-                    _ => {}
+                    _ => {
+                        self.draw_gesture_line(start_location, current_location, "", false, ctx);
+                    }
                 }
             });
 
@@ -470,61 +519,6 @@ impl State {
                     msgs.push(Message::SetDragStart(None))
                 });
         };
-
-        vcd.draw_cursor(
-            &self.config.theme,
-            &mut painter,
-            response.rect.size(),
-            to_screen,
-        );
-
-        let clock_edges = vec![];
-
-        let mut ctx = DrawingContext {
-            painter: &mut painter,
-            cfg: &cfg,
-            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
-            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
-            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
-            theme: &self.config.theme,
-        };
-
-        let draw_clock_edges = match clock_edges.as_slice() {
-            [] => false,
-            [_single] => true,
-            [first, second, ..] => second - first > 15.,
-        };
-
-        if draw_clock_edges {
-            for clock_edge in clock_edges {
-                self.draw_clock_edge(clock_edge, &mut ctx);
-            }
-        }
-
-        if let Some(draw_commands) = &*self.draw_commands.borrow() {
-            for drawing_info in signal_offsets {
-                let color = *vcd
-                    .signals
-                    .get(drawing_info.signal_list_idx)
-                    .and_then(|signal| signal.color.clone())
-                    .and_then(|color| self.config.theme.colors.get(&color))
-                    .unwrap_or(&self.config.theme.signal_default);
-
-                // We draw in absolute coords, but the signal offset in the y
-                // direction is also in absolute coordinates, so we need to
-                // compensate for that
-                let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
-                if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
-                    for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
-                        if commands.is_bool {
-                            self.draw_bool_transition((old, new), color, y_offset, &mut ctx)
-                        } else {
-                            self.draw_region((old, new), color, y_offset, &mut ctx)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     fn draw_region(
