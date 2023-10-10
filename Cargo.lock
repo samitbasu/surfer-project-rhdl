@@ -4115,6 +4115,7 @@ dependencies = [
  "color-eyre",
  "config",
  "console_error_panic_hook",
+ "derivative",
  "directories",
  "dssim",
  "eframe",

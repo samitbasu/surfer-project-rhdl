@@ -194,6 +194,18 @@ macro_rules! snapshot_ui {
     };
 }
 
+macro_rules! snapshot_empty_state_with_msgs {
+    ($name:ident, $msgs:expr) => {
+        snapshot_ui! {$name, || {
+            let mut state = State::new(StartupParams::empty()).unwrap();
+            for msg in $msgs {
+                state.update(msg);
+            }
+            state
+        }}
+    };
+}
+
 snapshot_ui! {startup_screen_looks_fine, || {
     State::new(StartupParams::empty()).unwrap()
 }}
@@ -235,3 +247,15 @@ snapshot_ui! {example_vcd_renders, || {
 
     state
 }}
+
+// NOTE: This test is currently wrong, it should render windows but due to an upstream
+// bug, https://github.com/lucasmerlin/egui_skia/issues/11, it does not render them at all.
+snapshot_empty_state_with_msgs! {
+    dialogs_work,
+    [
+        Message::SetUrlEntryVisible(true),
+        Message::OpenFileDialog,
+        Message::SetAboutVisible(true),
+        Message::SetKeyHelpVisible(true)
+    ]
+}
