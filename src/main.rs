@@ -407,7 +407,10 @@ impl State {
                 Box::new(translation::E4M3Translator {}),
                 Box::new(translation::RiscvTranslator {}),
             ],
-            vec![Box::new(translation::clock::ClockTranslator::new())],
+            vec![
+                Box::new(translation::clock::ClockTranslator::new()),
+                Box::new(translation::StringTranslator {}),
+            ],
         );
 
         // Long running translators which we load in a thread

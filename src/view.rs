@@ -645,7 +645,11 @@ impl State {
                     offset,
                 });
             }
-            SignalInfo::Bool | SignalInfo::Bits | SignalInfo::Clock => {
+            SignalInfo::Bool
+            | SignalInfo::Bits
+            | SignalInfo::Clock
+            | SignalInfo::String
+            | SignalInfo::Real => {
                 let label = draw_label(ui);
                 signal_offsets.push(SignalDrawingInfo {
                     tidx: path.clone(),
