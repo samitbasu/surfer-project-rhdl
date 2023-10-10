@@ -24,6 +24,10 @@ pub enum GestureKind {
 
 pub struct DrawnRegion {
     inner: Option<(String, ValueKind)>,
+    /// True if a transition should be drawn even if there is no change in the value
+    /// between the previous and next pixels. Only used by the bool drawing logic to
+    /// draw draw a vertical line and prevent apparent aliasing
+    force_anti_alias: bool,
 }
 
 /// List of values to draw for a signal. It is an ordered list of values that should
@@ -168,8 +172,16 @@ impl State {
                         for (path, value) in fields {
                             let prev = prev_values.get(&path);
 
+                            // If the value changed between this and the previous pixel, we want to
+                            // draw a transition even if the translated value didn't change.  We
+                            // only want to do this for root signals, because resolving when a
+                            // sub-field change is tricky wihtout more information from the
+                            // translators
+                            let anti_alias = &change_time > prev_time && path.is_empty();
+                            let new_value = prev != Some(&value);
+
                             // This is not the value we drew last time
-                            if prev != Some(&value) || is_last_timestep {
+                            if new_value || is_last_timestep || anti_alias {
                                 *prev_values.entry(path.clone()).or_insert(value.clone()) =
                                     value.clone();
 
@@ -196,7 +208,13 @@ impl State {
                                             DrawingCommands::new_wide()
                                         }
                                     })
-                                    .push((*pixel, DrawnRegion { inner: value }))
+                                    .push((
+                                        *pixel,
+                                        DrawnRegion {
+                                            inner: value,
+                                            force_anti_alias: anti_alias && !new_value,
+                                        },
+                                    ))
                             }
                         }
                     }
@@ -524,7 +542,13 @@ impl State {
                 if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
                     for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
                         if commands.is_bool {
-                            self.draw_bool_transition((old, new), color, y_offset, &mut ctx)
+                            self.draw_bool_transition(
+                                (old, new),
+                                new.1.force_anti_alias,
+                                color,
+                                y_offset,
+                                &mut ctx,
+                            )
                         } else {
                             self.draw_region((old, new), color, y_offset, &mut ctx)
                         }
@@ -596,6 +620,7 @@ impl State {
     fn draw_bool_transition(
         &self,
         ((old_x, prev_region), (new_x, new_region)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
+        force_anti_alias: bool,
         color: Color32,
         offset: f32,
         ctx: &mut DrawingContext,
@@ -605,15 +630,20 @@ impl State {
         {
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
-            let (old_height, old_color, old_bg) =
+            let (mut old_height, old_color, old_bg) =
                 prev_value.bool_drawing_spec(color, &self.config.theme, *prev_kind);
-            let (new_height, _, _) =
+            let (mut new_height, _, _) =
                 new_value.bool_drawing_spec(color, &self.config.theme, *new_kind);
 
             let stroke = Stroke {
                 color: old_color,
                 width: self.config.theme.linewidth,
             };
+
+            if force_anti_alias {
+                old_height = 0.;
+                new_height = 1.;
+            }
 
             ctx.painter.add(PathShape::line(
                 vec![
