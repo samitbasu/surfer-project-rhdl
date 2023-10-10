@@ -209,6 +209,34 @@ macro_rules! snapshot_empty_state_with_msgs {
     };
 }
 
+macro_rules! snapshot_ui_with_file_msgs {
+    ($name:ident, $file:expr, $msgs:expr) => {
+        snapshot_ui!($name, || {
+            let mut state = State::new(StartupParams {
+                vcd: Some(WaveSource::File(
+                    get_project_root().unwrap().join($file).try_into().unwrap(),
+                )),
+                spade_top: None,
+                spade_state: None,
+            })
+            .unwrap();
+
+            loop {
+                state.handle_async_messages();
+                if state.vcd.is_some() {
+                    break;
+                }
+            }
+
+            for msg in $msgs {
+                state.update(msg)
+            }
+
+            state
+        });
+    };
+}
+
 snapshot_ui! {startup_screen_looks_fine, || {
     State::new(StartupParams::empty()).unwrap()
 }}
@@ -260,3 +288,7 @@ snapshot_empty_state_with_msgs! {
         Message::SetKeyHelpVisible(true)
     ]
 }
+
+snapshot_ui_with_file_msgs! {top_level_signals_have_no_aliasing, "examples/picorv32.vcd", [
+    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("testbench".to_string()))
+]}
