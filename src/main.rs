@@ -30,6 +30,7 @@ use eframe::egui::style::Widgets;
 use eframe::egui::DroppedFile;
 use eframe::egui::Visuals;
 use eframe::emath;
+use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
@@ -369,6 +370,8 @@ pub struct State {
     /// The context to egui, we need this to change the visual settings when the config is reloaded
     context: Option<eframe::egui::Context>,
 
+    last_canvas_rect: Option<Rect>,
+
     file_dialog: Option<egui_file::FileDialog>,
     show_about: bool,
     show_keys: bool,
@@ -450,6 +453,7 @@ impl State {
             },
             draw_commands: None,
             context: None,
+            last_canvas_rect: None,
             file_dialog: None,
             show_about: false,
             show_keys: false,
