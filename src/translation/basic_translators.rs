@@ -13,7 +13,7 @@ use spade_common::num_ext::InfallibleToBigUint;
 // Forms groups of n chars from from a string. If the string size is
 // not divisible by n, the first group will be smaller than n
 // The string must only consist of ascii characters
-fn group_n_chars<'a>(s: &'a str, n: usize) -> Vec<&'a str> {
+fn group_n_chars(s: &str, n: usize) -> Vec<&str> {
     let num_extra_chars = s.len() % n;
 
     let last_group = &s[0..num_extra_chars];
@@ -605,7 +605,7 @@ fn decode_e5m2(v: u8) -> (String, ValueKind) {
         (0, ..) => (
             format!(
                 "{fp:e}",
-                fp = ((sign * mant as i8) as f32) * 0.0000152587890625f32 // 0.0000152587890625 = 2^-16
+                fp = ((sign * mant as i8) as f32) * 0.000_015_258_789_f32 // 0.0000152587890625 = 2^-16
             ),
             ValueKind::Normal,
         ),
@@ -708,8 +708,8 @@ impl BasicTranslator for RiscvTranslator {
         };
 
         match asm_riscv::I::try_from(u32_value.unwrap_or(0)) {
-            Ok(insn) => (format!("{}", riscv_to_string(&insn)), ValueKind::Normal),
-            Err(_) => (format!("UNKNOWN INSN"), ValueKind::Warn),
+            Ok(insn) => (riscv_to_string(&insn).to_string(), ValueKind::Normal),
+            Err(_) => ("UNKNOWN INSN".to_string(), ValueKind::Warn),
         }
     }
 
@@ -757,8 +757,8 @@ fn riscv_to_string(i: &asm_riscv::I) -> String {
         asm_riscv::I::SRA { d, s1, s2 } => format!("sra {d:?}, {s1:?}, {s2:?}"),
         asm_riscv::I::OR { d, s1, s2 } => format!("or {d:?}, {s1:?}, {s2:?}"),
         asm_riscv::I::AND { d, s1, s2 } => format!("and {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::ECALL {} => format!("ecall"),
-        asm_riscv::I::EBREAK {} => format!("ebreak"),
+        asm_riscv::I::ECALL {} => "ecall".to_string(),
+        asm_riscv::I::EBREAK {} => "ebreak".to_string(),
         asm_riscv::I::FENCE { im } => format!("fence {im:?}"),
     }
 }

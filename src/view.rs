@@ -180,7 +180,7 @@ impl State {
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
                                 egui::ScrollArea::horizontal()
-                                    .show(ui, |ui| self.draw_var_list(&mut msgs, &vcd, ui))
+                                    .show(ui, |ui| self.draw_var_list(&mut msgs, vcd, ui))
                                     .inner
                             },
                         )
@@ -565,7 +565,7 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             let tooltip = if let Some(vcd) = &self.vcd {
-                if path.1.len() == 0 {
+                if path.1.is_empty() {
                     format!(
                         "{}\nNum bits: {}",
                         vcd.ids_to_fullnames.get(&path.0).unwrap_or(&"".to_string()),
@@ -626,7 +626,7 @@ impl State {
             SignalInfo::Compound { subfields } => {
                 let response = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
-                    egui::Id::new(&path),
+                    egui::Id::new(path),
                     false,
                 )
                 .show_header(ui, draw_label)
@@ -794,7 +794,7 @@ impl State {
                 }
 
                 let translation_result = signal
-                    .query_val_on_tmln(&num::BigInt::to_biguint(&cursor).unwrap(), &vcd.inner)
+                    .query_val_on_tmln(&num::BigInt::to_biguint(cursor).unwrap(), &vcd.inner)
                     .map(|(_time, value)| translator.translate(&signal, &value));
 
                 if let Ok(Ok(s)) = translation_result {

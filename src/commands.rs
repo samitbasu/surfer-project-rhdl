@@ -32,19 +32,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
     }
 
     let scopes = match &state.vcd {
-        Some(v) => v
-            .scopes_to_ids
-            .keys()
-            .map(|s| s.clone())
-            .collect::<Vec<_>>(),
+        Some(v) => v.scopes_to_ids.keys().cloned().collect::<Vec<_>>(),
         None => vec![],
     };
     let signals = match &state.vcd {
-        Some(v) => v
-            .signals_to_ids
-            .keys()
-            .map(|s| s.clone())
-            .collect::<Vec<_>>(),
+        Some(v) => v.signals_to_ids.keys().cloned().collect::<Vec<_>>(),
         None => vec![],
     };
     let displayed_signals = match &state.vcd {
@@ -81,13 +73,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         })
         .unwrap_or_default();
 
-    let color_names = state
-        .config
-        .theme
-        .colors
-        .keys()
-        .map(|k| k.clone())
-        .collect_vec();
+    let color_names = state.config.theme.colors.keys().cloned().collect_vec();
 
     fn vcd_files() -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {

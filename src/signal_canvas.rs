@@ -114,19 +114,14 @@ impl State {
                     let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
                     // The first pixel we actually draw is the second pixel in the
                     // list, since we skip one pixel to have a previous value
-                    let start_pixel = timestamps
-                        .iter()
-                        .skip(1)
-                        .next()
-                        .map(|t| t.0)
-                        .unwrap_or_default();
+                    let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
 
                     // Iterate over all the time stamps to draw on
                     for ((_, prev_time), (pixel, time)) in
                         timestamps.iter().zip(timestamps.iter().skip(1))
                     {
                         let (change_time, val) =
-                            if let Ok(v) = sig.query_val_on_tmln(&time, &vcd.inner) {
+                            if let Ok(v) = sig.query_val_on_tmln(time, &vcd.inner) {
                                 v
                             } else {
                                 // If there is no value here, skip this iteration
@@ -203,7 +198,7 @@ impl State {
                     // Append the signal index to the fields
                     if let Some(draw_commands) = &mut self.draw_commands {
                         local_commands.into_iter().for_each(|(path, val)| {
-                            draw_commands.insert((sig.real_idx().clone(), path), val);
+                            draw_commands.insert((sig.real_idx(), path), val);
                         });
                     }
                 });
@@ -547,7 +542,7 @@ impl State {
                 width: self.config.theme.linewidth,
             };
 
-            let transition_width = (new_x - old_x).min(6.) as f32;
+            let transition_width = (new_x - old_x).min(6.);
 
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
@@ -567,7 +562,7 @@ impl State {
             let text_size = ctx.cfg.line_height - 5.;
             let char_width = text_size * (20. / 31.);
 
-            let text_area = (new_x - old_x) as f32 - transition_width;
+            let text_area = (new_x - old_x) - transition_width;
             let num_chars = (text_area / char_width).floor();
             let fits_text = num_chars >= 1.;
 
@@ -576,7 +571,7 @@ impl State {
                     prev_value
                         .chars()
                         .take(num_chars as usize - 1)
-                        .chain(['…'].into_iter())
+                        .chain(['…'])
                         .collect::<String>()
                 } else {
                     prev_value.to_string()
@@ -714,7 +709,7 @@ impl ValueKind {
             ValueKind::Undef => theme.signal_undef,
             ValueKind::DontCare => theme.signal_dontcare,
             ValueKind::Warn => theme.signal_undef,
-            ValueKind::Custom(custom_color) => custom_color.clone(),
+            ValueKind::Custom(custom_color) => *custom_color,
             ValueKind::Weak => theme.signal_weak,
             ValueKind::Normal => user_color,
         }
@@ -756,7 +751,7 @@ impl SignalExt for String {
 }
 
 fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind> {
-    let tan225 = 0.41421356237;
+    let tan225 = 0.414_213_57;
     let delta = end_location - start_location;
 
     if delta.x < 0.0 {
@@ -776,22 +771,20 @@ fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind>
             // South
             None
         }
+    } else if delta.x * tan225 > delta.y.abs() {
+        // East
+        Some(GestureKind::ZoomIn)
+    } else if delta.y < 0.0 && delta.x > -delta.y * tan225 {
+        // North east
+        Some(GestureKind::ZoomOut)
+    } else if delta.y > 0.0 && delta.x > delta.y * tan225 {
+        // South east
+        Some(GestureKind::ScrollToEnd)
+    // } else if delta.y > 0.0 {
+    //    // North
+    //    None
     } else {
-        if delta.x * tan225 > delta.y.abs() {
-            // East
-            Some(GestureKind::ZoomIn)
-        } else if delta.y < 0.0 && delta.x > -delta.y * tan225 {
-            // North east
-            Some(GestureKind::ZoomOut)
-        } else if delta.y > 0.0 && delta.x > delta.y * tan225 {
-            // South east
-            Some(GestureKind::ScrollToEnd)
-        // } else if delta.y > 0.0 {
-        //    // North
-        //    None
-        } else {
-            // South
-            None
-        }
+        // South
+        None
     }
 }

@@ -498,7 +498,7 @@ impl State {
 
         self.load_vcd(
             WaveSource::DragAndDrop(filename),
-            VecDeque::from_iter(bytes.into_iter().cloned()),
+            VecDeque::from_iter(bytes.iter().cloned()),
             Some(total_bytes as u64),
         );
         Ok(())
@@ -586,7 +586,7 @@ impl State {
                 if let Some(s) = descriptor.resolve(vcd) {
                     let signals = vcd.inner.get_children_signal_idxs(s);
                     for sidx in signals {
-                        if !vcd.signal_name(sidx).starts_with("_") {
+                        if !vcd.signal_name(sidx).starts_with('_') {
                             vcd.add_signal(&self.translators, sidx);
                         }
                     }
@@ -628,7 +628,7 @@ impl State {
                         }
                         MoveDir::Down => {
                             vcd.focused_signal = vcd.focused_signal.map_or(Some(0), |focused| {
-                                if focused < (visible_signals_len - 1).try_into().unwrap_or(0) {
+                                if focused < (visible_signals_len - 1) {
                                     Some(focused + 1)
                                 } else {
                                     Some(focused)
@@ -651,10 +651,8 @@ impl State {
                                 // if the end of list is selected
                                 vcd.focused_signal = Some(idx - 1);
                             }
-                        } else {
-                            if idx < focused {
-                                vcd.focused_signal = Some(focused - 1)
-                            }
+                        } else if idx < focused {
+                            vcd.focused_signal = Some(focused - 1)
                         }
                         if vcd.signals.is_empty() {
                             vcd.focused_signal = None;
@@ -695,9 +693,9 @@ impl State {
                 mouse_ptr_timestamp,
             } => {
                 self.invalidate_draw_commands();
-                self.vcd
-                    .as_mut()
-                    .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
+                if let Some(vcd) = self.vcd.as_mut() {
+                    vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64)
+                }
             }
             Message::ZoomToFit => {
                 self.invalidate_draw_commands();
@@ -893,8 +891,8 @@ impl State {
             // One scroll event yields 50
             let scroll_step = -(vcd.viewport.curr_right - vcd.viewport.curr_left) / (50. * 20.);
 
-            let target_left = &vcd.viewport.curr_left + scroll_step * delta.y as f64;
-            let target_right = &vcd.viewport.curr_right + scroll_step * delta.y as f64;
+            let target_left = vcd.viewport.curr_left + scroll_step * delta.y as f64;
+            let target_right = vcd.viewport.curr_right + scroll_step * delta.y as f64;
 
             vcd.viewport.curr_left = target_left;
             vcd.viewport.curr_right = target_right;
@@ -967,7 +965,6 @@ impl State {
                 hovered: widget_style,
                 active: widget_style,
                 open: widget_style,
-                ..Default::default()
             },
             ..Visuals::dark()
         }
@@ -1116,7 +1113,7 @@ impl VcdData {
             .map(|idx| {
                 self.ids_to_fullnames
                     .get(&idx)
-                    .map(|name| name.clone())
+                    .cloned()
                     .unwrap_or_else(|| self.inner.signal_from_signal_idx(idx).name())
                     .clone()
             })
@@ -1135,7 +1132,7 @@ impl VcdData {
                     /// This function takes a full signal name and a list of other
                     /// full signal names and returns a minimal unique signal name.
                     /// It takes scopes from the back of the signal until the name is unique.
-                    fn unique(signal: String, signals: &Vec<String>) -> String {
+                    fn unique(signal: String, signals: &[String]) -> String {
                         // if the full signal name is very short just return it
                         if signal.len() < 20 {
                             return signal;
