@@ -886,7 +886,7 @@ impl State {
                 if ui.link("here").clicked() {
                     self.msg_sender
                         .send(Message::LoadVcdFromUrl(
-                            "https://app.surfer-project.org/counter.vcd".to_string(),
+                            "https://app.surfer-project.org/picorv32.vcd".to_string(),
                         ))
                         .ok();
                 }
