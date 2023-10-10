@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use color_eyre::Result;
 use eframe::epaint::Color32;
-use fastwave_backend::{Signal, SignalValue};
+use fastwave_backend::{Signal, SignalType, SignalValue};
 
 mod basic_translators;
 pub mod clock;
@@ -256,6 +256,8 @@ pub enum SignalInfo {
     Bits,
     Bool,
     Clock,
+    String,
+    Real,
 }
 
 impl SignalInfo {
@@ -272,6 +274,8 @@ impl SignalInfo {
                 SignalInfo::Bits => panic!(),
                 SignalInfo::Bool => panic!(),
                 SignalInfo::Clock => panic!(),
+                SignalInfo::String => panic!(),
+                SignalInfo::Real => panic!(),
             },
         }
     }
@@ -300,8 +304,15 @@ pub trait Translator {
 pub trait BasicTranslator {
     fn name(&self) -> String;
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
-    fn translates(&self, _signal: &Signal) -> Result<TranslationPreference> {
-        Ok(TranslationPreference::Yes)
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.signal_type() == Some(&SignalType::Str)
+            || signal.signal_type() == Some(&SignalType::Real)
+            || signal.signal_type() == Some(&SignalType::RealTime)
+        {
+            Ok(TranslationPreference::No)
+        } else {
+            Ok(TranslationPreference::Yes)
+        }
     }
 }
 
@@ -332,5 +343,37 @@ impl Translator for Box<dyn BasicTranslator> {
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
         self.as_ref().translates(signal)
+    }
+}
+
+pub struct StringTranslator {}
+
+impl Translator for StringTranslator {
+    fn name(&self) -> String {
+        "String".to_string()
+    }
+
+    fn translate(&self, _signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
+        match value {
+            SignalValue::BigUint(_) => panic!(),
+            SignalValue::String(s) => Ok(TranslationResult {
+                val: ValueRepr::String((*s).to_string()),
+                color: ValueKind::Normal,
+                subfields: vec![],
+                durations: HashMap::new(),
+            }),
+        }
+    }
+
+    fn signal_info(&self, _signal: &Signal, _name: &str) -> Result<SignalInfo> {
+        Ok(SignalInfo::String)
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        if signal.signal_type() == Some(&SignalType::Str) {
+            Ok(TranslationPreference::Prefer)
+        } else {
+            Ok(TranslationPreference::No)
+        }
     }
 }
