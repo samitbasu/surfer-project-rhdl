@@ -370,7 +370,10 @@ impl Translator for StringTranslator {
     }
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.signal_type() == Some(&SignalType::Str) {
+        if signal.signal_type() == Some(&SignalType::Str)
+            || signal.signal_type() == Some(&SignalType::Real)
+            || signal.signal_type() == Some(&SignalType::RealTime)
+        {
             Ok(TranslationPreference::Prefer)
         } else {
             Ok(TranslationPreference::No)
