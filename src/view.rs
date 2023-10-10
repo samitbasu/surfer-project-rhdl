@@ -32,12 +32,22 @@ impl eframe::App for State {
         #[cfg(target_arch = "wasm32")]
         let window_size = None;
 
-        self.draw(ctx, window_size)
+        let mut msgs = self.draw(ctx, window_size);
+
+        while let Some(msg) = msgs.pop() {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Message::Exit = msg {
+                frame.close()
+            }
+            self.update(msg);
+        }
+
+        self.handle_async_messages();
     }
 }
 
 impl State {
-    pub(crate) fn draw(&mut self, ctx: &egui::Context, window_size: Option<Vec2>) {
+    pub(crate) fn draw(&self, ctx: &egui::Context, window_size: Option<Vec2>) -> Vec<Message> {
         let max_width = ctx.available_rect().width();
         let max_height = ctx.available_rect().height();
 
@@ -75,7 +85,7 @@ impl State {
                 });
         }
 
-        if let Some(dialog) = &mut self.file_dialog {
+        if let Some(dialog) = &mut *self.file_dialog.borrow_mut() {
             if dialog.show(ctx).selected() {
                 if let Some(file) = dialog.path() {
                     msgs.push(Message::LoadVcd(
@@ -263,12 +273,12 @@ impl State {
                         ui.hyperlink_to(" repository", "https://gitlab.com/surfer-project/surfer");
                         ui.add_space(10.);
                         if ui.button("Close").clicked() {
-                            self.show_about = false;
+                            msgs.push(Message::SetAboutVisible(false))
                         }
                     });
                 });
             if !open {
-                self.show_about = false;
+                msgs.push(Message::SetAboutVisible(false))
             }
         }
 
@@ -291,16 +301,16 @@ impl State {
                         );
                         ui.add_space(10.);
                         if ui.button("Close").clicked() {
-                            self.show_keys = false;
+                            msgs.push(Message::SetKeyHelpVisible(false))
                         }
                     });
                 });
             if !open {
-                self.show_keys = false;
+                msgs.push(Message::SetKeyHelpVisible(false))
             }
         }
 
-        if self.open_url {
+        if self.show_url_entry {
             let mut open = true;
             egui::Window::new("Load URL")
                 .open(&mut open)
@@ -308,24 +318,23 @@ impl State {
                 .resizable(true)
                 .show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
-                        ui.text_edit_singleline(&mut self.url);
+                        let url = &mut *self.url.borrow_mut();
+                        ui.text_edit_singleline(url);
                         ui.horizontal(|ui| {
                             if ui.button("Load URL").clicked() {
-                                msgs.push(Message::LoadVcdFromUrl(self.url.clone()));
-                                self.open_url = false;
+                                msgs.push(Message::LoadVcdFromUrl(url.clone()));
+                                msgs.push(Message::SetUrlEntryVisible(false))
                             }
                             if ui.button("Cancel").clicked() {
-                                self.open_url = false;
+                                msgs.push(Message::SetUrlEntryVisible(false))
                             }
                         });
                     });
                 });
             if !open {
-                self.open_url = false;
+                msgs.push(Message::SetUrlEntryVisible(false))
             }
         }
-
-        self.control_key = ctx.input(|i| i.modifiers.ctrl);
 
         ctx.input(|i| {
             i.raw.dropped_files.iter().for_each(|file| {
@@ -333,6 +342,8 @@ impl State {
                 msgs.push(Message::FileDropped(file.clone()))
             })
         });
+
+        let control_key = ctx.input(|i| i.modifiers.ctrl);
 
         ctx.input(|i| {
             i.events.iter().for_each(|event| match event {
@@ -357,28 +368,28 @@ impl State {
                         delta: 0.5,
                     }),
                     (Key::J, true, false) => {
-                        if self.control_key {
+                        if control_key {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
                         } else {
                             msgs.push(Message::MoveFocus(MoveDir::Down));
                         }
                     }
                     (Key::K, true, false) => {
-                        if self.control_key {
+                        if control_key {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
                         } else {
                             msgs.push(Message::MoveFocus(MoveDir::Up));
                         }
                     }
                     (Key::ArrowDown, true, false) => {
-                        if self.control_key {
+                        if control_key {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
                         } else {
                             msgs.push(Message::MoveFocus(MoveDir::Down));
                         }
                     }
                     (Key::ArrowUp, true, false) => {
-                        if self.control_key {
+                        if control_key {
                             msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
                         } else {
                             msgs.push(Message::MoveFocus(MoveDir::Up));
@@ -404,38 +415,11 @@ impl State {
             })
         });
 
-        self.handle_ctrlc(ctx);
-
-        while let Some(msg) = msgs.pop() {
-            self.update(msg);
-        }
-        self.handle_async_messages();
+        msgs
     }
 }
 
 impl State {
-    fn handle_ctrlc(&self, ctx: &egui::Context) {
-        // Always repaint even if we're in the background. This is needed in order
-        // to handle ctrl+c correctly
-        ctx.request_repaint();
-
-        // NOTE: This currently freezes the main thread when loading long running python
-        // plugins, since those lock the gil
-
-        // Make ctrl-c work even if no python code is being executed
-        // Python::with_gil(|py| {
-        //     let result: PyResult<()> = py.run("a=0", None, None);
-
-        //     match result {
-        //         Ok(_) => {}
-        //         Err(error) if error.is_instance_of::<PyKeyboardInterrupt>(py) => {
-        //             frame.close();
-        //         }
-        //         Err(_) => println!("Python exception in keyboard interrupt loop"),
-        //     };
-        // });
-    }
-
     pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, vcd: &VcdData, ui: &mut egui::Ui) {
         for idx in vcd.inner.root_scopes_by_idx() {
             self.draw_selectable_child_or_orphan_scope(msgs, vcd, idx, ui);
@@ -924,18 +908,21 @@ impl State {
         }
     }
 
-    fn draw_menu(&mut self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+    fn draw_menu(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]
                 if ui.button("Open file...").clicked() {
-                    let mut dialog = egui_file::FileDialog::open_file(None);
-                    dialog.open();
-                    self.file_dialog = Some(dialog);
+                    msgs.push(Message::OpenFileDialog);
                     ui.close_menu();
                 }
                 if ui.button("Open URL...").clicked() {
-                    self.open_url = true;
+                    msgs.push(Message::SetUrlEntryVisible(true));
+                    ui.close_menu();
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                if ui.button("Exit").clicked() {
+                    msgs.push(Message::Exit);
                     ui.close_menu();
                 }
             });
@@ -1056,12 +1043,12 @@ impl State {
             ui.menu_button("Help", |ui| {
                 if ui.button("Control keys").clicked() {
                     ui.close_menu();
-                    self.show_keys = true;
+                    msgs.push(Message::SetKeyHelpVisible(true));
                 }
                 ui.separator();
                 if ui.button("About").clicked() {
                     ui.close_menu();
-                    self.show_about = true;
+                    msgs.push(Message::SetAboutVisible(true));
                 }
             });
         });
