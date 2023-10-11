@@ -1088,7 +1088,7 @@ impl VcdData {
             ),
             None => {
                 let mid_point = (right + left) * 0.5;
-                let offset = (left - right) * delta * 0.5;
+                let offset = (right - left) * delta * 0.5;
 
                 (mid_point - offset, mid_point + offset)
             }
