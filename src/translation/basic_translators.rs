@@ -155,7 +155,7 @@ fn map_to_radix(s: &String, radix: usize, num_bits: u64) -> (String, ValueKind) 
     )
 }
 
-fn check_single_wordlength(num_bits: Option<u16>, required: u16) -> Result<TranslationPreference> {
+fn check_single_wordlength(num_bits: Option<u32>, required: u32) -> Result<TranslationPreference> {
     if let Some(num_bits) = num_bits {
         if num_bits == required {
             Ok(TranslationPreference::Yes)
@@ -208,7 +208,7 @@ impl BasicTranslator for BitTranslator {
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
         if let Some(num_bits) = signal.num_bits() {
-            if num_bits == 1u16 {
+            if num_bits == 1u32 {
                 Ok(TranslationPreference::Prefer)
             } else {
                 Ok(TranslationPreference::No)
