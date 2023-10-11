@@ -1080,7 +1080,7 @@ impl VcdData {
             curr_right: right,
             ..
         } = &self.viewport;
-
+        dbg!((left, right, delta));
         let (target_left, target_right) = match mouse_ptr_timestamp {
             Some(mouse_location) => (
                 (left - mouse_location) / delta + mouse_location,
@@ -1088,7 +1088,7 @@ impl VcdData {
             ),
             None => {
                 let mid_point = (right + left) * 0.5;
-                let offset = (left - right) * delta * 0.5;
+                let offset = (right - left) * delta * 0.5;
 
                 (mid_point - offset, mid_point + offset)
             }
