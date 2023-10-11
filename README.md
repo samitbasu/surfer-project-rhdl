@@ -20,19 +20,19 @@ binary.
 
 Surfer depends on openssl, install it via your package manager
 
-Debian/Ubuntu:
+#### Debian/Ubuntu
 ```bash
 $sudo apt install openssl
 $sudo apt install libssl-dev
 ```
 
-Fedora:
+#### Fedora
 ```bash
 $sudo dnf install openssl
 $sudo dnf install openssl-devel
 ```
 
-Arch:
+#### Arch
 ```bash
 $sudo pacman -S openssl
 ```
@@ -55,7 +55,7 @@ not work on all systems.
 
 Surfer is still in early development, but it is in a usable state. In fact, if
 you are able to take advantage of the extensibility such as with the
-[Spade](https://spade-lang.org) integration, you might even prefer it to the alternatives.
+[Spade](https://spade-lang.org) integration, you may even prefer it to the alternatives.
 
 As an indication of the status of the project, here is an incomplete list of supported and planned features
 
@@ -64,7 +64,7 @@ As an indication of the status of the project, here is an incomplete list of sup
 - [x] VCD loading
 - [ ] FST loading
 - [x] [Fuzzy completion based command line interface](misc/surfer_ui_trimmed.mp4)
-- [ ] Bit translation
+- [x] Bit translation
   - [x] Raw bits
   - [x] Hexadecimal values
   - [x] Unsigned values
@@ -86,12 +86,14 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] 16-bit, one exponent bit
     - [x] 8-bit, no exponent bit
     - [ ] Quire formats
-  - [ ] RiscV instructions (probably via an extension)
+  - [x] Risc-V instructions
+    - [x] RV32I
+    - [ ] ...
   - [ ] Custom translation via Python API
 - [ ] Wave file reloading
 - [ ] Saving and Loading selected waves
 - [ ] Cursors for measuring time
-- [ ] Mouse gesture control
+- [x] Mouse gesture control
 - [x] Keyboard commands
 - [ ] [WAL](https://wal-lang.org) integration
 
