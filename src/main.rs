@@ -309,6 +309,7 @@ pub struct DisplayedSignal {
     idx: SignalIdx,
     info: SignalInfo,
     color: Option<String>,
+    background_color: Option<String>,
     display_name: String,
     display_name_type: SignalNameType,
 }
@@ -366,6 +367,7 @@ pub enum Message {
     SetVerticalScroll(usize),
     SignalFormatChange(PathDescriptor, String),
     SignalColorChange(Option<usize>, Option<String>),
+    SignalBackgroundColorChange(Option<usize>, Option<String>),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
     SetClockHighlightType(ClockHighlightType),
@@ -894,6 +896,15 @@ impl State {
                     vcd.signals[idx].color = color_name;
                 }
             }
+            Message::SignalBackgroundColorChange(vidx, color_name) => {
+                let Some(vcd) = self.vcd.as_mut() else {
+                    return;
+                };
+
+                if let Some(idx) = vidx.or(vcd.focused_signal) {
+                    vcd.signals[idx].background_color = color_name;
+                }
+            }
             Message::ResetSignalFormat(idx) => {
                 self.invalidate_draw_commands();
                 self.vcd.as_mut().map(|vcd| vcd.signal_format.remove(&idx));
@@ -1281,6 +1292,7 @@ impl VcdData {
             idx: sidx,
             info,
             color: None,
+            background_color: None,
             display_name: signal.name().clone(),
             display_name_type: self.default_signal_name_type,
         });

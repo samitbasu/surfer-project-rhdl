@@ -1,7 +1,8 @@
 use color_eyre::eyre::Context;
-use eframe::egui::{self, menu, style::Margin, Align, Color32, Event, Key, Layout, RichText};
-use eframe::egui::{Frame, Grid, TextStyle};
-use eframe::epaint::Vec2;
+use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Painter, RichText};
+use eframe::egui::{menu, Frame, Grid, Sense, TextStyle};
+use eframe::emath;
+use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
@@ -11,6 +12,7 @@ use num::{BigInt, BigRational, ToPrimitive};
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::descriptors::PathDescriptor;
+use crate::config::SurferTheme;
 use crate::util::uint_idx_to_alpha_idx;
 use crate::{
     command_prompt::show_command_prompt,
@@ -22,10 +24,24 @@ use crate::{ClockHighlightType, LoadProgress, SignalNameType};
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
 
+#[derive(Debug)]
 pub struct SignalDrawingInfo {
     pub tidx: TraceIdx,
     pub signal_list_idx: usize,
     pub offset: f32,
+}
+
+pub struct DrawingContext<'a> {
+    pub painter: &'a mut Painter,
+    pub cfg: &'a DrawConfig,
+    pub to_screen: &'a dyn Fn(f32, f32) -> Pos2,
+    pub theme: &'a SurferTheme,
+}
+
+pub struct DrawConfig {
+    pub canvas_height: f32,
+    pub line_height: f32,
+    pub max_transition_width: i32,
 }
 
 impl eframe::App for State {
@@ -823,6 +839,30 @@ impl State {
                 });
         });
 
+        ui.menu_button("Background color", |ui| {
+            let selected_color = &displayed_signal
+            .background_color
+            .clone()
+            .unwrap_or("__nocolor__".to_string());
+            for color_name in self.config.theme.colors.keys() {
+                ui.radio(selected_color == color_name, color_name).clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SignalBackgroundColorChange(
+                        Some(vidx),
+                        Some(color_name.clone()),
+                    ));
+                });
+            }
+            ui.separator();
+            ui.radio(selected_color == "__nocolor__", "Default")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SignalBackgroundColorChange(Some(vidx), None));
+                });
+
+        });
+
         ui.menu_button("Name", |ui| {
             let name_types = vec![
                 SignalNameType::Local,
@@ -853,10 +893,37 @@ impl State {
         ui: &mut egui::Ui,
         msgs: &mut Vec<Message>,
     ) {
+        let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
+        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
+        let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
+        let cfg = DrawConfig {
+            canvas_height: response.rect.size().y,
+            line_height: 16.,
+            max_transition_width: 6,
+        };
+        let frame_width = response.rect.width();
+
+        let ctx = DrawingContext {
+            painter: &mut painter,
+            cfg: &cfg,
+            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
+            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
+            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
+            theme: &self.config.theme,
+        };
+
+        let gap = if signal_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
+            // Assume that first signal has standard height (for now)
+            (signal_offsets.get(1).unwrap().offset
+                - signal_offsets.get(0).unwrap().offset
+                - ctx.cfg.line_height)
+                / 2.0
+        } else {
+            0.0
+        };
         if let Some(cursor) = &vcd.cursor {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
-
             for (vidx, drawing_info) in signal_offsets
                 .iter()
                 .sorted_by_key(|o| o.offset as i32)
@@ -870,14 +937,16 @@ impl State {
                     ui.add_space(drawing_info.offset - next_y);
                 }
 
-                let translator =
-                    vcd.signal_translator((drawing_info.tidx.0, vec![]), &self.translators);
-
-                let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
+                self.draw_background(vidx, vcd, drawing_info, to_screen, &ctx, gap, frame_width);
 
                 if cursor < &0.to_bigint() {
                     break;
                 }
+
+                let translator =
+                    vcd.signal_translator((drawing_info.tidx.0, vec![]), &self.translators);
+
+                let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
 
                 let translation_result = signal
                     .query_val_on_tmln(&num::BigInt::to_biguint(&cursor).unwrap(), &vcd.inner)
@@ -903,7 +972,44 @@ impl State {
                     }
                 }
             }
+        } else {
+            for (vidx, drawing_info) in signal_offsets.iter().enumerate() {
+                self.draw_background(vidx, vcd, drawing_info, to_screen, &ctx, gap, frame_width);
+            }
         }
+    }
+
+    fn draw_background(
+        &self,
+        vidx: usize,
+        vcd: &VcdData,
+        drawing_info: &SignalDrawingInfo,
+        to_screen: emath::RectTransform,
+        ctx: &DrawingContext<'_>,
+        gap: f32,
+        frame_width: f32,
+    ) {
+        // Set background color
+        let default_background_color = if (vidx / self.config.theme.alt_frequency) % 2 == 1 {
+            self.config.theme.canvas_colors.alt_background
+        } else {
+            Color32::TRANSPARENT
+        };
+        let background_color = *vcd
+            .signals
+            .get(drawing_info.signal_list_idx)
+            .and_then(|signal| signal.background_color.clone())
+            .and_then(|color| self.config.theme.colors.get(&color))
+            .unwrap_or(&default_background_color);
+        // Draw background
+        // We draw in absolute coords, but the signal offset in the y
+        // direction is also in absolute coordinates, so we need to
+        // compensate for that
+        let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
+        let min = (ctx.to_screen)(0.0, y_offset - gap);
+        let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
+        ctx.painter
+            .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
     }
 
     fn controls_listing(&self, ui: &mut egui::Ui) {
