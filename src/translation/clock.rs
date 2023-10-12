@@ -1,24 +1,24 @@
 use color_eyre::eyre::anyhow;
 use fastwave_backend::SignalValue;
 
-use super::{BasicTranslator, HexTranslator, SignalInfo, Translator};
+use super::{BasicTranslator, BitTranslator, SignalInfo, Translator};
 
 pub struct ClockTranslator {
-    // In order to not duplicate logic, we'll re-use the hex translator internally
+    // In order to not duplicate logic, we'll re-use the bit translator internally
     inner: Box<dyn BasicTranslator>,
 }
 
 impl ClockTranslator {
     pub fn new() -> Self {
         Self {
-            inner: Box::new(HexTranslator {}),
+            inner: Box::new(BitTranslator {}),
         }
     }
 }
 
 impl Translator for ClockTranslator {
     fn name(&self) -> String {
-        "clock".to_string()
+        "Clock".to_string()
     }
 
     fn translate(
