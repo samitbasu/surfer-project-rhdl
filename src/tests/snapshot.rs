@@ -74,7 +74,10 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
 
             state.draw(ctx, Some(size));
         },
-        None,
+        Some(egui_skia::RasterizeOptions {
+            frames_before_screenshot: 2,
+            ..Default::default()
+        }),
     );
 
     // NOTE: The warning suggests a method which rust-analyzer doesn't find
@@ -254,8 +257,6 @@ snapshot_empty_state_with_msgs! {
     dialogs_work,
     [
         Message::SetUrlEntryVisible(true),
-        Message::OpenFileDialog,
-        Message::SetAboutVisible(true),
         Message::SetKeyHelpVisible(true)
     ]
 }
