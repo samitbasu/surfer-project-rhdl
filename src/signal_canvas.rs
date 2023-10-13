@@ -11,7 +11,7 @@ use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
 use crate::translation::{SignalInfo, ValueKind};
 use crate::view::{time_string, SignalDrawingInfo};
-use crate::{Message, State, VcdData};
+use crate::{CachedDrawData, Message, State, VcdData};
 
 #[derive(Clone, PartialEq, Copy)]
 pub enum GestureKind {
@@ -59,7 +59,7 @@ impl DrawingCommands {
 
 impl State {
     pub fn invalidate_draw_commands(&mut self) {
-        *self.draw_commands.borrow_mut() = None;
+        *self.draw_data.borrow_mut() = None;
     }
 
     pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
@@ -219,7 +219,10 @@ impl State {
                     });
                 });
 
-            *self.draw_commands.borrow_mut() = Some(draw_commands);
+            *self.draw_data.borrow_mut() = Some(CachedDrawData {
+                draw_commands,
+                clock_edges,
+            });
         }
     }
 
@@ -236,8 +239,8 @@ impl State {
             line_height: 16.,
             max_transition_width: 6,
         };
-        // the draw commands have been invalidated or the viewport has been resized, recompute
-        if self.draw_commands.borrow().is_none()
+        // the draw commands have been invalidated, recompute
+        if self.draw_data.borrow().is_none()
             || Some(response.rect) != *self.last_canvas_rect.borrow()
         {
             self.generate_draw_commands(&cfg, response.rect.width(), msgs);
@@ -300,15 +303,6 @@ impl State {
             to_screen,
         );
 
-        vcd.draw_cursor(
-            &self.config.theme,
-            &mut painter,
-            response.rect.size(),
-            to_screen,
-        );
-
-        let clock_edges = vec![];
-
         let mut ctx = DrawingContext {
             painter: &mut painter,
             cfg: &cfg,
@@ -320,19 +314,21 @@ impl State {
 
         self.draw_mouse_gesture_widget(vcd, pointer_pos_canvas, &response, msgs, &mut ctx);
 
-        let draw_clock_edges = match clock_edges.as_slice() {
-            [] => false,
-            [_single] => true,
-            [first, second, ..] => second - first > 15.,
-        };
+        if let Some(draw_data) = &*self.draw_data.borrow() {
+            let clock_edges = &draw_data.clock_edges;
+            let draw_commands = &draw_data.draw_commands;
+            let draw_clock_edges = match clock_edges.as_slice() {
+                [] => false,
+                [_single] => true,
+                [first, second, ..] => second - first > 15.,
+            };
 
-        if draw_clock_edges {
-            for clock_edge in clock_edges {
-                self.draw_clock_edge(clock_edge, &mut ctx);
+            if draw_clock_edges {
+                for clock_edge in clock_edges {
+                    self.draw_clock_edge(*clock_edge, &mut ctx);
+                }
             }
-        }
 
-        if let Some(draw_commands) = &*self.draw_commands.borrow() {
             for drawing_info in signal_offsets {
                 let color = *vcd
                     .signals
@@ -679,7 +675,7 @@ impl State {
             x_pos,
             (y_start)..=(y_start + ctx.cfg.canvas_height),
             Stroke {
-                color: self.config.theme.signal_highimp.gamma_multiply(0.7),
+                color: self.config.theme.clock_edge_color,
                 width: 2.,
             },
         );
