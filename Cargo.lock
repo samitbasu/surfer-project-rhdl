@@ -1279,9 +1279,9 @@ dependencies = [
 
 [[package]]
 name = "egui_skia"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9414dfbb8a9fb13ee42e6b18ead56b91fcca01761aba7c4bc049f9d5e720d46"
+checksum = "6321a44155a0c589fece1c0fd2723a1ae6cf55fc4a3c39d4d0743380ef77d34a"
 dependencies = [
  "egui",
  "skia-safe",
