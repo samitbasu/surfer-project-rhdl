@@ -32,6 +32,7 @@ use eframe::egui::DroppedFile;
 use eframe::egui::Visuals;
 use eframe::emath;
 use eframe::epaint::Pos2;
+use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
@@ -404,6 +405,7 @@ pub struct State {
     // Egui requires a place to store text field content between frames
     url: RefCell<String>,
     command_prompt_text: RefCell<String>,
+    last_canvas_rect: RefCell<Option<Rect>>,
 }
 
 impl State {
@@ -472,9 +474,7 @@ impl State {
                 expanded: String::from(""),
                 suggestions: vec![],
             },
-            draw_commands: RefCell::new(None),
             context: None,
-            file_dialog: RefCell::new(None),
             show_about: false,
             show_keys: false,
             wanted_timescale: Timescale::Unit,
@@ -483,6 +483,9 @@ impl State {
             show_wave_source: true,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
+            draw_commands: RefCell::new(None),
+            last_canvas_rect: RefCell::new(None),
+            file_dialog: RefCell::new(None),
         };
 
         match args.vcd {
