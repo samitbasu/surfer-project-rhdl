@@ -77,7 +77,10 @@ impl State {
                                     time,
                                     &vcd.inner.metadata,
                                     &self.wanted_timescale,
-                                ));
+                                ))
+                                .context_menu(|ui| {
+                                    timescale_menu(ui, &mut msgs, &self.wanted_timescale)
+                                });
                                 ui.add_space(10.0)
                             });
                         }
@@ -720,9 +723,9 @@ impl State {
 
         ui.menu_button("Name", |ui| {
             let name_types = vec![
-                ("Local", SignalNameType::Local),
-                ("Global", SignalNameType::Global),
-                ("Unique", SignalNameType::Unique),
+                SignalNameType::Local,
+                SignalNameType::Global,
+                SignalNameType::Unique,
             ];
             let signal_name_type = self
                 .vcd
@@ -730,15 +733,12 @@ impl State {
                 .map(|vcd| vcd.signals[vidx].display_name_type)
                 .unwrap();
             for name_type in name_types {
-                let label_text = if signal_name_type == name_type.1 {
-                    RichText::new(name_type.0).color(self.config.theme.accent_info.background)
-                } else {
-                    RichText::new(name_type.0)
-                };
-                ui.button(label_text).clicked().then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type.1));
-                });
+                ui.radio(signal_name_type == name_type, name_type.to_string())
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type));
+                    });
             }
         });
 
@@ -966,17 +966,16 @@ impl State {
                 }
                 ui.separator();
                 ui.menu_button("Signal names", |ui| {
-                    if ui.button("Global").clicked() {
-                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Global));
-                        ui.close_menu();
-                    }
-                    if ui.button("Local").clicked() {
-                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Local));
-                        ui.close_menu();
-                    }
-                    if ui.button("Unique").clicked() {
-                        msgs.push(Message::ForceSignalNameTypes(SignalNameType::Unique));
-                        ui.close_menu();
+                    let name_types = vec![
+                        SignalNameType::Local,
+                        SignalNameType::Global,
+                        SignalNameType::Unique,
+                    ];
+                    for name_type in name_types {
+                        ui.button(name_type.to_string()).clicked().then(|| {
+                            ui.close_menu();
+                            msgs.push(Message::ForceSignalNameTypes(name_type));
+                        });
                     }
                 });
                 ui.separator();
@@ -996,48 +995,7 @@ impl State {
                 }
                 ui.separator();
                 ui.menu_button("Time scale", |ui| {
-                    if ui
-                        .radio(self.wanted_timescale == Timescale::Fs, "fs")
-                        .clicked()
-                    {
-                        msgs.push(Message::SetTimeScale(Timescale::Fs));
-                        ui.close_menu();
-                    }
-                    if ui
-                        .radio(self.wanted_timescale == Timescale::Ps, "ps")
-                        .clicked()
-                    {
-                        msgs.push(Message::SetTimeScale(Timescale::Ps));
-                        ui.close_menu();
-                    }
-                    if ui
-                        .radio(self.wanted_timescale == Timescale::Ns, "ns")
-                        .clicked()
-                    {
-                        msgs.push(Message::SetTimeScale(Timescale::Ns));
-                        ui.close_menu();
-                    }
-                    if ui
-                        .radio(self.wanted_timescale == Timescale::Us, "μs")
-                        .clicked()
-                    {
-                        msgs.push(Message::SetTimeScale(Timescale::Us));
-                        ui.close_menu();
-                    }
-                    if ui
-                        .radio(self.wanted_timescale == Timescale::Ms, "ms")
-                        .clicked()
-                    {
-                        msgs.push(Message::SetTimeScale(Timescale::Ms));
-                        ui.close_menu();
-                    }
-                    if ui
-                        .radio(self.wanted_timescale == Timescale::S, "s")
-                        .clicked()
-                    {
-                        msgs.push(Message::SetTimeScale(Timescale::S));
-                        ui.close_menu();
-                    }
+                    timescale_menu(ui, msgs, &self.wanted_timescale);
                 });
             });
             ui.menu_button("Help", |ui| {
@@ -1052,6 +1010,25 @@ impl State {
                 }
             });
         });
+    }
+}
+
+fn timescale_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timescale: &Timescale) {
+    let timescales = vec![
+        Timescale::Fs,
+        Timescale::Ps,
+        Timescale::Ns,
+        Timescale::Us,
+        Timescale::Ms,
+        Timescale::S,
+    ];
+    for timescale in timescales {
+        ui.radio(*wanted_timescale == timescale, timescale.to_string())
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::SetTimeScale(timescale));
+            });
     }
 }
 
