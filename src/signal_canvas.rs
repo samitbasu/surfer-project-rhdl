@@ -639,8 +639,8 @@ impl State {
             x_pos,
             (y_start)..=(y_start + ctx.cfg.canvas_height),
             Stroke {
-                color: self.config.theme.signal_highimp.gamma_multiply(0.7),
-                width: 2.,
+                color: self.config.theme.clock_edge.color,
+                width: self.config.theme.clock_edge.width,
             },
         );
     }
