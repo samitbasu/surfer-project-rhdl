@@ -9,20 +9,20 @@ license-file = "LICENSE-EUPL-1.2.txt"
 [dependencies]
 fastwave_backend = {path = "FastWaveBackend"}
 eframe = { version = "0.23.0" }
-bytes = "1.4.0"
-camino = "1.1.1"
+bytes = "1.5.0"
+camino = "1.1.6"
 derivative = "2.2.0"
 num = "0.4"
 color-eyre = "0.6.2"
-clap = {version = "4.0.32", features=['derive']}
-fern = { version = "0.6.1", features = ["colored"] }
+clap = {version = "4.4.6", features=['derive']}
+fern = { version = "0.6.2", features = ["colored"] }
 futures-util = "0.3.28"
 futures-core = "0.3.28"
 log = "0.4"
 progress-streams = "1.1.0"
-itertools = "0.10.5"
-reqwest = {version = "0.11.20", features = ["stream"]}
-serde = {version = "1.0.188", features = ["derive"]}
+itertools = "0.11.0"
+reqwest = {version = "0.11.22", features = ["stream"]}
+serde = {version = "1.0.189", features = ["derive"]}
 serde_stacker = "0.1"
 spade = {path = "spade/spade-compiler"}
 spade-common = {path = "spade/spade-common"}
