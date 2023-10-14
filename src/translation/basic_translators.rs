@@ -5,9 +5,11 @@ use fastwave_backend::{Signal, SignalValue};
 use half::{bf16, f16};
 use itertools::Itertools;
 use num::Zero;
-use softposit::p16e1::P16E1;
-use softposit::p32e2::P32E2;
-use softposit::p8e0::P8E0;
+use softposit::P16E1;
+use softposit::P32E2;
+use softposit::P8E0;
+use softposit::Q16E1;
+use softposit::Q8E0;
 use spade_common::num_ext::InfallibleToBigUint;
 
 // Forms groups of n chars from from a string. If the string size is
@@ -385,7 +387,7 @@ impl BasicTranslator for SinglePrecisionTranslator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
                 Some(val) => (
                     format!("{fp:e}", fp = f32::from_bits(val)),
                     ValueKind::Normal,
@@ -416,7 +418,7 @@ impl BasicTranslator for DoublePrecisionTranslator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u64_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u64_digits().next() {
                 Some(val) => (
                     format!("{fp:e}", fp = f64::from_bits(val)),
                     ValueKind::Normal,
@@ -447,7 +449,7 @@ impl BasicTranslator for HalfPrecisionTranslator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
                 Some(val) => (
                     format!("{fp:e}", fp = f16::from_bits(val as u16)),
                     ValueKind::Normal,
@@ -478,7 +480,7 @@ impl BasicTranslator for BFloat16Translator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u64_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u64_digits().next() {
                 Some(val) => (
                     format!("{fp:e}", fp = bf16::from_bits(val as u16)),
                     ValueKind::Normal,
@@ -512,7 +514,7 @@ impl BasicTranslator for Posit32Translator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
                 Some(val) => (format!("{p}", p = P32E2::from_bits(val)), ValueKind::Normal),
                 None => ("Unknown".to_string(), ValueKind::Normal),
             },
@@ -540,7 +542,7 @@ impl BasicTranslator for Posit16Translator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
                 Some(val) => (
                     format!("{p}", p = P16E1::from_bits(val as u16)),
                     ValueKind::Normal,
@@ -571,7 +573,7 @@ impl BasicTranslator for Posit8Translator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
                 Some(val) => (
                     format!("{p}", p = P8E0::from_bits(val as u8)),
                     ValueKind::Normal,
@@ -590,6 +592,69 @@ impl BasicTranslator for Posit8Translator {
 
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
         check_single_wordlength(signal.num_bits(), 8)
+    }
+}
+
+pub struct PositQuire8Translator {}
+
+impl BasicTranslator for PositQuire8Translator {
+    fn name(&self) -> String {
+        String::from("Posit: quire for 8-bit (no exponent bit)")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
+                Some(val) => (format!("{p}", p = Q8E0::from_bits(val)), ValueKind::Normal),
+                None => ("Unknown".to_string(), ValueKind::Normal),
+            },
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u32::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{p}", p = Q8E0::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        check_single_wordlength(signal.num_bits(), 32)
+    }
+}
+
+pub struct PositQuire16Translator {}
+
+impl BasicTranslator for PositQuire16Translator {
+    fn name(&self) -> String {
+        String::from("Posit: quire for 16-bit (one exponent bit)")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => {
+                let mut digits = v.iter_u64_digits();
+                let lsb = digits.next().unwrap_or(0);
+                let msb = if digits.len() > 0 {
+                    digits.next().unwrap_or(0)
+                } else {
+                    0
+                };
+                let val = lsb as u128 | (msb as u128) << 64;
+                (format!("{p}", p = Q16E1::from_bits(val)), ValueKind::Normal)
+            }
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => v,
+                None => {
+                    let v = u128::from_str_radix(s, 2).expect("Cannot parse");
+                    (format!("{p}", p = Q16E1::from_bits(v)), ValueKind::Normal)
+                }
+            },
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        check_single_wordlength(signal.num_bits(), 128)
     }
 }
 
@@ -628,7 +693,7 @@ impl BasicTranslator for E5M2Translator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
                 Some(val) => decode_e5m2(val as u8),
                 None => ("Unknown".to_string(), ValueKind::Normal),
             },
@@ -675,7 +740,7 @@ impl BasicTranslator for E4M3Translator {
 
     fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => match v.iter_u32_digits().last() {
+            SignalValue::BigUint(v) => match v.iter_u32_digits().next() {
                 Some(val) => decode_e4m3(val as u8),
                 None => ("Unknown".to_string(), ValueKind::Normal),
             },
