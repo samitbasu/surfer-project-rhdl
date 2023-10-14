@@ -85,7 +85,9 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] 32-bit, two exponent bits
     - [x] 16-bit, one exponent bit
     - [x] 8-bit, no exponent bit
-    - [ ] Quire formats
+    - [x] Quire for 8-bit, no exponent bit
+    - [x] Quire for 16-bit, no exponent bit
+    - [ ] Quire for 32-bit, no exponent bit
   - [x] Risc-V instructions
     - [x] RV32I
     - [ ] ...
