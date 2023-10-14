@@ -62,6 +62,7 @@ pub struct SurferTheme {
 
     pub cursor: SurferLineStyle,
     pub gesture: SurferLineStyle,
+    pub clock_edge: SurferLineStyle,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub signal_default: Color32,
