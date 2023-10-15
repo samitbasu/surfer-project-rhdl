@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs, str::FromStr};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    Message, SignalNameType, State,
+    DisplayedItem, Message, SignalNameType, State,
 };
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};
@@ -51,6 +51,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
         Some(v) => v
             .signals
             .iter()
+            .filter_map(|item| match item {
+                DisplayedItem::Signal(idx) => Some(idx),
+                _ => None,
+            })
             .enumerate()
             .map(|(idx, s)| {
                 format!(
@@ -124,6 +128,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "signal_force_name_type",
             "signal_focus",
             "signal_unfocus",
+            "separator",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -235,6 +240,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "signal_unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
+                "separator" => single_word(
+                    vec!["Separator".to_string(), "Foo".to_string()],
+                    Box::new(|word| Some(Command::Terminal(Message::AddSeparator(word.into())))),
+                ),
                 _ => None,
             }
         }),
