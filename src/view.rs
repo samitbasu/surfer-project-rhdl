@@ -2,6 +2,7 @@ use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, RichText};
 use eframe::egui::{menu, Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
+use eframe::glow::HasContext;
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use itertools::Itertools;
 use log::info;
@@ -14,7 +15,7 @@ use crate::{
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, SignalDescriptor, State, VcdData,
 };
-use crate::{LoadProgress, SignalNameType};
+use crate::{DisplayedItem, LoadProgress, SignalNameType};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -23,6 +24,25 @@ pub struct SignalDrawingInfo {
     pub tidx: TraceIdx,
     pub signal_list_idx: usize,
     pub offset: f32,
+}
+
+pub struct SeparatorDrawingInfo {
+    pub signal_list_idx: usize,
+    pub offset: f32,
+}
+
+pub enum ItemDrawingInfo {
+    Signal(SignalDrawingInfo),
+    Separator(SeparatorDrawingInfo),
+}
+
+impl ItemDrawingInfo {
+    pub fn offset(&self) -> f32 {
+        match self {
+            ItemDrawingInfo::Signal(drawing_info) => drawing_info.offset,
+            ItemDrawingInfo::Separator(drawing_info) => drawing_info.offset,
+        }
+    }
 }
 
 impl eframe::App for State {
@@ -510,28 +530,46 @@ impl State {
         msgs: &mut Vec<Message>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
-    ) -> Vec<SignalDrawingInfo> {
+    ) -> Vec<ItemDrawingInfo> {
         let mut signal_offsets = Vec::new();
 
-        for (vidx, displayed_signal) in vcd.signals.iter().enumerate() {
-            let sig = displayed_signal.idx;
-            let info = &displayed_signal.info;
-            ui.with_layout(
-                Layout::top_down(Align::LEFT).with_cross_justify(true),
-                |ui| {
-                    let signal = vcd.inner.signal_from_signal_idx(sig);
+        for (vidx, displayed_item) in vcd.signals.iter().enumerate() {
+            match displayed_item {
+                DisplayedItem::Signal(displayed_signal) => {
+                    let sig = displayed_signal.idx;
+                    let info = &displayed_signal.info;
+                    ui.with_layout(
+                        Layout::top_down(Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            let signal = vcd.inner.signal_from_signal_idx(sig);
 
-                    self.draw_var(
-                        msgs,
-                        vidx,
-                        &displayed_signal.display_name,
-                        &(signal.real_idx(), vec![]),
-                        &mut signal_offsets,
-                        info,
-                        ui,
+                            self.draw_var(
+                                msgs,
+                                vidx,
+                                &displayed_signal.display_name,
+                                &(signal.real_idx(), vec![]),
+                                &mut signal_offsets,
+                                info,
+                                ui,
+                            );
+                        },
                     );
-                },
-            );
+                }
+                DisplayedItem::Separator(displayed_separator) => {
+                    ui.with_layout(
+                        Layout::top_down(Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            self.draw_plain_var(
+                                msgs,
+                                vidx,
+                                &displayed_separator.name,
+                                &mut signal_offsets,
+                                ui,
+                            );
+                        },
+                    );
+                }
+            }
         }
 
         signal_offsets
@@ -543,7 +581,7 @@ impl State {
         vidx: usize,
         name: &str,
         path: &(SignalIdx, Vec<String>),
-        signal_offsets: &mut Vec<SignalDrawingInfo>,
+        signal_offsets: &mut Vec<ItemDrawingInfo>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
     ) {
@@ -597,7 +635,7 @@ impl State {
                     .selectable_label(false, egui::RichText::new(name))
                     .on_hover_text(tooltip)
                     .context_menu(|ui| {
-                        self.signal_context_menu(path, msgs, ui, vidx);
+                        self.signal_context_menu(Some(path), msgs, ui, vidx);
                     });
                 if signal_label.clicked() {
                     msgs.push(Message::FocusSignal(vidx))
@@ -623,11 +661,11 @@ impl State {
                 });
 
                 let offset = response.0.rect.top();
-                signal_offsets.push(SignalDrawingInfo {
+                signal_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
                     tidx: path.clone(),
                     signal_list_idx: vidx,
                     offset,
-                });
+                }));
             }
             SignalInfo::Bool
             | SignalInfo::Bits
@@ -635,80 +673,137 @@ impl State {
             | SignalInfo::String
             | SignalInfo::Real => {
                 let label = draw_label(ui);
-                signal_offsets.push(SignalDrawingInfo {
+                signal_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
                     tidx: path.clone(),
                     signal_list_idx: vidx,
                     offset: label.inner.rect.top(),
-                });
+                }));
             }
         }
     }
 
+    fn draw_plain_var(
+        &self,
+        msgs: &mut Vec<Message>,
+        vidx: usize,
+        name: &str,
+        signal_offsets: &mut Vec<ItemDrawingInfo>,
+        ui: &mut egui::Ui,
+    ) {
+        let mut draw_label = |ui: &mut egui::Ui| {
+            ui.horizontal_top(|ui| {
+                if self.command_prompt.expanded.starts_with("focus") {
+                    let alpha_id = uint_idx_to_alpha_idx(
+                        vidx,
+                        self.vcd.as_ref().map_or(0, |vcd| vcd.signals.len()),
+                    );
+                    ui.label(
+                        egui::RichText::new(alpha_id)
+                            .background_color(self.config.theme.accent_warn.background)
+                            .monospace()
+                            .color(self.config.theme.accent_warn.foreground),
+                    );
+                }
+
+                let focus_marker_color = if self
+                    .vcd
+                    .as_ref()
+                    .expect("Can't draw a signal without a loaded waveform.")
+                    .focused_signal
+                    .map(|focused| focused == vidx)
+                    .unwrap_or(false)
+                {
+                    self.config.theme.accent_info.background
+                } else {
+                    Color32::TRANSPARENT
+                };
+                ui.colored_label(focus_marker_color, "♦");
+
+                let signal_label = ui
+                    .selectable_label(false, egui::RichText::new(name))
+                    .context_menu(|ui| {
+                        self.signal_context_menu(None, msgs, ui, vidx);
+                    });
+                if signal_label.clicked() {
+                    msgs.push(Message::FocusSignal(vidx))
+                }
+                signal_label
+            })
+        };
+
+        let label = draw_label(ui);
+        signal_offsets.push(ItemDrawingInfo::Separator(SeparatorDrawingInfo {
+            signal_list_idx: vidx,
+            offset: label.inner.rect.top(),
+        }));
+    }
+
     fn signal_context_menu(
         &self,
-        path: &(SignalIdx, Vec<String>),
+        path: Option<&(SignalIdx, Vec<String>)>,
         msgs: &mut Vec<Message>,
         ui: &mut egui::Ui,
         vidx: usize,
     ) {
-        let mut available_translators = if path.1.is_empty() {
-            self.translators
-                .all_translator_names()
-                .into_iter()
-                .filter(|translator_name| {
-                    let t = self.translators.get_translator(translator_name);
+        if let Some(path) = path {
+            let mut available_translators = if path.1.is_empty() {
+                self.translators
+                    .all_translator_names()
+                    .into_iter()
+                    .filter(|translator_name| {
+                        let t = self.translators.get_translator(translator_name);
 
-                    if self
-                        .blacklisted_translators
-                        .contains(&(path.0, (*translator_name).clone()))
-                    {
-                        false
-                    } else {
-                        self.vcd
-                            .as_ref()
-                            .map(|vcd| {
-                                let sig = vcd.inner.signal_from_signal_idx(path.0);
+                        if self
+                            .blacklisted_translators
+                            .contains(&(path.0, (*translator_name).clone()))
+                        {
+                            false
+                        } else {
+                            self.vcd
+                                .as_ref()
+                                .map(|vcd| {
+                                    let sig = vcd.inner.signal_from_signal_idx(path.0);
 
-                                match t.translates(&sig).context(format!(
-                                    "Failed to check if {translator_name} translates {:?}",
-                                    sig.path(),
-                                )) {
-                                    Ok(TranslationPreference::Yes) => true,
-                                    Ok(TranslationPreference::Prefer) => true,
-                                    Ok(TranslationPreference::No) => false,
-                                    Err(e) => {
-                                        msgs.push(Message::BlacklistTranslator(
-                                            path.0,
-                                            (*translator_name).clone(),
-                                        ));
-                                        msgs.push(Message::Error(e));
-                                        false
+                                    match t.translates(&sig).context(format!(
+                                        "Failed to check if {translator_name} translates {:?}",
+                                        sig.path(),
+                                    )) {
+                                        Ok(TranslationPreference::Yes) => true,
+                                        Ok(TranslationPreference::Prefer) => true,
+                                        Ok(TranslationPreference::No) => false,
+                                        Err(e) => {
+                                            msgs.push(Message::BlacklistTranslator(
+                                                path.0,
+                                                (*translator_name).clone(),
+                                            ));
+                                            msgs.push(Message::Error(e));
+                                            false
+                                        }
                                     }
-                                }
-                            })
-                            .unwrap_or(false)
-                    }
-                })
-                .collect()
-        } else {
-            self.translators.basic_translator_names()
-        };
+                                })
+                                .unwrap_or(false)
+                        }
+                    })
+                    .collect()
+            } else {
+                self.translators.basic_translator_names()
+            };
 
-        available_translators.sort_by(|a, b| human_sort::compare(a, b));
-        let format_menu = available_translators
-            .iter()
-            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
-            .collect::<Vec<_>>();
+            available_translators.sort_by(|a, b| human_sort::compare(a, b));
+            let format_menu = available_translators
+                .iter()
+                .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
+                .collect::<Vec<_>>();
 
-        ui.menu_button("Format", |ui| {
-            for (name, msg) in format_menu {
-                ui.button(name).clicked().then(|| {
-                    ui.close_menu();
-                    msgs.push(msg);
-                });
-            }
-        });
-
+            ui.menu_button("Format", |ui| {
+                for (name, msg) in format_menu {
+                    ui.button(name).clicked().then(|| {
+                        ui.close_menu();
+                        msgs.push(msg);
+                    });
+                }
+            });
+        }
         ui.menu_button("Color", |ui| {
             for color_name in self.config.theme.colors.keys() {
                 ui.button(color_name).clicked().then(|| {
@@ -718,30 +813,27 @@ impl State {
             }
         });
 
-        ui.menu_button("Name", |ui| {
-            let name_types = vec![
-                ("Local", SignalNameType::Local),
-                ("Global", SignalNameType::Global),
-                ("Unique", SignalNameType::Unique),
-            ];
-            let signal_name_type = self
-                .vcd
-                .as_ref()
-                .map(|vcd| vcd.signals[vidx].display_name_type)
-                .unwrap();
-            for name_type in name_types {
-                let label_text = if signal_name_type == name_type.1 {
-                    RichText::new(name_type.0).color(self.config.theme.accent_info.background)
-                } else {
-                    RichText::new(name_type.0)
-                };
-                ui.button(label_text).clicked().then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type.1));
-                });
-            }
-        });
-
+        if let DisplayedItem::Signal(signal) = &self.vcd.as_ref().unwrap().signals[vidx] {
+            ui.menu_button("Name", |ui| {
+                let name_types = vec![
+                    ("Local", SignalNameType::Local),
+                    ("Global", SignalNameType::Global),
+                    ("Unique", SignalNameType::Unique),
+                ];
+                let signal_name_type = signal.display_name_type;
+                for name_type in name_types {
+                    let label_text = if signal_name_type == name_type.1 {
+                        RichText::new(name_type.0).color(self.config.theme.accent_info.background)
+                    } else {
+                        RichText::new(name_type.0)
+                    };
+                    ui.button(label_text).clicked().then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type.1));
+                    });
+                }
+            });
+        }
         if ui.button("Remove").clicked() {
             msgs.push(Message::RemoveSignal(vidx));
             ui.close_menu();
@@ -750,7 +842,7 @@ impl State {
 
     fn draw_var_values(
         &self,
-        signal_offsets: &[SignalDrawingInfo],
+        signal_offsets: &[ItemDrawingInfo],
         vcd: &VcdData,
         ui: &mut egui::Ui,
         msgs: &mut Vec<Message>,
@@ -761,48 +853,62 @@ impl State {
 
             for (vidx, drawing_info) in signal_offsets
                 .iter()
-                .sorted_by_key(|o| o.offset as i32)
+                .sorted_by_key(|o| o.offset() as i32)
                 .enumerate()
             {
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,
                 // and compensate for it
-                if next_y < drawing_info.offset {
-                    ui.add_space(drawing_info.offset - next_y);
+                if next_y < drawing_info.offset() {
+                    ui.add_space(drawing_info.offset() - next_y);
                 }
 
-                let translator =
-                    vcd.signal_translator((drawing_info.tidx.0, vec![]), &self.translators);
+                match drawing_info {
+                    ItemDrawingInfo::Signal(drawing_info) => {
+                        let translator =
+                            vcd.signal_translator((drawing_info.tidx.0, vec![]), &self.translators);
 
-                let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
+                        let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
 
-                if cursor < &0.to_bigint() {
-                    break;
-                }
+                        if cursor < &0.to_bigint() {
+                            break;
+                        }
 
-                let translation_result = signal
-                    .query_val_on_tmln(&num::BigInt::to_biguint(&cursor).unwrap(), &vcd.inner)
-                    .map(|(_time, value)| translator.translate(&signal, &value));
+                        let translation_result = signal
+                            .query_val_on_tmln(
+                                &num::BigInt::to_biguint(&cursor).unwrap(),
+                                &vcd.inner,
+                            )
+                            .map(|(_time, value)| translator.translate(&signal, &value));
 
-                if let Ok(Ok(s)) = translation_result {
-                    let subfields = s
-                        .flatten(
-                            (drawing_info.tidx.0, vec![]),
-                            &vcd.signal_format,
-                            &self.translators,
-                        )
-                        .as_fields();
+                        if let Ok(Ok(s)) = translation_result {
+                            let subfields = s
+                                .flatten(
+                                    (drawing_info.tidx.0, vec![]),
+                                    &vcd.signal_format,
+                                    &self.translators,
+                                )
+                                .as_fields();
 
-                    let subfield = subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
+                            let subfield =
+                                subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
 
-                    if let Some((_, Some((v, _)))) = subfield {
-                        ui.label(v).context_menu(|ui| {
-                            self.signal_context_menu(&(signal.real_idx(), vec![]), msgs, ui, vidx);
-                        });
-                    } else {
-                        ui.label("-");
+                            if let Some((_, Some((v, _)))) = subfield {
+                                ui.label(v).context_menu(|ui| {
+                                    self.signal_context_menu(
+                                        Some(&(signal.real_idx(), vec![])),
+                                        msgs,
+                                        ui,
+                                        vidx,
+                                    );
+                                });
+                            } else {
+                                ui.label("-");
+                            }
+                        }
                     }
+                    _ => {}
                 }
             }
         }

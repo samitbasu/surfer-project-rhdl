@@ -10,8 +10,8 @@ use num::ToPrimitive;
 use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
 use crate::translation::{SignalInfo, ValueKind};
-use crate::view::{time_string, SignalDrawingInfo};
-use crate::{Message, State, VcdData};
+use crate::view::{time_string, ItemDrawingInfo};
+use crate::{DisplayedItem, Message, State, VcdData};
 
 #[derive(Clone, PartialEq, Copy)]
 pub enum GestureKind {
@@ -81,6 +81,10 @@ impl State {
 
             vcd.signals
                 .iter()
+                .filter_map(|item| match item {
+                    DisplayedItem::Signal(idx) => Some(idx),
+                    _ => None,
+                })
                 .map(|displayed_signal| {
                     let idx = displayed_signal.idx;
                     // check if the signal is an alias
@@ -208,7 +212,7 @@ impl State {
     pub fn draw_signals(
         &self,
         msgs: &mut Vec<Message>,
-        signal_offsets: &Vec<SignalDrawingInfo>,
+        signal_offsets: &Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
@@ -306,25 +310,35 @@ impl State {
 
         if let Some(draw_commands) = &*self.draw_commands.borrow() {
             for drawing_info in signal_offsets {
-                let color = *vcd
-                    .signals
-                    .get(drawing_info.signal_list_idx)
-                    .and_then(|signal| signal.color.clone())
-                    .and_then(|color| self.config.theme.colors.get(&color))
-                    .unwrap_or(&self.config.theme.signal_default);
+                match drawing_info {
+                    ItemDrawingInfo::Signal(drawing_info) => {
+                        let color = *vcd
+                            .signals
+                            .get(drawing_info.signal_list_idx)
+                            .and_then(|signal| match signal {
+                                DisplayedItem::Signal(signal) => signal.color.clone(),
+                                DisplayedItem::Separator(separator) => separator.color.clone(),
+                            })
+                            .and_then(|color| self.config.theme.colors.get(&color))
+                            .unwrap_or(&self.config.theme.signal_default);
 
-                // We draw in absolute coords, but the signal offset in the y
-                // direction is also in absolute coordinates, so we need to
-                // compensate for that
-                let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
-                if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
-                    for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
-                        if commands.is_bool {
-                            self.draw_bool_transition((old, new), color, y_offset, &mut ctx)
-                        } else {
-                            self.draw_region((old, new), color, y_offset, &mut ctx)
+                        // We draw in absolute coords, but the signal offset in the y
+                        // direction is also in absolute coordinates, so we need to
+                        // compensate for that
+                        let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
+                        if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
+                            for (old, new) in
+                                commands.values.iter().zip(commands.values.iter().skip(1))
+                            {
+                                if commands.is_bool {
+                                    self.draw_bool_transition((old, new), color, y_offset, &mut ctx)
+                                } else {
+                                    self.draw_region((old, new), color, y_offset, &mut ctx)
+                                }
+                            }
                         }
                     }
+                    _ => {}
                 }
             }
         }
