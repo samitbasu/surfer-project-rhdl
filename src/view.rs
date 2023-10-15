@@ -70,6 +70,10 @@ impl State {
                         ui.add_space(10.0);
                         if self.show_wave_source {
                             ui.label(&vcd.filename);
+                            if let Some(datetime) = vcd.inner.metadata.date {
+                                ui.add_space(10.0);
+                                ui.label(format!("Generated: {datetime}"));
+                            }
                         }
                         if let Some(time) = &vcd.cursor {
                             ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
