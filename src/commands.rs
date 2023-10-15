@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs, str::FromStr};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    Message, SignalNameType, State,
+    DisplayedItem, Message, SignalNameType, State,
 };
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};
@@ -49,13 +49,17 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
     let displayed_signals = match &state.vcd {
         Some(v) => v
-            .signals
+            .displayed_items
             .iter()
+            .filter_map(|item| match item {
+                DisplayedItem::Signal(idx) => Some(idx),
+                _ => None,
+            })
             .enumerate()
             .map(|(idx, s)| {
                 format!(
                     "{}_{}",
-                    uint_idx_to_alpha_idx(idx, v.signals.len()),
+                    uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
                     v.inner.signal_from_signal_idx(s.idx).name()
                 )
             })
@@ -125,6 +129,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "signal_force_name_type",
             "signal_focus",
             "signal_unfocus",
+            "separator",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -196,7 +201,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "signal_set_color" => single_word(
                     color_names.clone(),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::SignalColorChange(
+                        Some(Command::Terminal(Message::ItemColorChange(
                             None,
                             word.to_string(),
                         )))
@@ -233,10 +238,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         // split off the idx which is always followed by an underscore
                         let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
                         alpha_idx_to_uint_idx(alpha_idx)
-                            .map(|idx| Command::Terminal(Message::FocusSignal(idx)))
+                            .map(|idx| Command::Terminal(Message::FocusItem(idx)))
                     }),
                 ),
-                "signal_unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
+                "signal_unfocus" => Some(Command::Terminal(Message::UnfocusItem)),
+                "separator" => single_word(
+                    vec![],
+                    Box::new(|word| Some(Command::Terminal(Message::AddSeparator(word.into())))),
+                ),
                 _ => None,
             }
         }),
