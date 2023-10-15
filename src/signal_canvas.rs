@@ -10,8 +10,8 @@ use num::ToPrimitive;
 use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
 use crate::translation::{SignalInfo, ValueKind};
-use crate::view::{time_string, DrawConfig, DrawingContext, SignalDrawingInfo};
-use crate::{CachedDrawData, ClockHighlightType, Message, State, VcdData};
+use crate::view::{time_string, DrawConfig, DrawingContext, ItemDrawingInfo};
+use crate::{CachedDrawData, ClockHighlightType, DisplayedItem, Message, State, VcdData};
 
 #[derive(Clone, PartialEq, Copy)]
 pub enum GestureKind {
@@ -83,8 +83,12 @@ impl State {
                 })
                 .collect::<Vec<_>>();
 
-            vcd.signals
+            vcd.displayed_items
                 .iter()
+                .filter_map(|item| match item {
+                    DisplayedItem::Signal(idx) => Some(idx),
+                    _ => None,
+                })
                 .map(|displayed_signal| {
                     let idx = displayed_signal.idx;
                     // check if the signal is an alias
@@ -229,7 +233,7 @@ impl State {
     pub fn draw_signals(
         &self,
         msgs: &mut Vec<Message>,
-        signal_offsets: &Vec<SignalDrawingInfo>,
+        signal_offsets: &Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
@@ -304,8 +308,8 @@ impl State {
 
         let gap = if signal_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
             // Assume that first signal has standard height (for now)
-            (signal_offsets.get(1).unwrap().offset
-                - signal_offsets.get(0).unwrap().offset
+            (signal_offsets.get(1).unwrap().offset()
+                - signal_offsets.get(0).unwrap().offset()
                 - ctx.cfg.line_height)
                 / 2.0
         } else {
@@ -318,28 +322,21 @@ impl State {
                 Color32::TRANSPARENT
             };
             let background_color = *vcd
-                .signals
-                .get(drawing_info.signal_list_idx)
-                .and_then(|signal| signal.background_color.clone())
+                .displayed_items
+                .get(drawing_info.signal_list_idx())
+                .and_then(|signal| signal.background_color())
                 .and_then(|color| self.config.theme.colors.get(&color))
                 .unwrap_or(&default_background_color);
 
             // We draw in absolute coords, but the signal offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
-            let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
+            let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
             let min = (ctx.to_screen)(0.0, y_offset - gap);
             let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
             ctx.painter
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
-
-        vcd.draw_cursor(
-            &self.config.theme,
-            &mut ctx,
-            response.rect.size(),
-            to_screen,
-        );
 
         self.draw_mouse_gesture_widget(vcd, pointer_pos_canvas, &response, msgs, &mut ctx);
 
@@ -366,29 +363,35 @@ impl State {
                 // We draw in absolute coords, but the signal offset in the y
                 // direction is also in absolute coordinates, so we need to
                 // compensate for that
-                let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
+                let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
 
                 let color = *vcd
-                    .signals
-                    .get(drawing_info.signal_list_idx)
-                    .and_then(|signal| signal.color.clone())
+                    .displayed_items
+                    .get(drawing_info.signal_list_idx())
+                    .and_then(|signal| signal.color())
                     .and_then(|color| self.config.theme.colors.get(&color))
                     .unwrap_or(&self.config.theme.signal_default);
-
-                if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
-                    for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1)) {
-                        if commands.is_bool {
-                            self.draw_bool_transition(
-                                (old, new),
-                                new.1.force_anti_alias,
-                                color,
-                                y_offset,
-                                &mut ctx,
-                            )
-                        } else {
-                            self.draw_region((old, new), color, y_offset, &mut ctx)
+                match drawing_info {
+                    ItemDrawingInfo::Signal(drawing_info) => {
+                        if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
+                            for (old, new) in
+                                commands.values.iter().zip(commands.values.iter().skip(1))
+                            {
+                                if commands.is_bool {
+                                    self.draw_bool_transition(
+                                        (old, new),
+                                        new.1.force_anti_alias,
+                                        color,
+                                        y_offset,
+                                        &mut ctx,
+                                    )
+                                } else {
+                                    self.draw_region((old, new), color, y_offset, &mut ctx)
+                                }
+                            }
                         }
                     }
+                    ItemDrawingInfo::Divider(_) => {}
                 }
             }
         }

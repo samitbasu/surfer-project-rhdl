@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs, str::FromStr};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    ClockHighlightType, Message, SignalNameType, State,
+    ClockHighlightType, DisplayedItem, Message, SignalNameType, State,
 };
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};
@@ -49,13 +49,17 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
     let displayed_signals = match &state.vcd {
         Some(v) => v
-            .signals
+            .displayed_items
             .iter()
+            .filter_map(|item| match item {
+                DisplayedItem::Signal(idx) => Some(idx),
+                _ => None,
+            })
             .enumerate()
             .map(|(idx, s)| {
                 format!(
                     "{}_{}",
-                    uint_idx_to_alpha_idx(idx, v.signals.len()),
+                    uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
                     v.inner.signal_from_signal_idx(s.idx).name()
                 )
             })
@@ -127,6 +131,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "signal_unfocus",
             "signal_unset_color",
             "preference_set_clock_highlight",
+            "divider_add",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -198,14 +203,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "signal_set_color" => single_word(
                     color_names.clone(),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::SignalColorChange(
+                        Some(Command::Terminal(Message::ItemColorChange(
                             None,
                             Some(word.to_string()),
                         )))
                     }),
                 ),
                 "signal_unset_color" => {
-                    Some(Command::Terminal(Message::SignalColorChange(None, None)))
+                    Some(Command::Terminal(Message::ItemColorChange(None, None)))
                 }
                 "signal_set_name_type" => single_word(
                     vec![
@@ -238,10 +243,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         // split off the idx which is always followed by an underscore
                         let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
                         alpha_idx_to_uint_idx(alpha_idx)
-                            .map(|idx| Command::Terminal(Message::FocusSignal(idx)))
+                            .map(|idx| Command::Terminal(Message::FocusItem(idx)))
                     }),
                 ),
-                "signal_unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
                 "preference_set_clock_highlight" => single_word(
                     vec!["Line", "Cycle", "None"]
                         .iter()
@@ -252,6 +256,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             ClockHighlightType::from_str(word).unwrap_or(ClockHighlightType::Line),
                         )))
                     }),
+                ),
+                "signal_unfocus" => Some(Command::Terminal(Message::UnfocusItem)),
+                "divider_add" => single_word(
+                    vec![],
+                    Box::new(|word| Some(Command::Terminal(Message::AddDivider(word.into())))),
                 ),
                 _ => None,
             }
