@@ -14,7 +14,6 @@ use crate::{
 
 pub struct CommandPrompt {
     pub visible: bool,
-    pub input: String,
     pub expanded: String,
     pub suggestions: Vec<(String, Vec<bool>)>,
 }
@@ -59,6 +58,7 @@ pub fn show_command_prompt(
 
                         if command_parsed.is_some() {
                             msgs.push(Message::ShowCommandPrompt(false));
+                            msgs.push(Message::CommandPromptClear);
                             msgs.push(command_parsed.unwrap());
                         }
                     }
