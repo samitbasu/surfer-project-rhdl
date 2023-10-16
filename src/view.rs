@@ -824,6 +824,7 @@ impl State {
             ("↔", "Scroll", "Pan"),
             ("🔎", "Ctrl+Scroll", "Zoom"),
             ("〰", "b", "Show or hide the design hierarchy"),
+            ("☰", "m", "Show or hide menu"),
         ];
 
         Grid::new("controls")
@@ -878,6 +879,12 @@ impl State {
             #[cfg(not(target_arch = "wasm32"))]
             ui.label(RichText::new(
                 "Or press space and type load_vcd or load_url",
+            ));
+            #[cfg(target_arch = "wasm32")]
+            ui.label(RichText::new("Or use the file menu to open a URL"));
+            #[cfg(not(target_arch = "wasm32"))]
+            ui.label(RichText::new(
+                "Or use the file menu to open a file or a URL",
             ));
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Or click"));
