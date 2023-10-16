@@ -257,6 +257,16 @@ impl FromStr for SignalNameType {
     }
 }
 
+impl std::fmt::Display for SignalNameType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SignalNameType::Local => write!(f, "Local"),
+            SignalNameType::Unique => write!(f, "Unique"),
+            SignalNameType::Global => write!(f, "Global"),
+        }
+    }
+}
+
 pub struct DisplayedSignal {
     idx: SignalIdx,
     info: SignalInfo,
