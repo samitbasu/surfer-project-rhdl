@@ -857,7 +857,7 @@ impl State {
                 self.wanted_timescale = new_vcd.inner.metadata.timescale.1;
                 self.vcd = Some(new_vcd);
                 self.vcd_progress = None;
-                info!("Done setting up vcd file");
+                info!("Done setting up VCD file");
             }
             Message::BlacklistTranslator(idx, translator) => {
                 self.blacklisted_translators.insert((idx, translator));
