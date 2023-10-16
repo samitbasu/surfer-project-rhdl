@@ -21,6 +21,7 @@ use color_eyre::eyre::anyhow;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use derivative::Derivative;
+use descriptors::PathDescriptor;
 use descriptors::ScopeDescriptor;
 use descriptors::SignalDescriptor;
 #[cfg(not(target_arch = "wasm32"))]
@@ -308,7 +309,7 @@ pub enum Message {
     UnfocusSignal,
     MoveFocus(MoveDir),
     MoveFocusedSignal(MoveDir),
-    SignalFormatChange(TraceIdx, String),
+    SignalFormatChange(PathDescriptor, String),
     SignalColorChange(Option<usize>, String),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
@@ -364,6 +365,11 @@ pub enum LoadProgress {
     Loading(Option<u64>, Arc<AtomicU64>),
 }
 
+struct CachedDrawData {
+    pub draw_commands: HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>,
+    pub clock_edges: Vec<f32>,
+}
+
 pub struct State {
     config: config::SurferConfig,
     vcd: Option<VcdData>,
@@ -397,8 +403,7 @@ pub struct State {
     /// The draw commands for every signal currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
     // mutability
-    draw_commands:
-        RefCell<Option<HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>>>,
+    draw_data: RefCell<Option<CachedDrawData>>,
 
     // The file dialog requires mutable access to its stuff, so we need a ref cell
     file_dialog: RefCell<Option<egui_file::FileDialog>>,
@@ -483,7 +488,7 @@ impl State {
             show_wave_source: true,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
-            draw_commands: RefCell::new(None),
+            draw_data: RefCell::new(None),
             last_canvas_rect: RefCell::new(None),
             file_dialog: RefCell::new(None),
         };
@@ -753,29 +758,35 @@ impl State {
                 }
                 self.invalidate_draw_commands();
             }
-            Message::SignalFormatChange(ref idx @ (ref signal_idx, ref path), format) => {
+            Message::SignalFormatChange(descriptor, format) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
+                if let Some(idx) = &descriptor.0.resolve(vcd) {
+                    let path = descriptor.1;
 
-                if self.translators.all_translator_names().contains(&&format) {
-                    *vcd.signal_format.entry(idx.clone()).or_default() = format;
+                    if self.translators.all_translator_names().contains(&&format) {
+                        *vcd.signal_format
+                            .entry((idx.clone(), path.clone()))
+                            .or_default() = format;
 
-                    if path.is_empty() {
-                        let signal = vcd.inner.signal_from_signal_idx(idx.0);
-                        let translator = vcd.signal_translator(idx.clone(), &self.translators);
-                        let new_info = translator
-                            .signal_info(&signal, &vcd.signal_name(idx.0))
-                            .unwrap();
+                        if path.is_empty() {
+                            let signal = vcd.inner.signal_from_signal_idx(*idx);
+                            let translator = vcd
+                                .signal_translator((idx.clone(), path.clone()), &self.translators);
+                            let new_info = translator
+                                .signal_info(&signal, &vcd.signal_name(*idx))
+                                .unwrap();
 
-                        for displayed_signal in &mut vcd.signals {
-                            if &displayed_signal.idx == signal_idx {
-                                displayed_signal.info = new_info;
-                                break;
+                            for displayed_signal in &mut vcd.signals {
+                                if &displayed_signal.idx == idx {
+                                    displayed_signal.info = new_info;
+                                    break;
+                                }
                             }
                         }
+                        self.invalidate_draw_commands();
+                    } else {
+                        println!("WARN: No translator {format}")
                     }
-                    self.invalidate_draw_commands();
-                } else {
-                    println!("WARN: No translator {format}")
                 }
             }
             Message::SignalColorChange(vidx, color_name) => {

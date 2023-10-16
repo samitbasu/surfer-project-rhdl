@@ -1,6 +1,19 @@
 use fastwave_backend::{ScopeIdx, SignalIdx};
 
-use crate::VcdData;
+use crate::{view::TraceIdx, VcdData};
+
+#[derive(Debug)]
+pub struct PathDescriptor(pub SignalDescriptor, pub Vec<String>);
+
+impl PathDescriptor {
+    pub fn from_traceidx(t: &TraceIdx) -> Self {
+        PathDescriptor(SignalDescriptor::Id(t.0), t.1.clone())
+    }
+
+    pub fn from_named(name: String, path: Vec<String>) -> Self {
+        Self(SignalDescriptor::Name(name), path)
+    }
+}
 
 #[derive(Debug)]
 pub enum SignalDescriptor {

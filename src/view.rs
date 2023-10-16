@@ -8,6 +8,7 @@ use log::info;
 use num::{BigInt, BigRational, ToPrimitive};
 use spade_common::num_ext::InfallibleToBigInt;
 
+use crate::descriptors::PathDescriptor;
 use crate::util::uint_idx_to_alpha_idx;
 use crate::{
     command_prompt::show_command_prompt,
@@ -697,7 +698,12 @@ impl State {
         available_translators.sort_by(|a, b| human_sort::compare(a, b));
         let format_menu = available_translators
             .iter()
-            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
+            .map(|t| {
+                (
+                    *t,
+                    Message::SignalFormatChange(PathDescriptor::from_traceidx(path), t.to_string()),
+                )
+            })
             .collect::<Vec<_>>();
 
         ui.menu_button("Format", |ui| {
