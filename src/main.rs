@@ -298,6 +298,8 @@ pub struct VcdData {
     scroll: usize,
 }
 
+type CommandCount = usize;
+
 #[derive(Debug)]
 pub enum MoveDir {
     Up,
@@ -317,12 +319,12 @@ pub enum Message {
     AddScope(ScopeDescriptor),
     AddCount(char),
     InvalidateCount,
-    RemoveSignal(usize),
+    RemoveSignal(usize, CommandCount),
     FocusSignal(usize),
     UnfocusSignal,
-    MoveFocus(MoveDir),
-    MoveFocusedSignal(MoveDir),
-    Scroll(MoveDir),
+    MoveFocus(MoveDir, CommandCount),
+    MoveFocusedSignal(MoveDir, CommandCount),
+    VerticalScroll(MoveDir, CommandCount),
     SetVerticalScroll(usize),
     SignalFormatChange(PathDescriptor, String),
     SignalColorChange(Option<usize>, String),
@@ -361,6 +363,7 @@ pub enum Message {
     ScrollToEnd,
     ToggleMenu,
     SetTimeScale(Timescale),
+    CommandPromptClear,
     CommandPromptUpdate {
         expanded: String,
         suggestions: Vec<(String, Vec<bool>)>,
@@ -495,7 +498,6 @@ impl State {
             blacklisted_translators: HashSet::new(),
             command_prompt: command_prompt::CommandPrompt {
                 visible: false,
-                input: String::from(""),
                 expanded: String::from(""),
                 suggestions: vec![],
             },
@@ -673,8 +675,7 @@ impl State {
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 vcd.focused_signal = None;
             }
-            Message::MoveFocus(direction) => {
-                let count = self.get_count();
+            Message::MoveFocus(direction, count) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 let visible_signals_len = vcd.signals.len();
                 if visible_signals_len > 0 {
@@ -701,8 +702,7 @@ impl State {
                     vcd.scroll = position.clamp(0, vcd.signals.len() - 1);
                 }
             }
-            Message::Scroll(direction) => {
-                let count = self.get_count();
+            Message::VerticalScroll(direction, count) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 match direction {
                     MoveDir::Down => {
@@ -720,13 +720,10 @@ impl State {
                         }
                     }
                 }
-                self.count = None;
                 self.invalidate_draw_commands();
             }
-            Message::RemoveSignal(idx) => {
+            Message::RemoveSignal(idx, count) => {
                 self.invalidate_draw_commands();
-                let count = self.get_count();
-                self.count = None;
 
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 for _ in 0..count {
@@ -752,9 +749,7 @@ impl State {
                 }
                 vcd.compute_signal_display_names();
             }
-            Message::MoveFocusedSignal(direction) => {
-                let count = self.get_count();
-                self.count = None;
+            Message::MoveFocusedSignal(direction, count) => {
                 self.invalidate_draw_commands();
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 if let Some(idx) = vcd.focused_signal {
@@ -926,7 +921,7 @@ impl State {
             Message::ToggleMenu => self.config.layout.show_menu = !self.config.layout.show_menu,
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
-                    self.command_prompt.input = "".to_string();
+                    *self.command_prompt_text.borrow_mut() = "".to_string();
                     self.command_prompt.suggestions = vec![];
                     self.command_prompt.expanded = "".to_string();
                 }
@@ -964,6 +959,11 @@ impl State {
                 }
                 vcd.default_signal_name_type = name_type;
                 vcd.compute_signal_display_names();
+            }
+            Message::CommandPromptClear => {
+                *self.command_prompt_text.borrow_mut() = "".to_string();
+                self.command_prompt.expanded = "".to_string();
+                self.command_prompt.suggestions = vec![];
             }
             Message::CommandPromptUpdate {
                 expanded,

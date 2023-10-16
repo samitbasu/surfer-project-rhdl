@@ -198,13 +198,21 @@ impl State {
                     .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
+
+                        if ui.ui_contains_pointer() {
+                            let scroll_delta = ui.input(|i| i.scroll_delta);
+                            if scroll_delta.y > 0.0 {
+                                msgs.push(Message::InvalidateCount);
+                                msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
+                            } else if scroll_delta.y < 0.0 {
+                                msgs.push(Message::InvalidateCount);
+                                msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
+                            }
+                        }
+
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| {
-                                egui::ScrollArea::horizontal()
-                                    .show(ui, |ui| self.draw_var_list(&mut msgs, &vcd, ui))
-                                    .inner
-                            },
+                            |ui| self.draw_var_list(&mut msgs, &vcd, ui),
                         )
                         .inner
                     })
@@ -215,6 +223,16 @@ impl State {
                     .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
+                        if ui.ui_contains_pointer() {
+                            let scroll_delta = ui.input(|i| i.scroll_delta);
+                            if scroll_delta.y > 0.0 {
+                                msgs.push(Message::InvalidateCount);
+                                msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
+                            } else if scroll_delta.y < 0.0 {
+                                msgs.push(Message::InvalidateCount);
+                                msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
+                            }
+                        }
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
@@ -398,55 +416,52 @@ impl State {
                     }),
                     (Key::J, true, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down));
+                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down, self.get_count()));
                         } else {
-                            msgs.push(Message::Scroll(MoveDir::Down));
+                            msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
                         }
+                        msgs.push(Message::InvalidateCount);
                     }
                     (Key::K, true, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up, self.get_count()));
                         } else {
-                            msgs.push(Message::Scroll(MoveDir::Up));
+                            msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
                         }
+                        msgs.push(Message::InvalidateCount);
                     }
                     (Key::ArrowDown, true, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down));
+                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down));
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down, self.get_count()));
                         } else {
-                            msgs.push(Message::Scroll(MoveDir::Down));
+                            msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
                         }
+                        msgs.push(Message::InvalidateCount);
                     }
                     (Key::ArrowUp, true, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up));
+                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up));
+                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up, self.get_count()));
                         } else {
-                            msgs.push(Message::Scroll(MoveDir::Up));
+                            msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
                         }
+                        msgs.push(Message::InvalidateCount);
                     }
                     (Key::Delete, true, false) => {
                         if let Some(vcd) = &self.vcd {
                             if let Some(idx) = vcd.focused_signal {
-                                msgs.push(Message::RemoveSignal(idx));
+                                msgs.push(Message::RemoveSignal(idx, self.get_count()));
+                                msgs.push(Message::InvalidateCount);
                             }
                         }
                     }
-                    // (Key::Num0, true, false) => self.vcd. b
-                    // this should be a shortcut to focusing
-                    // to make this functional we need to make the cursor of the prompt
-                    // point to the end of the input
-                    // (Key::F, true, false) => {
-                    //     self.command_prompt.input = String::from("focus_signal ");
-                    //     msgs.push(Message::ShowCommandPrompt(true));
-                    // }
                     _ => {}
                 },
                 _ => {}
@@ -554,21 +569,16 @@ impl State {
         for (vidx, displayed_signal) in vcd.signals.iter().enumerate().skip(vcd.scroll) {
             let sig = displayed_signal.idx;
             let info = &displayed_signal.info;
-            ui.with_layout(
-                Layout::top_down(Align::LEFT).with_cross_justify(true),
-                |ui| {
-                    let signal = vcd.inner.signal_from_signal_idx(sig);
+            let signal = vcd.inner.signal_from_signal_idx(sig);
 
-                    self.draw_var(
-                        msgs,
-                        vidx,
-                        &displayed_signal.display_name,
-                        &(signal.real_idx(), vec![]),
-                        &mut signal_offsets,
-                        info,
-                        ui,
-                    );
-                },
+            self.draw_var(
+                msgs,
+                vidx,
+                &displayed_signal.display_name,
+                &(signal.real_idx(), vec![]),
+                &mut signal_offsets,
+                info,
+                ui,
             );
         }
 
@@ -783,7 +793,7 @@ impl State {
         });
 
         if ui.button("Remove").clicked() {
-            msgs.push(Message::RemoveSignal(vidx));
+            msgs.push(Message::RemoveSignal(vidx, 1));
             ui.close_menu();
         }
     }
@@ -795,16 +805,6 @@ impl State {
         ui: &mut egui::Ui,
         msgs: &mut Vec<Message>,
     ) {
-        // // if ui.ui_contains_pointer() {
-        // if false {
-        //     let scroll_delta = ui.input(|i| i.scroll_delta);
-        //     if scroll_delta.y > 0.0 {
-        //         msgs.push(Message::VerticalScroll(MoveDir::Down));
-        //     } else if scroll_delta.y < 0.0 {
-        //         msgs.push(Message::VerticalScroll(MoveDir::Up));
-        //     }
-        // }
-
         if let Some(cursor) = &vcd.cursor {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
