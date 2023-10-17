@@ -321,8 +321,14 @@ impl State {
             };
 
             if draw_clock_edges {
-                for clock_edge in clock_edges {
-                    self.draw_clock_edge(*clock_edge, &mut ctx);
+                let mut last_edge = 0.0;
+                let mut highlight = false;
+                for current_edge in clock_edges {
+                    if highlight {
+                        self.draw_clock_edge(last_edge, *current_edge, &mut ctx);
+                    }
+                    highlight = !highlight;
+                    last_edge = *current_edge;
                 }
             }
 
@@ -663,18 +669,21 @@ impl State {
         }
     }
 
-    fn draw_clock_edge(&self, x_pos: f32, ctx: &mut DrawingContext) {
+    fn draw_clock_edge(&self, x_start: f32, x_end: f32, ctx: &mut DrawingContext) {
         let Pos2 {
-            x: x_pos,
+            x: x_end,
             y: y_start,
-        } = (ctx.to_screen)(x_pos, 0.);
-        ctx.painter.vline(
-            x_pos,
-            (y_start)..=(y_start + ctx.cfg.canvas_height),
-            Stroke {
-                color: self.config.theme.clock_edge.color,
-                width: self.config.theme.clock_edge.width,
+        } = (ctx.to_screen)(x_end, 0.);
+        ctx.painter.rect_filled(
+            Rect {
+                min: (ctx.to_screen)(x_start, 0.),
+                max: Pos2 {
+                    x: x_end,
+                    y: ctx.cfg.canvas_height + y_start,
+                },
             },
+            0.0,
+            self.config.theme.clock_highlight,
         );
     }
 }
