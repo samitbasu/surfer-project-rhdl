@@ -619,7 +619,7 @@ impl State {
                 "No VCD loaded".to_string()
             };
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded.starts_with("focus") {
+                if self.command_prompt.expanded.starts_with("signal_focus") {
                     let alpha_id = uint_idx_to_alpha_idx(
                         vidx,
                         self.vcd.as_ref().map_or(0, |vcd| vcd.signals.len()),
