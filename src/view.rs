@@ -40,6 +40,10 @@ impl eframe::App for State {
             if let Message::Exit = msg {
                 frame.close()
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Message::ToggleFullscreen = msg {
+                frame.set_fullscreen(!frame.info().window_info.fullscreen)
+            }
             self.update(msg);
         }
 
@@ -365,6 +369,7 @@ impl State {
                     (Key::Escape, true, true) => msgs.push(Message::ShowCommandPrompt(false)),
                     (Key::B, true, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false) => msgs.push(Message::ToggleMenu),
+                    (Key::F11, true, false) => msgs.push(Message::ToggleFullscreen),
                     (Key::S, true, false) => msgs.push(Message::ScrollToStart),
                     (Key::E, true, false) => msgs.push(Message::ScrollToEnd),
                     (Key::Minus, true, false) => msgs.push(Message::CanvasZoom {
@@ -854,6 +859,9 @@ impl State {
             ("🔙", "s", "Scroll to start"),
             ("🔚", "e", "Scroll to end"),
             ("🗙", "Delete", "Delete focused signal"),
+            // Uncomment when generating new test images
+            // #[cfg(not(target_arch = "wasm32"))]
+            // ("⛶", "F11", "Toggle full screen"),
         ];
 
         Grid::new("keys")
@@ -1002,6 +1010,14 @@ impl State {
                 {
                     ui.close_menu();
                     msgs.push(Message::ToggleMenu);
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                if ui
+                    .add(egui::Button::new("Toggle full screen").shortcut_text("F11"))
+                    .clicked()
+                {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleFullscreen);
                 }
                 ui.separator();
                 ui.menu_button("Time scale", |ui| {

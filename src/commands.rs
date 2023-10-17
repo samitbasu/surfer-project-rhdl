@@ -115,6 +115,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "zoom_out",
             "zoom_fit",
             "toggle_menu",
+            "toggle_fullscreen",
             "module_add",
             "module_select",
             "signal_add",
@@ -157,6 +158,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 })),
                 "zoom_fit" => Some(Command::Terminal(Message::ZoomToFit)),
                 "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
+                "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
                 // Module commands
                 "module_add" => single_word(
                     scopes.clone(),
