@@ -275,12 +275,32 @@ pub struct DisplayedSignal {
     display_name_type: SignalNameType,
 }
 
+pub struct DisplayedSeparator {
+    color: Option<String>,
+    name: String,
+}
+
+enum DisplayedItem {
+    Signal(DisplayedSignal),
+    Separator(DisplayedSeparator),
+}
+
+impl DisplayedItem {
+    pub fn color(&self) -> Option<String> {
+        let color = match self {
+            DisplayedItem::Signal(signal) => &signal.color,
+            DisplayedItem::Separator(separator) => &separator.color,
+        };
+        color.clone()
+    }
+}
+
 pub struct VcdData {
     inner: VCD,
     filename: String,
     active_scope: Option<ScopeIdx>,
-    /// Root signals to display
-    signals: Vec<DisplayedSignal>,
+    /// Root items (signals, separators, ...) to display
+    signals: Vec<DisplayedItem>,
     /// These hashmaps contain a list of all full (i.e., top.dut.mod1.signal) signal or scope
     /// names to their indices. They have to be initialized using the initialize_signal_scope_maps
     /// function after this struct is created.
@@ -374,6 +394,7 @@ pub enum Message {
     SetUrlEntryVisible(bool),
     SetDragStart(Option<Pos2>),
     ToggleFullscreen,
+    AddSeparator(String),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
@@ -639,6 +660,14 @@ impl State {
                     vcd.add_signal(&self.translators, id)
                 }
             }
+            Message::AddSeparator(name) => {
+                let Some(vcd) = self.vcd.as_mut() else { return };
+                vcd.signals
+                    .push(DisplayedItem::Separator(DisplayedSeparator {
+                        color: None,
+                        name,
+                    }));
+            }
             Message::AddScope(descriptor) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
 
@@ -832,10 +861,15 @@ impl State {
                                 .signal_info(&signal, &vcd.signal_name(*idx))
                                 .unwrap();
 
-                            for displayed_signal in &mut vcd.signals {
-                                if &displayed_signal.idx == idx {
-                                    displayed_signal.info = new_info;
-                                    break;
+                            for item in &mut vcd.signals {
+                                match item {
+                                    DisplayedItem::Signal(signal) => {
+                                        if &signal.idx == idx {
+                                            signal.info = new_info;
+                                            break;
+                                        }
+                                    }
+                                    DisplayedItem::Separator(_) => {}
                                 }
                             }
                         }
@@ -851,7 +885,14 @@ impl State {
                 };
 
                 if let Some(idx) = vidx.or(vcd.focused_signal) {
-                    vcd.signals[idx].color = Some(color_name);
+                    match &mut vcd.signals[idx] {
+                        DisplayedItem::Signal(signal) => {
+                            signal.color = Some(color_name);
+                        }
+                        DisplayedItem::Separator(separator) => {
+                            separator.color = Some(color_name);
+                        }
+                    }
                 }
             }
             Message::ResetSignalFormat(idx) => {
@@ -948,15 +989,19 @@ impl State {
                 // checks if vidx is Some then use that, else try focused signal
                 if let Some(idx) = vidx.or(vcd.focused_signal) {
                     if vcd.signals.len() > idx {
-                        vcd.signals[idx].display_name_type = name_type;
-                        vcd.compute_signal_display_names();
+                        if let DisplayedItem::Signal(signal) = &mut vcd.signals[idx] {
+                            signal.display_name_type = name_type;
+                            vcd.compute_signal_display_names();
+                        }
                     }
                 }
             }
             Message::ForceSignalNameTypes(name_type) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 for signal in &mut vcd.signals {
-                    signal.display_name_type = name_type;
+                    if let DisplayedItem::Signal(signal) = signal {
+                        signal.display_name_type = name_type;
+                    }
                 }
                 vcd.default_signal_name_type = name_type;
                 vcd.compute_signal_display_names();
@@ -1226,13 +1271,13 @@ impl VcdData {
             .signal_info(&signal, &self.signal_name(sidx))
             .unwrap();
 
-        self.signals.push(DisplayedSignal {
+        self.signals.push(DisplayedItem::Signal(DisplayedSignal {
             idx: sidx,
             info,
             color: None,
             display_name: signal.name().clone(),
             display_name_type: self.default_signal_name_type,
-        });
+        }));
         self.compute_signal_display_names();
     }
 
@@ -1240,6 +1285,10 @@ impl VcdData {
         let full_names = self
             .signals
             .iter()
+            .filter_map(|item| match item {
+                DisplayedItem::Signal(idx) => Some(idx),
+                _ => None,
+            })
             .map(|sig| sig.idx)
             .unique()
             .map(|idx| {
@@ -1247,61 +1296,66 @@ impl VcdData {
                     .get(&idx)
                     .map(|name| name.clone())
                     .unwrap_or_else(|| self.inner.signal_from_signal_idx(idx).name())
-                    .clone()
             })
             .collect_vec();
 
-        for signal in &mut self.signals {
-            let local_name = self.inner.signal_from_signal_idx(signal.idx).name();
-            signal.display_name = match signal.display_name_type {
-                SignalNameType::Local => local_name,
-                SignalNameType::Global => self
-                    .ids_to_fullnames
-                    .get(&signal.idx)
-                    .unwrap_or(&local_name)
-                    .clone(),
-                SignalNameType::Unique => {
-                    /// This function takes a full signal name and a list of other
-                    /// full signal names and returns a minimal unique signal name.
-                    /// It takes scopes from the back of the signal until the name is unique.
-                    fn unique(signal: String, signals: &Vec<String>) -> String {
-                        // if the full signal name is very short just return it
-                        if signal.len() < 20 {
-                            return signal;
-                        }
+        for item in &mut self.signals {
+            match item {
+                DisplayedItem::Signal(signal) => {
+                    let local_name = self.inner.signal_from_signal_idx(signal.idx).name();
+                    signal.display_name = match signal.display_name_type {
+                        SignalNameType::Local => local_name,
+                        SignalNameType::Global => self
+                            .ids_to_fullnames
+                            .get(&signal.idx)
+                            .unwrap_or(&local_name)
+                            .clone(),
+                        SignalNameType::Unique => {
+                            /// This function takes a full signal name and a list of other
+                            /// full signal names and returns a minimal unique signal name.
+                            /// It takes scopes from the back of the signal until the name is unique.
+                            fn unique(signal: String, signals: &[String]) -> String {
+                                // if the full signal name is very short just return it
+                                if signal.len() < 20 {
+                                    return signal;
+                                }
 
-                        let split_this = signal.split('.').map(|p| p.to_string()).collect_vec();
-                        let split_signals = signals
-                            .iter()
-                            .filter(|&s| *s != signal)
-                            .map(|s| s.split('.').map(|p| p.to_string()).collect_vec())
-                            .collect_vec();
+                                let split_this =
+                                    signal.split('.').map(|p| p.to_string()).collect_vec();
+                                let split_signals = signals
+                                    .iter()
+                                    .filter(|&s| *s != signal)
+                                    .map(|s| s.split('.').map(|p| p.to_string()).collect_vec())
+                                    .collect_vec();
 
-                        fn take_front(s: &Vec<String>, l: usize) -> String {
-                            if l == 0 {
-                                s.last().unwrap().clone()
-                            } else if l < s.len() - 1 {
-                                format!("...{}", s.iter().rev().take(l + 1).rev().join("."))
-                            } else {
-                                s.join(".")
+                                fn take_front(s: &Vec<String>, l: usize) -> String {
+                                    if l == 0 {
+                                        s.last().unwrap().clone()
+                                    } else if l < s.len() - 1 {
+                                        format!("...{}", s.iter().rev().take(l + 1).rev().join("."))
+                                    } else {
+                                        s.join(".")
+                                    }
+                                }
+
+                                let mut l = 0;
+                                while split_signals
+                                    .iter()
+                                    .map(|s| take_front(s, l))
+                                    .contains(&take_front(&split_this, l))
+                                {
+                                    l += 1;
+                                }
+                                take_front(&split_this, l)
                             }
-                        }
 
-                        let mut l = 0;
-                        while split_signals
-                            .iter()
-                            .map(|s| take_front(s, l))
-                            .contains(&take_front(&split_this, l))
-                        {
-                            l += 1;
+                            let full_name = self.ids_to_fullnames.get(&signal.idx).unwrap().clone();
+                            unique(full_name, &full_names)
                         }
-                        take_front(&split_this, l)
-                    }
-
-                    let full_name = self.ids_to_fullnames.get(&signal.idx).unwrap().clone();
-                    unique(full_name, &full_names)
+                    };
                 }
-            };
+                DisplayedItem::Separator(_) => {}
+            }
         }
     }
 }
