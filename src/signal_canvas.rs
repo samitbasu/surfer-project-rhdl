@@ -293,13 +293,6 @@ impl State {
             .drag_started_by(egui::PointerButton::Middle)
             .then(|| msgs.push(Message::SetDragStart(pointer_pos_canvas)));
 
-        vcd.draw_cursor(
-            &self.config.theme,
-            &mut painter,
-            response.rect.size(),
-            to_screen,
-        );
-
         let mut ctx = DrawingContext {
             painter: &mut painter,
             cfg: &cfg,
@@ -361,6 +354,13 @@ impl State {
                 }
             }
         }
+
+        vcd.draw_cursor(
+            &self.config.theme,
+            &mut painter,
+            response.rect.size(),
+            to_screen,
+        );
     }
 
     fn draw_gesture_line(
