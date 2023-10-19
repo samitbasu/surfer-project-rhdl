@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs, str::FromStr};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    Message, SignalNameType, State,
+    ClockHighlightType, Message, SignalNameType, State,
 };
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};
@@ -125,6 +125,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "signal_force_name_type",
             "signal_focus",
             "signal_unfocus",
+            "preference_set_clock_highlight",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -237,6 +238,17 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "signal_unfocus" => Some(Command::Terminal(Message::UnfocusSignal)),
+                "preference_set_clock_highlight" => single_word(
+                    vec!["Line", "Cycle", "None"]
+                        .iter()
+                        .map(|o| o.to_string())
+                        .collect_vec(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SetClockHighlightType(
+                            ClockHighlightType::from_str(word).unwrap_or(ClockHighlightType::Line),
+                        )))
+                    }),
+                ),
                 _ => None,
             }
         }),

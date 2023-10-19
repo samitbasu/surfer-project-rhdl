@@ -329,7 +329,20 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state
 }}
 
-snapshot_ui_with_file_msgs! {clock_pulses_render, "examples/counter.vcd", [
+snapshot_ui_with_file_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
     Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
     Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
+    Message::SetClockHighlightType(crate::ClockHighlightType::Line),
+]}
+
+snapshot_ui_with_file_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
+    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
+    Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
+    Message::SetClockHighlightType(crate::ClockHighlightType::Cycle),
+]}
+
+snapshot_ui_with_file_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
+    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
+    Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
+    Message::SetClockHighlightType(crate::ClockHighlightType::None),
 ]}

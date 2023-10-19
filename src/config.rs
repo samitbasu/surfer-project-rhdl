@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
-use crate::SignalNameType;
+use crate::{ClockHighlightType, SignalNameType};
 
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {
@@ -21,6 +21,8 @@ pub struct SurferConfig {
 
     #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
+    #[serde(deserialize_with = "deserialize_clock_highlight_type")]
+    pub default_clock_highlight_type: ClockHighlightType,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,9 +64,9 @@ pub struct SurferTheme {
 
     pub cursor: SurferLineStyle,
     pub gesture: SurferLineStyle,
-
+    pub clock_highlight_line: SurferLineStyle,
     #[serde(deserialize_with = "deserialize_hex_color")]
-    pub clock_highlight: Color32,
+    pub clock_highlight_cycle: Color32,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub signal_default: Color32,
@@ -198,5 +200,14 @@ where
 {
     String::deserialize(deserializer)
         .map(|str| SignalNameType::from_str(&str).map_err(de::Error::custom))
+        .unwrap()
+}
+
+fn deserialize_clock_highlight_type<'de, D>(deserializer: D) -> Result<ClockHighlightType, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    String::deserialize(deserializer)
+        .map(|str| ClockHighlightType::from_str(&str).map_err(de::Error::custom))
         .unwrap()
 }

@@ -11,7 +11,7 @@ use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
 use crate::translation::{SignalInfo, ValueKind};
 use crate::view::{time_string, SignalDrawingInfo};
-use crate::{CachedDrawData, Message, State, VcdData};
+use crate::{CachedDrawData, ClockHighlightType, Message, State, VcdData};
 
 #[derive(Clone, PartialEq, Copy)]
 pub enum GestureKind {
@@ -315,12 +315,10 @@ impl State {
 
             if draw_clock_edges {
                 let mut last_edge = 0.0;
-                let mut highlight = false;
+                let mut cycle = false;
                 for current_edge in clock_edges {
-                    if highlight {
-                        self.draw_clock_edge(last_edge, *current_edge, &mut ctx);
-                    }
-                    highlight = !highlight;
+                    self.draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx);
+                    cycle = !cycle;
                     last_edge = *current_edge;
                 }
             }
@@ -669,22 +667,43 @@ impl State {
         }
     }
 
-    fn draw_clock_edge(&self, x_start: f32, x_end: f32, ctx: &mut DrawingContext) {
-        let Pos2 {
-            x: x_end,
-            y: y_start,
-        } = (ctx.to_screen)(x_end, 0.);
-        ctx.painter.rect_filled(
-            Rect {
-                min: (ctx.to_screen)(x_start, 0.),
-                max: Pos2 {
-                    x: x_end,
-                    y: ctx.cfg.canvas_height + y_start,
-                },
-            },
-            0.0,
-            self.config.theme.clock_highlight,
-        );
+    fn draw_clock_edge(&self, x_start: f32, x_end: f32, cycle: bool, ctx: &mut DrawingContext) {
+        match self.config.default_clock_highlight_type {
+            ClockHighlightType::Line => {
+                let Pos2 {
+                    x: x_pos,
+                    y: y_start,
+                } = (ctx.to_screen)(x_start, 0.);
+                ctx.painter.vline(
+                    x_pos,
+                    (y_start)..=(y_start + ctx.cfg.canvas_height),
+                    Stroke {
+                        color: self.config.theme.clock_highlight_line.color,
+                        width: self.config.theme.clock_highlight_line.width,
+                    },
+                );
+            }
+            ClockHighlightType::Cycle => {
+                if cycle {
+                    let Pos2 {
+                        x: x_end,
+                        y: y_start,
+                    } = (ctx.to_screen)(x_end, 0.);
+                    ctx.painter.rect_filled(
+                        Rect {
+                            min: (ctx.to_screen)(x_start, 0.),
+                            max: Pos2 {
+                                x: x_end,
+                                y: ctx.cfg.canvas_height + y_start,
+                            },
+                        },
+                        0.0,
+                        self.config.theme.clock_highlight_cycle,
+                    );
+                }
+            }
+            ClockHighlightType::None => (),
+        }
     }
 }
 
