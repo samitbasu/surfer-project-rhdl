@@ -125,6 +125,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "signal_force_name_type",
             "signal_focus",
             "signal_unfocus",
+            "signal_unset_color",
             "preference_set_clock_highlight",
         ]
         .into_iter()
@@ -199,10 +200,13 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SignalColorChange(
                             None,
-                            word.to_string(),
+                            Some(word.to_string()),
                         )))
                     }),
                 ),
+                "signal_unset_color" => {
+                    Some(Command::Terminal(Message::SignalColorChange(None, None)))
+                }
                 "signal_set_name_type" => single_word(
                     vec![
                         "Local".to_string(),
