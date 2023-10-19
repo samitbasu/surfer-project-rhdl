@@ -768,12 +768,24 @@ impl State {
         });
 
         ui.menu_button("Color", |ui| {
+            let selected_color = &self.vcd.as_ref().unwrap().signals[vidx]
+                .color
+                .clone()
+                .unwrap_or("__nocolor__".to_string());
             for color_name in self.config.theme.colors.keys() {
-                ui.button(color_name).clicked().then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::SignalColorChange(Some(vidx), color_name.clone()));
-                });
+                ui.radio(selected_color == color_name, color_name)
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::SignalColorChange(Some(vidx), color_name.clone()));
+                    });
             }
+            ui.radio(selected_color == "__nocolor__", "Default")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SignalColorDefault(Some(vidx)));
+                });
         });
 
         ui.menu_button("Name", |ui| {
