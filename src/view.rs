@@ -704,6 +704,13 @@ impl State {
         ui: &mut egui::Ui,
         vidx: usize,
     ) {
+        // Should not call this unless a signal is selected, and, hence, a VCD is loaded
+        let Some(vcd) = self.vcd.as_ref() else {
+            return;
+        };
+
+        let displayed_signal = &vcd.signals[vidx];
+
         let mut available_translators = if path.1.is_empty() {
             self.translators
                 .all_translator_names()
@@ -717,29 +724,24 @@ impl State {
                     {
                         false
                     } else {
-                        self.vcd
-                            .as_ref()
-                            .map(|vcd| {
-                                let sig = vcd.inner.signal_from_signal_idx(path.0);
+                        let sig = vcd.inner.signal_from_signal_idx(path.0);
 
-                                match t.translates(&sig).context(format!(
-                                    "Failed to check if {translator_name} translates {:?}",
-                                    sig.path(),
-                                )) {
-                                    Ok(TranslationPreference::Yes) => true,
-                                    Ok(TranslationPreference::Prefer) => true,
-                                    Ok(TranslationPreference::No) => false,
-                                    Err(e) => {
-                                        msgs.push(Message::BlacklistTranslator(
-                                            path.0,
-                                            (*translator_name).clone(),
-                                        ));
-                                        msgs.push(Message::Error(e));
-                                        false
-                                    }
-                                }
-                            })
-                            .unwrap_or(false)
+                        match t.translates(&sig).context(format!(
+                            "Failed to check if {translator_name} translates {:?}",
+                            sig.path(),
+                        )) {
+                            Ok(TranslationPreference::Yes) => true,
+                            Ok(TranslationPreference::Prefer) => true,
+                            Ok(TranslationPreference::No) => false,
+                            Err(e) => {
+                                msgs.push(Message::BlacklistTranslator(
+                                    path.0,
+                                    (*translator_name).clone(),
+                                ));
+                                msgs.push(Message::Error(e));
+                                false
+                            }
+                        }
                     }
                 })
                 .collect()
@@ -768,12 +770,28 @@ impl State {
         });
 
         ui.menu_button("Color", |ui| {
+            let selected_color = &displayed_signal
+                .color
+                .clone()
+                .unwrap_or("__nocolor__".to_string());
             for color_name in self.config.theme.colors.keys() {
-                ui.button(color_name).clicked().then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::SignalColorChange(Some(vidx), color_name.clone()));
-                });
+                ui.radio(selected_color == color_name, color_name)
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::SignalColorChange(
+                            Some(vidx),
+                            Some(color_name.clone()),
+                        ));
+                    });
             }
+            ui.separator();
+            ui.radio(selected_color == "__nocolor__", "Default")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SignalColorChange(Some(vidx), None));
+                });
         });
 
         ui.menu_button("Name", |ui| {
@@ -782,11 +800,7 @@ impl State {
                 SignalNameType::Global,
                 SignalNameType::Unique,
             ];
-            let signal_name_type = self
-                .vcd
-                .as_ref()
-                .map(|vcd| vcd.signals[vidx].display_name_type)
-                .unwrap();
+            let signal_name_type = displayed_signal.display_name_type;
             for name_type in name_types {
                 ui.radio(signal_name_type == name_type, name_type.to_string())
                     .clicked()
