@@ -774,6 +774,10 @@ impl State {
                     msgs.push(Message::SignalColorChange(Some(vidx), color_name.clone()));
                 });
             }
+            ui.button("Default").clicked().then(|| {
+                ui.close_menu();
+                msgs.push(Message::SignalColorDefault(Some(vidx)));
+            });
         });
 
         ui.menu_button("Name", |ui| {
