@@ -328,6 +328,7 @@ pub enum Message {
     SetVerticalScroll(usize),
     SignalFormatChange(PathDescriptor, String),
     SignalColorChange(Option<usize>, String),
+    SignalColorDefault(Option<usize>),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
     // Reset the translator for this signal back to default. Sub-signals,
@@ -852,6 +853,15 @@ impl State {
 
                 if let Some(idx) = vidx.or(vcd.focused_signal) {
                     vcd.signals[idx].color = Some(color_name);
+                }
+            }
+            Message::SignalColorDefault(vidx) => {
+                let Some(vcd) = self.vcd.as_mut() else {
+                    return;
+                };
+
+                if let Some(idx) = vidx.or(vcd.focused_signal) {
+                    vcd.signals[idx].color = None;
                 }
             }
             Message::ResetSignalFormat(idx) => {
