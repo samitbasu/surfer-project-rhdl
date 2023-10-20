@@ -198,7 +198,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SignalColorChange(
                             None,
-                            word.to_string(),
+                            Some(word.to_string()),
                         )))
                     }),
                 ),
