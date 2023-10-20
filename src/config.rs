@@ -10,17 +10,17 @@ use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
-use std::str::FromStr;
 
-use crate::SignalNameType;
+use crate::{ClockHighlightType, SignalNameType};
 
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {
     pub layout: SurferLayout,
     pub theme: SurferTheme,
 
-    #[serde(deserialize_with = "deserialize_signal_name_type")]
+    // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
+    pub default_clock_highlight_type: ClockHighlightType,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,8 +62,9 @@ pub struct SurferTheme {
 
     pub cursor: SurferLineStyle,
     pub gesture: SurferLineStyle,
-
-    pub clock_edge: SurferLineStyle,
+    pub clock_highlight_line: SurferLineStyle,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub clock_highlight_cycle: Color32,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub signal_default: Color32,
@@ -189,13 +190,4 @@ where
 
     let v = HashMap::<String, Wrapper>::deserialize(deserializer)?;
     Ok(v.into_iter().map(|(k, Wrapper(v))| (k, v)).collect())
-}
-
-fn deserialize_signal_name_type<'de, D>(deserializer: D) -> Result<SignalNameType, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    String::deserialize(deserializer)
-        .map(|str| SignalNameType::from_str(&str).map_err(de::Error::custom))
-        .unwrap()
 }
