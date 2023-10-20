@@ -10,7 +10,6 @@ use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
-use std::str::FromStr;
 
 use crate::{ClockHighlightType, SignalNameType};
 
