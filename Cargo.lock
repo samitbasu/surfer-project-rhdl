@@ -4089,6 +4089,7 @@ dependencies = [
  "fern",
  "futures-core",
  "futures-util",
+ "fuzzy-matcher",
  "fzcmd",
  "half",
  "human-sort",
