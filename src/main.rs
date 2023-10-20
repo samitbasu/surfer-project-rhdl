@@ -411,6 +411,7 @@ pub enum Message {
     SetKeyHelpVisible(bool),
     SetUrlEntryVisible(bool),
     SetDragStart(Option<Pos2>),
+    SetEditingFilter(bool),
     ToggleFullscreen,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
@@ -471,6 +472,7 @@ pub struct State {
     command_prompt_text: RefCell<String>,
     last_canvas_rect: RefCell<Option<Rect>>,
     signal_filter: RefCell<String>,
+    editing_filter: bool,
 }
 
 impl State {
@@ -554,6 +556,7 @@ impl State {
             last_canvas_rect: RefCell::new(None),
             file_dialog: RefCell::new(None),
             signal_filter: RefCell::new(String::new()),
+            editing_filter: false,
         };
 
         match args.vcd {
@@ -1024,6 +1027,7 @@ impl State {
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
+            Message::SetEditingFilter(s) => self.editing_filter = s,
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
     }
