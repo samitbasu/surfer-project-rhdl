@@ -470,6 +470,7 @@ pub struct State {
     url: RefCell<String>,
     command_prompt_text: RefCell<String>,
     last_canvas_rect: RefCell<Option<Rect>>,
+    signal_filter: RefCell<String>,
 }
 
 impl State {
@@ -552,6 +553,7 @@ impl State {
             draw_data: RefCell::new(None),
             last_canvas_rect: RefCell::new(None),
             file_dialog: RefCell::new(None),
+            signal_filter: RefCell::new(String::new()),
         };
 
         match args.vcd {
