@@ -19,9 +19,8 @@ pub struct SurferConfig {
     pub layout: SurferLayout,
     pub theme: SurferTheme,
 
-    #[serde(deserialize_with = "deserialize_signal_name_type")]
+    // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
-    #[serde(deserialize_with = "deserialize_clock_highlight_type")]
     pub default_clock_highlight_type: ClockHighlightType,
 }
 
@@ -192,22 +191,4 @@ where
 
     let v = HashMap::<String, Wrapper>::deserialize(deserializer)?;
     Ok(v.into_iter().map(|(k, Wrapper(v))| (k, v)).collect())
-}
-
-fn deserialize_signal_name_type<'de, D>(deserializer: D) -> Result<SignalNameType, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    String::deserialize(deserializer)
-        .map(|str| SignalNameType::from_str(&str).map_err(de::Error::custom))
-        .unwrap()
-}
-
-fn deserialize_clock_highlight_type<'de, D>(deserializer: D) -> Result<ClockHighlightType, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    String::deserialize(deserializer)
-        .map(|str| ClockHighlightType::from_str(&str).map_err(de::Error::custom))
-        .unwrap()
 }

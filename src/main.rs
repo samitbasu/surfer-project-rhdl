@@ -56,6 +56,7 @@ use num::FromPrimitive;
 use num::ToPrimitive;
 use progress_streams::ProgressReader;
 
+use serde::Deserialize;
 use translation::spade::SpadeTranslator;
 use translation::SignalInfo;
 use translation::TranslationPreference;
@@ -237,7 +238,7 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
 pub enum SignalNameType {
     Local,  // local signal name only (i.e. for tb.dut.clk => clk)
     Unique, // add unique prefix, prefix + local
@@ -270,7 +271,7 @@ impl std::fmt::Display for SignalNameType {
     }
 }
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
 pub enum ClockHighlightType {
     Line,  // Draw a line at every posedge of the clokcs
     Cycle, // Highlight every other cycle
