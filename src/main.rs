@@ -759,7 +759,6 @@ impl State {
                         }
                     }
                 }
-                self.invalidate_draw_commands();
             }
             Message::RemoveSignal(idx, count) => {
                 self.invalidate_draw_commands();

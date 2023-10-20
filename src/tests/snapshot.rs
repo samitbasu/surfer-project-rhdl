@@ -346,3 +346,9 @@ snapshot_ui_with_file_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
     Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
     Message::SetClockHighlightType(crate::ClockHighlightType::None),
 ]}
+
+snapshot_ui_with_file_msgs! {vertical_scrolling_works, "examples/picorv32.vcd", [
+    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("testbench.top.mem".to_string())),
+    Message::VerticalScroll(crate::MoveDir::Down, 5),
+    Message::VerticalScroll(crate::MoveDir::Up, 2),
+]}
