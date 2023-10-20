@@ -150,10 +150,14 @@ impl State {
                             egui::Frame::none()
                                 .inner_margin(Margin::same(5.0))
                                 .show(ui, |ui| {
-                                    ui.heading("Signals");
-                                    ui.add_space(3.0);
                                     let filter = &mut *self.signal_filter.borrow_mut();
-                                    let response = ui.text_edit_singleline(filter);
+                                    ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
+                                        ui.heading("Signals");
+                                        ui.add_space(3.0);
+                                        egui::TextEdit::singleline(filter)
+                                            .hint_text("Filter")
+                                            .show(ui);
+                                    });
                                     ui.add_space(3.0);
 
                                     egui::ScrollArea::both()
