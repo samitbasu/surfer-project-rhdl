@@ -3,6 +3,8 @@ use eframe::egui::{self, menu, style::Margin, Align, Color32, Event, Key, Layout
 use eframe::egui::{Frame, Grid, TextStyle};
 use eframe::epaint::Vec2;
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 use itertools::Itertools;
 use log::info;
 use num::{BigInt, BigRational, ToPrimitive};
@@ -150,12 +152,15 @@ impl State {
                                 .show(ui, |ui| {
                                     ui.heading("Signals");
                                     ui.add_space(3.0);
+                                    let filter = &mut *self.signal_filter.borrow_mut();
+                                    let response = ui.text_edit_singleline(filter);
+                                    ui.add_space(3.0);
 
                                     egui::ScrollArea::both()
                                         .id_source("signals")
                                         .show(ui, |ui| {
                                             if let Some(vcd) = &self.vcd {
-                                                self.draw_signal_list(&mut msgs, vcd, ui);
+                                                self.draw_signal_list(&mut msgs, vcd, ui, filter);
                                             }
                                         });
                                 });
@@ -535,14 +540,25 @@ impl State {
         }
     }
 
-    fn draw_signal_list(&self, msgs: &mut Vec<Message>, vcd: &VcdData, ui: &mut egui::Ui) {
+    fn draw_signal_list(
+        &self,
+        msgs: &mut Vec<Message>,
+        vcd: &VcdData,
+        ui: &mut egui::Ui,
+        filter: &String,
+    ) {
         if let Some(idx) = vcd.active_scope {
+            let matcher = SkimMatcherV2::default();
             let signals = vcd.inner.get_children_signal_idxs(idx);
             let listed = signals
                 .iter()
                 .filter_map(|sig| {
                     let name = vcd.inner.signal_from_signal_idx(*sig).name();
-                    if !name.starts_with("_e_") {
+                    if (!name.starts_with("_e_"))
+                        && matcher
+                            .fuzzy_match(name.as_str(), filter.as_str())
+                            .is_some()
+                    {
                         Some((sig, name.clone()))
                     } else {
                         None
