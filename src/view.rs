@@ -15,7 +15,7 @@ use crate::{
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, SignalDescriptor, State, VcdData,
 };
-use crate::{LoadProgress, SignalNameType};
+use crate::{ClockHighlightType, LoadProgress, SignalNameType};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -1047,6 +1047,24 @@ impl State {
                         ui.button(name_type.to_string()).clicked().then(|| {
                             ui.close_menu();
                             msgs.push(Message::ForceSignalNameTypes(name_type));
+                        });
+                    }
+                });
+                ui.menu_button("Clock Highlighting", |ui| {
+                    let highlight_types = vec![
+                        ClockHighlightType::Line,
+                        ClockHighlightType::Cycle,
+                        ClockHighlightType::None,
+                    ];
+                    for highlight_type in highlight_types {
+                        ui.radio(
+                            highlight_type == self.config.default_clock_highlight_type,
+                            highlight_type.to_string(),
+                        )
+                        .clicked()
+                        .then(|| {
+                            ui.close_menu();
+                            msgs.push(Message::SetClockHighlightType(highlight_type));
                         });
                     }
                 });

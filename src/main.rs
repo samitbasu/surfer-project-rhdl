@@ -56,6 +56,7 @@ use num::FromPrimitive;
 use num::ToPrimitive;
 use progress_streams::ProgressReader;
 
+use serde::Deserialize;
 use translation::spade::SpadeTranslator;
 use translation::SignalInfo;
 use translation::TranslationPreference;
@@ -237,7 +238,7 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
 pub enum SignalNameType {
     Local,  // local signal name only (i.e. for tb.dut.clk => clk)
     Unique, // add unique prefix, prefix + local
@@ -252,7 +253,10 @@ impl FromStr for SignalNameType {
             "Local" => Ok(SignalNameType::Local),
             "Unique" => Ok(SignalNameType::Unique),
             "Global" => Ok(SignalNameType::Global),
-            _ => Err(format!("'{}' is not a valid SignalNameType", input)),
+            _ => Err(format!(
+                "'{}' is not a valid SignalNameType (Valid options: Local|Unique|Global)",
+                input
+            )),
         }
     }
 }
@@ -263,6 +267,39 @@ impl std::fmt::Display for SignalNameType {
             SignalNameType::Local => write!(f, "Local"),
             SignalNameType::Unique => write!(f, "Unique"),
             SignalNameType::Global => write!(f, "Global"),
+        }
+    }
+}
+
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
+pub enum ClockHighlightType {
+    Line,  // Draw a line at every posedge of the clokcs
+    Cycle, // Highlight every other cycle
+    None,  // No highlighting
+}
+
+impl FromStr for ClockHighlightType {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<ClockHighlightType, Self::Err> {
+        match input {
+            "Line" => Ok(ClockHighlightType::Line),
+            "Cycle" => Ok(ClockHighlightType::Cycle),
+            "None" => Ok(ClockHighlightType::None),
+            _ => Err(format!(
+                "'{}' is not a valid ClockHighlightType (Valid options: Line|Cycle|None)",
+                input
+            )),
+        }
+    }
+}
+
+impl std::fmt::Display for ClockHighlightType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClockHighlightType::Line => write!(f, "Line"),
+            ClockHighlightType::Cycle => write!(f, "Cycle"),
+            ClockHighlightType::None => write!(f, "None"),
         }
     }
 }
@@ -330,6 +367,7 @@ pub enum Message {
     SignalColorChange(Option<usize>, String),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
+    SetClockHighlightType(ClockHighlightType),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
     ResetSignalFormat(TraceIdx),
@@ -942,6 +980,9 @@ impl State {
                         ctx.set_visuals(self.get_visuals())
                     }
                 }
+            }
+            Message::SetClockHighlightType(new_type) => {
+                self.config.default_clock_highlight_type = new_type
             }
             Message::ChangeSignalNameType(vidx, name_type) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
