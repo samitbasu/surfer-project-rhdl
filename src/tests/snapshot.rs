@@ -228,6 +228,8 @@ macro_rules! snapshot_ui_with_file_msgs {
                     break;
                 }
             }
+            state.update(Message::ToggleMenu);
+            state.update(Message::ToggleSidePanel);
 
             for msg in $msgs {
                 state.update(msg)
@@ -274,6 +276,8 @@ snapshot_ui! {example_vcd_renders, || {
         }
     }
 
+    state.update(Message::ToggleMenu);
+    state.update(Message::ToggleSidePanel);
     state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())));
     state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb.dut".to_string())));
 

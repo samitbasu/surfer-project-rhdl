@@ -411,6 +411,7 @@ pub enum Message {
     SetKeyHelpVisible(bool),
     SetUrlEntryVisible(bool),
     SetDragStart(Option<Pos2>),
+    SetFilterFocused(bool),
     ToggleFullscreen,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
@@ -458,6 +459,7 @@ pub struct State {
     wanted_timescale: Timescale,
     gesture_start_location: Option<emath::Pos2>,
     show_url_entry: bool,
+    filter_focused: bool,
 
     /// The draw commands for every signal currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
@@ -554,6 +556,7 @@ impl State {
             last_canvas_rect: RefCell::new(None),
             file_dialog: RefCell::new(None),
             signal_filter: RefCell::new(String::new()),
+            filter_focused: false,
         };
 
         match args.vcd {
@@ -1024,6 +1027,7 @@ impl State {
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
+            Message::SetFilterFocused(s) => self.filter_focused = s,
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
     }
