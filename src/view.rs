@@ -150,10 +150,27 @@ impl State {
                             egui::Frame::none()
                                 .inner_margin(Margin::same(5.0))
                                 .show(ui, |ui| {
-                                    ui.heading("Signals");
-                                    ui.add_space(3.0);
                                     let filter = &mut *self.signal_filter.borrow_mut();
-                                    let response = ui.text_edit_singleline(filter);
+                                    ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
+                                        ui.heading("Signals");
+                                        ui.add_space(3.0);
+                                        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                                            ui.button("❌")
+                                                .on_hover_text("Clear filter")
+                                                .clicked()
+                                                .then(|| filter.clear());
+                                            let response = ui.add(
+                                                egui::TextEdit::singleline(filter)
+                                                    .hint_text("Filter"),
+                                            );
+                                            if response.gained_focus() {
+                                                msgs.push(Message::SetEditingFilter(true));
+                                            }
+                                            if response.lost_focus() {
+                                                msgs.push(Message::SetEditingFilter(false));
+                                            }
+                                        })
+                                    });
                                     ui.add_space(3.0);
 
                                     egui::ScrollArea::both()
@@ -389,42 +406,50 @@ impl State {
                     repeat: _,
                     pressed,
                     modifiers,
-                } => match (key, pressed, self.command_prompt.visible) {
-                    (Key::Num0, true, false) => msgs.push(Message::AddCount('0')),
-                    (Key::Num1, true, false) => msgs.push(Message::AddCount('1')),
-                    (Key::Num2, true, false) => msgs.push(Message::AddCount('2')),
-                    (Key::Num3, true, false) => msgs.push(Message::AddCount('3')),
-                    (Key::Num4, true, false) => msgs.push(Message::AddCount('4')),
-                    (Key::Num5, true, false) => msgs.push(Message::AddCount('5')),
-                    (Key::Num6, true, false) => msgs.push(Message::AddCount('6')),
-                    (Key::Num7, true, false) => msgs.push(Message::AddCount('7')),
-                    (Key::Num8, true, false) => msgs.push(Message::AddCount('8')),
-                    (Key::Num9, true, false) => msgs.push(Message::AddCount('9')),
-                    (Key::Home, true, false) => msgs.push(Message::SetVerticalScroll(0)),
-                    (Key::End, true, false) => {
+                } => match (
+                    key,
+                    pressed,
+                    self.command_prompt.visible,
+                    self.editing_filter,
+                ) {
+                    (Key::Num0, true, false, false) => msgs.push(Message::AddCount('0')),
+                    (Key::Num1, true, false, false) => msgs.push(Message::AddCount('1')),
+                    (Key::Num2, true, false, false) => msgs.push(Message::AddCount('2')),
+                    (Key::Num3, true, false, false) => msgs.push(Message::AddCount('3')),
+                    (Key::Num4, true, false, false) => msgs.push(Message::AddCount('4')),
+                    (Key::Num5, true, false, false) => msgs.push(Message::AddCount('5')),
+                    (Key::Num6, true, false, false) => msgs.push(Message::AddCount('6')),
+                    (Key::Num7, true, false, false) => msgs.push(Message::AddCount('7')),
+                    (Key::Num8, true, false, false) => msgs.push(Message::AddCount('8')),
+                    (Key::Num9, true, false, false) => msgs.push(Message::AddCount('9')),
+                    (Key::Home, true, false, false) => msgs.push(Message::SetVerticalScroll(0)),
+                    (Key::End, true, false, false) => {
                         if let Some(vcd) = &self.vcd {
                             if vcd.signals.len() > 1 {
                                 msgs.push(Message::SetVerticalScroll(vcd.signals.len() - 1));
                             }
                         }
                     }
-                    (Key::Space, true, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                    (Key::Escape, true, true) => msgs.push(Message::ShowCommandPrompt(false)),
-                    (Key::Escape, true, false) => msgs.push(Message::InvalidateCount),
-                    (Key::B, true, false) => msgs.push(Message::ToggleSidePanel),
-                    (Key::M, true, false) => msgs.push(Message::ToggleMenu),
-                    (Key::F11, true, false) => msgs.push(Message::ToggleFullscreen),
-                    (Key::S, true, false) => msgs.push(Message::ScrollToStart),
-                    (Key::E, true, false) => msgs.push(Message::ScrollToEnd),
-                    (Key::Minus, true, false) => msgs.push(Message::CanvasZoom {
+                    (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
+                    (Key::Escape, true, true, false) => {
+                        msgs.push(Message::ShowCommandPrompt(false))
+                    }
+                    (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
+                    (Key::Escape, true, _, true) => msgs.push(Message::SetEditingFilter(false)),
+                    (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
+                    (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
+                    (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
+                    (Key::S, true, false, false) => msgs.push(Message::ScrollToStart),
+                    (Key::E, true, false, false) => msgs.push(Message::ScrollToEnd),
+                    (Key::Minus, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 2.0,
                     }),
-                    (Key::PlusEquals, true, false) => msgs.push(Message::CanvasZoom {
+                    (Key::PlusEquals, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 0.5,
                     }),
-                    (Key::J, true, false) => {
+                    (Key::J, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
                         } else if modifiers.ctrl {
@@ -434,7 +459,7 @@ impl State {
                         }
                         msgs.push(Message::InvalidateCount);
                     }
-                    (Key::K, true, false) => {
+                    (Key::K, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
                         } else if modifiers.ctrl {
@@ -444,7 +469,7 @@ impl State {
                         }
                         msgs.push(Message::InvalidateCount);
                     }
-                    (Key::ArrowDown, true, false) => {
+                    (Key::ArrowDown, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
                         } else if modifiers.ctrl {
@@ -454,7 +479,7 @@ impl State {
                         }
                         msgs.push(Message::InvalidateCount);
                     }
-                    (Key::ArrowUp, true, false) => {
+                    (Key::ArrowUp, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
                         } else if modifiers.ctrl {
@@ -464,7 +489,7 @@ impl State {
                         }
                         msgs.push(Message::InvalidateCount);
                     }
-                    (Key::Delete, true, false) => {
+                    (Key::Delete, true, false, false) => {
                         if let Some(vcd) = &self.vcd {
                             if let Some(idx) = vcd.focused_signal {
                                 msgs.push(Message::RemoveSignal(idx, self.get_count()));
@@ -545,7 +570,7 @@ impl State {
         msgs: &mut Vec<Message>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
-        filter: &String,
+        filter: &str,
     ) {
         if let Some(idx) = vcd.active_scope {
             let matcher = SkimMatcherV2::default();
@@ -555,9 +580,7 @@ impl State {
                 .filter_map(|sig| {
                     let name = vcd.inner.signal_from_signal_idx(*sig).name();
                     if (!name.starts_with("_e_"))
-                        && matcher
-                            .fuzzy_match(name.as_str(), filter.as_str())
-                            .is_some()
+                        && matcher.fuzzy_match(name.as_str(), filter).is_some()
                     {
                         Some((sig, name.clone()))
                     } else {
