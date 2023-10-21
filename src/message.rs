@@ -81,6 +81,8 @@ pub enum Message {
         expanded: String,
         suggestions: Vec<(String, Vec<bool>)>,
     },
+    SelectPrevCommand,
+    SelectNextCommand,
     OpenFileDialog(OpenMode),
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),
