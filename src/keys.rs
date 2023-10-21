@@ -124,6 +124,8 @@ impl State {
                             }
                         }
                     }
+                    (Key::ArrowUp, true, true, false) => msgs.push(Message::SelectPrevCommand),
+                    (Key::ArrowDown, true, true, false) => msgs.push(Message::SelectNextCommand),
                     _ => {}
                 },
                 _ => {}
