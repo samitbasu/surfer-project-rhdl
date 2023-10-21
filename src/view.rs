@@ -409,7 +409,6 @@ impl State {
         if !self.show_url_entry && self.rename_target.is_none() {
             self.handle_pressed_keys(ctx, &mut msgs);
         }
-
         msgs
     }
 
@@ -596,8 +595,27 @@ impl State {
             };
 
             ui.horizontal_top(|ui| {
+<<<<<<< HEAD
                 if self.command_prompt.expanded.starts_with("signal_focus") {
                     self.add_alpha_id(vidx, ui);
+=======
+                if self
+                    .command_prompt
+                    .expanded()
+                    .map(|e| e.starts_with("signal_focus"))
+                    .unwrap_or(false)
+                {
+                    let alpha_id = uint_idx_to_alpha_idx(
+                        vidx,
+                        self.vcd.as_ref().map_or(0, |vcd| vcd.signals.len()),
+                    );
+                    ui.label(
+                        egui::RichText::new(alpha_id)
+                            .background_color(self.config.theme.accent_warn.background)
+                            .monospace()
+                            .color(self.config.theme.accent_warn.foreground),
+                    );
+>>>>>>> f50d8c7 (Allow selection from command menu)
                 }
 
                 self.add_focus_marker(vidx, ui);

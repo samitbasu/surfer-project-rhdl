@@ -345,8 +345,14 @@ pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
 
 pub struct CommandPrompt {
     pub visible: bool,
-    pub expanded: String,
     pub suggestions: Vec<(String, Vec<bool>)>,
+    pub selected: usize,
+}
+
+impl CommandPrompt {
+    pub fn expanded(&self) -> Option<&String> {
+        self.suggestions.get(self.selected).and_then(|s| Some(&s.0))
+    }
 }
 
 pub fn show_command_prompt(
@@ -380,13 +386,21 @@ pub fn show_command_prompt(
                     if response.lost_focus()
                         && response.ctx.input(|i| i.key_pressed(egui::Key::Enter))
                     {
-                        let command_parsed =
-                            parse_command(&state.command_prompt.expanded, get_parser(state)).ok();
+                        let selected = state.command_prompt.selected;
+                        let command_parsed = state
+                            .command_prompt
+                            .suggestions
+                            .get(selected)
+                            .and_then(|cmd| {
+                                parse_command((*cmd).0.as_str(), get_parser(state)).ok()
+                            });
 
                         if let Some(command_parsed) = command_parsed {
                             msgs.push(Message::ShowCommandPrompt(false));
                             msgs.push(Message::CommandPromptClear);
                             msgs.push(command_parsed);
+                        } else if let Some(expanded) = state.command_prompt.expanded() {
+                            *input = expanded.clone();
                         }
                     }
 
@@ -396,36 +410,16 @@ pub fn show_command_prompt(
 
             ui.separator();
 
-            // show expanded command below textedit
-            if !state.command_prompt.expanded.is_empty() {
-                let mut job = LayoutJob::default();
-                // // indicate that the first row is selected
-                job.append(
-                    "↦ ",
-                    0.0,
-                    TextFormat {
-                        font_id: FontId::new(14.0, FontFamily::Monospace),
-                        color: state.config.theme.accent_info.background,
-                        ..Default::default()
-                    },
-                );
-                job.append(
-                    &state.command_prompt.expanded,
-                    0.0,
-                    TextFormat {
-                        font_id: FontId::new(14.0, FontFamily::Monospace),
-                        color: state.config.theme.accent_info.background,
-                        ..Default::default()
-                    },
-                );
-                ui.label(job);
-            }
-
             // only show the top 15 suggestions
-            for suggestion in state.command_prompt.suggestions.iter().take(15) {
+            for (idx, suggestion) in state.command_prompt.suggestions.iter().enumerate().take(15) {
                 let mut job = LayoutJob::default();
+                let marker = if idx == state.command_prompt.selected {
+                    "↦ "
+                } else {
+                    "   "
+                };
                 job.append(
-                    "  ",
+                    marker,
                     0.0,
                     TextFormat {
                         font_id: FontId::new(14.0, FontFamily::Monospace),
