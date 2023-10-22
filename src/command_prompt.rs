@@ -401,6 +401,21 @@ pub fn show_command_prompt(
                             msgs.push(command_parsed);
                         } else if let Some(expanded) = state.command_prompt.expanded() {
                             *input = expanded.clone();
+
+                            // move cursor to end of input
+                            if let Some(mut state) =
+                                egui::TextEdit::load_state(ui.ctx(), response.id)
+                            {
+                                let ccursor = egui::text::CCursor::new(input.chars().count());
+                                state.set_ccursor_range(Some(egui::text::CCursorRange::one(
+                                    ccursor,
+                                )));
+                                state.store(ui.ctx(), response.id);
+                                ui.ctx().memory_mut(|m| m.request_focus(response.id));
+                            }
+
+                            // run fuzzy parser since setting the cursor swallows the `changed` flag
+                            run_fuzzy_parser(&input, state, msgs);
                         }
                     }
 
