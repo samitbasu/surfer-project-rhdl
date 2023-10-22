@@ -119,7 +119,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "module_add",
             "module_select",
             "signal_add",
-            "signal_add_from_scope",
+            "signal_add_from_module",
             "signal_set_color",
             "signal_set_name_type",
             "signal_force_name_type",
