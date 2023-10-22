@@ -91,6 +91,8 @@ As an indication of the status of the project, here is an incomplete list of sup
   - [x] Risc-V instructions
     - [x] RV32I
     - [ ] ...
+  - [ ] compressed integers
+    - [x] LEB128 (also for other bitwidths then 128)
   - [ ] Custom translation via Python API
 - [ ] Wave file reloading
 - [ ] Saving and loading selected waves

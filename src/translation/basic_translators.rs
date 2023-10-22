@@ -165,6 +165,21 @@ fn check_single_wordlength(num_bits: Option<u32>, required: u32) -> Result<Trans
     }
 }
 
+fn check_wordlength(
+    num_bits: Option<u32>,
+    required: impl FnOnce(u32) -> bool,
+) -> Result<TranslationPreference> {
+    if let Some(num_bits) = num_bits {
+        if required(num_bits) {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    } else {
+        Ok(TranslationPreference::No)
+    }
+}
+
 pub struct HexTranslator {}
 
 impl BasicTranslator for HexTranslator {
@@ -824,6 +839,60 @@ fn riscv_to_string(i: &asm_riscv::I) -> String {
     }
 }
 
+fn decode_lebxxx(value: &num::BigUint) -> Result<num::BigUint, &'static str> {
+    let bytes = value.to_bytes_be();
+    match bytes.first() {
+        Some(b) if b & 0x80 != 0 => return Err("invalid MSB"),
+        _ => (),
+    };
+
+    let first: num::BigUint = bytes.first().cloned().unwrap_or(0).into();
+    bytes.iter().skip(1).try_fold(first, |result, b| {
+        if (b & 0x80 == 0) != (result == 0u8.into()) {
+            Err("invalid flag")
+        } else {
+            Ok((result << 7) + (*b & 0x7f))
+        }
+    })
+}
+
+pub struct LebTranslator {}
+
+impl BasicTranslator for LebTranslator {
+    fn name(&self) -> String {
+        "LEBxxx".to_string()
+    }
+
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        let decoded = match value {
+            SignalValue::BigUint(v) => decode_lebxxx(v),
+            SignalValue::String(s) => match map_vector_signal(s) {
+                Some(v) => return v,
+                None => match num::BigUint::parse_bytes(s.as_bytes(), 2) {
+                    Some(bi) => decode_lebxxx(&bi),
+                    None => return ("INVALID".to_owned(), ValueKind::Warn),
+                },
+            },
+        };
+
+        match decoded {
+            Ok(decoded) => (decoded.to_str_radix(10), ValueKind::Normal),
+            Err(s) => (
+                s.to_owned()
+                    + ": "
+                    + &GroupingBinaryTranslator {}
+                        .basic_translate(num_bits, value)
+                        .0,
+                ValueKind::Warn,
+            ),
+        }
+    }
+
+    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+        check_wordlength(signal.num_bits(), |n| (n % 8 == 0) && n > 0)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use spade_common::num_ext::InfallibleToBigUint;
@@ -1364,5 +1433,51 @@ mod test {
                 .0,
             "0.000000029802322387695313"
         );
+    }
+
+    #[test]
+    fn leb_translation_from_biguint() {
+        assert_eq!(
+            LebTranslator {}
+                .basic_translate(16, &SignalValue::BigUint(0b01011010_11101111u16.into()))
+                .0,
+            "11631"
+        );
+        assert_eq!(
+            LebTranslator {}
+                .basic_translate(16, &SignalValue::BigUint(0b00000000_00000001u16.into()))
+                .0,
+            "1"
+        );
+        assert_eq!(
+            LebTranslator{}.basic_translate(64, &SignalValue::BigUint(0b01001010_11110111_11101000_10100000_10111010_11110110_11100001_10011001u64.into())).0, "42185246214303897"
+        );
+    }
+    #[test]
+    fn leb_translation_from_string() {
+        assert_eq!(
+            LebTranslator {}
+                .basic_translate(16, &SignalValue::String("0111110011100010".to_owned()))
+                .0,
+            "15970"
+        )
+    }
+    #[test]
+    fn leb_translation_invalid_msb() {
+        assert_eq!(
+            LebTranslator {}
+                .basic_translate(16, &SignalValue::BigUint(0b1000000010000000u16.into()))
+                .0,
+            "invalid MSB: 1000 0000 1000 0000"
+        )
+    }
+    #[test]
+    fn leb_translation_invalid_continuation() {
+        assert_eq!(
+            LebTranslator {}
+                .basic_translate(16, &SignalValue::BigUint(0b0111111101111111u16.into()))
+                .0,
+            "invalid flag: 0111 1111 0111 1111"
+        )
     }
 }
