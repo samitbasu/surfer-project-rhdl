@@ -364,7 +364,7 @@ pub enum Message {
     VerticalScroll(MoveDir, CommandCount),
     SetVerticalScroll(usize),
     SignalFormatChange(PathDescriptor, String),
-    SignalColorChange(Option<usize>, String),
+    SignalColorChange(Option<usize>, Option<String>),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
     SetClockHighlightType(ClockHighlightType),
@@ -888,7 +888,7 @@ impl State {
                 };
 
                 if let Some(idx) = vidx.or(vcd.focused_signal) {
-                    vcd.signals[idx].color = Some(color_name);
+                    vcd.signals[idx].color = color_name;
                 }
             }
             Message::ResetSignalFormat(idx) => {
