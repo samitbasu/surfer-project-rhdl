@@ -36,12 +36,12 @@ asm_riscv = "0.2.0"
 fzcmd = {path = "fzcmd"}
 web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
 config = "0.13.3"
-egui_file = "0.11.0"
 human-sort = "0.2.2"
 directories = "5.0"
 toml = "0.8.1"
 half = "2.3.1"
 softposit = "0.4.0"
+rfd = "0.12.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
