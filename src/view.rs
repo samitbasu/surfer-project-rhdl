@@ -103,16 +103,6 @@ impl State {
                 });
         }
 
-        if let Some(dialog) = &mut *self.file_dialog.borrow_mut() {
-            if dialog.show(ctx).selected() {
-                if let Some(file) = dialog.path() {
-                    msgs.push(Message::LoadVcd(
-                        camino::Utf8PathBuf::from_path_buf(file.to_path_buf()).expect("Unicode"),
-                    ));
-                }
-            }
-        }
-
         if self.config.layout.show_hierarchy {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
