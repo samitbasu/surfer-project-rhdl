@@ -274,6 +274,8 @@ snapshot_ui! {example_vcd_renders, || {
         }
     }
 
+    state.update(Message::ToggleMenu);
+    state.update(Message::ToggleSidePanel);
     state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())));
     state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb.dut".to_string())));
 
@@ -291,6 +293,8 @@ snapshot_empty_state_with_msgs! {
 }
 
 snapshot_ui_with_file_msgs! {top_level_signals_have_no_aliasing, "examples/picorv32.vcd", [
+    Message::ToggleMenu,
+    Message::ToggleSidePanel,
     Message::AddScope(crate::descriptors::ScopeDescriptor::Name("testbench".to_string()))
 ]}
 
@@ -330,24 +334,32 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 }}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
+    Message::ToggleMenu,
+    Message::ToggleSidePanel,
     Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
     Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
     Message::SetClockHighlightType(crate::ClockHighlightType::Line),
 ]}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
+    Message::ToggleMenu,
+    Message::ToggleSidePanel,
     Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
     Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
     Message::SetClockHighlightType(crate::ClockHighlightType::Cycle),
 ]}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
+    Message::ToggleMenu,
+    Message::ToggleSidePanel,
     Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
     Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
     Message::SetClockHighlightType(crate::ClockHighlightType::None),
 ]}
 
 snapshot_ui_with_file_msgs! {vertical_scrolling_works, "examples/picorv32.vcd", [
+    Message::ToggleMenu,
+    Message::ToggleSidePanel,
     Message::AddScope(crate::descriptors::ScopeDescriptor::Name("testbench.top.mem".to_string())),
     Message::VerticalScroll(crate::MoveDir::Down, 5),
     Message::VerticalScroll(crate::MoveDir::Up, 2),
