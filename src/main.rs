@@ -55,7 +55,8 @@ use num::BigInt;
 use num::FromPrimitive;
 use num::ToPrimitive;
 use progress_streams::ProgressReader;
-
+#[cfg(not(target_arch = "wasm32"))]
+use rfd::FileDialog;
 use serde::Deserialize;
 use translation::spade::SpadeTranslator;
 use translation::SignalInfo;
@@ -466,8 +467,6 @@ pub struct State {
     // mutability
     draw_data: RefCell<Option<CachedDrawData>>,
 
-    // The file dialog requires mutable access to its stuff, so we need a ref cell
-    file_dialog: RefCell<Option<egui_file::FileDialog>>,
     // Egui requires a place to store text field content between frames
     url: RefCell<String>,
     command_prompt_text: RefCell<String>,
@@ -550,13 +549,12 @@ impl State {
             gesture_start_location: None,
             show_url_entry: false,
             show_wave_source: true,
+            filter_focused: false,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(None),
             last_canvas_rect: RefCell::new(None),
-            file_dialog: RefCell::new(None),
             signal_filter: RefCell::new(String::new()),
-            filter_focused: false,
         };
 
         match args.vcd {
@@ -1019,9 +1017,16 @@ impl State {
                 self.command_prompt.suggestions = suggestions;
             }
             Message::OpenFileDialog => {
-                let mut dialog = egui_file::FileDialog::open_file(None);
-                dialog.open();
-                *self.file_dialog.borrow_mut() = Some(dialog)
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(path) = FileDialog::new()
+                    .set_title("Open waveform file")
+                    .add_filter("VCD-files (*.vcd)", &["vcd"])
+                    .add_filter("All files", &["*"])
+                    .pick_file()
+                {
+                    self.load_vcd_from_file(camino::Utf8PathBuf::from_path_buf(path).unwrap())
+                        .ok();
+                }
             }
             Message::SetAboutVisible(s) => self.show_about = s,
             Message::SetKeyHelpVisible(s) => self.show_keys = s,

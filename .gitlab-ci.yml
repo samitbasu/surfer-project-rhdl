@@ -16,6 +16,8 @@ clippy:
     before_script:
         - rustup component add clippy
         - cargo install gitlab_clippy
+        - apt-get update -y
+        - apt-get install -y libatk1.0-dev libgtk-3-dev
     script:
         - cargo clippy -- --allow clippy::useless_format
     after_script:
@@ -37,6 +39,8 @@ clippy:
 test:
     stage: test
     script:
+        - apt-get update -y
+        - apt-get install -y libatk1.0-dev libgtk-3-dev
         - cargo test --color=always
     cache:
         key:
@@ -94,7 +98,7 @@ linux_build:
     stage: deploy
     script:
         - apt-get update -y
-        - apt-get install -y openssl libssl-dev
+        - apt-get install -y openssl libssl-dev libatk1.0-dev libgtk-3-dev
         - cargo build --release
         - cp target/release/surfer surfer
     artifacts:
