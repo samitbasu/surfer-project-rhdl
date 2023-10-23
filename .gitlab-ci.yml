@@ -113,6 +113,32 @@ linux_build:
           when: always
         - when: never
 
+windows_build:
+    stage: test
+    script:
+        - apt-get update -y
+        - apt-get install -y mingw-w64
+        - rustup target add x86_64-pc-windows-gnu
+        - cargo build --target x86_64-pc-windows-gnu --release
+        - ls
+        - ls target/x86_64-pc-windows-gnu
+        - ls target/x86_64-pc-windows-gnu/release
+        - cp target/x86_64-pc-windows-gnu/release/surfer.exe surfer.exe
+    artifacts:
+        paths:
+            - surfer.exe
+        expire_in: 1 week
+    cache:
+        key:
+            files:
+                - Cargo.lock
+        paths:
+            - target
+            - $CARGO_HOME
+    rules:
+#        - if: $CI_COMMIT_BRANCH == "main"
+         - when: always
+#        - when: never
 
 pages_build:
     stage: test
