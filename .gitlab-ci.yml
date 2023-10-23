@@ -113,6 +113,26 @@ linux_build:
           when: always
         - when: never
 
+windows_build:
+    stage: deploy
+    script:
+        - cargo build --target x86_64-pc-windows-gnu --release
+        - cp target/release/surfer.exe surfer.exe
+    artifacts:
+        paths:
+            - surfer.exe
+        expire_in: 1 week
+    cache:
+        key:
+            files:
+                - Cargo.lock
+        paths:
+            - target
+            - $CARGO_HOME
+    rules:
+#        - if: $CI_COMMIT_BRANCH == "main"
+         - when: always
+#        - when: never
 
 pages_build:
     stage: test
