@@ -1,7 +1,8 @@
 use color_eyre::eyre::Context;
-use eframe::egui::{self, menu, style::Margin, Align, Color32, Event, Key, Layout, RichText};
-use eframe::egui::{Frame, Grid, TextStyle};
-use eframe::epaint::Vec2;
+use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Painter, RichText};
+use eframe::egui::{menu, Frame, Grid, Sense, TextStyle};
+use eframe::emath;
+use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
@@ -10,6 +11,7 @@ use log::info;
 use num::{BigInt, BigRational, ToPrimitive};
 use spade_common::num_ext::InfallibleToBigInt;
 
+use crate::config::SurferTheme;
 use crate::descriptors::PathDescriptor;
 use crate::util::uint_idx_to_alpha_idx;
 use crate::{
@@ -17,15 +19,56 @@ use crate::{
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, SignalDescriptor, State, VcdData,
 };
-use crate::{ClockHighlightType, LoadProgress, SignalNameType};
+use crate::{ClockHighlightType, DisplayedDivider, DisplayedItem, LoadProgress, SignalNameType};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
 
+pub struct DrawingContext<'a> {
+    pub painter: &'a mut Painter,
+    pub cfg: &'a DrawConfig,
+    pub to_screen: &'a dyn Fn(f32, f32) -> Pos2,
+    pub theme: &'a SurferTheme,
+}
+
+#[derive(Debug)]
+pub struct DrawConfig {
+    pub canvas_height: f32,
+    pub line_height: f32,
+    pub max_transition_width: i32,
+}
+
+#[derive(Debug)]
 pub struct SignalDrawingInfo {
     pub tidx: TraceIdx,
     pub signal_list_idx: usize,
     pub offset: f32,
+}
+
+#[derive(Debug)]
+pub struct DividerDrawingInfo {
+    pub signal_list_idx: usize,
+    pub offset: f32,
+}
+
+pub enum ItemDrawingInfo {
+    Signal(SignalDrawingInfo),
+    Divider(DividerDrawingInfo),
+}
+
+impl ItemDrawingInfo {
+    pub fn offset(&self) -> f32 {
+        match self {
+            ItemDrawingInfo::Signal(drawing_info) => drawing_info.offset,
+            ItemDrawingInfo::Divider(drawing_info) => drawing_info.offset,
+        }
+    }
+    pub fn signal_list_idx(&self) -> usize {
+        match self {
+            ItemDrawingInfo::Signal(drawing_info) => drawing_info.signal_list_idx,
+            ItemDrawingInfo::Divider(drawing_info) => drawing_info.signal_list_idx,
+        }
+    }
 }
 
 impl eframe::App for State {
@@ -208,9 +251,9 @@ impl State {
         }
 
         if let Some(vcd) = &self.vcd {
-            if !vcd.signals.is_empty() {
-                let signal_offsets = egui::SidePanel::left("signal list")
-                    .default_width(300.)
+            if !vcd.displayed_items.is_empty() {
+                let item_offsets = egui::SidePanel::left("signal list")
+                    .default_width(200.)
                     .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
@@ -228,15 +271,15 @@ impl State {
 
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| self.draw_var_list(&mut msgs, &vcd, ui),
+                            |ui| self.draw_item_list(&mut msgs, &vcd, ui),
                         )
                         .inner
                     })
                     .inner;
 
                 egui::SidePanel::left("signal values")
-                    .default_width(300.)
-                    .width_range(100.0..=max_width)
+                    .default_width(100.)
+                    .width_range(30.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         if ui.ui_contains_pointer() {
@@ -253,7 +296,7 @@ impl State {
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
                                 egui::ScrollArea::horizontal().show(ui, |ui| {
-                                    self.draw_var_values(&signal_offsets, vcd, ui, &mut msgs)
+                                    self.draw_var_values(&item_offsets, vcd, ui, &mut msgs)
                                 })
                             },
                         )
@@ -266,7 +309,7 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_signals(&mut msgs, &signal_offsets, ui);
+                        self.draw_signals(&mut msgs, &item_offsets, ui);
                     });
             }
         };
@@ -275,7 +318,7 @@ impl State {
             || self
                 .vcd
                 .as_ref()
-                .map_or(false, |vcd| vcd.signals.is_empty())
+                .map_or(false, |vcd| vcd.displayed_items.is_empty())
         {
             egui::CentralPanel::default()
                 .frame(egui::Frame::none().fill(self.config.theme.canvas_colors.background))
@@ -415,8 +458,10 @@ impl State {
                     (Key::Home, true, false, false) => msgs.push(Message::SetVerticalScroll(0)),
                     (Key::End, true, false, false) => {
                         if let Some(vcd) = &self.vcd {
-                            if vcd.signals.len() > 1 {
-                                msgs.push(Message::SetVerticalScroll(vcd.signals.len() - 1));
+                            if vcd.displayed_items.len() > 1 {
+                                msgs.push(Message::SetVerticalScroll(
+                                    vcd.displayed_items.len() - 1,
+                                ));
                             }
                         }
                     }
@@ -443,7 +488,7 @@ impl State {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down, self.get_count()));
+                            msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
                         }
@@ -453,7 +498,7 @@ impl State {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up, self.get_count()));
+                            msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
                         }
@@ -463,7 +508,7 @@ impl State {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Down, self.get_count()));
+                            msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
                         }
@@ -473,7 +518,7 @@ impl State {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
                         } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedSignal(MoveDir::Up, self.get_count()));
+                            msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
                         }
@@ -481,8 +526,8 @@ impl State {
                     }
                     (Key::Delete, true, false, false) => {
                         if let Some(vcd) = &self.vcd {
-                            if let Some(idx) = vcd.focused_signal {
-                                msgs.push(Message::RemoveSignal(idx, self.get_count()));
+                            if let Some(idx) = vcd.focused_item {
+                                msgs.push(Message::RemoveItem(idx, self.get_count()));
                                 msgs.push(Message::InvalidateCount);
                             }
                         }
@@ -592,40 +637,50 @@ impl State {
         }
     }
 
-    fn draw_var_list(
+    fn draw_item_list(
         &self,
         msgs: &mut Vec<Message>,
         vcd: &VcdData,
         ui: &mut egui::Ui,
-    ) -> Vec<SignalDrawingInfo> {
-        let mut signal_offsets = Vec::new();
+    ) -> Vec<ItemDrawingInfo> {
+        let mut item_offsets = Vec::new();
 
-        for (vidx, displayed_signal) in vcd.signals.iter().enumerate().skip(vcd.scroll) {
-            let sig = displayed_signal.idx;
-            let info = &displayed_signal.info;
-            let signal = vcd.inner.signal_from_signal_idx(sig);
+        for (vidx, displayed_item) in vcd.displayed_items.iter().enumerate().skip(vcd.scroll) {
+            ui.with_layout(
+                Layout::top_down(Align::LEFT).with_cross_justify(true),
+                |ui| match displayed_item {
+                    DisplayedItem::Signal(displayed_signal) => {
+                        let sig = displayed_signal.idx;
+                        let info = &displayed_signal.info;
+                        let signal = vcd.inner.signal_from_signal_idx(sig);
 
-            self.draw_var(
-                msgs,
-                vidx,
-                &displayed_signal.display_name,
-                &(signal.real_idx(), vec![]),
-                &mut signal_offsets,
-                info,
-                ui,
+                        self.draw_signal_var(
+                            msgs,
+                            vidx,
+                            &displayed_signal.display_name,
+                            &(signal.real_idx(), vec![]),
+                            &mut item_offsets,
+                            info,
+                            ui,
+                        );
+                    }
+                    DisplayedItem::Divider(displayed_divider) => {
+                        self.draw_plain_var(msgs, vidx, displayed_divider, &mut item_offsets, ui);
+                    }
+                },
             );
         }
 
-        signal_offsets
+        item_offsets
     }
 
-    fn draw_var(
+    fn draw_signal_var(
         &self,
         msgs: &mut Vec<Message>,
         vidx: usize,
         name: &str,
         path: &(SignalIdx, Vec<String>),
-        signal_offsets: &mut Vec<SignalDrawingInfo>,
+        item_offsets: &mut Vec<ItemDrawingInfo>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
     ) {
@@ -649,40 +704,19 @@ impl State {
             };
             ui.horizontal_top(|ui| {
                 if self.command_prompt.expanded.starts_with("signal_focus") {
-                    let alpha_id = uint_idx_to_alpha_idx(
-                        vidx,
-                        self.vcd.as_ref().map_or(0, |vcd| vcd.signals.len()),
-                    );
-                    ui.label(
-                        egui::RichText::new(alpha_id)
-                            .background_color(self.config.theme.accent_warn.background)
-                            .monospace()
-                            .color(self.config.theme.accent_warn.foreground),
-                    );
+                    self.add_alpha_id(vidx, ui);
                 }
 
-                let focus_marker_color = if self
-                    .vcd
-                    .as_ref()
-                    .expect("Can't draw a signal without a loaded waveform.")
-                    .focused_signal
-                    .map(|focused| focused == vidx)
-                    .unwrap_or(false)
-                {
-                    self.config.theme.accent_info.background
-                } else {
-                    Color32::TRANSPARENT
-                };
-                ui.colored_label(focus_marker_color, "♦");
+                self.add_focus_marker(vidx, ui);
 
                 let signal_label = ui
                     .selectable_label(false, egui::RichText::new(name))
                     .on_hover_text(tooltip)
                     .context_menu(|ui| {
-                        self.signal_context_menu(path, msgs, ui, vidx);
+                        self.item_context_menu(Some(path), msgs, ui, vidx);
                     });
                 if signal_label.clicked() {
-                    msgs.push(Message::FocusSignal(vidx))
+                    msgs.push(Message::FocusItem(vidx))
                 }
                 signal_label
             })
@@ -700,16 +734,16 @@ impl State {
                     for (name, info) in subfields {
                         let mut new_path = path.clone();
                         new_path.1.push(name.clone());
-                        self.draw_var(msgs, vidx, name, &new_path, signal_offsets, info, ui);
+                        self.draw_signal_var(msgs, vidx, name, &new_path, item_offsets, info, ui);
                     }
                 });
 
                 let offset = response.0.rect.top();
-                signal_offsets.push(SignalDrawingInfo {
+                item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
                     tidx: path.clone(),
                     signal_list_idx: vidx,
                     offset,
-                });
+                }));
             }
             SignalInfo::Bool
             | SignalInfo::Bits
@@ -717,28 +751,190 @@ impl State {
             | SignalInfo::String
             | SignalInfo::Real => {
                 let label = draw_label(ui);
-                signal_offsets.push(SignalDrawingInfo {
+                item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
                     tidx: path.clone(),
                     signal_list_idx: vidx,
                     offset: label.inner.rect.top(),
-                });
+                }));
             }
         }
     }
 
-    fn signal_context_menu(
+    fn add_focus_marker(&self, vidx: usize, ui: &mut egui::Ui) {
+        let focus_marker_color = if self
+            .vcd
+            .as_ref()
+            .expect("Can't draw a signal without a loaded waveform.")
+            .focused_item
+            .map(|focused| focused == vidx)
+            .unwrap_or(false)
+        {
+            self.config.theme.accent_info.background
+        } else {
+            Color32::TRANSPARENT
+        };
+        ui.colored_label(focus_marker_color, "♦");
+    }
+
+    fn draw_plain_var(
+        &self,
+        msgs: &mut Vec<Message>,
+        vidx: usize,
+        displayed_divider: &DisplayedDivider,
+        item_offsets: &mut Vec<ItemDrawingInfo>,
+        ui: &mut egui::Ui,
+    ) {
+        let mut draw_label = |ui: &mut egui::Ui| {
+            ui.horizontal_top(|ui| {
+                if self.command_prompt.expanded.starts_with("focus") {
+                    self.add_alpha_id(vidx, ui);
+                }
+
+                self.add_focus_marker(vidx, ui);
+
+                let text_color = if let Some(color) = &displayed_divider.color {
+                    self.config
+                        .theme
+                        .colors
+                        .get(color)
+                        .unwrap_or(&self.config.theme.foreground)
+                } else {
+                    &self.config.theme.foreground
+                };
+
+                let signal_label = ui
+                    .selectable_label(
+                        false,
+                        egui::RichText::new(displayed_divider.name.clone()).color(*text_color),
+                    )
+                    .context_menu(|ui| {
+                        self.item_context_menu(None, msgs, ui, vidx);
+                    });
+                if signal_label.clicked() {
+                    msgs.push(Message::FocusItem(vidx))
+                }
+                signal_label
+            })
+        };
+
+        let label = draw_label(ui);
+        item_offsets.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
+            signal_list_idx: vidx,
+            offset: label.inner.rect.top(),
+        }));
+    }
+
+    fn add_alpha_id(&self, vidx: usize, ui: &mut egui::Ui) {
+        let alpha_id = uint_idx_to_alpha_idx(
+            vidx,
+            self.vcd.as_ref().map_or(0, |vcd| vcd.displayed_items.len()),
+        );
+        ui.label(
+            egui::RichText::new(alpha_id)
+                .background_color(self.config.theme.accent_warn.background)
+                .monospace()
+                .color(self.config.theme.accent_warn.foreground),
+        );
+    }
+
+    fn item_context_menu(
+        &self,
+        path: Option<&(SignalIdx, Vec<String>)>,
+        msgs: &mut Vec<Message>,
+        ui: &mut egui::Ui,
+        vidx: usize,
+    ) {
+        if let Some(path) = path {
+            self.add_format_menu(path, msgs, ui);
+        }
+
+        let displayed_item = &self.vcd.as_ref().unwrap().displayed_items[vidx];
+        ui.menu_button("Color", |ui| {
+            let selected_color = &displayed_item
+                .color()
+                .clone()
+                .unwrap_or("__nocolor__".to_string());
+            for color_name in self.config.theme.colors.keys() {
+                ui.radio(selected_color == color_name, color_name)
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::ItemColorChange(
+                            Some(vidx),
+                            Some(color_name.clone()),
+                        ));
+                    });
+            }
+            ui.separator();
+            ui.radio(selected_color == "__nocolor__", "Default")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ItemColorChange(Some(vidx), None));
+                });
+        });
+
+        ui.menu_button("Background color", |ui| {
+            let selected_color = &displayed_item
+                .background_color()
+                .clone()
+                .unwrap_or("__nocolor__".to_string());
+            for color_name in self.config.theme.colors.keys() {
+                ui.radio(selected_color == color_name, color_name)
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::ItemBackgroundColorChange(
+                            Some(vidx),
+                            Some(color_name.clone()),
+                        ));
+                    });
+            }
+            ui.separator();
+            ui.radio(selected_color == "__nocolor__", "Default")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ItemBackgroundColorChange(Some(vidx), None));
+                });
+        });
+
+        if let DisplayedItem::Signal(signal) = &self.vcd.as_ref().unwrap().displayed_items[vidx] {
+            ui.menu_button("Name", |ui| {
+                let name_types = vec![
+                    SignalNameType::Local,
+                    SignalNameType::Global,
+                    SignalNameType::Unique,
+                ];
+                let signal_name_type = signal.display_name_type;
+                for name_type in name_types {
+                    ui.radio(signal_name_type == name_type, name_type.to_string())
+                        .clicked()
+                        .then(|| {
+                            ui.close_menu();
+                            msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type));
+                        });
+                }
+            });
+        }
+
+        if ui.button("Remove").clicked() {
+            msgs.push(Message::RemoveItem(vidx, 1));
+            msgs.push(Message::InvalidateCount);
+            ui.close_menu();
+        }
+    }
+
+    fn add_format_menu(
         &self,
         path: &(SignalIdx, Vec<String>),
         msgs: &mut Vec<Message>,
         ui: &mut egui::Ui,
-        vidx: usize,
     ) {
         // Should not call this unless a signal is selected, and, hence, a VCD is loaded
         let Some(vcd) = self.vcd.as_ref() else {
             return;
         };
-
-        let displayed_signal = &vcd.signals[vidx];
 
         let mut available_translators = if path.1.is_empty() {
             self.translators
@@ -797,113 +993,157 @@ impl State {
                 });
             }
         });
-
-        ui.menu_button("Color", |ui| {
-            let selected_color = &displayed_signal
-                .color
-                .clone()
-                .unwrap_or("__nocolor__".to_string());
-            for color_name in self.config.theme.colors.keys() {
-                ui.radio(selected_color == color_name, color_name)
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(Message::SignalColorChange(
-                            Some(vidx),
-                            Some(color_name.clone()),
-                        ));
-                    });
-            }
-            ui.separator();
-            ui.radio(selected_color == "__nocolor__", "Default")
-                .clicked()
-                .then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::SignalColorChange(Some(vidx), None));
-                });
-        });
-
-        ui.menu_button("Name", |ui| {
-            let name_types = vec![
-                SignalNameType::Local,
-                SignalNameType::Global,
-                SignalNameType::Unique,
-            ];
-            let signal_name_type = displayed_signal.display_name_type;
-            for name_type in name_types {
-                ui.radio(signal_name_type == name_type, name_type.to_string())
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type));
-                    });
-            }
-        });
-
-        if ui.button("Remove").clicked() {
-            msgs.push(Message::RemoveSignal(vidx, 1));
-            ui.close_menu();
-        }
     }
 
     fn draw_var_values(
         &self,
-        signal_offsets: &[SignalDrawingInfo],
+        item_offsets: &[ItemDrawingInfo],
         vcd: &VcdData,
         ui: &mut egui::Ui,
         msgs: &mut Vec<Message>,
     ) {
+        let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
+        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
+        let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
+        let cfg = DrawConfig {
+            canvas_height: response.rect.size().y,
+            line_height: 16.,
+            max_transition_width: 6,
+        };
+        let frame_width = response.rect.width();
+
+        let ctx = DrawingContext {
+            painter: &mut painter,
+            cfg: &cfg,
+            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
+            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
+            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
+            theme: &self.config.theme,
+        };
+
+        let gap = if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
+            // Assume that first signal has standard height (for now)
+            (item_offsets.get(1).unwrap().offset()
+                - item_offsets.get(0).unwrap().offset()
+                - ctx.cfg.line_height)
+                / 2.0
+        } else {
+            0.0
+        };
         if let Some(cursor) = &vcd.cursor {
-            let text_style = TextStyle::Monospace;
-            ui.style_mut().override_text_style = Some(text_style);
+            ui.allocate_ui_at_rect(response.rect, |ui| {
+                let text_style = TextStyle::Monospace;
+                ui.style_mut().override_text_style = Some(text_style);
+                for (vidx, drawing_info) in item_offsets
+                    .iter()
+                    .sorted_by_key(|o| o.offset() as i32)
+                    .enumerate()
+                {
+                    let next_y = ui.cursor().top();
+                    // In order to align the text in this view with the variable tree,
+                    // we need to keep track of how far away from the expected offset we are,
+                    // and compensate for it
+                    if next_y < drawing_info.offset() {
+                        ui.add_space(drawing_info.offset() - next_y);
+                    }
 
-            for (vidx, drawing_info) in signal_offsets
-                .iter()
-                .sorted_by_key(|o| o.offset as i32)
-                .enumerate()
-            {
-                let next_y = ui.cursor().top();
-                // In order to align the text in this view with the variable tree,
-                // we need to keep track of how far away from the expected offset we are,
-                // and compensate for it
-                if next_y < drawing_info.offset {
-                    ui.add_space(drawing_info.offset - next_y);
-                }
+                    self.draw_background(
+                        vidx,
+                        vcd,
+                        drawing_info,
+                        to_screen,
+                        &ctx,
+                        gap,
+                        frame_width,
+                    );
+                    match drawing_info {
+                        ItemDrawingInfo::Signal(drawing_info) => {
+                            if cursor < &0.to_bigint() {
+                                break;
+                            }
 
-                let translator =
-                    vcd.signal_translator((drawing_info.tidx.0, vec![]), &self.translators);
+                            let translator = vcd.signal_translator(
+                                (drawing_info.tidx.0, vec![]),
+                                &self.translators,
+                            );
 
-                let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
+                            let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
 
-                if cursor < &0.to_bigint() {
-                    break;
-                }
+                            let translation_result = signal
+                                .query_val_on_tmln(
+                                    &num::BigInt::to_biguint(&cursor).unwrap(),
+                                    &vcd.inner,
+                                )
+                                .map(|(_time, value)| translator.translate(&signal, &value));
 
-                let translation_result = signal
-                    .query_val_on_tmln(&num::BigInt::to_biguint(&cursor).unwrap(), &vcd.inner)
-                    .map(|(_time, value)| translator.translate(&signal, &value));
+                            if let Ok(Ok(s)) = translation_result {
+                                let subfields = s
+                                    .flatten(
+                                        (drawing_info.tidx.0, vec![]),
+                                        &vcd.signal_format,
+                                        &self.translators,
+                                    )
+                                    .as_fields();
 
-                if let Ok(Ok(s)) = translation_result {
-                    let subfields = s
-                        .flatten(
-                            (drawing_info.tidx.0, vec![]),
-                            &vcd.signal_format,
-                            &self.translators,
-                        )
-                        .as_fields();
+                                let subfield =
+                                    subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
 
-                    let subfield = subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
-
-                    if let Some((_, Some((v, _)))) = subfield {
-                        ui.label(v).context_menu(|ui| {
-                            self.signal_context_menu(&(signal.real_idx(), vec![]), msgs, ui, vidx);
-                        });
-                    } else {
-                        ui.label("-");
+                                if let Some((_, Some((v, _)))) = subfield {
+                                    ui.label(v).context_menu(|ui| {
+                                        self.item_context_menu(
+                                            Some(&(signal.real_idx(), vec![])),
+                                            msgs,
+                                            ui,
+                                            vidx,
+                                        );
+                                    });
+                                } else {
+                                    ui.label("-");
+                                }
+                            }
+                        }
+                        ItemDrawingInfo::Divider(_) => {}
                     }
                 }
+            });
+        } else {
+            for (vidx, drawing_info) in item_offsets.iter().enumerate() {
+                self.draw_background(vidx, vcd, drawing_info, to_screen, &ctx, gap, frame_width);
             }
         }
+    }
+
+    fn draw_background(
+        &self,
+        vidx: usize,
+        vcd: &VcdData,
+        drawing_info: &ItemDrawingInfo,
+        to_screen: emath::RectTransform,
+        ctx: &DrawingContext<'_>,
+        gap: f32,
+        frame_width: f32,
+    ) {
+        // Set background color
+        let default_background_color = if (vidx / self.config.theme.alt_frequency) % 2 == 1 {
+            self.config.theme.canvas_colors.alt_background
+        } else {
+            Color32::TRANSPARENT
+        };
+        let background_color = *vcd
+            .displayed_items
+            .get(drawing_info.signal_list_idx())
+            .and_then(|signal| signal.background_color())
+            .and_then(|color| self.config.theme.colors.get(&color))
+            .unwrap_or(&default_background_color);
+        // Draw background
+        // We draw in absolute coords, but the signal offset in the y
+        // direction is also in absolute coordinates, so we need to
+        // compensate for that
+        let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+        let min = (ctx.to_screen)(0.0, y_offset - gap);
+        let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
+        ctx.painter
+            .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
     }
 
     fn controls_listing(&self, ui: &mut egui::Ui) {
@@ -912,7 +1152,7 @@ impl State {
             ("↔", "Horizontal Scroll", "Pan"),
             ("↕", "j, k, Up, Down", "Scroll down/up"),
             ("⌖", "Ctrl+j, k, Up, Down", "Move focus down/up"),
-            ("🔃", "Alt+j, k, Up, Down", "Move focused signal down/up"),
+            ("🔃", "Alt+j, k, Up, Down", "Move focused item down/up"),
             ("🔎", "Ctrl+Scroll", "Zoom"),
             ("〰", "b", "Show or hide the design hierarchy"),
             ("☰", "m", "Show or hide menu"),
@@ -944,13 +1184,13 @@ impl State {
             ("🔎➖", "-", "Zoom out"),
             ("", "k/⬆", "Scroll up"),
             ("", "j/⬇", "Scroll down"),
-            ("", "Ctrl+k/⬆", "Move focused signal up"),
-            ("", "Ctrl+j/⬇", "Move focused signal down"),
+            ("", "Ctrl+k/⬆", "Move focused item up"),
+            ("", "Ctrl+j/⬇", "Move focused item down"),
             ("", "Alt+k/⬆", "Move focus up"),
             ("", "Alt+j/⬇", "Move focus down"),
             ("🔙", "s", "Scroll to start"),
             ("🔚", "e", "Scroll to end"),
-            ("🗙", "Delete", "Delete focused signal"),
+            ("🗙", "Delete", "Delete focused item"),
             #[cfg(not(target_arch = "wasm32"))]
             ("⛶", "F11", "Toggle full screen"),
         ];
@@ -966,6 +1206,9 @@ impl State {
                     ui.end_row();
                 }
             });
+
+        ui.add_space(20.);
+        ui.label(RichText::new("Hint: You can repeat keybinds by typing a number before them. For example, 10k scrolls 10 steps up."));
     }
 
     fn help_message(&self, ui: &mut egui::Ui) {

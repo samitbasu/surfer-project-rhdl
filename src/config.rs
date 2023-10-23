@@ -47,7 +47,7 @@ pub struct SurferTheme {
     /// The color of borders between UI elements
     pub border_color: Color32,
     /// The colors used for the background and text of the wave view
-    pub canvas_colors: ThemeColorPair,
+    pub canvas_colors: ThemeColorTriple,
     /// The colors used for most UI elements not on the signal canvas
     pub primary_ui_color: ThemeColorPair,
     /// The colors used for the variable and value list, as well as secondary elements
@@ -80,6 +80,8 @@ pub struct SurferTheme {
     pub colors: HashMap<String, Color32>,
 
     pub linewidth: f32,
+
+    pub alt_frequency: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,6 +97,16 @@ pub struct ThemeColorPair {
     pub foreground: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub background: Color32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ThemeColorTriple {
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub foreground: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub background: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub alt_background: Color32,
 }
 
 fn default_colors() -> HashMap<String, Color32> {

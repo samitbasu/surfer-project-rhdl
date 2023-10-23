@@ -9,7 +9,7 @@ show_menu = true
 foreground = "d4d4d4"
 border_color = "282b2d"
 selected_elements_colors = { background = "444444", foreground = "d4d4d4" }
-canvas_colors = { background = "0b151d", foreground = "d4d4d4" }
+canvas_colors = { background = "0b151d", alt_background = "1b252d", foreground = "d4d4d4" }
 primary_ui_color = { background = "171717", foreground = "d4d4d4" }
 secondary_ui_color = { background = "0d1317", foreground = "d4d4d4" }
 accent_info = { background = "007acc", foreground = "d4d4d4" }
@@ -25,6 +25,7 @@ signal_weak = "808080"
 cursor = { color="b63935", width=2 }
 gesture = { color="35b635", width=2 }
 linewidth = 1.5
+alt_frequency = 3
 
 [theme.colors]
 Green = "6a9955"
