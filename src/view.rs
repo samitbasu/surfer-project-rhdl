@@ -1021,15 +1021,7 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
-            // Assume that first signal has standard height (for now)
-            (item_offsets.get(1).unwrap().offset()
-                - item_offsets.get(0).unwrap().offset()
-                - ctx.cfg.line_height)
-                / 2.0
-        } else {
-            0.0
-        };
+        let gap = self.get_item_gap(item_offsets, &ctx);
         if let Some(cursor) = &vcd.cursor {
             ui.allocate_ui_at_rect(response.rect, |ui| {
                 let text_style = TextStyle::Monospace;
@@ -1113,6 +1105,18 @@ impl State {
         }
     }
 
+    pub fn get_item_gap(&self, item_offsets: &[ItemDrawingInfo], ctx: &DrawingContext<'_>) -> f32 {
+        if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
+            // Assume that first signal has standard height (for now)
+            (item_offsets.get(1).unwrap().offset()
+                - item_offsets.get(0).unwrap().offset()
+                - ctx.cfg.line_height)
+                / 2.0
+        } else {
+            0.0
+        }
+    }
+
     fn draw_background(
         &self,
         vidx: usize,
@@ -1123,12 +1127,7 @@ impl State {
         gap: f32,
         frame_width: f32,
     ) {
-        // Set background color
-        let default_background_color = if (vidx / self.config.theme.alt_frequency) % 2 == 1 {
-            self.config.theme.canvas_colors.alt_background
-        } else {
-            Color32::TRANSPARENT
-        };
+        let default_background_color = self.get_default_alternating_background_color(vidx);
         let background_color = *vcd
             .displayed_items
             .get(drawing_info.signal_list_idx())
@@ -1144,6 +1143,16 @@ impl State {
         let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
         ctx.painter
             .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
+    }
+
+    pub fn get_default_alternating_background_color(&self, vidx: usize) -> Color32 {
+        // Set background color
+        if self.config.theme.alt_frequency != 0 && (vidx / self.config.theme.alt_frequency) % 2 == 1
+        {
+            self.config.theme.canvas_colors.alt_background
+        } else {
+            Color32::TRANSPARENT
+        }
     }
 
     fn controls_listing(&self, ui: &mut egui::Ui) {
