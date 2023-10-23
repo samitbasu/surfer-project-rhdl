@@ -47,8 +47,12 @@ cargo install --git https://gitlab.com/surfer-project/surfer surfer
 
 You can download a pre-built linux binary
 [here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=linux_build).
-It is built on a debian system with some dynamically linked libs, so it might
+It is built on a debian system with some dynamically linked libs, so it may
 not work on all systems.
+
+### Pre-built Windows binary
+You can download a pre-built linux binary
+[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=windows_build).
 
 
 ## Project Status
@@ -85,7 +89,7 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] 32-bit, two exponent bits
     - [x] 16-bit, one exponent bit
     - [x] 8-bit, no exponent bit
-    - [ ] Quire for 32-bit, teo exponent bits
+    - [ ] Quire for 32-bit, two exponent bits
     - [x] Quire for 16-bit, one exponent bit
     - [x] Quire for 8-bit, no exponent bit
   - [x] Risc-V instructions
