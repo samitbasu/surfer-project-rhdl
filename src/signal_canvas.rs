@@ -233,7 +233,7 @@ impl State {
     pub fn draw_signals(
         &self,
         msgs: &mut Vec<Message>,
-        signal_offsets: &Vec<ItemDrawingInfo>,
+        item_offsets: &Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
@@ -306,21 +306,9 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = if signal_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
-            // Assume that first signal has standard height (for now)
-            (signal_offsets.get(1).unwrap().offset()
-                - signal_offsets.get(0).unwrap().offset()
-                - ctx.cfg.line_height)
-                / 2.0
-        } else {
-            0.0
-        };
-        for (idx, drawing_info) in signal_offsets.iter().enumerate() {
-            let default_background_color = if (idx / self.config.theme.alt_frequency) % 2 == 1 {
-                self.config.theme.canvas_colors.alt_background
-            } else {
-                Color32::TRANSPARENT
-            };
+        let gap = self.get_item_gap(item_offsets, &ctx);
+        for (idx, drawing_info) in item_offsets.iter().enumerate() {
+            let default_background_color = self.get_default_alternating_background_color(idx);
             let background_color = *vcd
                 .displayed_items
                 .get(drawing_info.signal_list_idx())
@@ -359,7 +347,7 @@ impl State {
                 }
             }
 
-            for drawing_info in signal_offsets {
+            for drawing_info in item_offsets {
                 // We draw in absolute coords, but the signal offset in the y
                 // direction is also in absolute coordinates, so we need to
                 // compensate for that
