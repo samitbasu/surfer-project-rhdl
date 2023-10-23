@@ -47,8 +47,12 @@ cargo install --git https://gitlab.com/surfer-project/surfer surfer
 
 You can download a pre-built linux binary
 [here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=linux_build).
-It is built on a debian system with some dynamically linked libs, so it might
+It is built on a debian system with some dynamically linked libs, so it may
 not work on all systems.
+
+### Pre-built Windows binary
+You can download a pre-built linux binary
+[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=windows_build).
 
 
 ## Project Status
