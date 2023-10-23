@@ -16,8 +16,6 @@ clippy:
     before_script:
         - rustup component add clippy
         - cargo install gitlab_clippy
-        - apt-get update -y
-        - apt-get install -y libatk1.0-dev libgtk-3-dev
     script:
         - cargo clippy -- --allow clippy::useless_format
     after_script:
@@ -39,8 +37,6 @@ clippy:
 test:
     stage: test
     script:
-        - apt-get update -y
-        - apt-get install -y libatk1.0-dev libgtk-3-dev
         - cargo test --color=always
     cache:
         key:
@@ -70,7 +66,7 @@ cargo-fmt:
 
 typos-and-todos:
     stage: test
-    cache: [] # Disable cache since the spell checker finds typos in other peoples source code 
+    cache: [] # Disable cache since the spell checker finds typos in other peoples source code
     before_script:
         - apt update
         - apt install -y wget
@@ -98,7 +94,7 @@ linux_build:
     stage: deploy
     script:
         - apt-get update -y
-        - apt-get install -y openssl libssl-dev libatk1.0-dev libgtk-3-dev
+        - apt-get install -y openssl libssl-dev
         - cargo build --release
         - cp target/release/surfer surfer
     artifacts:
@@ -151,7 +147,7 @@ pages_build:
         expire_in: 1h
 
 # https://k33g.gitlab.io/articles/2020-07-23-GITLAB-PAGES-EN.html
-# Deploy gitlab pages 
+# Deploy gitlab pages
 # The name of this job *must* be pages:, otherwise no deploymet happens D:
 pages:
     stage: deploy
@@ -197,4 +193,3 @@ pages_preview_stop:
     action: stop
   script:
     - echo "👋 bye"
-
