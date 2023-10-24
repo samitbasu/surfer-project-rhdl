@@ -380,11 +380,19 @@ impl State {
                         }
                     }
                     ItemDrawingInfo::Divider(_) => {}
+                    ItemDrawingInfo::Cursor(_) => {}
                 }
             }
         }
 
         vcd.draw_cursor(
+            &self.config.theme,
+            &mut ctx,
+            response.rect.size(),
+            to_screen,
+        );
+
+        vcd.draw_cursors(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
@@ -747,6 +755,30 @@ impl VcdData {
         to_screen: RectTransform,
     ) {
         if let Some(cursor) = &self.cursor {
+            let x = self.viewport.from_time(cursor, size.x as f64);
+
+            let stroke = Stroke {
+                color: theme.cursor.color,
+                width: theme.cursor.width,
+            };
+            ctx.painter.line_segment(
+                [
+                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, 0.)),
+                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, size.y)),
+                ],
+                stroke,
+            )
+        }
+    }
+
+    fn draw_cursors(
+        &self,
+        theme: &SurferTheme,
+        ctx: &mut DrawingContext,
+        size: Vec2,
+        to_screen: RectTransform,
+    ) {
+        for cursor in self.cursors.values() {
             let x = self.viewport.from_time(cursor, size.x as f64);
 
             let stroke = Stroke {
