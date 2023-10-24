@@ -52,6 +52,7 @@ use log::info;
 use log::trace;
 use num::bigint::ToBigInt;
 use num::BigInt;
+use num::BigUint;
 use num::FromPrimitive;
 use num::ToPrimitive;
 use progress_streams::ProgressReader;
@@ -320,9 +321,17 @@ pub struct DisplayedDivider {
     name: String,
 }
 
+pub struct DisplayedCursor {
+    color: Option<String>,
+    background_color: Option<String>,
+    name: String,
+    idx: u8,
+}
+
 enum DisplayedItem {
     Signal(DisplayedSignal),
     Divider(DisplayedDivider),
+    Cursor(DisplayedCursor),
 }
 
 impl DisplayedItem {
@@ -330,6 +339,7 @@ impl DisplayedItem {
         let color = match self {
             DisplayedItem::Signal(signal) => &signal.color,
             DisplayedItem::Divider(divider) => &divider.color,
+            DisplayedItem::Cursor(cursor) => &cursor.color,
         };
         color.clone()
     }
@@ -342,13 +352,26 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => {
                 divider.color = color_name.clone();
             }
+            DisplayedItem::Cursor(cursor) => {
+                cursor.color = color_name.clone();
+            }
         }
+    }
+
+    pub fn name(&self) -> String {
+        let name = match self {
+            DisplayedItem::Signal(signal) => &signal.display_name,
+            DisplayedItem::Divider(divider) => &divider.name,
+            DisplayedItem::Cursor(cursor) => &cursor.name,
+        };
+        name.clone()
     }
 
     pub fn background_color(&self) -> Option<String> {
         let background_color = match self {
             DisplayedItem::Signal(signal) => &signal.background_color,
             DisplayedItem::Divider(divider) => &divider.background_color,
+            DisplayedItem::Cursor(cursor) => &cursor.background_color,
         };
         background_color.clone()
     }
@@ -360,6 +383,9 @@ impl DisplayedItem {
             }
             DisplayedItem::Divider(divider) => {
                 divider.background_color = color_name.clone();
+            }
+            DisplayedItem::Cursor(cursor) => {
+                cursor.background_color = color_name.clone();
             }
         }
     }
@@ -383,6 +409,7 @@ pub struct VcdData {
     /// Name of the translator used to translate this trace
     signal_format: HashMap<TraceIdx, String>,
     cursor: Option<BigInt>,
+    cursors: HashMap<u8, BigInt>,
     focused_item: Option<usize>,
     default_signal_name_type: SignalNameType,
     scroll: usize,
@@ -468,6 +495,8 @@ pub enum Message {
     SetFilterFocused(bool),
     ToggleFullscreen,
     AddDivider(String),
+    SetCursorPosition(u8),
+    CenterCursorPosition(u8),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
@@ -945,6 +974,7 @@ impl State {
                                         }
                                     }
                                     DisplayedItem::Divider(_) => {}
+                                    DisplayedItem::Cursor(_) => {}
                                 }
                             }
                         }
@@ -1012,6 +1042,7 @@ impl State {
                     signal_format: HashMap::new(),
                     num_timestamps,
                     cursor: None,
+                    cursors: HashMap::new(),
                     focused_item: None,
                     default_signal_name_type: self.config.default_signal_name_type,
                     scroll: 0,
@@ -1064,6 +1095,38 @@ impl State {
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type
             }
+            Message::SetCursorPosition(idx) => {
+                let Some(vcd) = self.vcd.as_mut() else {
+                    return;
+                };
+                let Some(location) = &vcd.cursor else {
+                    return;
+                };
+                let cursor = DisplayedCursor {
+                    color: None,
+                    background_color: None,
+                    name: format!("Cursor {idx}"),
+                    idx,
+                };
+                vcd.displayed_items.push(DisplayedItem::Cursor(cursor));
+                vcd.cursors.insert(idx, location.clone());
+            }
+
+            Message::CenterCursorPosition(idx) => {
+                let Some(vcd) = self.vcd.as_mut() else {
+                    return;
+                };
+                if let Some(cursor) = vcd.cursors.get(&idx) {
+                    let center_point = cursor.to_f64().unwrap();
+                    let half_width = (vcd.viewport.curr_right - vcd.viewport.curr_left) / 2.;
+
+                    vcd.viewport.curr_left = center_point - half_width;
+                    vcd.viewport.curr_right = center_point + half_width;
+
+                    self.invalidate_draw_commands();
+                }
+            }
+
             Message::ChangeSignalNameType(vidx, name_type) => {
                 let Some(vcd) = self.vcd.as_mut() else { return };
                 // checks if vidx is Some then use that, else try focused signal
@@ -1174,6 +1237,15 @@ impl State {
         }
     }
 
+    pub fn set_center_point(&mut self, center: BigInt) {
+        if let Some(vcd) = &mut self.vcd {
+            let center_point = center.to_f64().unwrap();
+            let half_width = (vcd.viewport.curr_right - vcd.viewport.curr_left) / 2.;
+
+            vcd.viewport.curr_left = center_point - half_width;
+            vcd.viewport.curr_right = center_point + half_width;
+        }
+    }
     pub fn zoom_to_fit(&mut self) {
         if let Some(vcd) = &mut self.vcd {
             vcd.viewport.curr_left = 0.0;
@@ -1445,6 +1517,7 @@ impl VcdData {
                     };
                 }
                 DisplayedItem::Divider(_) => {}
+                DisplayedItem::Cursor(_) => {}
             }
         }
     }
