@@ -18,10 +18,7 @@ use crate::{
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, SignalDescriptor, State, VcdData,
 };
-use crate::{
-    ClockHighlightType, DisplayedDivider, DisplayedItem, LoadProgress, SignalFilterType,
-    SignalNameType,
-};
+use crate::{ClockHighlightType, DisplayedItem, LoadProgress, SignalFilterType, SignalNameType};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -53,9 +50,17 @@ pub struct DividerDrawingInfo {
     pub offset: f32,
 }
 
+#[derive(Debug)]
+pub struct CursorDrawingInfo {
+    pub signal_list_idx: usize,
+    pub offset: f32,
+    pub idx: u8,
+}
+
 pub enum ItemDrawingInfo {
     Signal(SignalDrawingInfo),
     Divider(DividerDrawingInfo),
+    Cursor(CursorDrawingInfo),
 }
 
 impl ItemDrawingInfo {
@@ -63,12 +68,14 @@ impl ItemDrawingInfo {
         match self {
             ItemDrawingInfo::Signal(drawing_info) => drawing_info.offset,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.offset,
+            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.offset,
         }
     }
     pub fn signal_list_idx(&self) -> usize {
         match self {
             ItemDrawingInfo::Signal(drawing_info) => drawing_info.signal_list_idx,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.signal_list_idx,
+            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.signal_list_idx,
         }
     }
 }
@@ -332,6 +339,35 @@ impl State {
                     .show(ctx, |ui| {
                         self.draw_signals(&mut msgs, &item_offsets, ui);
                     });
+
+                if self.show_rename_item {
+                    let mut open = true;
+                    let name = &mut *self.item_renaming_string.borrow_mut();
+                    egui::Window::new("Rename item")
+                        .open(&mut open)
+                        .collapsible(false)
+                        .resizable(true)
+                        .show(ctx, |ui| {
+                            ui.vertical_centered(|ui| {
+                                ui.text_edit_singleline(name);
+                                ui.horizontal(|ui| {
+                                    if ui.button("Rename").clicked() {
+                                        msgs.push(Message::ItemNameChange(
+                                            *self.item_renaming_idx.borrow(),
+                                            name.clone(),
+                                        ));
+                                        msgs.push(Message::SetRenameItemVisible(false))
+                                    }
+                                    if ui.button("Cancel").clicked() {
+                                        msgs.push(Message::SetRenameItemVisible(false))
+                                    }
+                                });
+                            });
+                        });
+                    if !open {
+                        msgs.push(Message::SetRenameItemVisible(false))
+                    }
+                }
             }
         };
 
@@ -466,16 +502,36 @@ impl State {
                     self.command_prompt.visible,
                     self.signal_filter_focused,
                 ) {
-                    (Key::Num0, true, false, false) => msgs.push(Message::AddCount('0')),
-                    (Key::Num1, true, false, false) => msgs.push(Message::AddCount('1')),
-                    (Key::Num2, true, false, false) => msgs.push(Message::AddCount('2')),
-                    (Key::Num3, true, false, false) => msgs.push(Message::AddCount('3')),
-                    (Key::Num4, true, false, false) => msgs.push(Message::AddCount('4')),
-                    (Key::Num5, true, false, false) => msgs.push(Message::AddCount('5')),
-                    (Key::Num6, true, false, false) => msgs.push(Message::AddCount('6')),
-                    (Key::Num7, true, false, false) => msgs.push(Message::AddCount('7')),
-                    (Key::Num8, true, false, false) => msgs.push(Message::AddCount('8')),
-                    (Key::Num9, true, false, false) => msgs.push(Message::AddCount('9')),
+                    (Key::Num0, true, false, false) => {
+                        handle_digit(0, modifiers, &mut msgs);
+                    }
+                    (Key::Num1, true, false, false) => {
+                        handle_digit(1, modifiers, &mut msgs);
+                    }
+                    (Key::Num2, true, false, false) => {
+                        handle_digit(2, modifiers, &mut msgs);
+                    }
+                    (Key::Num3, true, false, false) => {
+                        handle_digit(3, modifiers, &mut msgs);
+                    }
+                    (Key::Num4, true, false, false) => {
+                        handle_digit(4, modifiers, &mut msgs);
+                    }
+                    (Key::Num5, true, false, false) => {
+                        handle_digit(5, modifiers, &mut msgs);
+                    }
+                    (Key::Num6, true, false, false) => {
+                        handle_digit(6, modifiers, &mut msgs);
+                    }
+                    (Key::Num7, true, false, false) => {
+                        handle_digit(7, modifiers, &mut msgs);
+                    }
+                    (Key::Num8, true, false, false) => {
+                        handle_digit(8, modifiers, &mut msgs);
+                    }
+                    (Key::Num9, true, false, false) => {
+                        handle_digit(9, modifiers, &mut msgs);
+                    }
                     (Key::Home, true, false, false) => msgs.push(Message::SetVerticalScroll(0)),
                     (Key::End, true, false, false) => {
                         if let Some(vcd) = &self.vcd {
@@ -495,8 +551,8 @@ impl State {
                     (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
                     (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
-                    (Key::S, true, false, false) => msgs.push(Message::ScrollToStart),
-                    (Key::E, true, false, false) => msgs.push(Message::ScrollToEnd),
+                    (Key::S, true, false, false) => msgs.push(Message::GoToStart),
+                    (Key::E, true, false, false) => msgs.push(Message::GoToEnd),
                     (Key::Minus, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 2.0,
@@ -560,6 +616,16 @@ impl State {
         });
 
         msgs
+    }
+}
+
+fn handle_digit(digit: u8, modifiers: &egui::Modifiers, msgs: &mut Vec<Message>) {
+    if modifiers.alt {
+        msgs.push(Message::SetCursorPosition(digit))
+    } else if modifiers.ctrl {
+        msgs.push(Message::GoToCursorPosition(digit))
+    } else {
+        msgs.push(Message::AddCount((digit + 48) as char))
     }
 }
 
@@ -686,8 +752,11 @@ impl State {
                             ui,
                         );
                     }
-                    DisplayedItem::Divider(displayed_divider) => {
-                        self.draw_plain_var(msgs, vidx, displayed_divider, &mut item_offsets, ui);
+                    DisplayedItem::Divider(_) => {
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                    }
+                    DisplayedItem::Cursor(_) => {
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
                 },
             );
@@ -802,7 +871,7 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: usize,
-        displayed_divider: &DisplayedDivider,
+        displayed_item: &DisplayedItem,
         item_offsets: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
     ) {
@@ -814,7 +883,7 @@ impl State {
 
                 self.add_focus_marker(vidx, ui);
 
-                let text_color = if let Some(color) = &displayed_divider.color {
+                let text_color = if let Some(color) = &displayed_item.color() {
                     self.config
                         .theme
                         .colors
@@ -827,7 +896,7 @@ impl State {
                 let signal_label = ui
                     .selectable_label(
                         false,
-                        egui::RichText::new(displayed_divider.name.clone()).color(*text_color),
+                        egui::RichText::new(displayed_item.name().clone()).color(*text_color),
                     )
                     .context_menu(|ui| {
                         self.item_context_menu(None, msgs, ui, vidx);
@@ -840,10 +909,22 @@ impl State {
         };
 
         let label = draw_label(ui);
-        item_offsets.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
-            signal_list_idx: vidx,
-            offset: label.inner.rect.top(),
-        }));
+        match displayed_item {
+            DisplayedItem::Divider(_) => {
+                item_offsets.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
+                    signal_list_idx: vidx,
+                    offset: label.inner.rect.top(),
+                }))
+            }
+            DisplayedItem::Cursor(cursor) => {
+                item_offsets.push(ItemDrawingInfo::Cursor(CursorDrawingInfo {
+                    signal_list_idx: vidx,
+                    offset: label.inner.rect.top(),
+                    idx: cursor.idx,
+                }))
+            }
+            &DisplayedItem::Signal(_) => {}
+        }
     }
 
     fn add_alpha_id(&self, vidx: usize, ui: &mut egui::Ui) {
@@ -944,6 +1025,13 @@ impl State {
             msgs.push(Message::RemoveItem(vidx, 1));
             msgs.push(Message::InvalidateCount);
             ui.close_menu();
+        }
+
+        if path.is_none() {
+            if ui.button("Rename").clicked() {
+                ui.close_menu();
+                msgs.push(Message::RenameItem(vidx));
+            }
         }
     }
 
@@ -1117,6 +1205,21 @@ impl State {
                             }
                         }
                         ItemDrawingInfo::Divider(_) => {}
+                        ItemDrawingInfo::Cursor(extra_cursor) => {
+                            let delta = time_string(
+                                &(cursor
+                                    - vcd
+                                        .cursors
+                                        .get(&extra_cursor.idx)
+                                        .unwrap_or(&BigInt::from(0))),
+                                &vcd.inner.metadata,
+                                &self.wanted_timescale,
+                            );
+
+                            ui.label(format!("Δ: {delta}",)).context_menu(|ui| {
+                                self.item_context_menu(None, msgs, ui, vidx);
+                            });
+                        }
                     }
                 }
             });
@@ -1219,6 +1322,8 @@ impl State {
             ("", "Ctrl+j/⬇", "Move focused item down"),
             ("", "Alt+k/⬆", "Move focus up"),
             ("", "Alt+j/⬇", "Move focus down"),
+            ("", "Alt+0-9", "Add numbered cursor"),
+            ("", "Ctrl+0-9", "Center view at numbered cursor"),
             ("🔙", "s", "Scroll to start"),
             ("🔚", "e", "Scroll to end"),
             ("🗙", "Delete", "Delete focused item"),
@@ -1344,14 +1449,14 @@ impl State {
                     .clicked()
                 {
                     ui.close_menu();
-                    msgs.push(Message::ScrollToStart);
+                    msgs.push(Message::GoToStart);
                 }
                 if ui
                     .add(egui::Button::new("Scroll to end").shortcut_text("e"))
                     .clicked()
                 {
                     ui.close_menu();
-                    msgs.push(Message::ScrollToEnd);
+                    msgs.push(Message::GoToEnd);
                 }
                 ui.separator();
                 if ui
