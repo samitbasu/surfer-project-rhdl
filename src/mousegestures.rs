@@ -11,8 +11,8 @@ enum GestureKind {
     ZoomToFit,
     ZoomIn,
     ZoomOut,
-    ScrollToEnd,
-    ScrollToStart,
+    GoToEnd,
+    GoToStart,
 }
 
 impl State {
@@ -46,17 +46,17 @@ impl State {
                             vcd,
                         ),
 
-                        Some(GestureKind::ScrollToStart) => self.draw_gesture_line(
+                        Some(GestureKind::GoToStart) => self.draw_gesture_line(
                             start_location,
                             current_location,
-                            "Scroll to start",
+                            "Go to start",
                             true,
                             ctx,
                         ),
-                        Some(GestureKind::ScrollToEnd) => self.draw_gesture_line(
+                        Some(GestureKind::GoToEnd) => self.draw_gesture_line(
                             start_location,
                             current_location,
-                            "Scroll to end",
+                            "Go to end",
                             true,
                             ctx,
                         ),
@@ -105,11 +105,11 @@ impl State {
                                         .unwrap(),
                                 })
                             }
-                            Some(GestureKind::ScrollToStart) => {
-                                msgs.push(Message::ScrollToStart);
+                            Some(GestureKind::GoToStart) => {
+                                msgs.push(Message::GoToStart);
                             }
-                            Some(GestureKind::ScrollToEnd) => {
-                                msgs.push(Message::ScrollToEnd);
+                            Some(GestureKind::GoToEnd) => {
+                                msgs.push(Message::GoToEnd);
                             }
                             Some(GestureKind::ZoomOut) => {
                                 msgs.push(Message::CanvasZoom {
@@ -393,7 +393,7 @@ fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind>
             Some(GestureKind::ZoomToFit)
         } else if delta.y > 0.0 && delta.x < -delta.y * tan225 {
             // South west
-            Some(GestureKind::ScrollToStart)
+            Some(GestureKind::GoToStart)
         // } else if delta.y < 0.0 {
         //    // North
         //    None
@@ -410,7 +410,7 @@ fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind>
             Some(GestureKind::ZoomOut)
         } else if delta.y > 0.0 && delta.x > delta.y * tan225 {
             // South east
-            Some(GestureKind::ScrollToEnd)
+            Some(GestureKind::GoToEnd)
         // } else if delta.y > 0.0 {
         //    // North
         //    None
