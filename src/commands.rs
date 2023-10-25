@@ -1,7 +1,9 @@
-use std::{collections::BTreeMap, fs, str::FromStr};
+use std::{fs, str::FromStr};
+use std::collections::BTreeMap;
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
+    wave_container::{ModuleRef, SignalRef},
     ClockHighlightType, DisplayedItem, Message, SignalNameType, State,
 };
 
@@ -31,23 +33,25 @@ pub fn get_parser(state: &State) -> Command<Message> {
         ))
     }
 
-    let scopes = match &state.vcd {
+    let modules = match &state.waves {
         Some(v) => v
-            .scopes_to_ids
-            .keys()
-            .map(|s| s.clone())
-            .collect::<Vec<_>>(),
+            .inner
+            .modules()
+            .iter()
+            .map(|module| format!("{module}"))
+            .collect(),
         None => vec![],
     };
-    let signals = match &state.vcd {
+    let signals = match &state.waves {
         Some(v) => v
-            .signals_to_ids
-            .keys()
-            .map(|s| s.clone())
-            .collect::<Vec<_>>(),
+            .inner
+            .signals()
+            .into_iter()
+            .map(|s| s.full_path_string())
+            .collect(),
         None => vec![],
     };
-    let displayed_signals = match &state.vcd {
+    let displayed_signals = match &state.waves {
         Some(v) => v
             .displayed_items
             .iter()
@@ -60,28 +64,20 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 format!(
                     "{}_{}",
                     uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                    v.inner.signal_from_signal_idx(s.idx).name()
+                    s.signal_ref.full_path_string()
                 )
             })
             .collect_vec(),
         None => vec![],
     };
     let signals_in_active_scope = state
-        .vcd
+        .waves
         .as_ref()
-        .and_then(|vcd| {
-            vcd.active_scope.map(|scope| {
-                vcd.inner
-                    .get_children_signal_idxs(scope)
-                    .into_iter()
-                    .map(|signal_idx| {
-                        (
-                            vcd.inner.signal_from_signal_idx(signal_idx).name(),
-                            signal_idx,
-                        )
-                    })
-                    .collect::<BTreeMap<_, _>>()
-            })
+        .and_then(|waves| {
+            waves
+                .active_module
+                .as_ref()
+                .map(|scope| waves.inner.signals_in_module(&scope))
         })
         .unwrap_or_default();
 
@@ -92,6 +88,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
         .keys()
         .map(|k| k.clone())
         .collect_vec();
+
+    let active_module = state.waves.as_ref().and_then(|w| w.active_module.clone());
 
     fn vcd_files() -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
@@ -108,7 +106,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
     }
 
     let cursors = state
-        .vcd
+        .waves
         .as_ref()
         .unwrap()
         .displayed_items
@@ -155,6 +153,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
         Box::new(move |query, _| {
             let signals_in_active_scope = signals_in_active_scope.clone();
             let cursors = cursors.clone();
+            let modules = modules.clone();
+            let active_module = active_module.clone();
             match query {
                 "load_vcd" => single_word_delayed_suggestions(
                     Box::new(vcd_files),
@@ -185,18 +185,18 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
                 // Module commands
                 "module_add" => single_word(
-                    scopes.clone(),
+                    modules,
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::AddScope(
-                            crate::ScopeDescriptor::Name(word.into()),
+                        Some(Command::Terminal(Message::AddModule(
+                            ModuleRef::from_hierarchy_string(word.into()),
                         )))
                     }),
                 ),
                 "module_select" => single_word(
-                    scopes.clone(),
+                    modules.clone(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SetActiveScope(
-                            crate::ScopeDescriptor::Name(word.into()),
+                            ModuleRef::from_hierarchy_string(word.into()),
                         )))
                     }),
                 ),
@@ -205,16 +205,22 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     signals.clone(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::AddSignal(
-                            crate::SignalDescriptor::Name(word.into()),
+                            SignalRef::from_hierarchy_string(word),
                         )))
                     }),
                 ),
                 "signal_add_from_module" => single_word(
-                    signals_in_active_scope.keys().cloned().collect(),
+                    signals_in_active_scope
+                        .into_iter()
+                        .map(|s| s.name)
+                        .collect(),
                     Box::new(move |name| {
-                        signals_in_active_scope
-                            .get(name)
-                            .map(|idx| Command::Terminal(Message::AddSignal((*idx).into())))
+                        active_module.as_ref().map(|module| {
+                            Command::Terminal(Message::AddSignal(SignalRef::new(
+                                module.clone(),
+                                name.to_string(),
+                            )))
+                        })
                     }),
                 ),
                 "signal_set_color" => single_word(

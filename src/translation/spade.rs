@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use camino::Utf8Path;
 use eframe::epaint::Color32;
+use fastwave_backend::SignalValue;
 use num::ToPrimitive;
 use serde::Deserialize;
 use spade::compiler_state::CompilerState;
@@ -16,6 +17,8 @@ use spade_common::{
 };
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
+
+use crate::wave_container::SignalMeta;
 
 use super::{
     SignalInfo, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
@@ -56,18 +59,14 @@ impl Translator for SpadeTranslator {
         "spade".to_string()
     }
 
-    fn translate(
-        &self,
-        signal: &fastwave_backend::Signal,
-        value: &fastwave_backend::SignalValue,
-    ) -> Result<TranslationResult> {
+    fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult> {
         let ty = self
             .state
-            .type_of_hierarchical_value(&self.top, &signal.path()[1..])?;
+            .type_of_hierarchical_value(&self.top, &signal.sig.full_path()[1..])?;
 
         let val_vcd_raw = match value {
-            fastwave_backend::SignalValue::BigUint(v) => format!("{v:b}"),
-            fastwave_backend::SignalValue::String(v) => v.clone(),
+            SignalValue::BigUint(v) => format!("{v:b}"),
+            SignalValue::String(v) => v.clone(),
         };
         let mir_ty = ty.to_mir_type();
         let ty_size = mir_ty
@@ -91,18 +90,18 @@ impl Translator for SpadeTranslator {
         translate_concrete(&val_vcd, &ty, &mut false)
     }
 
-    fn signal_info(&self, signal: &fastwave_backend::Signal, _name: &str) -> Result<SignalInfo> {
+    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo> {
         let ty = self
             .state
-            .type_of_hierarchical_value(&self.top, &signal.path()[1..])?;
+            .type_of_hierarchical_value(&self.top, &signal.sig.full_path()[1..])?;
 
         info_from_concrete(&ty)
     }
 
-    fn translates(&self, signal: &fastwave_backend::Signal) -> Result<TranslationPreference> {
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         let ty = self
             .state
-            .type_of_hierarchical_value(&self.top, &signal.path()[1..])?;
+            .type_of_hierarchical_value(&self.top, &signal.sig.full_path()[1..])?;
 
         match ty {
             ConcreteType::Single {
