@@ -46,6 +46,8 @@ use fastwave_backend::VCD;
 use fern::colors::ColoredLevelConfig;
 use futures_util::FutureExt;
 use futures_util::TryFutureExt;
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 use itertools::Itertools;
 use log::error;
 use log::info;
@@ -55,6 +57,7 @@ use num::BigInt;
 use num::FromPrimitive;
 use num::ToPrimitive;
 use progress_streams::ProgressReader;
+use regex::Regex;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 use serde::Deserialize;
@@ -401,6 +404,45 @@ pub enum ColorSpecifier {
     Name(String),
 }
 
+#[derive(Debug, PartialEq)]
+pub enum SignalFilterType {
+    Fuzzy,
+    Regex,
+    Start,
+    Contain,
+}
+
+impl std::fmt::Display for SignalFilterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SignalFilterType::Fuzzy => write!(f, "Fuzzy"),
+            SignalFilterType::Regex => write!(f, "Regular expression"),
+            SignalFilterType::Start => write!(f, "Signal starts with"),
+            SignalFilterType::Contain => write!(f, "Signal contains"),
+        }
+    }
+}
+
+impl SignalFilterType {
+    fn is_match(&self, signal_name: &String, filter: &str) -> bool {
+        match self {
+            SignalFilterType::Fuzzy => {
+                let matcher = SkimMatcherV2::default();
+                matcher.fuzzy_match(signal_name.as_str(), filter).is_some()
+            }
+            SignalFilterType::Contain => signal_name.contains(filter),
+            SignalFilterType::Start => signal_name.starts_with(filter),
+            SignalFilterType::Regex => {
+                if let Ok(regex) = Regex::new(filter) {
+                    regex.is_match(signal_name)
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub enum Message {
@@ -466,6 +508,7 @@ pub enum Message {
     SetUrlEntryVisible(bool),
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
+    SetSignalFilterType(SignalFilterType),
     ToggleFullscreen,
     AddDivider(String),
     /// Exit the application. This has no effect on wasm and closes the window
@@ -514,7 +557,8 @@ pub struct State {
     wanted_timescale: Timescale,
     gesture_start_location: Option<emath::Pos2>,
     show_url_entry: bool,
-    filter_focused: bool,
+    signal_filter_focused: bool,
+    signal_filter_type: SignalFilterType,
 
     /// The draw commands for every signal currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
@@ -604,7 +648,8 @@ impl State {
             gesture_start_location: None,
             show_url_entry: false,
             show_wave_source: true,
-            filter_focused: false,
+            signal_filter_focused: false,
+            signal_filter_type: SignalFilterType::Fuzzy,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(None),
@@ -1114,7 +1159,10 @@ impl State {
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
-            Message::SetFilterFocused(s) => self.filter_focused = s,
+            Message::SetFilterFocused(s) => self.signal_filter_focused = s,
+            Message::SetSignalFilterType(signal_filter_type) => {
+                self.signal_filter_type = signal_filter_type
+            }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
     }

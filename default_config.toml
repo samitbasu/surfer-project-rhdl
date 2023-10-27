@@ -14,7 +14,7 @@ primary_ui_color = { background = "171717", foreground = "d4d4d4" }
 secondary_ui_color = { background = "0d1317", foreground = "d4d4d4" }
 accent_info = { background = "007acc", foreground = "d4d4d4" }
 accent_warn = { background = "32302f", foreground = "d4d4d4" }
-accent_error = { background = "32302f", foreground = "d4d4d4" }
+accent_error = { background = "d2302f", foreground = "d4d4d4" }
 clock_highlight_line = { color = "777777", width = 2 }
 clock_highlight_cycle = "12222f"
 signal_default = "56c126"
