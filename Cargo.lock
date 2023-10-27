@@ -4213,6 +4213,7 @@ dependencies = [
  "num",
  "progress-streams",
  "project-root",
+ "regex",
  "reqwest",
  "rfd",
  "rgb",
