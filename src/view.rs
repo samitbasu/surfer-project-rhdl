@@ -9,6 +9,7 @@ use fuzzy_matcher::FuzzyMatcher;
 use itertools::Itertools;
 use log::info;
 use num::{BigInt, BigRational, ToPrimitive};
+use regex::Regex;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
@@ -19,7 +20,10 @@ use crate::{
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, SignalDescriptor, State, VcdData,
 };
-use crate::{ClockHighlightType, DisplayedDivider, DisplayedItem, LoadProgress, SignalNameType};
+use crate::{
+    ClockHighlightType, DisplayedDivider, DisplayedItem, LoadProgress, SignalFilterType,
+    SignalNameType,
+};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -192,10 +196,48 @@ impl State {
                                                 .on_hover_text("Clear filter")
                                                 .clicked()
                                                 .then(|| filter.clear());
-                                            let response = ui.add(
-                                                egui::TextEdit::singleline(filter)
-                                                    .hint_text("Filter"),
-                                            );
+
+                                            let text_color = if self.signal_filter_type
+                                                == SignalFilterType::Regex
+                                            {
+                                                let regex = Regex::new(filter);
+                                                if let Ok(_) = regex {
+                                                    self.config.theme.primary_ui_color.foreground
+                                                } else {
+                                                    Color32::RED
+                                                }
+                                            } else {
+                                                self.config.theme.primary_ui_color.foreground
+                                            };
+                                            let response = ui
+                                                .add(
+                                                    egui::TextEdit::singleline(filter)
+                                                        .hint_text("Filter (context menu for type)")
+                                                        .text_color(text_color),
+                                                )
+                                                .context_menu(|ui| {
+                                                    let filter_types = vec![
+                                                        SignalFilterType::Fuzzy,
+                                                        SignalFilterType::Regex,
+                                                        SignalFilterType::Start,
+                                                        SignalFilterType::Contain,
+                                                    ];
+                                                    for filter_type in filter_types {
+                                                        ui.radio(
+                                                            self.signal_filter_type == filter_type,
+                                                            filter_type.to_string(),
+                                                        )
+                                                        .clicked()
+                                                        .then(|| {
+                                                            ui.close_menu();
+                                                            msgs.push(
+                                                                Message::SetSignalFilterType(
+                                                                    filter_type,
+                                                                ),
+                                                            );
+                                                        });
+                                                    }
+                                                });
                                             if response.gained_focus() {
                                                 msgs.push(Message::SetFilterFocused(true));
                                             }
@@ -443,7 +485,7 @@ impl State {
                     key,
                     pressed,
                     self.command_prompt.visible,
-                    self.filter_focused,
+                    self.signal_filter_focused,
                 ) {
                     (Key::Num0, true, false, false) => msgs.push(Message::AddCount('0')),
                     (Key::Num1, true, false, false) => msgs.push(Message::AddCount('1')),
@@ -614,10 +656,41 @@ impl State {
                 .iter()
                 .filter_map(|sig| {
                     let name = vcd.inner.signal_from_signal_idx(*sig).name();
-                    if (!name.starts_with("_e_"))
-                        && matcher.fuzzy_match(name.as_str(), filter).is_some()
-                    {
-                        Some((sig, name.clone()))
+                    if !name.starts_with("_e_") {
+                        match self.signal_filter_type {
+                            SignalFilterType::Fuzzy => {
+                                if matcher.fuzzy_match(name.as_str(), filter).is_some() {
+                                    Some((sig, name.clone()))
+                                } else {
+                                    None
+                                }
+                            }
+                            SignalFilterType::Contain => {
+                                if name.contains(filter) {
+                                    Some((sig, name.clone()))
+                                } else {
+                                    None
+                                }
+                            }
+                            SignalFilterType::Start => {
+                                if name.starts_with(filter) {
+                                    Some((sig, name.clone()))
+                                } else {
+                                    None
+                                }
+                            }
+                            SignalFilterType::Regex => {
+                                if let Ok(regex) = Regex::new(filter) {
+                                    if regex.is_match(&name) {
+                                        Some((sig, name.clone()))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            }
+                        }
                     } else {
                         None
                     }
