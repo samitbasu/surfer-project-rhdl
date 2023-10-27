@@ -7,6 +7,11 @@ show_menu = true
 window_width = 1920
 window_height = 1080
 
+[gesture]
+style = { color="35b635", width=2 }
+size = 300
+deadzone = 20
+
 [theme]
 foreground = "d4d4d4"
 border_color = "282b2d"
