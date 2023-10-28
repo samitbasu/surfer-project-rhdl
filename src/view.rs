@@ -1,8 +1,8 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Painter, RichText};
 use eframe::egui::{menu, Frame, Grid, Sense, TextStyle, Ui};
-use eframe::emath;
-use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
+use eframe::emath::{Align2, RectTransform};
+use eframe::epaint::{FontId, Pos2, Rect, Rounding, Stroke, Vec2};
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use itertools::Itertools;
 use log::info;
@@ -420,6 +420,31 @@ impl State {
             }
         }
 
+        if self.show_gestures {
+            let mut open = true;
+            egui::Window::new("Mouse gestures")
+                .open(&mut open)
+                .collapsible(false)
+                .resizable(true)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.label(RichText::new("Press middle mouse button and drag"));
+                        ui.add_space(20.);
+                        let (response, painter) =
+                            ui.allocate_painter(Vec2 { x: 300.0, y: 300.0 }, Sense::click());
+                        self.draw_gesture_help(response, painter);
+                        ui.add_space(10.);
+                        ui.separator();
+                        if ui.button("Close").clicked() {
+                            msgs.push(Message::SetGestureHelpVisible(false))
+                        }
+                    });
+                });
+            if !open {
+                msgs.push(Message::SetGestureHelpVisible(false))
+            }
+        }
+
         if self.show_url_entry {
             let mut open = true;
             egui::Window::new("Load URL")
@@ -560,6 +585,116 @@ impl State {
         });
 
         msgs
+    }
+
+    fn draw_gesture_help(&self, response: egui::Response, painter: Painter) {
+        // Compute sizes and coordinates
+        let tan225 = 0.41421356237;
+        let rect = response.rect;
+        let width = rect.width();
+        let height = rect.height();
+        let midx = width / 2.0;
+        let midy = height / 2.0;
+        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
+        let to_screen = &|x, y| {
+            RectTransform::from_to(container_rect, rect)
+                .transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5))
+        };
+        let stroke = Stroke {
+            color: self.config.theme.gesture.color,
+            width: self.config.theme.gesture.width,
+        };
+        let tan225midx = tan225 * midx;
+        let tan225midy = tan225 * midy;
+        // Draw lines
+        painter.line_segment(
+            [
+                to_screen(0.0, midy + tan225midx),
+                to_screen(width, midy - tan225midx),
+            ],
+            stroke,
+        );
+        painter.line_segment(
+            [
+                to_screen(0.0, midy - tan225midx),
+                to_screen(width, midy + tan225midx),
+            ],
+            stroke,
+        );
+        painter.line_segment(
+            [
+                to_screen(midx + tan225midy, 0.0),
+                to_screen(midx - tan225midy, height),
+            ],
+            stroke,
+        );
+        painter.line_segment(
+            [
+                to_screen(midx - tan225midy, 0.0),
+                to_screen(midx + tan225midy, height),
+            ],
+            stroke,
+        );
+
+        let halfwaytexty_upper = (midy - tan225midx) / 2.0;
+        let halfwaytexty_lower = height - halfwaytexty_upper;
+        // Draw commands
+        painter.text(
+            to_screen(0.0, midy),
+            Align2::LEFT_CENTER,
+            "Zoom in",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+        painter.text(
+            to_screen(width, midy),
+            Align2::RIGHT_CENTER,
+            "Zoom in",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+        painter.text(
+            to_screen(0.0, halfwaytexty_upper),
+            Align2::LEFT_CENTER,
+            "Zoom to fit",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+        painter.text(
+            to_screen(width, halfwaytexty_upper),
+            Align2::RIGHT_CENTER,
+            "Zoom out",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+        painter.text(
+            to_screen(midx, 0.0),
+            Align2::CENTER_TOP,
+            "Cancel",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+        painter.text(
+            to_screen(0.0, halfwaytexty_lower),
+            Align2::LEFT_CENTER,
+            "Go to start",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+        painter.text(
+            to_screen(width, halfwaytexty_lower),
+            Align2::RIGHT_CENTER,
+            "Go to end",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
+        painter.text(
+            to_screen(midx, height),
+            Align2::CENTER_BOTTOM,
+            "Cancel",
+            FontId::default(),
+            self.config.theme.foreground,
+        );
     }
 }
 
@@ -1026,7 +1161,7 @@ impl State {
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
-        let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
+        let to_screen = RectTransform::from_to(container_rect, response.rect);
         let cfg = DrawConfig {
             canvas_height: response.rect.size().y,
             line_height: 16.,
@@ -1061,15 +1196,9 @@ impl State {
                         ui.add_space(drawing_info.offset() - next_y);
                     }
 
-                    self.draw_background(
-                        vidx,
-                        vcd,
-                        drawing_info,
-                        to_screen,
-                        &ctx,
-                        gap,
-                        frame_width,
-                    );
+                    let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+
+                    self.draw_background(vidx, vcd, drawing_info, y_offset, &ctx, gap, frame_width);
                     match drawing_info {
                         ItemDrawingInfo::Signal(drawing_info) => {
                             if cursor < &0.to_bigint() {
@@ -1122,7 +1251,8 @@ impl State {
             });
         } else {
             for (vidx, drawing_info) in item_offsets.iter().enumerate() {
-                self.draw_background(vidx, vcd, drawing_info, to_screen, &ctx, gap, frame_width);
+                let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+                self.draw_background(vidx, vcd, drawing_info, y_offset, &ctx, gap, frame_width);
             }
         }
     }
@@ -1144,7 +1274,7 @@ impl State {
         vidx: usize,
         vcd: &VcdData,
         drawing_info: &ItemDrawingInfo,
-        to_screen: emath::RectTransform,
+        y_offset: f32,
         ctx: &DrawingContext<'_>,
         gap: f32,
         frame_width: f32,
@@ -1157,10 +1287,6 @@ impl State {
             .and_then(|color| self.config.theme.colors.get(&color))
             .unwrap_or(&default_background_color);
         // Draw background
-        // We draw in absolute coords, but the signal offset in the y
-        // direction is also in absolute coordinates, so we need to
-        // compensate for that
-        let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
         let min = (ctx.to_screen)(0.0, y_offset - gap);
         let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
         ctx.painter
@@ -1425,6 +1551,10 @@ impl State {
                 if ui.button("Control keys").clicked() {
                     ui.close_menu();
                     msgs.push(Message::SetKeyHelpVisible(true));
+                }
+                if ui.button("Mouse gestures").clicked() {
+                    ui.close_menu();
+                    msgs.push(Message::SetGestureHelpVisible(true));
                 }
                 ui.separator();
                 if ui.button("About").clicked() {
