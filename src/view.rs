@@ -125,7 +125,7 @@ impl State {
                     ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
                         ui.add_space(10.0);
                         if self.show_wave_source {
-                            ui.label(&vcd.filename);
+                            ui.label(&vcd.source.to_string());
                             if let Some(datetime) = vcd.inner.metadata().date {
                                 ui.add_space(10.0);
                                 ui.label(format!("Generated: {datetime}"));
@@ -1425,7 +1425,7 @@ impl State {
         ui.separator();
         ui.add_space(20.0);
         if let Some(vcd) = &self.waves {
-            ui.label(RichText::new(format!("Filename: {}", vcd.filename)).monospace());
+            ui.label(RichText::new(format!("Filename: {}", vcd.source)).monospace());
         }
 
         #[cfg(target_arch = "wasm32")]

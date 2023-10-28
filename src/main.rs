@@ -423,7 +423,7 @@ impl DisplayedItem {
 
 pub struct WaveData {
     inner: WaveContainer,
-    filename: String,
+    source: WaveSource,
     active_module: Option<ModuleRef>,
     /// Root items (signals, dividers, ...) to display
     displayed_items: Vec<DisplayedItem>,
@@ -1145,7 +1145,7 @@ impl State {
 
                 let new_vcd = WaveData {
                     inner: *new_waves,
-                    filename: filename.to_string(),
+                    source: filename,
                     active_module: None,
                     displayed_items: vec![],
                     viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
