@@ -284,13 +284,12 @@ snapshot_ui! {example_vcd_renders, || {
     state
 }}
 
-// NOTE: This test is currently wrong, it should render windows but due to an upstream
-// bug, https://github.com/lucasmerlin/egui_skia/issues/11, it does not render them at all.
 snapshot_empty_state_with_msgs! {
     dialogs_work,
     [
         Message::SetUrlEntryVisible(true),
-        Message::SetKeyHelpVisible(true)
+        Message::SetKeyHelpVisible(true),
+        Message::SetGestureHelpVisible(true)
     ]
 }
 
