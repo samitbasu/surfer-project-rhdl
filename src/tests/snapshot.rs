@@ -312,6 +312,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
         }
     }
 
+    state.update(Message::ToggleMenu);
     state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())));
     state.update(Message::CursorSet(100u32.to_bigint()));
 

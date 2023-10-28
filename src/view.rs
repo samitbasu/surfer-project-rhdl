@@ -1,14 +1,13 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Painter, RichText};
-use eframe::egui::{menu, Frame, Grid, Sense, TextStyle};
+use eframe::egui::{menu, Frame, Grid, Sense, TextStyle, Ui};
 use eframe::emath;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
-use fuzzy_matcher::skim::SkimMatcherV2;
-use fuzzy_matcher::FuzzyMatcher;
 use itertools::Itertools;
 use log::info;
 use num::{BigInt, BigRational, ToPrimitive};
+use regex::Regex;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
@@ -19,7 +18,10 @@ use crate::{
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, SignalDescriptor, State, VcdData,
 };
-use crate::{ClockHighlightType, DisplayedDivider, DisplayedItem, LoadProgress, SignalNameType};
+use crate::{
+    ClockHighlightType, DisplayedDivider, DisplayedItem, LoadProgress, SignalFilterType,
+    SignalNameType,
+};
 
 /// Index used to keep track of traces and their sub-traces
 pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
@@ -192,10 +194,29 @@ impl State {
                                                 .on_hover_text("Clear filter")
                                                 .clicked()
                                                 .then(|| filter.clear());
-                                            let response = ui.add(
-                                                egui::TextEdit::singleline(filter)
-                                                    .hint_text("Filter"),
-                                            );
+
+                                            // Check if regex and if an incorrect regex, change background color
+                                            if self.signal_filter_type == SignalFilterType::Regex
+                                                && Regex::new(filter).is_err()
+                                            {
+                                                ui.style_mut().visuals.extreme_bg_color =
+                                                    self.config.theme.accent_error.background;
+                                            }
+                                            // Create text edit
+                                            let response = ui
+                                                .add(
+                                                    egui::TextEdit::singleline(filter).hint_text(
+                                                        "Filter (context menu for type)",
+                                                    ),
+                                                )
+                                                .context_menu(|ui| {
+                                                    signal_filter_type_menu(
+                                                        ui,
+                                                        &mut msgs,
+                                                        &self.signal_filter_type,
+                                                    )
+                                                });
+                                            // Handle focus
                                             if response.gained_focus() {
                                                 msgs.push(Message::SetFilterFocused(true));
                                             }
@@ -443,7 +464,7 @@ impl State {
                     key,
                     pressed,
                     self.command_prompt.visible,
-                    self.filter_focused,
+                    self.signal_filter_focused,
                 ) {
                     (Key::Num0, true, false, false) => msgs.push(Message::AddCount('0')),
                     (Key::Num1, true, false, false) => msgs.push(Message::AddCount('1')),
@@ -608,16 +629,17 @@ impl State {
         filter: &str,
     ) {
         if let Some(idx) = vcd.active_scope {
-            let matcher = SkimMatcherV2::default();
             let signals = vcd.inner.get_children_signal_idxs(idx);
             let listed = signals
                 .iter()
                 .filter_map(|sig| {
                     let name = vcd.inner.signal_from_signal_idx(*sig).name();
-                    if (!name.starts_with("_e_"))
-                        && matcher.fuzzy_match(name.as_str(), filter).is_some()
-                    {
-                        Some((sig, name.clone()))
+                    if !name.starts_with("_e_") {
+                        if self.signal_filter_type.is_match(&name, filter) {
+                            Some((sig, name.clone()))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -1332,43 +1354,6 @@ impl State {
                     msgs.push(Message::ScrollToEnd);
                 }
                 ui.separator();
-                if let Some(vcd) = &self.vcd {
-                    let signal_name_type = vcd.default_signal_name_type;
-                    ui.menu_button("Signal names", |ui| {
-                        let name_types = vec![
-                            SignalNameType::Local,
-                            SignalNameType::Global,
-                            SignalNameType::Unique,
-                        ];
-                        for name_type in name_types {
-                            ui.radio(signal_name_type == name_type, name_type.to_string())
-                                .clicked()
-                                .then(|| {
-                                    ui.close_menu();
-                                    msgs.push(Message::ForceSignalNameTypes(name_type));
-                                });
-                        }
-                    });
-                }
-                ui.menu_button("Clock highlighting", |ui| {
-                    let highlight_types = vec![
-                        ClockHighlightType::Line,
-                        ClockHighlightType::Cycle,
-                        ClockHighlightType::None,
-                    ];
-                    for highlight_type in highlight_types {
-                        ui.radio(
-                            highlight_type == self.config.default_clock_highlight_type,
-                            highlight_type.to_string(),
-                        )
-                        .clicked()
-                        .then(|| {
-                            ui.close_menu();
-                            msgs.push(Message::SetClockHighlightType(highlight_type));
-                        });
-                    }
-                });
-                ui.separator();
                 if ui
                     .add(egui::Button::new("Toggle side panel").shortcut_text("b"))
                     .clicked()
@@ -1391,9 +1376,49 @@ impl State {
                     ui.close_menu();
                     msgs.push(Message::ToggleFullscreen);
                 }
-                ui.separator();
+            });
+            ui.menu_button("Settings", |ui| {
+                ui.menu_button("Clock highlighting", |ui| {
+                    let highlight_types = vec![
+                        ClockHighlightType::Line,
+                        ClockHighlightType::Cycle,
+                        ClockHighlightType::None,
+                    ];
+                    for highlight_type in highlight_types {
+                        ui.radio(
+                            highlight_type == self.config.default_clock_highlight_type,
+                            highlight_type.to_string(),
+                        )
+                        .clicked()
+                        .then(|| {
+                            ui.close_menu();
+                            msgs.push(Message::SetClockHighlightType(highlight_type));
+                        });
+                    }
+                });
                 ui.menu_button("Time scale", |ui| {
                     timescale_menu(ui, msgs, &self.wanted_timescale);
+                });
+                if let Some(vcd) = &self.vcd {
+                    let signal_name_type = vcd.default_signal_name_type;
+                    ui.menu_button("Signal names", |ui| {
+                        let name_types = vec![
+                            SignalNameType::Local,
+                            SignalNameType::Global,
+                            SignalNameType::Unique,
+                        ];
+                        for name_type in name_types {
+                            ui.radio(signal_name_type == name_type, name_type.to_string())
+                                .clicked()
+                                .then(|| {
+                                    ui.close_menu();
+                                    msgs.push(Message::ForceSignalNameTypes(name_type));
+                                });
+                        }
+                    });
+                }
+                ui.menu_button("Signal filter type", |ui| {
+                    signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
                 });
             });
             ui.menu_button("Help", |ui| {
@@ -1408,6 +1433,27 @@ impl State {
                 }
             });
         });
+    }
+}
+
+fn signal_filter_type_menu(
+    ui: &mut Ui,
+    msgs: &mut Vec<Message>,
+    signal_filter_type: &SignalFilterType,
+) {
+    let filter_types = vec![
+        SignalFilterType::Fuzzy,
+        SignalFilterType::Regex,
+        SignalFilterType::Start,
+        SignalFilterType::Contain,
+    ];
+    for filter_type in filter_types {
+        ui.radio(*signal_filter_type == filter_type, filter_type.to_string())
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::SetSignalFilterType(filter_type));
+            });
     }
 }
 
