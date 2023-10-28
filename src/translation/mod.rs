@@ -10,6 +10,7 @@ pub mod spade;
 
 pub use basic_translators::*;
 use itertools::Itertools;
+use num::BigUint;
 
 use crate::view::TraceIdx;
 
@@ -303,7 +304,23 @@ pub trait Translator {
 
 pub trait BasicTranslator {
     fn name(&self) -> String;
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
+    fn translate_biguint(&self, _: u64, _: BigUint) -> String {
+        "ERROR".to_string()
+    }
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+        match value {
+            SignalValue::BigUint(v) => (
+                self.translate_biguint(num_bits, v.clone()),
+                ValueKind::Normal,
+            ),
+            SignalValue::String(s) => match map_vector_signal(s) {
+                NumberParseResult::Unparsable(v, k) => (v, k),
+                NumberParseResult::Numerical(v) => {
+                    (self.translate_biguint(num_bits, v), ValueKind::Normal)
+                }
+            },
+        }
+    }
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
         if signal.signal_type() == Some(&SignalType::Str)
             || signal.signal_type() == Some(&SignalType::Real)
@@ -378,5 +395,32 @@ impl Translator for StringTranslator {
         } else {
             Ok(TranslationPreference::No)
         }
+    }
+}
+
+enum NumberParseResult {
+    Numerical(BigUint),
+    Unparsable(String, ValueKind),
+}
+
+/// Turn vector signal string into name and corresponding color if it
+/// includes values other than 0 and 1. If only 0 and 1, return None.
+fn map_vector_signal(s: &str) -> NumberParseResult {
+    if let Some(val) = BigUint::parse_bytes(s.as_bytes(), 2) {
+        NumberParseResult::Numerical(val)
+    } else if s.contains('x') {
+        NumberParseResult::Unparsable("UNDEF".to_string(), ValueKind::Undef)
+    } else if s.contains('z') {
+        NumberParseResult::Unparsable("HIGHIMP".to_string(), ValueKind::HighImp)
+    } else if s.contains('-') {
+        NumberParseResult::Unparsable("DON'T CARE".to_string(), ValueKind::DontCare)
+    } else if s.contains('u') {
+        NumberParseResult::Unparsable("UNDEF".to_string(), ValueKind::Undef)
+    } else if s.contains('w') {
+        NumberParseResult::Unparsable("UNDEF WEAK".to_string(), ValueKind::Undef)
+    } else if s.contains('h') || s.contains('l') {
+        NumberParseResult::Unparsable("WEAK".to_string(), ValueKind::Weak)
+    } else {
+        NumberParseResult::Unparsable("UNKNOWN VALUES".to_string(), ValueKind::Undef)
     }
 }
