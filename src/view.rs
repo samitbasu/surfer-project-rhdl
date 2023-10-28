@@ -429,9 +429,12 @@ impl State {
                 .show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         let url = &mut *self.url.borrow_mut();
-                        ui.text_edit_singleline(url);
+                        let response = ui.text_edit_singleline(url);
                         ui.horizontal(|ui| {
-                            if ui.button("Load URL").clicked() {
+                            if ui.button("Load URL").clicked()
+                                || (response.lost_focus()
+                                    && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                            {
                                 msgs.push(Message::LoadVcdFromUrl(url.clone()));
                                 msgs.push(Message::SetUrlEntryVisible(false))
                             }
@@ -452,6 +455,11 @@ impl State {
                 msgs.push(Message::FileDropped(file.clone()))
             })
         });
+
+        // If some dialogs are open, skip decoding keypresses and return
+        if self.show_url_entry {
+            return msgs;
+        }
 
         ctx.input(|i| {
             i.events.iter().for_each(|event| match event {
