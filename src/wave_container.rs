@@ -165,6 +165,12 @@ impl WaveContainer {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
         }
     }
+    
+    pub fn signal_exists(&self, signal: &SignalRef) -> bool {
+        match self {
+            WaveContainer::Fwb(f) => f.signal_exists(signal)
+        }
+    }
 
     pub fn modules(&self) -> Vec<ModuleRef> {
         match self {
@@ -198,6 +204,12 @@ impl WaveContainer {
     pub fn max_timestamp(&self) -> Option<BigUint> {
         match self {
             WaveContainer::Fwb(f) => f.inner.max_timestamp().clone(),
+        }
+    }
+
+    pub fn module_exists(&self, module: &ModuleRef) -> bool {
+        match self {
+            WaveContainer::Fwb(f) => f.module_exists(module),
         }
     }
 }

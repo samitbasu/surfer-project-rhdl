@@ -59,6 +59,16 @@ impl FastWaveContainer {
             .collect()
     }
 
+    pub fn signal_exists(&self, signal: &SignalRef) -> bool {
+        let Some(module_idx) = self.module_map.get(&signal.path) else {
+            return false;
+        };
+        self.inner
+            .get_children_signal_idxs(*module_idx)
+            .iter()
+            .any(|idx| self.inv_signal_map[idx].name == signal.name)
+    }
+
     pub fn fwb_signal(&self, signal: &SignalRef) -> Result<Signal> {
         self.get_signal_idx(signal)
             .map(|idx| self.inner.signal_from_signal_idx(idx))
@@ -107,6 +117,10 @@ impl FastWaveContainer {
             .iter()
             .map(|id| self.inv_module_map[&id].clone())
             .collect())
+    }
+
+    pub fn module_exists(&self, module: &ModuleRef) -> bool {
+        self.module_map.get(module).is_some()
     }
 
     // Initializes the scopes_to_ids and signals_to_ids
