@@ -741,7 +741,12 @@ impl State {
             .map_err(|e| info!("Failed to get vcd file metadata {e}"))
             .ok();
 
-        self.load_vcd(WaveSource::File(vcd_filename), file, total_bytes, keep_signals);
+        self.load_vcd(
+            WaveSource::File(vcd_filename),
+            file,
+            total_bytes,
+            keep_signals,
+        );
 
         Ok(())
     }
@@ -1139,7 +1144,7 @@ impl State {
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
-            Message::WavesLoaded(filename, new_waves, _) => {
+            Message::WavesLoaded(filename, new_waves, keep_signals) => {
                 info!("VCD file loaded");
                 let num_timestamps = new_waves
                     .max_timestamp()
@@ -1147,7 +1152,35 @@ impl State {
                     .map(|t| t.to_bigint().unwrap())
                     .unwrap_or(BigInt::from_u32(1).unwrap());
 
-                let new_vcd = WaveData {
+                let new_wave = if keep_signals && self.waves.is_some() {
+                    let old = self.waves.as_mut().unwrap();
+                    let active_module = old
+                        .active_module
+                        .take()
+                        .filter(|m| new_waves.module_exists(m));
+                    let display_items = old
+                        .displayed_items
+                        .drain(..)
+                        .filter(|i| match i {
+                            DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
+                            DisplayedItem::Divider(_) => true,
+                        })
+                        .collect::<Vec<_>>();
+                    WaveData {
+                        inner: *new_waves,
+                        source: filename,
+                        active_module: active_module,
+                        displayed_items: display_items,
+                        viewport: old.viewport.clone(),
+                        signal_format: HashMap::new(),
+                        num_timestamps: num_timestamps,
+                        cursor: old.cursor.clone(),
+                        focused_item: old.focused_item,
+                        default_signal_name_type: old.default_signal_name_type,
+                        scroll: old.scroll,
+                    }
+                } else {
+                    WaveData {
                     inner: *new_waves,
                     source: filename,
                     active_module: None,
@@ -1160,11 +1193,12 @@ impl State {
                     focused_item: None,
                     default_signal_name_type: self.config.default_signal_name_type,
                     scroll: 0,
+                    }
                 };
 
                 // Must clone timescale before consuming new_vcd
-                self.wanted_timescale = new_vcd.inner.metadata().timescale.1;
-                self.waves = Some(new_vcd);
+                self.wanted_timescale = new_wave.inner.metadata().timescale.1;
+                self.waves = Some(new_wave);
                 self.vcd_progress = None;
                 info!("Done setting up VCD file");
             }
@@ -1192,7 +1226,12 @@ impl State {
             }
             Message::FileDownloaded(url, bytes, keep_signals) => {
                 let size = bytes.len() as u64;
-                self.load_vcd(WaveSource::Url(url), bytes.reader(), Some(size), keep_signals)
+                self.load_vcd(
+                    WaveSource::Url(url),
+                    bytes.reader(),
+                    Some(size),
+                    keep_signals,
+                )
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1208,8 +1247,12 @@ impl State {
             Message::ReloadWaveform => {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
-                    WaveSource::File(filename) => self.load_vcd_from_file(filename.clone(), true).ok(),
-                    WaveSource::DragAndDrop(filename) => filename.clone().and_then(|filename| self.load_vcd_from_file(filename, true).ok()),
+                    WaveSource::File(filename) => {
+                        self.load_vcd_from_file(filename.clone(), true).ok()
+                    }
+                    WaveSource::DragAndDrop(filename) => filename
+                        .clone()
+                        .and_then(|filename| self.load_vcd_from_file(filename, true).ok()),
                     WaveSource::Url(url) => Some(self.load_vcd_from_url(url.clone(), true)),
                 };
             }
@@ -1310,7 +1353,10 @@ impl State {
                     .add_filter("All files", &["*"])
                     .pick_file()
                 {
-                    self.load_vcd_from_file(camino::Utf8PathBuf::from_path_buf(path).unwrap(), false)
+                    self.load_vcd_from_file(
+                        camino::Utf8PathBuf::from_path_buf(path).unwrap(),
+                        false,
+                    )
                         .ok();
                 }
             }

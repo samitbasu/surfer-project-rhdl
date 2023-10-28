@@ -165,10 +165,10 @@ impl WaveContainer {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
         }
     }
-    
+
     pub fn signal_exists(&self, signal: &SignalRef) -> bool {
         match self {
-            WaveContainer::Fwb(f) => f.signal_exists(signal)
+            WaveContainer::Fwb(f) => f.signal_exists(signal),
         }
     }
 
