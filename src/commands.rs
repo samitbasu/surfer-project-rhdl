@@ -135,6 +135,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "toggle_fullscreen",
             "module_add",
             "module_select",
+            "reload",
             "signal_add",
             "signal_add_from_module",
             "signal_set_color",
@@ -200,6 +201,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
+                "reload" => Some(Command::Terminal(Message::ReloadWaveform)),
                 // Signal commands
                 "signal_add" => single_word(
                     signals.clone(),

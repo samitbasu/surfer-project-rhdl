@@ -530,7 +530,7 @@ pub enum Message {
     CursorSet(BigInt),
     LoadVcd(Utf8PathBuf),
     LoadVcdFromUrl(String),
-    WavesLoaded(WaveSource, Box<WaveContainer>),
+    WavesLoaded(WaveSource, Box<WaveContainer>, bool),
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
@@ -539,8 +539,9 @@ pub enum Message {
     ToggleSidePanel,
     ShowCommandPrompt(bool),
     FileDropped(DroppedFile),
-    FileDownloaded(String, Bytes),
+    FileDownloaded(String, Bytes, bool),
     ReloadConfig,
+    ReloadWaveform,
     ZoomToFit,
     GoToStart,
     GoToEnd,
@@ -717,8 +718,8 @@ impl State {
         };
 
         match args.vcd {
-            Some(WaveSource::Url(url)) => result.load_vcd_from_url(url),
-            Some(WaveSource::File(file)) => result.load_vcd_from_file(file).unwrap(),
+            Some(WaveSource::Url(url)) => result.load_vcd_from_url(url, false),
+            Some(WaveSource::File(file)) => result.load_vcd_from_file(file, false).unwrap(),
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
             }
@@ -728,7 +729,7 @@ impl State {
         Ok(result)
     }
 
-    fn load_vcd_from_file(&mut self, vcd_filename: Utf8PathBuf) -> Result<()> {
+    fn load_vcd_from_file(&mut self, vcd_filename: Utf8PathBuf, keep_signals: bool) -> Result<()> {
         // We'll open the file to check if it exists here to panic the main thread if not.
         // Then we pass the file into the thread for parsing
         info!("Load VCD: {vcd_filename}");
@@ -740,12 +741,12 @@ impl State {
             .map_err(|e| info!("Failed to get vcd file metadata {e}"))
             .ok();
 
-        self.load_vcd(WaveSource::File(vcd_filename), file, total_bytes);
+        self.load_vcd(WaveSource::File(vcd_filename), file, total_bytes, keep_signals);
 
         Ok(())
     }
 
-    fn load_vcd_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
+    fn load_vcd_from_dropped(&mut self, file: DroppedFile, keep_signals: bool) -> Result<()> {
         info!("Got a dropped file");
 
         let filename = file.path.and_then(|p| Utf8PathBuf::try_from(p).ok());
@@ -759,11 +760,12 @@ impl State {
             WaveSource::DragAndDrop(filename),
             VecDeque::from_iter(bytes.into_iter().cloned()),
             Some(total_bytes as u64),
+            keep_signals,
         );
         Ok(())
     }
 
-    fn load_vcd_from_url(&mut self, url: String) {
+    fn load_vcd_from_url(&mut self, url: String, keep_signals: bool) {
         let sender = self.msg_sender.clone();
         let url_ = url.clone();
         let task = async move {
@@ -776,7 +778,7 @@ impl State {
                 .await;
 
             match bytes {
-                Ok(b) => sender.send(Message::FileDownloaded(url, b)),
+                Ok(b) => sender.send(Message::FileDownloaded(url, b, keep_signals)),
                 Err(e) => sender.send(Message::Error(e)),
             }
             .unwrap();
@@ -794,6 +796,7 @@ impl State {
         source: WaveSource,
         reader: impl Read + Send + 'static,
         total_bytes: Option<u64>,
+        keep_signals: bool,
     ) {
         // Progress tracking in bytes
         let progress_bytes = Arc::new(AtomicU64::new(0));
@@ -817,6 +820,7 @@ impl State {
                     .send(Message::WavesLoaded(
                         source,
                         Box::new(WaveContainer::new_vcd(waves)),
+                        keep_signals,
                     ))
                     .unwrap(),
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -1125,17 +1129,17 @@ impl State {
                 }
             }
             Message::LoadVcd(filename) => {
-                self.load_vcd_from_file(filename).ok();
+                self.load_vcd_from_file(filename, false).ok();
             }
             Message::LoadVcdFromUrl(url) => {
-                self.load_vcd_from_url(url);
+                self.load_vcd_from_url(url, false);
             }
             Message::FileDropped(dropped_file) => {
-                self.load_vcd_from_dropped(dropped_file)
+                self.load_vcd_from_dropped(dropped_file, false)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
-            Message::WavesLoaded(filename, new_waves) => {
+            Message::WavesLoaded(filename, new_waves, _) => {
                 info!("VCD file loaded");
                 let num_timestamps = new_waves
                     .max_timestamp()
@@ -1186,9 +1190,9 @@ impl State {
                 }
                 self.command_prompt.visible = new_visibility;
             }
-            Message::FileDownloaded(url, bytes) => {
+            Message::FileDownloaded(url, bytes, keep_signals) => {
                 let size = bytes.len() as u64;
-                self.load_vcd(WaveSource::Url(url), bytes.reader(), Some(size))
+                self.load_vcd(WaveSource::Url(url), bytes.reader(), Some(size), keep_signals)
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1200,6 +1204,14 @@ impl State {
                         ctx.set_visuals(self.get_visuals())
                     }
                 }
+            }
+            Message::ReloadWaveform => {
+                let Some(waves) = &self.waves else { return };
+                match &waves.source {
+                    WaveSource::File(filename) => self.load_vcd_from_file(filename.clone(), true).ok(),
+                    WaveSource::DragAndDrop(filename) => filename.clone().and_then(|filename| self.load_vcd_from_file(filename, true).ok()),
+                    WaveSource::Url(url) => Some(self.load_vcd_from_url(url.clone(), true)),
+                };
             }
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type
@@ -1298,7 +1310,7 @@ impl State {
                     .add_filter("All files", &["*"])
                     .pick_file()
                 {
-                    self.load_vcd_from_file(camino::Utf8PathBuf::from_path_buf(path).unwrap())
+                    self.load_vcd_from_file(camino::Utf8PathBuf::from_path_buf(path).unwrap(), false)
                         .ok();
                 }
             }
