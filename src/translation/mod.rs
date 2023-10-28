@@ -64,6 +64,13 @@ impl TranslatorList {
     pub fn add(&mut self, t: Box<dyn Translator>) {
         self.inner.insert(t.name(), t);
     }
+
+    pub fn is_valid_translator(&self, meta: &SignalMeta, candidate: &str) -> bool {
+        self.get_translator(candidate)
+            .translates(meta)
+            .map(|preference| preference != TranslationPreference::No)
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Clone, PartialEq, Copy)]
@@ -290,6 +297,7 @@ impl SignalInfo {
     }
 }
 
+#[derive(PartialEq)]
 pub enum TranslationPreference {
     /// This translator prefers translating the signal, so it will be selected
     /// as the default translator for the signal

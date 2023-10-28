@@ -1173,14 +1173,30 @@ impl State {
                             DisplayedItem::Cursor(_) => true,
                         })
                         .collect::<Vec<_>>();
+                    let signal_format = old
+                        .signal_format
+                        .drain()
+                        .filter(|(field_ref, candidate)| {
+                            display_items.iter().any(|di| match di {
+                                DisplayedItem::Signal(DisplayedSignal{signal_ref, ..}) => {
+                                    let Ok(meta) = new_waves.signal_meta(&signal_ref) else { return false };
+                                    field_ref.field.is_empty()
+                                        && *signal_ref == field_ref.root
+                                        && self.translators.is_valid_translator(&meta, candidate.as_str())
+                                            
+                                }
+                                _ => false,
+                            })
+                        })
+                        .collect();
                     WaveData {
                         inner: *new_waves,
                         source: filename,
                         active_module,
                         displayed_items: display_items,
                         viewport: old.viewport.clone(),
-                        signal_format: HashMap::new(),
-                        num_timestamps,
+                        signal_format: signal_format,
+                        num_timestamps: num_timestamps,
                         cursor: old.cursor.clone(),
                         cursors: old.cursors.clone(),
                         focused_item: old.focused_item,
@@ -1203,7 +1219,7 @@ impl State {
                         scroll: 0,
                     }
                 };
-
+                self.invalidate_draw_commands();
                 // Must clone timescale before consuming new_vcd
                 self.wanted_timescale = new_wave.inner.metadata().timescale.1;
                 self.waves = Some(new_wave);
