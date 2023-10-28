@@ -3,7 +3,7 @@ use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Pain
 use eframe::egui::{menu, Frame, Grid, Sense, TextStyle, Ui};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
-use fastwave_backend::{Metadata, SignalIdx, Timescale};
+use fastwave_backend::{Metadata, Timescale};
 use itertools::Itertools;
 use log::{info, warn};
 use num::{BigInt, BigRational, ToPrimitive};
@@ -18,7 +18,9 @@ use crate::{
     translation::{SignalInfo, TranslationPreference},
     Message, MoveDir, State, WaveData,
 };
-use crate::{ClockHighlightType, DisplayedItem, LoadProgress, SignalFilterType, SignalNameType};
+use crate::{
+    ClockHighlightType, DisplayedItem, LoadProgress, OpenMode, SignalFilterType, SignalNameType,
+};
 
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
@@ -1194,7 +1196,15 @@ impl State {
 
                     let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
 
-                    self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
+                    self.draw_background(
+                        vidx,
+                        waves,
+                        drawing_info,
+                        y_offset,
+                        &ctx,
+                        gap,
+                        frame_width,
+                    );
                     match drawing_info {
                         ItemDrawingInfo::Signal(drawing_info) => {
                             if cursor < &0.to_bigint() {
@@ -1446,8 +1456,12 @@ impl State {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]
                 if ui.button("Open file...").clicked() {
-                    msgs.push(Message::OpenFileDialog);
+                    msgs.push(Message::OpenFileDialog(OpenMode::Open));
                     ui.close_menu();
+                }
+                if ui.button("Switch file...").clicked() {
+                    msgs.push(Message::OpenFileDialog(OpenMode::Switch));
+                    ui.close_menu()
                 }
                 if ui.button("Open URL...").clicked() {
                     msgs.push(Message::SetUrlEntryVisible(true));

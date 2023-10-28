@@ -490,6 +490,12 @@ impl SignalFilterType {
     }
 }
 
+#[derive(Debug)]
+pub enum OpenMode {
+    Open,
+    Switch,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub enum Message {
@@ -552,7 +558,7 @@ pub enum Message {
         expanded: String,
         suggestions: Vec<(String, Vec<bool>)>,
     },
-    OpenFileDialog,
+    OpenFileDialog(OpenMode),
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),
     SetGestureHelpVisible(bool),
@@ -1164,35 +1170,37 @@ impl State {
                         .filter(|i| match i {
                             DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
                             DisplayedItem::Divider(_) => true,
+                            DisplayedItem::Cursor(_) => true,
                         })
                         .collect::<Vec<_>>();
                     WaveData {
                         inner: *new_waves,
                         source: filename,
-                        active_module: active_module,
+                        active_module,
                         displayed_items: display_items,
                         viewport: old.viewport.clone(),
                         signal_format: HashMap::new(),
-                        num_timestamps: num_timestamps,
+                        num_timestamps,
                         cursor: old.cursor.clone(),
+                        cursors: old.cursors.clone(),
                         focused_item: old.focused_item,
                         default_signal_name_type: old.default_signal_name_type,
                         scroll: old.scroll,
                     }
                 } else {
                     WaveData {
-                    inner: *new_waves,
-                    source: filename,
-                    active_module: None,
-                    displayed_items: vec![],
-                    viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
-                    signal_format: HashMap::new(),
-                    num_timestamps,
-                    cursor: None,
-                    cursors: HashMap::new(),
-                    focused_item: None,
-                    default_signal_name_type: self.config.default_signal_name_type,
-                    scroll: 0,
+                        inner: *new_waves,
+                        source: filename,
+                        active_module: None,
+                        displayed_items: vec![],
+                        viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
+                        signal_format: HashMap::new(),
+                        num_timestamps,
+                        cursor: None,
+                        cursors: HashMap::new(),
+                        focused_item: None,
+                        default_signal_name_type: self.config.default_signal_name_type,
+                        scroll: 0,
                     }
                 };
 
@@ -1345,7 +1353,7 @@ impl State {
                 self.command_prompt.expanded = expanded;
                 self.command_prompt.suggestions = suggestions;
             }
-            Message::OpenFileDialog => {
+            Message::OpenFileDialog(mode) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = FileDialog::new()
                     .set_title("Open waveform file")
@@ -1355,9 +1363,12 @@ impl State {
                 {
                     self.load_vcd_from_file(
                         camino::Utf8PathBuf::from_path_buf(path).unwrap(),
-                        false,
+                        match mode {
+                            OpenMode::Open => false,
+                            OpenMode::Switch => true,
+                        },
                     )
-                        .ok();
+                    .ok();
                 }
             }
             Message::SetAboutVisible(s) => self.show_about = s,
