@@ -463,6 +463,7 @@ pub enum Message {
     OpenFileDialog,
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),
+    SetGestureHelpVisible(bool),
     SetUrlEntryVisible(bool),
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
@@ -508,6 +509,7 @@ pub struct State {
 
     show_about: bool,
     show_keys: bool,
+    show_gestures: bool,
     /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
@@ -600,6 +602,7 @@ impl State {
             context: None,
             show_about: false,
             show_keys: false,
+            show_gestures: false,
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,
             show_url_entry: false,
@@ -1112,6 +1115,7 @@ impl State {
             }
             Message::SetAboutVisible(s) => self.show_about = s,
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
+            Message::SetGestureHelpVisible(s) => self.show_gestures = s,
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
             Message::SetFilterFocused(s) => self.filter_focused = s,
