@@ -1174,6 +1174,12 @@ impl State {
                             DisplayedItem::Cursor(_) => true,
                         })
                         .collect::<Vec<_>>();
+                    let mut nested_format = old
+                        .signal_format
+                        .iter()
+                        .filter(|&(field_ref, _)| !field_ref.field.is_empty())
+                        .map(|(x, y)| (x.clone(), y.clone()))
+                        .collect::<HashMap<_, _>>();
                     let signal_format = old
                         .signal_format
                         .drain()
@@ -1182,19 +1188,19 @@ impl State {
                                 DisplayedItem::Signal(DisplayedSignal{signal_ref, ..}) => {
                                     let Ok(meta) = new_waves.signal_meta(&signal_ref) else { return false };
                                     field_ref.field.is_empty()
-                                        && *signal_ref == field_ref.root
+                                        &&*signal_ref == field_ref.root
                                         && self.translators.is_valid_translator(&meta, candidate.as_str())
                                 }
                                 _ => false,
                             })
                         })
                         .collect();
-                    WaveData {
+                    let mut new_wave = WaveData {
                         inner: *new_waves,
                         source: filename,
                         active_module,
                         displayed_items: display_items,
-                        viewport: old.viewport.clipped_to(&viewport),
+                        viewport: old.viewport.clone().clip_to(&viewport),
                         signal_format: signal_format,
                         num_timestamps: num_timestamps,
                         cursor: old.cursor.clone(),
@@ -1202,7 +1208,21 @@ impl State {
                         focused_item: old.focused_item,
                         default_signal_name_type: old.default_signal_name_type,
                         scroll: old.scroll,
-                    }
+                    };
+                    nested_format.retain(|nested, _| {
+                        let Some(signal_ref) = new_wave.displayed_items.iter().filter_map(|di| match di {
+                            DisplayedItem::Signal(DisplayedSignal { signal_ref, ..}) => Some(signal_ref),
+                            _ => None,
+                        }).next() else {return false};
+                        let meta = new_wave.inner.signal_meta(&nested.root).unwrap();
+                        new_wave
+                                .signal_translator(&FieldRef{root:signal_ref.clone(), field:vec![]}, &self.translators)
+                                .signal_info(&meta)
+                                .map(|info| info.has_subpath(&nested.field))
+                                .unwrap_or(false)
+                    });
+                    new_wave.signal_format.extend(nested_format);
+                    new_wave
                 } else {
                     WaveData {
                         inner: *new_waves,

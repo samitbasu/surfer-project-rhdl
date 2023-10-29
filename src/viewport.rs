@@ -42,7 +42,7 @@ impl Viewport {
 
         (distance_from_left / width) * view_width
     }
-    
+
     pub fn clip_to(&self, valid: &Viewport) -> Viewport {
         let curr_range = self.curr_right - self.curr_left;
         let valid_range = valid.curr_right - valid.curr_left;

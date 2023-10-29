@@ -295,6 +295,20 @@ impl SignalInfo {
             },
         }
     }
+
+    pub fn has_subpath(&self, path: &[String]) -> bool {
+        match path {
+            [] => true,
+            [field, rest @ ..] => match self {
+                SignalInfo::Compound { subfields } => subfields
+                    .iter()
+                    .find(|&(f, _)| f == field)
+                    .map(|(_, info)| info.has_subpath(rest))
+                    .unwrap_or(false),
+                _ => false,
+            },
+        }
+    }
 }
 
 #[derive(PartialEq)]
