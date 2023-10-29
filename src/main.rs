@@ -175,7 +175,10 @@ fn main() -> Result<()> {
     let mut state = State::new(StartupParams::from_args(args))?;
 
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1920., 1080.)),
+        initial_window_size: Some(egui::vec2(
+            state.config.layout.window_width as f32,
+            state.config.layout.window_height as f32,
+        )),
         ..Default::default()
     };
 
