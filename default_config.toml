@@ -4,6 +4,8 @@ default_clock_highlight_type = "Line"
 [layout]
 show_hierarchy = true
 show_menu = true
+window_width = 1920
+window_height = 1080
 
 [theme]
 foreground = "d4d4d4"

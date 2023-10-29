@@ -29,6 +29,10 @@ pub struct SurferLayout {
     pub show_hierarchy: bool,
     /// Flag to show/hide the menu
     pub show_menu: bool,
+    /// Initial window height
+    pub window_height: usize,
+    /// Initial window width
+    pub window_width: usize,
 }
 
 #[derive(Debug, Deserialize)]
