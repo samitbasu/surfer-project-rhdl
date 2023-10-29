@@ -190,6 +190,53 @@ impl State {
                                         ui.heading("Signals");
                                         ui.add_space(3.0);
                                         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                                            ui.button("➕")
+                                                .on_hover_text("Add all signals")
+                                                .clicked()
+                                                .then(|| {
+                                                    if let Some(vcd) = self.vcd.as_ref() {
+                                                        if let Some(idx) = vcd.active_scope {
+                                                            let signals = vcd
+                                                                .inner
+                                                                .get_children_signal_idxs(idx);
+                                                            let listed = signals
+                                                                .iter()
+                                                                .filter_map(|sig| {
+                                                                    let name = vcd
+                                                                        .inner
+                                                                        .signal_from_signal_idx(
+                                                                            *sig,
+                                                                        )
+                                                                        .name();
+                                                                    if !name.starts_with("_e_") {
+                                                                        if self
+                                                                            .signal_filter_type
+                                                                            .is_match(&name, filter)
+                                                                        {
+                                                                            Some((
+                                                                                sig,
+                                                                                name.clone(),
+                                                                            ))
+                                                                        } else {
+                                                                            None
+                                                                        }
+                                                                    } else {
+                                                                        None
+                                                                    }
+                                                                })
+                                                                .sorted_by(|a, b| {
+                                                                    human_sort::compare(&a.1, &b.1)
+                                                                });
+
+                                                            // Iterate over the reversed list to get waves in the same order
+                                                            for (sig, _) in listed.rev() {
+                                                                msgs.push(Message::AddSignal(
+                                                                    SignalDescriptor::Id(*sig),
+                                                                ))
+                                                            }
+                                                        }
+                                                    }
+                                                });
                                             ui.button("❌")
                                                 .on_hover_text("Clear filter")
                                                 .clicked()
