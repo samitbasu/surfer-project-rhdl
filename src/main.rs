@@ -438,6 +438,94 @@ pub struct WaveData {
     scroll: usize,
 }
 
+impl WaveData {
+    pub fn update_with(
+        mut self,
+        new_waves: Box<WaveContainer>,
+        source: WaveSource,
+        num_timestamps: BigInt,
+        wave_viewport: Viewport,
+        translators: &TranslatorList,
+    ) -> WaveData {
+        let active_module = self
+            .active_module
+            .take()
+            .filter(|m| new_waves.module_exists(m));
+        let display_items = self
+            .displayed_items
+            .drain(..)
+            .filter(|i| match i {
+                DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
+                DisplayedItem::Divider(_) => true,
+                DisplayedItem::Cursor(_) => true,
+            })
+            .collect::<Vec<_>>();
+        let mut nested_format = self
+            .signal_format
+            .iter()
+            .filter(|&(field_ref, _)| !field_ref.field.is_empty())
+            .map(|(x, y)| (x.clone(), y.clone()))
+            .collect::<HashMap<_, _>>();
+        let signal_format = self
+            .signal_format
+            .drain()
+            .filter(|(field_ref, candidate)| {
+                display_items.iter().any(|di| match di {
+                    DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => {
+                        let Ok(meta) = new_waves.signal_meta(signal_ref) else {
+                            return false;
+                        };
+                        field_ref.field.is_empty()
+                            && *signal_ref == field_ref.root
+                            && translators.is_valid_translator(&meta, candidate.as_str())
+                    }
+                    _ => false,
+                })
+            })
+            .collect();
+        let mut new_wave = WaveData {
+            inner: *new_waves,
+            source,
+            active_module,
+            displayed_items: display_items,
+            viewport: self.viewport.clone().clip_to(&wave_viewport),
+            signal_format,
+            num_timestamps,
+            cursor: self.cursor.clone(),
+            cursors: self.cursors.clone(),
+            focused_item: self.focused_item,
+            default_signal_name_type: self.default_signal_name_type,
+            scroll: self.scroll,
+        };
+        nested_format.retain(|nested, _| {
+            let Some(signal_ref) = new_wave
+                .displayed_items
+                .iter()
+                .find_map(|di| match di {
+                    DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => Some(signal_ref),
+                    _ => None,
+                })
+            else {
+                return false;
+            };
+            let meta = new_wave.inner.signal_meta(&nested.root).unwrap();
+            new_wave
+                .signal_translator(
+                    &FieldRef {
+                        root: signal_ref.clone(),
+                        field: vec![],
+                    },
+                    translators,
+                )
+                .signal_info(&meta)
+                .map(|info| info.has_subpath(&nested.field))
+                .unwrap_or(false)
+        });
+        new_wave.signal_format.extend(nested_format);
+        new_wave
+    }
+}
+
 type CommandCount = usize;
 
 #[derive(Debug)]
@@ -1160,76 +1248,20 @@ impl State {
                 let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
 
                 let new_wave = if keep_signals && self.waves.is_some() {
-                    let old = self.waves.as_mut().unwrap();
-                    let active_module = old
-                        .active_module
-                        .take()
-                        .filter(|m| new_waves.module_exists(m));
-                    let display_items = old
-                        .displayed_items
-                        .drain(..)
-                        .filter(|i| match i {
-                            DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
-                            DisplayedItem::Divider(_) => true,
-                            DisplayedItem::Cursor(_) => true,
-                        })
-                        .collect::<Vec<_>>();
-                    let mut nested_format = old
-                        .signal_format
-                        .iter()
-                        .filter(|&(field_ref, _)| !field_ref.field.is_empty())
-                        .map(|(x, y)| (x.clone(), y.clone()))
-                        .collect::<HashMap<_, _>>();
-                    let signal_format = old
-                        .signal_format
-                        .drain()
-                        .filter(|(field_ref, candidate)| {
-                            display_items.iter().any(|di| match di {
-                                DisplayedItem::Signal(DisplayedSignal{signal_ref, ..}) => {
-                                    let Ok(meta) = new_waves.signal_meta(&signal_ref) else { return false };
-                                    field_ref.field.is_empty()
-                                        &&*signal_ref == field_ref.root
-                                        && self.translators.is_valid_translator(&meta, candidate.as_str())
-                                }
-                                _ => false,
-                            })
-                        })
-                        .collect();
-                    let mut new_wave = WaveData {
-                        inner: *new_waves,
-                        source: filename,
-                        active_module,
-                        displayed_items: display_items,
-                        viewport: old.viewport.clone().clip_to(&viewport),
-                        signal_format: signal_format,
-                        num_timestamps: num_timestamps,
-                        cursor: old.cursor.clone(),
-                        cursors: old.cursors.clone(),
-                        focused_item: old.focused_item,
-                        default_signal_name_type: old.default_signal_name_type,
-                        scroll: old.scroll,
-                    };
-                    nested_format.retain(|nested, _| {
-                        let Some(signal_ref) = new_wave.displayed_items.iter().filter_map(|di| match di {
-                            DisplayedItem::Signal(DisplayedSignal { signal_ref, ..}) => Some(signal_ref),
-                            _ => None,
-                        }).next() else {return false};
-                        let meta = new_wave.inner.signal_meta(&nested.root).unwrap();
-                        new_wave
-                                .signal_translator(&FieldRef{root:signal_ref.clone(), field:vec![]}, &self.translators)
-                                .signal_info(&meta)
-                                .map(|info| info.has_subpath(&nested.field))
-                                .unwrap_or(false)
-                    });
-                    new_wave.signal_format.extend(nested_format);
-                    new_wave
+                    self.waves.take().unwrap().update_with(
+                        new_waves,
+                        filename,
+                        num_timestamps,
+                        viewport,
+                        &self.translators,
+                    )
                 } else {
                     WaveData {
                         inner: *new_waves,
                         source: filename,
                         active_module: None,
                         displayed_items: vec![],
-                        viewport: viewport,
+                        viewport,
                         signal_format: HashMap::new(),
                         num_timestamps,
                         cursor: None,
@@ -1298,7 +1330,10 @@ impl State {
                     WaveSource::DragAndDrop(filename) => filename
                         .clone()
                         .and_then(|filename| self.load_vcd_from_file(filename, true).ok()),
-                    WaveSource::Url(url) => Some(self.load_vcd_from_url(url.clone(), true)),
+                    WaveSource::Url(url) => {
+                        self.load_vcd_from_url(url.clone(), true);
+                        Some(())
+                    }
                 };
             }
             Message::SetClockHighlightType(new_type) => {
