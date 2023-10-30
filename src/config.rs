@@ -17,6 +17,7 @@ use crate::{ClockHighlightType, SignalNameType};
 pub struct SurferConfig {
     pub layout: SurferLayout,
     pub theme: SurferTheme,
+    pub gesture: SurferGesture,
 
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
@@ -33,6 +34,13 @@ pub struct SurferLayout {
     pub window_height: usize,
     /// Initial window width
     pub window_width: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SurferGesture {
+    pub style: SurferLineStyle,
+    pub size: f32,
+    pub deadzone: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -65,7 +73,6 @@ pub struct SurferTheme {
     pub accent_error: ThemeColorPair,
 
     pub cursor: SurferLineStyle,
-    pub gesture: SurferLineStyle,
     pub clock_highlight_line: SurferLineStyle,
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub clock_highlight_cycle: Color32,
