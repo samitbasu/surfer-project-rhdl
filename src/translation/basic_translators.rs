@@ -1,4 +1,6 @@
-use super::{BasicTranslator, TranslationPreference, ValueKind};
+use super::{
+    numeric_translators::NumericTranslator, BasicTranslator, TranslationPreference, ValueKind,
+};
 
 use color_eyre::Result;
 use fastwave_backend::{Signal, SignalValue};
@@ -254,7 +256,7 @@ impl BasicTranslator for OctalTranslator {
 
 pub struct UnsignedTranslator {}
 
-impl BasicTranslator for UnsignedTranslator {
+impl NumericTranslator for UnsignedTranslator {
     fn name(&self) -> String {
         String::from("Unsigned")
     }
@@ -266,7 +268,7 @@ impl BasicTranslator for UnsignedTranslator {
 
 pub struct SignedTranslator {}
 
-impl BasicTranslator for SignedTranslator {
+impl NumericTranslator for SignedTranslator {
     fn name(&self) -> String {
         String::from("Signed")
     }
@@ -365,7 +367,7 @@ impl BasicTranslator for ASCIITranslator {
 
 pub struct SinglePrecisionTranslator {}
 
-impl BasicTranslator for SinglePrecisionTranslator {
+impl NumericTranslator for SinglePrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 32-bit IEEE 754")
     }
@@ -384,7 +386,7 @@ impl BasicTranslator for SinglePrecisionTranslator {
 
 pub struct DoublePrecisionTranslator {}
 
-impl BasicTranslator for DoublePrecisionTranslator {
+impl NumericTranslator for DoublePrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 64-bit IEEE 754")
     }
@@ -401,7 +403,7 @@ impl BasicTranslator for DoublePrecisionTranslator {
 
 pub struct HalfPrecisionTranslator {}
 
-impl BasicTranslator for HalfPrecisionTranslator {
+impl NumericTranslator for HalfPrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 16-bit IEEE 754")
     }
@@ -418,7 +420,7 @@ impl BasicTranslator for HalfPrecisionTranslator {
 
 pub struct BFloat16Translator {}
 
-impl BasicTranslator for BFloat16Translator {
+impl NumericTranslator for BFloat16Translator {
     fn name(&self) -> String {
         String::from("FP: bfloat16")
     }
@@ -435,7 +437,7 @@ impl BasicTranslator for BFloat16Translator {
 
 pub struct Posit32Translator {}
 
-impl BasicTranslator for Posit32Translator {
+impl NumericTranslator for Posit32Translator {
     fn name(&self) -> String {
         String::from("Posit: 32-bit (two exponent bits)")
     }
@@ -454,7 +456,7 @@ impl BasicTranslator for Posit32Translator {
 
 pub struct Posit16Translator {}
 
-impl BasicTranslator for Posit16Translator {
+impl NumericTranslator for Posit16Translator {
     fn name(&self) -> String {
         String::from("Posit: 16-bit (one exponent bit)")
     }
@@ -473,7 +475,7 @@ impl BasicTranslator for Posit16Translator {
 
 pub struct Posit8Translator {}
 
-impl BasicTranslator for Posit8Translator {
+impl NumericTranslator for Posit8Translator {
     fn name(&self) -> String {
         String::from("Posit: 8-bit (no exponent bit)")
     }
@@ -492,7 +494,7 @@ impl BasicTranslator for Posit8Translator {
 
 pub struct PositQuire8Translator {}
 
-impl BasicTranslator for PositQuire8Translator {
+impl NumericTranslator for PositQuire8Translator {
     fn name(&self) -> String {
         String::from("Posit: quire for 8-bit (no exponent bit)")
     }
@@ -511,7 +513,7 @@ impl BasicTranslator for PositQuire8Translator {
 
 pub struct PositQuire16Translator {}
 
-impl BasicTranslator for PositQuire16Translator {
+impl NumericTranslator for PositQuire16Translator {
     fn name(&self) -> String {
         String::from("Posit: quire for 16-bit (one exponent bit)")
     }
@@ -555,7 +557,7 @@ fn decode_e5m2(v: u8) -> String {
 
 pub struct E5M2Translator {}
 
-impl BasicTranslator for E5M2Translator {
+impl NumericTranslator for E5M2Translator {
     fn name(&self) -> String {
         String::from("FP: 8-bit (E5M2)")
     }
@@ -590,7 +592,7 @@ fn decode_e4m3(v: u8) -> String {
 
 pub struct E4M3Translator {}
 
-impl BasicTranslator for E4M3Translator {
+impl NumericTranslator for E4M3Translator {
     fn name(&self) -> String {
         String::from("FP: 8-bit (E4M3)")
     }
