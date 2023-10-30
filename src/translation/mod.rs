@@ -6,6 +6,7 @@ use fastwave_backend::{Signal, SignalType, SignalValue};
 
 mod basic_translators;
 pub mod clock;
+pub mod numeric_translators;
 pub mod spade;
 
 pub use basic_translators::*;
@@ -292,6 +293,17 @@ pub enum TranslationPreference {
     No,
 }
 
+pub fn translates_all_bit_types(signal: &Signal<'_>) -> Result<TranslationPreference> {
+    if signal.signal_type() == Some(&SignalType::Str)
+        || signal.signal_type() == Some(&SignalType::Real)
+        || signal.signal_type() == Some(&SignalType::RealTime)
+    {
+        Ok(TranslationPreference::No)
+    } else {
+        Ok(TranslationPreference::Yes)
+    }
+}
+
 pub trait Translator {
     fn name(&self) -> String;
 
@@ -322,14 +334,7 @@ pub trait BasicTranslator {
         }
     }
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.signal_type() == Some(&SignalType::Str)
-            || signal.signal_type() == Some(&SignalType::Real)
-            || signal.signal_type() == Some(&SignalType::RealTime)
-        {
-            Ok(TranslationPreference::No)
-        } else {
-            Ok(TranslationPreference::Yes)
-        }
+        translates_all_bit_types(signal)
     }
 }
 
