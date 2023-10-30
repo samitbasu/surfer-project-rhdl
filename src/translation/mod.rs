@@ -6,6 +6,7 @@ use fastwave_backend::{Signal, SignalType, SignalValue};
 
 mod basic_translators;
 pub mod clock;
+pub mod numeric_translators;
 pub mod spade;
 
 pub use basic_translators::*;
@@ -292,6 +293,17 @@ pub enum TranslationPreference {
     No,
 }
 
+pub fn translates_all_bit_types(signal: &Signal<'_>) -> Result<TranslationPreference> {
+    if signal.signal_type() == Some(&SignalType::Str)
+        || signal.signal_type() == Some(&SignalType::Real)
+        || signal.signal_type() == Some(&SignalType::RealTime)
+    {
+        Ok(TranslationPreference::No)
+    } else {
+        Ok(TranslationPreference::Yes)
+    }
+}
+
 pub trait Translator {
     fn name(&self) -> String;
 
@@ -304,32 +316,9 @@ pub trait Translator {
 
 pub trait BasicTranslator {
     fn name(&self) -> String;
-    fn translate_biguint(&self, _: u64, _: BigUint) -> String {
-        unimplemented!("Using default impl of translate_biguint")
-    }
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
-        match value {
-            SignalValue::BigUint(v) => (
-                self.translate_biguint(num_bits, v.clone()),
-                ValueKind::Normal,
-            ),
-            SignalValue::String(s) => match map_vector_signal(s) {
-                NumberParseResult::Unparsable(v, k) => (v, k),
-                NumberParseResult::Numerical(v) => {
-                    (self.translate_biguint(num_bits, v), ValueKind::Normal)
-                }
-            },
-        }
-    }
+    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
     fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.signal_type() == Some(&SignalType::Str)
-            || signal.signal_type() == Some(&SignalType::Real)
-            || signal.signal_type() == Some(&SignalType::RealTime)
-        {
-            Ok(TranslationPreference::No)
-        } else {
-            Ok(TranslationPreference::Yes)
-        }
+        translates_all_bit_types(signal)
     }
 }
 
