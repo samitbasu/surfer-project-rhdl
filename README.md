@@ -77,26 +77,27 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [ ] IEEE 754 binary128 (quad)
     - [x] IEEE 754 binary64 (double)
     - [x] IEEE 754 binary32 (single)
-    - [x] IEEE 754 binary16 (half)
-    - [x] bfloat16
+    - [x] IEEE 754 binary16 (half), using [half](https://docs.rs/half/)
+    - [x] bfloat16, using [half](https://docs.rs/half/)
     - [x] 8-bit E5M2
     - [x] 8-bit E4M3
-  - [x] Posit
+  - [x] Posit, using [softposit](https://docs.rs/softposit/)
     - [x] 32-bit, two exponent bits
     - [x] 16-bit, one exponent bit
     - [x] 8-bit, no exponent bit
-    - [ ] Quire for 32-bit, teo exponent bits
+    - [ ] Quire for 32-bit, two exponent bits
     - [x] Quire for 16-bit, one exponent bit
     - [x] Quire for 8-bit, no exponent bit
   - [x] Risc-V instructions
     - [x] RV32I
     - [ ] ...
-  - [ ] compressed integers
-    - [x] LEB128 (also for other bitwidths then 128)
+  - [ ] Compressed integers
+    - [x] LEB128 (also for other bitwidths than 128)
   - [ ] Custom translation via Python API
+- [x] Dividers 
 - [ ] Wave file reloading
 - [ ] Saving and loading selected waves
-- [ ] Cursors for measuring time
+- [x] Cursors for measuring time
 - [x] Mouse gesture control
 - [x] Keyboard commands
 - [ ] [WAL](https://wal-lang.org) integration
