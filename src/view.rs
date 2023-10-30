@@ -1,7 +1,7 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Painter, RichText};
 use eframe::egui::{menu, Frame, Grid, Sense, TextStyle, Ui};
-use eframe::emath;
+use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use fastwave_backend::{Metadata, SignalIdx, Timescale};
 use itertools::Itertools;
@@ -418,6 +418,10 @@ impl State {
             if !open {
                 msgs.push(Message::SetKeyHelpVisible(false))
             }
+        }
+
+        if self.show_gestures {
+            self.mouse_gesture_help(ctx, &mut msgs);
         }
 
         if self.show_url_entry {
@@ -1034,7 +1038,7 @@ impl State {
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
-        let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
+        let to_screen = RectTransform::from_to(container_rect, response.rect);
         let cfg = DrawConfig {
             canvas_height: response.rect.size().y,
             line_height: 16.,
@@ -1069,15 +1073,9 @@ impl State {
                         ui.add_space(drawing_info.offset() - next_y);
                     }
 
-                    self.draw_background(
-                        vidx,
-                        vcd,
-                        drawing_info,
-                        to_screen,
-                        &ctx,
-                        gap,
-                        frame_width,
-                    );
+                    let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+
+                    self.draw_background(vidx, vcd, drawing_info, y_offset, &ctx, gap, frame_width);
                     match drawing_info {
                         ItemDrawingInfo::Signal(drawing_info) => {
                             if cursor < &0.to_bigint() {
@@ -1130,7 +1128,8 @@ impl State {
             });
         } else {
             for (vidx, drawing_info) in item_offsets.iter().enumerate() {
-                self.draw_background(vidx, vcd, drawing_info, to_screen, &ctx, gap, frame_width);
+                let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+                self.draw_background(vidx, vcd, drawing_info, y_offset, &ctx, gap, frame_width);
             }
         }
     }
@@ -1152,7 +1151,7 @@ impl State {
         vidx: usize,
         vcd: &VcdData,
         drawing_info: &ItemDrawingInfo,
-        to_screen: emath::RectTransform,
+        y_offset: f32,
         ctx: &DrawingContext<'_>,
         gap: f32,
         frame_width: f32,
@@ -1165,10 +1164,6 @@ impl State {
             .and_then(|color| self.config.theme.colors.get(&color))
             .unwrap_or(&default_background_color);
         // Draw background
-        // We draw in absolute coords, but the signal offset in the y
-        // direction is also in absolute coordinates, so we need to
-        // compensate for that
-        let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
         let min = (ctx.to_screen)(0.0, y_offset - gap);
         let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
         ctx.painter
@@ -1433,6 +1428,10 @@ impl State {
                 if ui.button("Control keys").clicked() {
                     ui.close_menu();
                     msgs.push(Message::SetKeyHelpVisible(true));
+                }
+                if ui.button("Mouse gestures").clicked() {
+                    ui.close_menu();
+                    msgs.push(Message::SetGestureHelpVisible(true));
                 }
                 ui.separator();
                 if ui.button("About").clicked() {
