@@ -107,6 +107,19 @@ pub fn get_parser(state: &State) -> Command<Message> {
         }
     }
 
+    let cursors = state
+        .vcd
+        .as_ref()
+        .unwrap()
+        .displayed_items
+        .iter()
+        .filter_map(|item| match item {
+            DisplayedItem::Cursor(tmp_cursor) => Some(tmp_cursor),
+            _ => None,
+        })
+        .map(|cursor| (cursor.name.clone(), cursor.idx))
+        .collect::<BTreeMap<_, _>>();
+
     Command::NonTerminal(
         ParamGreed::Word,
         vec![
@@ -115,6 +128,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "config_reload",
             "scroll_to_start",
             "scroll_to_end",
+            "goto_start",
+            "goto_end",
             "zoom_in",
             "zoom_out",
             "zoom_fit",
@@ -132,12 +147,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "signal_unset_color",
             "preference_set_clock_highlight",
             "divider_add",
+            "goto_cursor",
         ]
         .into_iter()
         .map(|s| s.into())
         .collect(),
         Box::new(move |query, _| {
             let signals_in_active_scope = signals_in_active_scope.clone();
+            let cursors = cursors.clone();
             match query {
                 "load_vcd" => single_word_delayed_suggestions(
                     Box::new(vcd_files),
@@ -153,8 +170,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 )),
                 "config_reload" => Some(Command::Terminal(Message::ReloadConfig)),
-                "scroll_to_start" => Some(Command::Terminal(Message::ScrollToStart)),
-                "scroll_to_end" => Some(Command::Terminal(Message::ScrollToEnd)),
+                "scroll_to_start" | "goto_start" => Some(Command::Terminal(Message::GoToStart)),
+                "scroll_to_end" | "goto_end" => Some(Command::Terminal(Message::GoToEnd)),
                 "zoom_in" => Some(Command::Terminal(Message::CanvasZoom {
                     mouse_ptr_timestamp: None,
                     delta: 0.5,
@@ -261,6 +278,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "divider_add" => single_word(
                     vec![],
                     Box::new(|word| Some(Command::Terminal(Message::AddDivider(word.into())))),
+                ),
+                "goto_cursor" => single_word(
+                    cursors.keys().cloned().collect(),
+                    Box::new(move |name| {
+                        cursors
+                            .get(name)
+                            .map(|idx| Command::Terminal(Message::GoToCursorPosition(*idx)))
+                    }),
                 ),
                 _ => None,
             }
