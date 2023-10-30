@@ -195,45 +195,17 @@ impl State {
                                                 .clicked()
                                                 .then(|| {
                                                     if let Some(vcd) = self.vcd.as_ref() {
-                                                        if let Some(idx) = vcd.active_scope {
-                                                            let signals = vcd
-                                                                .inner
-                                                                .get_children_signal_idxs(idx);
-                                                            let listed = signals
-                                                                .iter()
-                                                                .filter_map(|sig| {
-                                                                    let name = vcd
-                                                                        .inner
-                                                                        .signal_from_signal_idx(
-                                                                            *sig,
-                                                                        )
-                                                                        .name();
-                                                                    if !name.starts_with("_e_") {
-                                                                        if self
-                                                                            .signal_filter_type
-                                                                            .is_match(&name, filter)
-                                                                        {
-                                                                            Some((
-                                                                                sig,
-                                                                                name.clone(),
-                                                                            ))
-                                                                        } else {
-                                                                            None
-                                                                        }
-                                                                    } else {
-                                                                        None
-                                                                    }
-                                                                })
-                                                                .sorted_by(|a, b| {
-                                                                    human_sort::compare(&a.1, &b.1)
-                                                                });
-
-                                                            // Iterate over the reversed list to get waves in the same order
-                                                            for (sig, _) in listed.rev() {
-                                                                msgs.push(Message::AddSignal(
-                                                                    SignalDescriptor::Id(*sig),
-                                                                ))
-                                                            }
+                                                        // Iterate over the reversed list to get
+                                                        // waves in the same order as the signal
+                                                        // list
+                                                        for (sig, _) in self
+                                                            .listed_signals(vcd, filter)
+                                                            .into_iter()
+                                                            .rev()
+                                                        {
+                                                            msgs.push(Message::AddSignal(
+                                                                SignalDescriptor::Id(sig),
+                                                            ))
                                                         }
                                                     }
                                                 });
@@ -616,6 +588,32 @@ impl State {
 
         msgs
     }
+
+    fn listed_signals(&self, vcd: &VcdData, filter: &str) -> Vec<(SignalIdx, String)> {
+        if let Some(scope) = vcd.active_scope {
+            let signals = vcd.inner.get_children_signal_idxs(scope);
+            let listed = signals
+                .iter()
+                .filter_map(|sig| {
+                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
+                    if !name.starts_with("_e_") {
+                        if self.signal_filter_type.is_match(&name, filter) {
+                            Some((*sig, name.clone()))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .sorted_by(|a, b| human_sort::compare(&a.1, &b.1))
+                .collect_vec();
+
+            listed
+        } else {
+            vec![]
+        }
+    }
 }
 
 impl State {
@@ -683,34 +681,15 @@ impl State {
         ui: &mut egui::Ui,
         filter: &str,
     ) {
-        if let Some(idx) = vcd.active_scope {
-            let signals = vcd.inner.get_children_signal_idxs(idx);
-            let listed = signals
-                .iter()
-                .filter_map(|sig| {
-                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
-                    if !name.starts_with("_e_") {
-                        if self.signal_filter_type.is_match(&name, filter) {
-                            Some((sig, name.clone()))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .sorted_by(|a, b| human_sort::compare(&a.1, &b.1));
-
-            for (sig, name) in listed {
-                ui.with_layout(
-                    Layout::top_down(Align::LEFT).with_cross_justify(true),
-                    |ui| {
-                        ui.add(egui::SelectableLabel::new(false, name))
-                            .clicked()
-                            .then(|| msgs.push(Message::AddSignal(SignalDescriptor::Id(*sig))));
-                    },
-                );
-            }
+        for (sig, name) in self.listed_signals(vcd, filter) {
+            ui.with_layout(
+                Layout::top_down(Align::LEFT).with_cross_justify(true),
+                |ui| {
+                    ui.add(egui::SelectableLabel::new(false, name))
+                        .clicked()
+                        .then(|| msgs.push(Message::AddSignal(SignalDescriptor::Id(sig))));
+                },
+            );
         }
     }
 
