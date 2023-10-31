@@ -1,7 +1,7 @@
-use crate::wave_container::SignalMeta;
 use super::{
     numeric_translators::NumericTranslator, BasicTranslator, TranslationPreference, ValueKind,
 };
+use crate::wave_container::SignalMeta;
 
 use color_eyre::Result;
 use fastwave_backend::SignalValue;

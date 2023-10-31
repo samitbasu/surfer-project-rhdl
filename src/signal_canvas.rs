@@ -456,7 +456,8 @@ impl State {
 
             // Time string
             let time = time_string(
-                waves.cursors
+                waves
+                    .cursors
                     .get(&drawing_info.idx)
                     .unwrap_or(&BigInt::from(0)),
                 &waves.inner.metadata(),

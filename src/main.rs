@@ -2,8 +2,8 @@ mod benchmark;
 mod command_prompt;
 mod commands;
 mod config;
-mod mousegestures;
 mod fast_wave_container;
+mod mousegestures;
 mod signal_canvas;
 #[cfg(test)]
 mod tests;
@@ -100,6 +100,7 @@ struct StartupParams {
 }
 
 impl StartupParams {
+    #[allow(dead_code)] // NOTE: Only used in wasm version
     pub fn empty() -> Self {
         Self {
             spade_state: None,
@@ -498,14 +499,10 @@ impl WaveData {
             scroll: self.scroll,
         };
         nested_format.retain(|nested, _| {
-            let Some(signal_ref) = new_wave
-                .displayed_items
-                .iter()
-                .find_map(|di| match di {
-                    DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => Some(signal_ref),
-                    _ => None,
-                })
-            else {
+            let Some(signal_ref) = new_wave.displayed_items.iter().find_map(|di| match di {
+                DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => Some(signal_ref),
+                _ => None,
+            }) else {
                 return false;
             };
             let meta = new_wave.inner.signal_meta(&nested.root).unwrap();
@@ -999,7 +996,9 @@ impl State {
                 waves.focused_item = None;
             }
             Message::RenameItem(vidx) => {
-                let Some(waves) = self.waves.as_mut() else { return };
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
                 self.rename_target = Some(vidx);
                 *self.item_renaming_string.borrow_mut() =
                     waves.displayed_items.get(vidx).unwrap().name();

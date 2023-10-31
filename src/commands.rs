@@ -1,5 +1,5 @@
-use std::{fs, str::FromStr};
 use std::collections::BTreeMap;
+use std::{fs, str::FromStr};
 
 use crate::{
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
