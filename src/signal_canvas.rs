@@ -10,10 +10,13 @@ use num::{BigInt, BigRational};
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
+use crate::time::time_string;
 use crate::translation::{SignalInfo, ValueKind};
-use crate::view::{time_string, DrawConfig, DrawingContext, ItemDrawingInfo};
+use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::wave_container::FieldRef;
-use crate::{CachedDrawData, ClockHighlightType, DisplayedItem, Message, State, WaveData};
+use crate::{
+    displayed_item::DisplayedItem, CachedDrawData, ClockHighlightType, Message, State, WaveData,
+};
 
 pub struct DrawnRegion {
     inner: Option<(String, ValueKind)>,
