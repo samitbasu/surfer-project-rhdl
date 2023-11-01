@@ -7,13 +7,18 @@ use std::{
 use base64::{engine::general_purpose, Engine};
 use dssim::Dssim;
 use eframe::epaint::Vec2;
-use egui_skia::rasterize;
+use egui_skia::draw_onto_surface;
 use image::{DynamicImage, ImageOutputFormat, RgbImage};
+use log::info;
 use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
 use spade_common::num_ext::InfallibleToBigInt;
+use test_log::test;
 
-use crate::{Message, StartupParams, State, WaveSource};
+use crate::{
+    wave_container::{FieldRef, ModuleRef},
+    Message, StartupParams, State, WaveSource,
+};
 
 fn print_image(img: &DynamicImage) {
     if std::io::stdout().is_terminal() {
@@ -42,6 +47,8 @@ fn to_byte(i: f32) -> u8 {
 }
 
 fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
+    info!("test up and running");
+
     // https://tokio.rs/tokio/topics/bridging
     // We want to run the gui in the main thread, but some long running tasks like
     // laoading VCDs should be done asynchronously. We can't just use std::thread to
@@ -66,9 +73,14 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     state.show_wave_source = false;
 
     let size = Vec2::new(1280., 720.);
+    let size_i = (size.x as i32, size.y as i32);
 
-    let mut surface = rasterize(
-        (size.x as i32, size.y as i32),
+    let mut surface =
+        skia_safe::surfaces::raster_n32_premul(size_i).expect("Failed to create surface");
+    surface.canvas().clear(skia_safe::Color::BLACK);
+
+    draw_onto_surface(
+        &mut surface,
         |ctx| {
             ctx.memory_mut(|mem| mem.options.tessellation_options.feathering = false);
             ctx.set_visuals(state.get_visuals());
@@ -214,7 +226,7 @@ macro_rules! snapshot_ui_with_file_msgs {
     ($name:ident, $file:expr, $msgs:expr) => {
         snapshot_ui!($name, || {
             let mut state = State::new(StartupParams {
-                vcd: Some(WaveSource::File(
+                waves: Some(WaveSource::File(
                     get_project_root().unwrap().join($file).try_into().unwrap(),
                 )),
                 spade_top: None,
@@ -224,7 +236,7 @@ macro_rules! snapshot_ui_with_file_msgs {
 
             loop {
                 state.handle_async_messages();
-                if state.vcd.is_some() {
+                if state.waves.is_some() {
                     break;
                 }
             }
@@ -264,22 +276,22 @@ snapshot_ui!(side_panel_can_be_hidden, || {
 
 snapshot_ui! {example_vcd_renders, || {
     let mut state = State::new(StartupParams {
-        vcd: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
+        waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
     }).unwrap();
 
     loop {
         state.handle_async_messages();
-        if state.vcd.is_some() {
+        if state.waves.is_some() {
             break;
         }
     }
 
     state.update(Message::ToggleMenu);
     state.update(Message::ToggleSidePanel);
-    state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())));
-    state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb.dut".to_string())));
+    state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
+    state.update(Message::AddModule(ModuleRef::from_strs(&["tb", "dut"])));
 
     state
 }}
@@ -294,31 +306,34 @@ snapshot_empty_state_with_msgs! {
 }
 
 snapshot_ui_with_file_msgs! {top_level_signals_have_no_aliasing, "examples/picorv32.vcd", [
-    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("testbench".to_string()))
+    Message::AddModule(ModuleRef::from_strs(&["testbench"]))
 ]}
 
 snapshot_ui! {resizing_the_canvas_redraws, || {
     let mut state = State::new(StartupParams {
-        vcd: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
+        waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
     }).unwrap();
 
     loop {
         state.handle_async_messages();
-        if state.vcd.is_some() {
+        if state.waves.is_some() {
             break;
         }
     }
 
-    state.update(Message::ToggleMenu);
-    state.update(Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())));
+    state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
     state.update(Message::CursorSet(100u32.to_bigint()));
 
     // Render the UI once with the sidebar shown
     let size = Vec2::new(1280., 720.);
-    rasterize(
-        (size.x as i32, size.y as i32),
+    let size_i = (size.x as i32, size.y as i32);
+    let mut surface = skia_safe::surfaces::raster_n32_premul(size_i).expect("Failed to create surface");
+    surface.canvas().clear(skia_safe::Color::BLACK);
+
+    draw_onto_surface(
+        &mut surface,
         |ctx| {
             ctx.memory_mut(|mem| mem.options.tessellation_options.feathering = false);
             ctx.set_visuals(state.get_visuals());
@@ -334,25 +349,25 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 }}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
-    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
-    Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(crate::ClockHighlightType::Line),
 ]}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
-    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
-    Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(crate::ClockHighlightType::Cycle),
 ]}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
-    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("tb".to_string())),
-    Message::SignalFormatChange(crate::descriptors::PathDescriptor::from_named("tb.clk".to_string(), vec![]), String::from("Clock")),
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(crate::ClockHighlightType::None),
 ]}
 
 snapshot_ui_with_file_msgs! {vertical_scrolling_works, "examples/picorv32.vcd", [
-    Message::AddScope(crate::descriptors::ScopeDescriptor::Name("testbench.top.mem".to_string())),
+    Message::AddModule(ModuleRef::from_strs(&["testbench", "top", "mem"])),
     Message::VerticalScroll(crate::MoveDir::Down, 5),
     Message::VerticalScroll(crate::MoveDir::Up, 2),
 ]}

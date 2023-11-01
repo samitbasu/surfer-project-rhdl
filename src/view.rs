@@ -3,25 +3,24 @@ use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Pain
 use eframe::egui::{menu, Frame, Grid, Sense, TextStyle, Ui};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
-use fastwave_backend::{Metadata, SignalIdx, Timescale};
+use fastwave_backend::{Metadata, Timescale};
 use itertools::Itertools;
-use log::info;
+use log::{info, warn};
 use num::{BigInt, BigRational, ToPrimitive};
 use regex::Regex;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
-use crate::descriptors::PathDescriptor;
 use crate::util::uint_idx_to_alpha_idx;
+use crate::wave_container::{FieldRef, ModuleRef, SignalRef};
 use crate::{
     command_prompt::show_command_prompt,
     translation::{SignalInfo, TranslationPreference},
-    Message, MoveDir, SignalDescriptor, State, VcdData,
+    Message, MoveDir, State, WaveData,
 };
-use crate::{ClockHighlightType, DisplayedItem, LoadProgress, SignalFilterType, SignalNameType};
-
-/// Index used to keep track of traces and their sub-traces
-pub(crate) type TraceIdx = (SignalIdx, Vec<String>);
+use crate::{
+    ClockHighlightType, DisplayedItem, LoadProgress, OpenMode, SignalFilterType, SignalNameType,
+};
 
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
@@ -39,7 +38,7 @@ pub struct DrawConfig {
 
 #[derive(Debug)]
 pub struct SignalDrawingInfo {
-    pub tidx: TraceIdx,
+    pub field_ref: FieldRef,
     pub signal_list_idx: usize,
     pub offset: f32,
 }
@@ -116,7 +115,7 @@ impl State {
                 self.draw_menu(ui, &mut msgs);
             });
         }
-        if let Some(vcd) = &self.vcd {
+        if let Some(vcd) = &self.waves {
             egui::TopBottomPanel::bottom("modeline")
                 .frame(egui::containers::Frame {
                     fill: self.config.theme.primary_ui_color.background,
@@ -128,8 +127,8 @@ impl State {
                     ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
                         ui.add_space(10.0);
                         if self.show_wave_source {
-                            ui.label(&vcd.filename);
-                            if let Some(datetime) = vcd.inner.metadata.date {
+                            ui.label(&vcd.source.to_string());
+                            if let Some(datetime) = vcd.inner.metadata().date {
                                 ui.add_space(10.0);
                                 ui.label(format!("Generated: {datetime}"));
                             }
@@ -138,7 +137,7 @@ impl State {
                             if let Some(time) = &vcd.cursor {
                                 ui.label(time_string(
                                     time,
-                                    &vcd.inner.metadata,
+                                    &vcd.inner.metadata(),
                                     &self.wanted_timescale,
                                 ))
                                 .context_menu(|ui| {
@@ -183,7 +182,7 @@ impl State {
                                         .id_source("modules")
                                         .show(ui, |ui| {
                                             ui.style_mut().wrap = Some(false);
-                                            if let Some(vcd) = &self.vcd {
+                                            if let Some(vcd) = &self.waves {
                                                 self.draw_all_scopes(&mut msgs, vcd, ui);
                                             }
                                         });
@@ -201,18 +200,16 @@ impl State {
                                                 .on_hover_text("Add all signals")
                                                 .clicked()
                                                 .then(|| {
-                                                    if let Some(vcd) = self.vcd.as_ref() {
+                                                    if let Some(waves) = self.waves.as_ref() {
                                                         // Iterate over the reversed list to get
                                                         // waves in the same order as the signal
                                                         // list
-                                                        for (sig, _) in self
-                                                            .listed_signals(vcd, filter)
+                                                        for sig in self
+                                                            .listed_signals(waves, filter)
                                                             .into_iter()
                                                             .rev()
                                                         {
-                                                            msgs.push(Message::AddSignal(
-                                                                SignalDescriptor::Id(sig),
-                                                            ))
+                                                            msgs.push(Message::AddSignal(sig))
                                                         }
                                                     }
                                                 });
@@ -256,7 +253,7 @@ impl State {
                                     egui::ScrollArea::both()
                                         .id_source("signals")
                                         .show(ui, |ui| {
-                                            if let Some(vcd) = &self.vcd {
+                                            if let Some(vcd) = &self.waves {
                                                 self.draw_signal_list(&mut msgs, vcd, ui, filter);
                                             }
                                         });
@@ -297,7 +294,7 @@ impl State {
             });
         }
 
-        if let Some(vcd) = &self.vcd {
+        if let Some(vcd) = &self.waves {
             if !vcd.displayed_items.is_empty() {
                 let item_offsets = egui::SidePanel::left("signal list")
                     .default_width(200.)
@@ -387,9 +384,9 @@ impl State {
             }
         };
 
-        if self.vcd.is_none()
+        if self.waves.is_none()
             || self
-                .vcd
+                .waves
                 .as_ref()
                 .map_or(false, |vcd| vcd.displayed_items.is_empty())
         {
@@ -566,7 +563,7 @@ impl State {
                     }
                     (Key::Home, true, false, false) => msgs.push(Message::SetVerticalScroll(0)),
                     (Key::End, true, false, false) => {
-                        if let Some(vcd) = &self.vcd {
+                        if let Some(vcd) = &self.waves {
                             if vcd.displayed_items.len() > 1 {
                                 msgs.push(Message::SetVerticalScroll(
                                     vcd.displayed_items.len() - 1,
@@ -634,7 +631,7 @@ impl State {
                         msgs.push(Message::InvalidateCount);
                     }
                     (Key::Delete, true, false, false) => {
-                        if let Some(vcd) = &self.vcd {
+                        if let Some(vcd) = &self.waves {
                             if let Some(idx) = vcd.focused_item {
                                 msgs.push(Message::RemoveItem(idx, self.get_count()));
                                 msgs.push(Message::InvalidateCount);
@@ -648,24 +645,15 @@ impl State {
         });
     }
 
-    fn listed_signals(&self, vcd: &VcdData, filter: &str) -> Vec<(SignalIdx, String)> {
-        if let Some(scope) = vcd.active_scope {
-            let signals = vcd.inner.get_children_signal_idxs(scope);
-            let listed = signals
+    fn listed_signals(&self, waves: &WaveData, filter: &str) -> Vec<SignalRef> {
+        if let Some(scope) = &waves.active_module {
+            let listed = waves
+                .inner
+                .signals_in_module(scope)
                 .iter()
-                .filter_map(|sig| {
-                    let name = vcd.inner.signal_from_signal_idx(*sig).name();
-                    if !name.starts_with("_e_") {
-                        if self.signal_filter_type.is_match(&name, filter) {
-                            Some((*sig, name.clone()))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .sorted_by(|a, b| human_sort::compare(&a.1, &b.1))
+                .filter(|sig| self.signal_filter_type.is_match(&sig.name, filter))
+                .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
+                .cloned()
                 .collect_vec();
 
             listed
@@ -686,32 +674,42 @@ fn handle_digit(digit: u8, modifiers: &egui::Modifiers, msgs: &mut Vec<Message>)
 }
 
 impl State {
-    pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, vcd: &VcdData, ui: &mut egui::Ui) {
-        for idx in vcd.inner.root_scopes_by_idx() {
-            self.draw_selectable_child_or_orphan_scope(msgs, vcd, idx, ui);
+    pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, wave: &WaveData, ui: &mut egui::Ui) {
+        for module in wave.inner.root_modules() {
+            self.draw_selectable_child_or_orphan_scope(msgs, wave, &module, ui);
         }
     }
 
     fn draw_selectable_child_or_orphan_scope(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &VcdData,
-        scope_idx: fastwave_backend::ScopeIdx,
+        wave: &WaveData,
+        module: &ModuleRef,
         ui: &mut egui::Ui,
     ) {
-        let name = vcd.inner.scope_name_by_idx(scope_idx);
-        let fastwave_backend::ScopeIdx(idx) = scope_idx;
-        if vcd.inner.child_scopes_by_idx(scope_idx).is_empty() {
+        let name = module.name();
+
+        let Some(child_modules) = wave
+            .inner
+            .child_modules(module)
+            .context("Failed to get child modules")
+            .map_err(|e| warn!("{e:#?}"))
+            .ok()
+        else {
+            return;
+        };
+
+        if child_modules.is_empty() {
             ui.add(egui::SelectableLabel::new(
-                vcd.active_scope == Some(scope_idx),
+                wave.active_module == Some(module.clone()),
                 name,
             ))
             .clicked()
-            .then(|| msgs.push(Message::SetActiveScope(scope_idx.into())));
+            .then(|| msgs.push(Message::SetActiveScope(module.clone())));
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
                 ui.ctx(),
-                egui::Id::new(idx),
+                egui::Id::new(module),
                 false,
             )
             .show_header(ui, |ui| {
@@ -719,44 +717,54 @@ impl State {
                     Layout::top_down(Align::LEFT).with_cross_justify(true),
                     |ui| {
                         ui.add(egui::SelectableLabel::new(
-                            vcd.active_scope == Some(scope_idx),
+                            wave.active_module == Some(module.clone()),
                             name,
                         ))
                         .clicked()
-                        .then(|| msgs.push(Message::SetActiveScope(scope_idx.into())))
+                        .then(|| msgs.push(Message::SetActiveScope(module.clone())))
                     },
                 );
             })
-            .body(|ui| self.draw_root_scope_view(msgs, vcd, scope_idx, ui));
+            .body(|ui| self.draw_root_scope_view(msgs, wave, module, ui));
         }
     }
 
     fn draw_root_scope_view(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &VcdData,
-        root_idx: fastwave_backend::ScopeIdx,
+        wave: &WaveData,
+        root_module: &ModuleRef,
         ui: &mut egui::Ui,
     ) {
-        for child_scope_idx in vcd.inner.child_scopes_by_idx(root_idx) {
-            self.draw_selectable_child_or_orphan_scope(msgs, vcd, child_scope_idx, ui);
+        let Some(child_modules) = wave
+            .inner
+            .child_modules(root_module)
+            .context("Failed to get child modules")
+            .map_err(|e| warn!("{e:#?}"))
+            .ok()
+        else {
+            return;
+        };
+
+        for child_module in child_modules {
+            self.draw_selectable_child_or_orphan_scope(msgs, wave, &child_module, ui);
         }
     }
 
     fn draw_signal_list(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &VcdData,
+        wave: &WaveData,
         ui: &mut egui::Ui,
         filter: &str,
     ) {
-        for (sig, name) in self.listed_signals(vcd, filter) {
+        for sig in self.listed_signals(wave, filter) {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    ui.add(egui::SelectableLabel::new(false, name))
+                    ui.add(egui::SelectableLabel::new(false, sig.name.clone()))
                         .clicked()
-                        .then(|| msgs.push(Message::AddSignal(SignalDescriptor::Id(sig))));
+                        .then(|| msgs.push(Message::AddSignal(sig.clone())));
                 },
             );
         }
@@ -765,7 +773,7 @@ impl State {
     fn draw_item_list(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &VcdData,
+        vcd: &WaveData,
         ui: &mut egui::Ui,
     ) -> Vec<ItemDrawingInfo> {
         let mut item_offsets = Vec::new();
@@ -775,15 +783,17 @@ impl State {
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| match displayed_item {
                     DisplayedItem::Signal(displayed_signal) => {
-                        let sig = displayed_signal.idx;
+                        let sig = displayed_signal;
                         let info = &displayed_signal.info;
-                        let signal = vcd.inner.signal_from_signal_idx(sig);
 
                         self.draw_signal_var(
                             msgs,
                             vidx,
                             &displayed_signal.display_name,
-                            &(signal.real_idx(), vec![]),
+                            FieldRef {
+                                root: sig.signal_ref.clone(),
+                                field: vec![],
+                            },
                             &mut item_offsets,
                             info,
                             ui,
@@ -807,21 +817,23 @@ impl State {
         msgs: &mut Vec<Message>,
         vidx: usize,
         name: &str,
-        path: &(SignalIdx, Vec<String>),
+        field: FieldRef,
         item_offsets: &mut Vec<ItemDrawingInfo>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
-            let tooltip = if let Some(vcd) = &self.vcd {
-                if path.1.len() == 0 {
+            let tooltip = if let Some(waves) = &self.waves {
+                if field.field.len() == 0 {
                     format!(
                         "{}\nNum bits: {}",
-                        vcd.ids_to_fullnames.get(&path.0).unwrap_or(&"".to_string()),
-                        vcd.inner
-                            .signal_from_signal_idx(path.0)
-                            .num_bits()
-                            .map(|v| format!("{v}"))
+                        field.root.full_path_string(),
+                        waves
+                            .inner
+                            .signal_meta(&field.root)
+                            .ok()
+                            .and_then(|meta| meta.num_bits)
+                            .map(|num_bits| format!("{num_bits}"))
                             .unwrap_or("unknown".to_string())
                     )
                 } else {
@@ -830,6 +842,7 @@ impl State {
             } else {
                 "No VCD loaded".to_string()
             };
+
             ui.horizontal_top(|ui| {
                 if self.command_prompt.expanded.starts_with("signal_focus") {
                     self.add_alpha_id(vidx, ui);
@@ -841,7 +854,7 @@ impl State {
                     .selectable_label(false, egui::RichText::new(name))
                     .on_hover_text(tooltip)
                     .context_menu(|ui| {
-                        self.item_context_menu(Some(path), msgs, ui, vidx);
+                        self.item_context_menu(Some(&field), msgs, ui, vidx);
                     });
                 if signal_label.clicked() {
                     msgs.push(Message::FocusItem(vidx))
@@ -854,21 +867,21 @@ impl State {
             SignalInfo::Compound { subfields } => {
                 let response = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
-                    egui::Id::new(&path),
+                    egui::Id::new(&field),
                     false,
                 )
                 .show_header(ui, draw_label)
                 .body(|ui| {
                     for (name, info) in subfields {
-                        let mut new_path = path.clone();
-                        new_path.1.push(name.clone());
-                        self.draw_signal_var(msgs, vidx, name, &new_path, item_offsets, info, ui);
+                        let mut new_path = field.clone();
+                        new_path.field.push(name.clone());
+                        self.draw_signal_var(msgs, vidx, name, new_path, item_offsets, info, ui);
                     }
                 });
 
                 let offset = response.0.rect.top();
                 item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
-                    tidx: path.clone(),
+                    field_ref: field.clone(),
                     signal_list_idx: vidx,
                     offset,
                 }));
@@ -880,7 +893,7 @@ impl State {
             | SignalInfo::Real => {
                 let label = draw_label(ui);
                 item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
-                    tidx: path.clone(),
+                    field_ref: field.clone(),
                     signal_list_idx: vidx,
                     offset: label.inner.rect.top(),
                 }));
@@ -890,7 +903,7 @@ impl State {
 
     fn add_focus_marker(&self, vidx: usize, ui: &mut egui::Ui) {
         let focus_marker_color = if self
-            .vcd
+            .waves
             .as_ref()
             .expect("Can't draw a signal without a loaded waveform.")
             .focused_item
@@ -968,7 +981,9 @@ impl State {
     fn add_alpha_id(&self, vidx: usize, ui: &mut egui::Ui) {
         let alpha_id = uint_idx_to_alpha_idx(
             vidx,
-            self.vcd.as_ref().map_or(0, |vcd| vcd.displayed_items.len()),
+            self.waves
+                .as_ref()
+                .map_or(0, |vcd| vcd.displayed_items.len()),
         );
         ui.label(
             egui::RichText::new(alpha_id)
@@ -980,7 +995,7 @@ impl State {
 
     fn item_context_menu(
         &self,
-        path: Option<&(SignalIdx, Vec<String>)>,
+        path: Option<&FieldRef>,
         msgs: &mut Vec<Message>,
         ui: &mut egui::Ui,
         vidx: usize,
@@ -989,7 +1004,7 @@ impl State {
             self.add_format_menu(path, msgs, ui);
         }
 
-        let displayed_item = &self.vcd.as_ref().unwrap().displayed_items[vidx];
+        let displayed_item = &self.waves.as_ref().unwrap().displayed_items[vidx];
         ui.menu_button("Color", |ui| {
             let selected_color = &displayed_item
                 .color()
@@ -1040,7 +1055,7 @@ impl State {
                 });
         });
 
-        if let DisplayedItem::Signal(signal) = &self.vcd.as_ref().unwrap().displayed_items[vidx] {
+        if let DisplayedItem::Signal(signal) = &self.waves.as_ref().unwrap().displayed_items[vidx] {
             ui.menu_button("Name", |ui| {
                 let name_types = vec![
                     SignalNameType::Local,
@@ -1073,18 +1088,13 @@ impl State {
         }
     }
 
-    fn add_format_menu(
-        &self,
-        path: &(SignalIdx, Vec<String>),
-        msgs: &mut Vec<Message>,
-        ui: &mut egui::Ui,
-    ) {
+    fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
         // Should not call this unless a signal is selected, and, hence, a VCD is loaded
-        let Some(vcd) = self.vcd.as_ref() else {
+        let Some(waves) = self.waves.as_ref() else {
             return;
         };
 
-        let mut available_translators = if path.1.is_empty() {
+        let mut available_translators = if path.field.is_empty() {
             self.translators
                 .all_translator_names()
                 .into_iter()
@@ -1093,22 +1103,24 @@ impl State {
 
                     if self
                         .blacklisted_translators
-                        .contains(&(path.0, (*translator_name).clone()))
+                        .contains(&(path.root.clone(), (*translator_name).clone()))
                     {
                         false
                     } else {
-                        let sig = vcd.inner.signal_from_signal_idx(path.0);
-
-                        match t.translates(&sig).context(format!(
-                            "Failed to check if {translator_name} translates {:?}",
-                            sig.path(),
-                        )) {
+                        match waves
+                            .inner
+                            .signal_meta(&path.root)
+                            .and_then(|meta| t.translates(&meta))
+                            .context(format!(
+                                "Failed to check if {translator_name} translates {:?}",
+                                path.root.full_path(),
+                            )) {
                             Ok(TranslationPreference::Yes) => true,
                             Ok(TranslationPreference::Prefer) => true,
                             Ok(TranslationPreference::No) => false,
                             Err(e) => {
                                 msgs.push(Message::BlacklistTranslator(
-                                    path.0,
+                                    path.root.clone(),
                                     (*translator_name).clone(),
                                 ));
                                 msgs.push(Message::Error(e));
@@ -1125,12 +1137,7 @@ impl State {
         available_translators.sort_by(|a, b| human_sort::compare(a, b));
         let format_menu = available_translators
             .iter()
-            .map(|t| {
-                (
-                    *t,
-                    Message::SignalFormatChange(PathDescriptor::from_traceidx(path), t.to_string()),
-                )
-            })
+            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
             .collect::<Vec<_>>();
 
         ui.menu_button("Format", |ui| {
@@ -1146,7 +1153,7 @@ impl State {
     fn draw_var_values(
         &self,
         item_offsets: &[ItemDrawingInfo],
-        vcd: &VcdData,
+        waves: &WaveData,
         ui: &mut egui::Ui,
         msgs: &mut Vec<Message>,
     ) {
@@ -1170,7 +1177,7 @@ impl State {
         };
 
         let gap = self.get_item_gap(item_offsets, &ctx);
-        if let Some(cursor) = &vcd.cursor {
+        if let Some(cursor) = &waves.cursor {
             ui.allocate_ui_at_rect(response.rect, |ui| {
                 let text_style = TextStyle::Monospace;
                 ui.style_mut().override_text_style = Some(text_style);
@@ -1189,43 +1196,54 @@ impl State {
 
                     let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
 
-                    self.draw_background(vidx, vcd, drawing_info, y_offset, &ctx, gap, frame_width);
+                    self.draw_background(
+                        vidx,
+                        waves,
+                        drawing_info,
+                        y_offset,
+                        &ctx,
+                        gap,
+                        frame_width,
+                    );
                     match drawing_info {
                         ItemDrawingInfo::Signal(drawing_info) => {
                             if cursor < &0.to_bigint() {
                                 break;
                             }
 
-                            let translator = vcd.signal_translator(
-                                (drawing_info.tidx.0, vec![]),
-                                &self.translators,
-                            );
+                            let translator =
+                                waves.signal_translator(&drawing_info.field_ref, &self.translators);
 
-                            let signal = vcd.inner.signal_from_signal_idx(drawing_info.tidx.0);
+                            let signal = &drawing_info.field_ref.root;
+                            let meta = waves.inner.signal_meta(&signal);
+                            let translation_result = waves
+                                .inner
+                                .query_signal(&signal, &num::BigInt::to_biguint(&cursor).unwrap())
+                                .ok()
+                                .flatten()
+                                .map(|(_time, value)| {
+                                    meta.and_then(|meta| translator.translate(&meta, &value))
+                                });
 
-                            let translation_result = signal
-                                .query_val_on_tmln(
-                                    &num::BigInt::to_biguint(&cursor).unwrap(),
-                                    &vcd.inner,
-                                )
-                                .map(|(_time, value)| translator.translate(&signal, &value));
-
-                            if let Ok(Ok(s)) = translation_result {
+                            if let Some(Ok(s)) = translation_result {
                                 let subfields = s
                                     .flatten(
-                                        (drawing_info.tidx.0, vec![]),
-                                        &vcd.signal_format,
+                                        FieldRef::without_fields(
+                                            drawing_info.field_ref.root.clone(),
+                                        ),
+                                        &waves.signal_format,
                                         &self.translators,
                                     )
                                     .as_fields();
 
-                                let subfield =
-                                    subfields.iter().find(|(k, _)| k == &drawing_info.tidx.1);
+                                let subfield = subfields
+                                    .iter()
+                                    .find(|(k, _)| k == &drawing_info.field_ref.field);
 
                                 if let Some((_, Some((v, _)))) = subfield {
                                     ui.label(v).context_menu(|ui| {
                                         self.item_context_menu(
-                                            Some(&(signal.real_idx(), vec![])),
+                                            Some(&FieldRef::without_fields(signal.clone())),
                                             msgs,
                                             ui,
                                             vidx,
@@ -1240,11 +1258,11 @@ impl State {
                         ItemDrawingInfo::Cursor(extra_cursor) => {
                             let delta = time_string(
                                 &(cursor
-                                    - vcd
+                                    - waves
                                         .cursors
                                         .get(&extra_cursor.idx)
                                         .unwrap_or(&BigInt::from(0))),
-                                &vcd.inner.metadata,
+                                &waves.inner.metadata(),
                                 &self.wanted_timescale,
                             );
 
@@ -1258,7 +1276,7 @@ impl State {
         } else {
             for (vidx, drawing_info) in item_offsets.iter().enumerate() {
                 let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
-                self.draw_background(vidx, vcd, drawing_info, y_offset, &ctx, gap, frame_width);
+                self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
             }
         }
     }
@@ -1278,7 +1296,7 @@ impl State {
     fn draw_background(
         &self,
         vidx: usize,
-        vcd: &VcdData,
+        vcd: &WaveData,
         drawing_info: &ItemDrawingInfo,
         y_offset: f32,
         ctx: &DrawingContext<'_>,
@@ -1377,7 +1395,7 @@ impl State {
     }
 
     fn help_message(&self, ui: &mut egui::Ui) {
-        if self.vcd.is_none() {
+        if self.waves.is_none() {
             ui.label(RichText::new("Drag and drop a VCD file here to open it"));
 
             #[cfg(target_arch = "wasm32")]
@@ -1414,8 +1432,8 @@ impl State {
         ui.add_space(20.0);
         ui.separator();
         ui.add_space(20.0);
-        if let Some(vcd) = &self.vcd {
-            ui.label(RichText::new(format!("Filename: {}", vcd.filename)).monospace());
+        if let Some(vcd) = &self.waves {
+            ui.label(RichText::new(format!("Filename: {}", vcd.source)).monospace());
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -1436,8 +1454,12 @@ impl State {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]
                 if ui.button("Open file...").clicked() {
-                    msgs.push(Message::OpenFileDialog);
+                    msgs.push(Message::OpenFileDialog(OpenMode::Open));
                     ui.close_menu();
+                }
+                if ui.button("Switch file...").clicked() {
+                    msgs.push(Message::OpenFileDialog(OpenMode::Switch));
+                    ui.close_menu()
                 }
                 if ui.button("Open URL...").clicked() {
                     msgs.push(Message::SetUrlEntryVisible(true));
@@ -1533,8 +1555,8 @@ impl State {
                 ui.menu_button("Time scale", |ui| {
                     timescale_menu(ui, msgs, &self.wanted_timescale);
                 });
-                if let Some(vcd) = &self.vcd {
-                    let signal_name_type = vcd.default_signal_name_type;
+                if let Some(waves) = &self.waves {
+                    let signal_name_type = waves.default_signal_name_type;
                     ui.menu_button("Signal names", |ui| {
                         let name_types = vec![
                             SignalNameType::Local,

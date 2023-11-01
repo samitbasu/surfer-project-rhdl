@@ -1,6 +1,8 @@
 use color_eyre::eyre::anyhow;
 use fastwave_backend::SignalValue;
 
+use crate::wave_container::SignalMeta;
+
 use super::{BasicTranslator, BitTranslator, SignalInfo, Translator};
 
 pub struct ClockTranslator {
@@ -23,10 +25,10 @@ impl Translator for ClockTranslator {
 
     fn translate(
         &self,
-        signal: &fastwave_backend::Signal,
+        signal: &SignalMeta,
         value: &SignalValue,
     ) -> color_eyre::Result<super::TranslationResult> {
-        if signal.num_bits() == Some(1) {
+        if signal.num_bits == Some(1) {
             self.inner.translate(signal, value)
         } else {
             Err(anyhow!(
@@ -35,19 +37,12 @@ impl Translator for ClockTranslator {
         }
     }
 
-    fn signal_info(
-        &self,
-        _signal: &fastwave_backend::Signal,
-        _name: &str,
-    ) -> color_eyre::Result<super::SignalInfo> {
+    fn signal_info(&self, _signal: &SignalMeta) -> color_eyre::Result<super::SignalInfo> {
         Ok(SignalInfo::Clock)
     }
 
-    fn translates(
-        &self,
-        signal: &fastwave_backend::Signal,
-    ) -> color_eyre::Result<super::TranslationPreference> {
-        if signal.num_bits() == Some(1) {
+    fn translates(&self, signal: &SignalMeta) -> color_eyre::Result<super::TranslationPreference> {
+        if signal.num_bits == Some(1) {
             Ok(super::TranslationPreference::Yes)
         } else {
             Ok(super::TranslationPreference::No)

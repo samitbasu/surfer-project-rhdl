@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use color_eyre::Result;
 use eframe::epaint::Color32;
-use fastwave_backend::{Signal, SignalType, SignalValue};
+use fastwave_backend::{SignalType, SignalValue};
 
 mod basic_translators;
 pub mod clock;
@@ -13,7 +13,7 @@ pub use basic_translators::*;
 use itertools::Itertools;
 use num::BigUint;
 
-use crate::view::TraceIdx;
+use crate::wave_container::{FieldRef, SignalMeta};
 
 pub struct TranslatorList {
     inner: HashMap<String, Box<dyn Translator>>,
@@ -63,6 +63,13 @@ impl TranslatorList {
 
     pub fn add(&mut self, t: Box<dyn Translator>) {
         self.inner.insert(t.name(), t);
+    }
+
+    pub fn is_valid_translator(&self, meta: &SignalMeta, candidate: &str) -> bool {
+        self.get_translator(candidate)
+            .translates(meta)
+            .map(|preference| preference != TranslationPreference::No)
+            .unwrap_or(false)
     }
 }
 
@@ -135,8 +142,8 @@ impl TranslationResult {
     /// Flattens the translation result into path, value pairs
     pub fn flatten(
         &self,
-        path_so_far: TraceIdx,
-        formats: &HashMap<TraceIdx, String>,
+        path_so_far: FieldRef,
+        formats: &HashMap<FieldRef, String>,
         translators: &TranslatorList,
     ) -> FlatTranslationResult {
         let subresults = self
@@ -144,13 +151,20 @@ impl TranslationResult {
             .iter()
             .map(|(n, v)| {
                 let sub_path = path_so_far
-                    .1
+                    .field
                     .clone()
                     .into_iter()
                     .chain(vec![n.clone()])
                     .collect();
 
-                let sub = v.flatten((path_so_far.0, sub_path), formats, translators);
+                let sub = v.flatten(
+                    FieldRef {
+                        root: path_so_far.root.clone(),
+                        field: sub_path,
+                    },
+                    formats,
+                    translators,
+                );
                 (n, sub)
             })
             .collect::<Vec<_>>();
@@ -281,8 +295,23 @@ impl SignalInfo {
             },
         }
     }
+
+    pub fn has_subpath(&self, path: &[String]) -> bool {
+        match path {
+            [] => true,
+            [field, rest @ ..] => match self {
+                SignalInfo::Compound { subfields } => subfields
+                    .iter()
+                    .find(|&(f, _)| f == field)
+                    .map(|(_, info)| info.has_subpath(rest))
+                    .unwrap_or(false),
+                _ => false,
+            },
+        }
+    }
 }
 
+#[derive(PartialEq)]
 pub enum TranslationPreference {
     /// This translator prefers translating the signal, so it will be selected
     /// as the default translator for the signal
@@ -293,10 +322,10 @@ pub enum TranslationPreference {
     No,
 }
 
-pub fn translates_all_bit_types(signal: &Signal<'_>) -> Result<TranslationPreference> {
-    if signal.signal_type() == Some(&SignalType::Str)
-        || signal.signal_type() == Some(&SignalType::Real)
-        || signal.signal_type() == Some(&SignalType::RealTime)
+pub fn translates_all_bit_types(signal: &SignalMeta) -> Result<TranslationPreference> {
+    if signal.signal_type == Some(SignalType::Str)
+        || signal.signal_type == Some(SignalType::Real)
+        || signal.signal_type == Some(SignalType::RealTime)
     {
         Ok(TranslationPreference::No)
     } else {
@@ -307,17 +336,17 @@ pub fn translates_all_bit_types(signal: &Signal<'_>) -> Result<TranslationPrefer
 pub trait Translator {
     fn name(&self) -> String;
 
-    fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult>;
+    fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult>;
 
-    fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo>;
+    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo>;
 
-    fn translates(&self, signal: &Signal) -> Result<TranslationPreference>;
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference>;
 }
 
 pub trait BasicTranslator {
     fn name(&self) -> String;
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
-    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         translates_all_bit_types(signal)
     }
 }
@@ -327,10 +356,10 @@ impl Translator for Box<dyn BasicTranslator> {
         self.as_ref().name()
     }
 
-    fn translate(&self, signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
+    fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult> {
         let (val, color) = self
             .as_ref()
-            .basic_translate(signal.num_bits().unwrap_or(0) as u64, value);
+            .basic_translate(signal.num_bits.unwrap_or(0) as u64, value);
         Ok(TranslationResult {
             val: ValueRepr::String(val),
             color,
@@ -339,15 +368,15 @@ impl Translator for Box<dyn BasicTranslator> {
         })
     }
 
-    fn signal_info(&self, signal: &Signal, _name: &str) -> Result<SignalInfo> {
-        if signal.num_bits() == Some(1) {
+    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo> {
+        if signal.num_bits == Some(1) {
             Ok(SignalInfo::Bool)
         } else {
             Ok(SignalInfo::Bits)
         }
     }
 
-    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         self.as_ref().translates(signal)
     }
 }
@@ -359,7 +388,7 @@ impl Translator for StringTranslator {
         "String".to_string()
     }
 
-    fn translate(&self, _signal: &Signal, value: &SignalValue) -> Result<TranslationResult> {
+    fn translate(&self, _signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult> {
         match value {
             SignalValue::BigUint(_) => panic!(),
             SignalValue::String(s) => Ok(TranslationResult {
@@ -371,14 +400,14 @@ impl Translator for StringTranslator {
         }
     }
 
-    fn signal_info(&self, _signal: &Signal, _name: &str) -> Result<SignalInfo> {
+    fn signal_info(&self, _signal: &SignalMeta) -> Result<SignalInfo> {
         Ok(SignalInfo::String)
     }
 
-    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
-        if signal.signal_type() == Some(&SignalType::Str)
-            || signal.signal_type() == Some(&SignalType::Real)
-            || signal.signal_type() == Some(&SignalType::RealTime)
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
+        if signal.signal_type == Some(SignalType::Str)
+            || signal.signal_type == Some(SignalType::Real)
+            || signal.signal_type == Some(SignalType::RealTime)
         {
             Ok(TranslationPreference::Prefer)
         } else {

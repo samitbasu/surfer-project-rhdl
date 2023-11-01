@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
+use color_eyre::eyre::Context;
 use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
-use log::error;
+use log::{error, warn};
 use num::ToPrimitive;
 use num::{BigInt, BigRational};
 
@@ -11,7 +12,8 @@ use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::config::SurferTheme;
 use crate::translation::{SignalInfo, ValueKind};
 use crate::view::{time_string, DrawConfig, DrawingContext, ItemDrawingInfo};
-use crate::{CachedDrawData, ClockHighlightType, DisplayedItem, Message, State, VcdData};
+use crate::wave_container::FieldRef;
+use crate::{CachedDrawData, ClockHighlightType, DisplayedItem, Message, State, WaveData};
 
 pub struct DrawnRegion {
     inner: Option<(String, ValueKind)>,
@@ -55,9 +57,9 @@ impl State {
 
     pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
         let mut draw_commands = HashMap::new();
-        if let Some(vcd) = &self.vcd {
+        if let Some(waves) = &self.waves {
             let frame_width = width;
-            let max_time = BigRational::from_integer(vcd.num_timestamps.clone());
+            let max_time = BigRational::from_integer(waves.num_timestamps.clone());
             let mut timings = TranslationTimings::new();
             let mut clock_edges = vec![];
             // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
@@ -65,7 +67,7 @@ impl State {
             let timestamps = (-cfg.max_transition_width
                 ..(frame_width as i32 + cfg.max_transition_width))
                 .filter_map(|x| {
-                    let time = vcd.viewport.to_time(x as f64, frame_width);
+                    let time = waves.viewport.to_time(x as f64, frame_width);
                     if time < BigRational::from_float(0.).unwrap() || time > max_time {
                         None
                     } else {
@@ -74,30 +76,37 @@ impl State {
                 })
                 .collect::<Vec<_>>();
 
-            vcd.displayed_items
+            waves
+                .displayed_items
                 .iter()
                 .filter_map(|item| match item {
-                    DisplayedItem::Signal(idx) => Some(idx),
+                    DisplayedItem::Signal(signal_ref) => Some(signal_ref),
                     _ => None,
-                })
-                .map(|displayed_signal| {
-                    let idx = displayed_signal.idx;
-                    // check if the signal is an alias
-                    // if so get the real signal
-                    let signal = vcd.inner.signal_from_signal_idx(idx);
-                    let real_idx = signal.real_idx();
-                    if real_idx == idx {
-                        (idx, signal)
-                    } else {
-                        (real_idx, vcd.inner.signal_from_signal_idx(real_idx))
-                    }
                 })
                 // Iterate over the signals, generating draw commands for all the
                 // subfields
-                .for_each(|(idx, sig)| {
-                    let translator = vcd.signal_translator((idx, vec![]), &self.translators);
+                .for_each(|displayed_signal| {
+                    let meta = match waves
+                        .inner
+                        .signal_meta(&displayed_signal.signal_ref)
+                        .context("failed to get signal meta")
+                    {
+                        Ok(meta) => meta,
+                        Err(e) => {
+                            warn!("{e:#?}");
+                            return;
+                        }
+                    };
+
+                    let translator = waves.signal_translator(
+                        &FieldRef {
+                            root: displayed_signal.signal_ref.clone(),
+                            field: vec![],
+                        },
+                        &self.translators,
+                    );
                     // we need to get the signal info here to get the correct info for aliases
-                    let info = translator.signal_info(&sig, &vcd.signal_name(idx)).unwrap();
+                    let info = translator.signal_info(&meta).unwrap();
 
                     let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
 
@@ -120,11 +129,13 @@ impl State {
                         timestamps.iter().zip(timestamps.iter().skip(1))
                     {
                         let (change_time, val) =
-                            if let Ok(v) = sig.query_val_on_tmln(&time, &vcd.inner) {
-                                v
-                            } else {
-                                // If there is no value here, skip this iteration
-                                continue;
+                            match waves.inner.query_signal(&displayed_signal.signal_ref, time) {
+                                Ok(Some(val)) => val,
+                                Ok(None) => continue,
+                                Err(e) => {
+                                    error!("Signal query error {e:#?}");
+                                    continue;
+                                }
                             };
 
                         let is_last_timestep = pixel == &end_pixel;
@@ -139,16 +150,19 @@ impl State {
                         // Perform the translation
                         let mut duration = TimedRegion::started();
 
-                        let translation_result = match translator.translate(&sig, &val) {
+                        let translation_result = match translator.translate(&meta, &val) {
                             Ok(result) => result,
                             Err(e) => {
                                 error!(
                                     "{translator_name} for {sig_name} failed. Disabling:",
                                     translator_name = translator.name(),
-                                    sig_name = sig.name()
+                                    sig_name = displayed_signal.signal_ref.full_path_string()
                                 );
                                 error!("{e:#}");
-                                msgs.push(Message::ResetSignalFormat((idx, vec![])));
+                                msgs.push(Message::ResetSignalFormat(FieldRef {
+                                    root: displayed_signal.signal_ref.clone(),
+                                    field: vec![],
+                                }));
                                 return;
                             }
                         };
@@ -156,7 +170,14 @@ impl State {
                         duration.stop();
                         timings.push_timing(&translator.name(), None, duration.secs());
                         let fields = translation_result
-                            .flatten((idx, vec![]), &vcd.signal_format, &self.translators)
+                            .flatten(
+                                FieldRef {
+                                    root: displayed_signal.signal_ref.clone(),
+                                    field: vec![],
+                                },
+                                &waves.signal_format,
+                                &self.translators,
+                            )
                             .as_fields();
 
                         for (path, value) in fields {
@@ -210,7 +231,13 @@ impl State {
                     }
                     // Append the signal index to the fields
                     local_commands.into_iter().for_each(|(path, val)| {
-                        draw_commands.insert((sig.real_idx().clone(), path), val);
+                        draw_commands.insert(
+                            FieldRef {
+                                root: displayed_signal.signal_ref.clone(),
+                                field: path.clone(),
+                            },
+                            val,
+                        );
                     });
                 });
 
@@ -242,7 +269,7 @@ impl State {
             *self.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
-        let Some(vcd) = &self.vcd else { return };
+        let Some(vcd) = &self.waves else { return };
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
@@ -352,7 +379,7 @@ impl State {
                     .unwrap_or(&self.config.theme.signal_default);
                 match drawing_info {
                     ItemDrawingInfo::Signal(drawing_info) => {
-                        if let Some(commands) = draw_commands.get(&drawing_info.tidx) {
+                        if let Some(commands) = draw_commands.get(&drawing_info.field_ref) {
                             for (old, new) in
                                 commands.values.iter().zip(commands.values.iter().skip(1))
                             {
@@ -398,7 +425,7 @@ impl State {
         ctx: DrawingContext<'_>,
         item_offsets: &[ItemDrawingInfo],
         to_screen: RectTransform,
-        vcd: &VcdData,
+        waves: &WaveData,
         response: egui::Response,
         gap: f32,
     ) {
@@ -413,7 +440,7 @@ impl State {
             // compensate for that
             let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
 
-            let Some(item) = vcd.displayed_items.get(drawing_info.signal_list_idx) else {
+            let Some(item) = waves.displayed_items.get(drawing_info.signal_list_idx) else {
                 return;
             };
 
@@ -422,17 +449,18 @@ impl State {
                 .and_then(|color| self.config.theme.colors.get(&color))
                 .unwrap_or(&self.config.theme.cursor.color);
 
-            let x = vcd.viewport.from_time(
-                vcd.cursors.get(&drawing_info.idx).unwrap(),
+            let x = waves.viewport.from_time(
+                waves.cursors.get(&drawing_info.idx).unwrap(),
                 response.rect.size().x as f64,
             ) as f32;
 
             // Time string
             let time = time_string(
-                vcd.cursors
+                waves
+                    .cursors
                     .get(&drawing_info.idx)
                     .unwrap_or(&BigInt::from(0)),
-                &vcd.inner.metadata,
+                &waves.inner.metadata(),
                 &self.wanted_timescale,
             );
 
@@ -619,7 +647,7 @@ impl State {
     }
 }
 
-impl VcdData {
+impl WaveData {
     fn draw_cursor(
         &self,
         theme: &SurferTheme,

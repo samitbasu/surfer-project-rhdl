@@ -4,7 +4,7 @@ use eframe::epaint::{FontId, Pos2, Rect, Stroke, Vec2};
 use num::ToPrimitive;
 
 use crate::view::{time_string, DrawingContext};
-use crate::{Message, State, VcdData};
+use crate::{Message, State, WaveData};
 
 #[derive(Clone, PartialEq, Copy)]
 enum GestureKind {
@@ -18,7 +18,7 @@ enum GestureKind {
 impl State {
     pub fn draw_mouse_gesture_widget(
         &self,
-        vcd: &VcdData,
+        waves: &WaveData,
         pointer_pos_canvas: Option<Pos2>,
         response: &egui::Response,
         msgs: &mut Vec<Message>,
@@ -43,7 +43,7 @@ impl State {
                             current_location,
                             response,
                             ctx,
-                            vcd,
+                            waves,
                         ),
 
                         Some(GestureKind::GoToStart) => self.draw_gesture_line(
@@ -93,12 +93,12 @@ impl State {
                                     (start_location.x, end_location.x)
                                 };
                                 msgs.push(Message::ZoomToRange {
-                                    start: vcd
+                                    start: waves
                                         .viewport
                                         .to_time(minx as f64, frame_width)
                                         .to_f64()
                                         .unwrap(),
-                                    end: vcd
+                                    end: waves
                                         .viewport
                                         .to_time(maxx as f64, frame_width)
                                         .to_f64()
@@ -163,7 +163,7 @@ impl State {
         current_location: Pos2,
         response: &egui::Response,
         ctx: &mut DrawingContext<'_>,
-        vcd: &VcdData,
+        waves: &WaveData,
     ) {
         let stroke = Stroke {
             color: self.config.gesture.style.color,
@@ -203,21 +203,21 @@ impl State {
             format!(
                 "Zoom in: {} to {}",
                 time_string(
-                    &(vcd
+                    &(waves
                         .viewport
                         .to_time(minx as f64, width)
                         .round()
                         .to_integer()),
-                    &vcd.inner.metadata,
+                    &waves.inner.metadata(),
                     &(self.wanted_timescale)
                 ),
                 time_string(
-                    &(vcd
+                    &(waves
                         .viewport
                         .to_time(maxx as f64, width)
                         .round()
                         .to_integer()),
-                    &vcd.inner.metadata,
+                    &waves.inner.metadata(),
                     &(self.wanted_timescale)
                 ),
             ),

@@ -2,7 +2,7 @@ mod benchmark;
 mod command_prompt;
 mod commands;
 mod config;
-mod descriptors;
+mod fast_wave_container;
 mod mousegestures;
 mod signal_canvas;
 #[cfg(test)]
@@ -12,6 +12,7 @@ mod util;
 mod view;
 mod viewport;
 mod wasm_util;
+mod wave_container;
 
 use bytes::Buf;
 use bytes::Bytes;
@@ -22,9 +23,6 @@ use color_eyre::eyre::anyhow;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use derivative::Derivative;
-use descriptors::PathDescriptor;
-use descriptors::ScopeDescriptor;
-use descriptors::SignalDescriptor;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui;
 use eframe::egui::style::Selection;
@@ -39,10 +37,7 @@ use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
 use fastwave_backend::parse_vcd;
-use fastwave_backend::ScopeIdx;
-use fastwave_backend::SignalIdx;
 use fastwave_backend::Timescale;
-use fastwave_backend::VCD;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use futures_util::FutureExt;
@@ -68,9 +63,13 @@ use translation::SignalInfo;
 use translation::TranslationPreference;
 use translation::Translator;
 use translation::TranslatorList;
-use view::TraceIdx;
 use viewport::Viewport;
 use wasm_util::perform_work;
+use wave_container::FieldRef;
+use wave_container::ModuleRef;
+use wave_container::SignalMeta;
+use wave_container::SignalRef;
+use wave_container::WaveContainer;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -97,15 +96,16 @@ struct Args {
 struct StartupParams {
     pub spade_state: Option<Utf8PathBuf>,
     pub spade_top: Option<String>,
-    pub vcd: Option<WaveSource>,
+    pub waves: Option<WaveSource>,
 }
 
 impl StartupParams {
+    #[allow(dead_code)] // NOTE: Only used in wasm version
     pub fn empty() -> Self {
         Self {
             spade_state: None,
             spade_top: None,
-            vcd: None,
+            waves: None,
         }
     }
 
@@ -114,7 +114,7 @@ impl StartupParams {
         Self {
             spade_state: None,
             spade_top: None,
-            vcd: url.map(WaveSource::Url),
+            waves: url.map(WaveSource::Url),
         }
     }
 
@@ -123,7 +123,7 @@ impl StartupParams {
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
-            vcd: args.vcd_file.map(WaveSource::File),
+            waves: args.vcd_file.map(WaveSource::File),
         }
     }
 }
@@ -314,7 +314,7 @@ impl std::fmt::Display for ClockHighlightType {
 }
 
 pub struct DisplayedSignal {
-    idx: SignalIdx,
+    signal_ref: SignalRef,
     info: SignalInfo,
     color: Option<String>,
     background_color: Option<String>,
@@ -422,28 +422,105 @@ impl DisplayedItem {
     }
 }
 
-pub struct VcdData {
-    inner: VCD,
-    filename: String,
-    active_scope: Option<ScopeIdx>,
+pub struct WaveData {
+    inner: WaveContainer,
+    source: WaveSource,
+    active_module: Option<ModuleRef>,
     /// Root items (signals, dividers, ...) to display
     displayed_items: Vec<DisplayedItem>,
-    /// These hashmaps contain a list of all full (i.e., top.dut.mod1.signal) signal or scope
-    /// names to their indices. They have to be initialized using the initialize_signal_scope_maps
-    /// function after this struct is created.
-    signals_to_ids: HashMap<String, SignalIdx>,
-    scopes_to_ids: HashMap<String, ScopeIdx>,
-    /// Maps signal indices to the corresponding full signal name (i.e. top.sub.signal)
-    ids_to_fullnames: HashMap<SignalIdx, String>,
     viewport: Viewport,
     num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
-    signal_format: HashMap<TraceIdx, String>,
+    signal_format: HashMap<FieldRef, String>,
     cursor: Option<BigInt>,
     cursors: HashMap<u8, BigInt>,
     focused_item: Option<usize>,
     default_signal_name_type: SignalNameType,
     scroll: usize,
+}
+
+impl WaveData {
+    pub fn update_with(
+        mut self,
+        new_waves: Box<WaveContainer>,
+        source: WaveSource,
+        num_timestamps: BigInt,
+        wave_viewport: Viewport,
+        translators: &TranslatorList,
+    ) -> WaveData {
+        let active_module = self
+            .active_module
+            .take()
+            .filter(|m| new_waves.module_exists(m));
+        let display_items = self
+            .displayed_items
+            .drain(..)
+            .filter(|i| match i {
+                DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
+                DisplayedItem::Divider(_) => true,
+                DisplayedItem::Cursor(_) => true,
+            })
+            .collect::<Vec<_>>();
+        let mut nested_format = self
+            .signal_format
+            .iter()
+            .filter(|&(field_ref, _)| !field_ref.field.is_empty())
+            .map(|(x, y)| (x.clone(), y.clone()))
+            .collect::<HashMap<_, _>>();
+        let signal_format = self
+            .signal_format
+            .drain()
+            .filter(|(field_ref, candidate)| {
+                display_items.iter().any(|di| match di {
+                    DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => {
+                        let Ok(meta) = new_waves.signal_meta(signal_ref) else {
+                            return false;
+                        };
+                        field_ref.field.is_empty()
+                            && *signal_ref == field_ref.root
+                            && translators.is_valid_translator(&meta, candidate.as_str())
+                    }
+                    _ => false,
+                })
+            })
+            .collect();
+        let mut new_wave = WaveData {
+            inner: *new_waves,
+            source,
+            active_module,
+            displayed_items: display_items,
+            viewport: self.viewport.clone().clip_to(&wave_viewport),
+            signal_format,
+            num_timestamps,
+            cursor: self.cursor.clone(),
+            cursors: self.cursors.clone(),
+            focused_item: self.focused_item,
+            default_signal_name_type: self.default_signal_name_type,
+            scroll: self.scroll,
+        };
+        nested_format.retain(|nested, _| {
+            let Some(signal_ref) = new_wave.displayed_items.iter().find_map(|di| match di {
+                DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => Some(signal_ref),
+                _ => None,
+            }) else {
+                return false;
+            };
+            let meta = new_wave.inner.signal_meta(&nested.root).unwrap();
+            new_wave
+                .signal_translator(
+                    &FieldRef {
+                        root: signal_ref.clone(),
+                        field: vec![],
+                    },
+                    translators,
+                )
+                .signal_info(&meta)
+                .map(|info| info.has_subpath(&nested.field))
+                .unwrap_or(false)
+        });
+        new_wave.signal_format.extend(nested_format);
+        new_wave
+    }
 }
 
 type CommandCount = usize;
@@ -498,12 +575,18 @@ impl SignalFilterType {
     }
 }
 
+#[derive(Debug)]
+pub enum OpenMode {
+    Open,
+    Switch,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub enum Message {
-    SetActiveScope(ScopeDescriptor),
-    AddSignal(SignalDescriptor),
-    AddScope(ScopeDescriptor),
+    SetActiveScope(ModuleRef),
+    AddSignal(SignalRef),
+    AddModule(ModuleRef),
     AddCount(char),
     InvalidateCount,
     RemoveItem(usize, CommandCount),
@@ -514,7 +597,7 @@ pub enum Message {
     MoveFocusedItem(MoveDir, CommandCount),
     VerticalScroll(MoveDir, CommandCount),
     SetVerticalScroll(usize),
-    SignalFormatChange(PathDescriptor, String),
+    SignalFormatChange(FieldRef, String),
     ItemColorChange(Option<usize>, Option<String>),
     ItemBackgroundColorChange(Option<usize>, Option<String>),
     ItemNameChange(Option<usize>, String),
@@ -523,7 +606,7 @@ pub enum Message {
     SetClockHighlightType(ClockHighlightType),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
-    ResetSignalFormat(TraceIdx),
+    ResetSignalFormat(FieldRef),
     CanvasScroll {
         delta: Vec2,
     },
@@ -538,17 +621,18 @@ pub enum Message {
     CursorSet(BigInt),
     LoadVcd(Utf8PathBuf),
     LoadVcdFromUrl(String),
-    VcdLoaded(WaveSource, Box<VCD>),
+    WavesLoaded(WaveSource, Box<WaveContainer>, bool),
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified signal
-    BlacklistTranslator(SignalIdx, String),
+    BlacklistTranslator(SignalRef, String),
     ToggleSidePanel,
     ShowCommandPrompt(bool),
     FileDropped(DroppedFile),
-    FileDownloaded(String, Bytes),
+    FileDownloaded(String, Bytes, bool),
     ReloadConfig,
+    ReloadWaveform,
     ZoomToFit,
     GoToStart,
     GoToEnd,
@@ -559,7 +643,7 @@ pub enum Message {
         expanded: String,
         suggestions: Vec<(String, Vec<bool>)>,
     },
-    OpenFileDialog,
+    OpenFileDialog(OpenMode),
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),
     SetGestureHelpVisible(bool),
@@ -583,13 +667,13 @@ pub enum LoadProgress {
 }
 
 struct CachedDrawData {
-    pub draw_commands: HashMap<(SignalIdx, Vec<String>), signal_canvas::DrawingCommands>,
+    pub draw_commands: HashMap<FieldRef, signal_canvas::DrawingCommands>,
     pub clock_edges: Vec<f32>,
 }
 
 pub struct State {
     config: config::SurferConfig,
-    vcd: Option<VcdData>,
+    waves: Option<WaveData>,
     /// Count argument for movements
     count: Option<String>,
     /// Which translator to use for each signal
@@ -603,7 +687,7 @@ pub struct State {
     vcd_progress: Option<LoadProgress>,
 
     // Vector of translators which have failed at the `translates` function for a signal.
-    blacklisted_translators: HashSet<(SignalIdx, String)>,
+    blacklisted_translators: HashSet<(SignalRef, String)>,
     /// Buffer for the command input
     command_prompt: command_prompt::CommandPrompt,
 
@@ -693,7 +777,7 @@ impl State {
         let config = config::SurferConfig::new().with_context(|| "Failed to load config file")?;
         let mut result = State {
             config,
-            vcd: None,
+            waves: None,
             count: None,
             translators,
             msg_sender: sender,
@@ -724,9 +808,9 @@ impl State {
             item_renaming_string: RefCell::new(String::new()),
         };
 
-        match args.vcd {
-            Some(WaveSource::Url(url)) => result.load_vcd_from_url(url),
-            Some(WaveSource::File(file)) => result.load_vcd_from_file(file).unwrap(),
+        match args.waves {
+            Some(WaveSource::Url(url)) => result.load_vcd_from_url(url, false),
+            Some(WaveSource::File(file)) => result.load_vcd_from_file(file, false).unwrap(),
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
             }
@@ -736,7 +820,7 @@ impl State {
         Ok(result)
     }
 
-    fn load_vcd_from_file(&mut self, vcd_filename: Utf8PathBuf) -> Result<()> {
+    fn load_vcd_from_file(&mut self, vcd_filename: Utf8PathBuf, keep_signals: bool) -> Result<()> {
         // We'll open the file to check if it exists here to panic the main thread if not.
         // Then we pass the file into the thread for parsing
         info!("Load VCD: {vcd_filename}");
@@ -748,12 +832,17 @@ impl State {
             .map_err(|e| info!("Failed to get vcd file metadata {e}"))
             .ok();
 
-        self.load_vcd(WaveSource::File(vcd_filename), file, total_bytes);
+        self.load_vcd(
+            WaveSource::File(vcd_filename),
+            file,
+            total_bytes,
+            keep_signals,
+        );
 
         Ok(())
     }
 
-    fn load_vcd_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
+    fn load_vcd_from_dropped(&mut self, file: DroppedFile, keep_signals: bool) -> Result<()> {
         info!("Got a dropped file");
 
         let filename = file.path.and_then(|p| Utf8PathBuf::try_from(p).ok());
@@ -767,11 +856,12 @@ impl State {
             WaveSource::DragAndDrop(filename),
             VecDeque::from_iter(bytes.into_iter().cloned()),
             Some(total_bytes as u64),
+            keep_signals,
         );
         Ok(())
     }
 
-    fn load_vcd_from_url(&mut self, url: String) {
+    fn load_vcd_from_url(&mut self, url: String, keep_signals: bool) {
         let sender = self.msg_sender.clone();
         let url_ = url.clone();
         let task = async move {
@@ -784,7 +874,7 @@ impl State {
                 .await;
 
             match bytes {
-                Ok(b) => sender.send(Message::FileDownloaded(url, b)),
+                Ok(b) => sender.send(Message::FileDownloaded(url, b, keep_signals)),
                 Err(e) => sender.send(Message::Error(e)),
             }
             .unwrap();
@@ -802,6 +892,7 @@ impl State {
         source: WaveSource,
         reader: impl Read + Send + 'static,
         total_bytes: Option<u64>,
+        keep_signals: bool,
     ) {
         // Progress tracking in bytes
         let progress_bytes = Arc::new(AtomicU64::new(0));
@@ -821,8 +912,12 @@ impl State {
                 .with_context(|| format!("Failed to parse VCD file: {source}"));
 
             match result {
-                Ok(vcd) => sender
-                    .send(Message::VcdLoaded(source, Box::new(vcd)))
+                Ok(waves) => sender
+                    .send(Message::WavesLoaded(
+                        source,
+                        Box::new(WaveContainer::new_vcd(waves)),
+                        keep_signals,
+                    ))
                     .unwrap(),
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
@@ -834,40 +929,46 @@ impl State {
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::SetActiveScope(descriptor) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
-                if let Some(scope) = descriptor.resolve(vcd) {
-                    vcd.active_scope = Some(scope)
+            Message::SetActiveScope(module) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+                if waves.inner.has_module(&module) {
+                    waves.active_module = Some(module)
+                } else {
+                    warn!("Setting active scope to {module} which does not exist")
                 }
             }
-            Message::AddSignal(descriptor) => {
+            Message::AddSignal(sig) => {
                 self.invalidate_draw_commands();
-                let Some(vcd) = self.vcd.as_mut() else { return };
-                if let Some(id) = descriptor.resolve(vcd) {
-                    vcd.add_signal(&self.translators, id)
-                }
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+                waves.add_signal(&self.translators, &sig)
             }
             Message::AddDivider(name) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
-                vcd.displayed_items
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+                waves
+                    .displayed_items
                     .push(DisplayedItem::Divider(DisplayedDivider {
                         color: None,
                         background_color: None,
                         name,
                     }));
             }
-            Message::AddScope(descriptor) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
+            Message::AddModule(module) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    warn!("Adding module without waves loaded");
+                    return;
+                };
 
-                if let Some(s) = descriptor.resolve(vcd) {
-                    let signals = vcd.inner.get_children_signal_idxs(s);
-                    for sidx in signals {
-                        if !vcd.signal_name(sidx).starts_with("_") {
-                            vcd.add_signal(&self.translators, sidx);
-                        }
-                    }
-                    self.invalidate_draw_commands();
+                let signals = waves.inner.signals_in_module(&module);
+                for signal in signals {
+                    waves.add_signal(&self.translators, &signal);
                 }
+                self.invalidate_draw_commands();
             }
             Message::AddCount(digit) => {
                 if let Some(count) = &mut self.count {
@@ -878,11 +979,13 @@ impl State {
             }
             Message::InvalidateCount => self.count = None,
             Message::FocusItem(idx) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
 
-                let visible_signals_len = vcd.displayed_items.len();
+                let visible_signals_len = waves.displayed_items.len();
                 if visible_signals_len > 0 && idx < visible_signals_len {
-                    vcd.focused_item = Some(idx);
+                    waves.focused_item = Some(idx);
                 } else {
                     error!(
                         "Can not focus signal {idx} because only {visible_signals_len} signals are visible.",
@@ -890,31 +993,37 @@ impl State {
                 }
             }
             Message::UnfocusItem => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
-                vcd.focused_item = None;
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+                waves.focused_item = None;
             }
             Message::RenameItem(vidx) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
                 self.rename_target = Some(vidx);
                 *self.item_renaming_string.borrow_mut() =
-                    vcd.displayed_items.get(vidx).unwrap().name();
+                    waves.displayed_items.get(vidx).unwrap().name();
             }
             Message::MoveFocus(direction, count) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
-                let visible_signals_len = vcd.displayed_items.len();
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+                let visible_signals_len = waves.displayed_items.len();
                 if visible_signals_len > 0 {
                     self.count = None;
                     match direction {
                         MoveDir::Up => {
-                            vcd.focused_item = vcd
+                            waves.focused_item = waves
                                 .focused_item
                                 .map_or(Some(visible_signals_len - 1), |focused| {
                                     Some(focused - count.clamp(0, focused))
                                 })
                         }
                         MoveDir::Down => {
-                            vcd.focused_item = vcd.focused_item.map_or(
-                                Some(vcd.scroll + (count - 1).clamp(0, visible_signals_len - 1)),
+                            waves.focused_item = waves.focused_item.map_or(
+                                Some(waves.scroll + (count - 1).clamp(0, visible_signals_len - 1)),
                                 |focused| Some((focused + count).clamp(0, visible_signals_len - 1)),
                             );
                         }
@@ -922,25 +1031,27 @@ impl State {
                 }
             }
             Message::SetVerticalScroll(position) => {
-                if let Some(vcd) = &mut self.vcd {
-                    vcd.scroll = position.clamp(0, vcd.displayed_items.len() - 1);
+                if let Some(waves) = &mut self.waves {
+                    waves.scroll = position.clamp(0, waves.displayed_items.len() - 1);
                 }
             }
             Message::VerticalScroll(direction, count) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
                 match direction {
                     MoveDir::Down => {
-                        if vcd.scroll + count < vcd.displayed_items.len() {
-                            vcd.scroll += count;
+                        if waves.scroll + count < waves.displayed_items.len() {
+                            waves.scroll += count;
                         } else {
-                            vcd.scroll = vcd.displayed_items.len() - 1;
+                            waves.scroll = waves.displayed_items.len() - 1;
                         }
                     }
                     MoveDir::Up => {
-                        if vcd.scroll > count {
-                            vcd.scroll -= count;
+                        if waves.scroll > count {
+                            waves.scroll -= count;
                         } else {
-                            vcd.scroll = 0;
+                            waves.scroll = 0;
                         }
                     }
                 }
@@ -948,38 +1059,42 @@ impl State {
             Message::RemoveItem(idx, count) => {
                 self.invalidate_draw_commands();
 
-                let Some(vcd) = self.vcd.as_mut() else { return };
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
                 for _ in 0..count {
-                    let visible_signals_len = vcd.displayed_items.len();
-                    if let Some(DisplayedItem::Cursor(cursor)) = vcd.displayed_items.get(idx) {
-                        vcd.cursors.remove(&cursor.idx);
+                    let visible_signals_len = waves.displayed_items.len();
+                    if let Some(DisplayedItem::Cursor(cursor)) = waves.displayed_items.get(idx) {
+                        waves.cursors.remove(&cursor.idx);
                     }
                     if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
-                        vcd.displayed_items.remove(idx);
-                        if let Some(focused) = vcd.focused_item {
+                        waves.displayed_items.remove(idx);
+                        if let Some(focused) = waves.focused_item {
                             if focused == idx {
                                 if (idx > 0) && (idx == (visible_signals_len - 1)) {
                                     // if the end of list is selected
-                                    vcd.focused_item = Some(idx - 1);
+                                    waves.focused_item = Some(idx - 1);
                                 }
                             } else {
                                 if idx < focused {
-                                    vcd.focused_item = Some(focused - 1)
+                                    waves.focused_item = Some(focused - 1)
                                 }
                             }
-                            if vcd.displayed_items.is_empty() {
-                                vcd.focused_item = None;
+                            if waves.displayed_items.is_empty() {
+                                waves.focused_item = None;
                             }
                         }
                     }
                 }
-                vcd.compute_signal_display_names();
+                waves.compute_signal_display_names();
             }
             Message::MoveFocusedItem(direction, count) => {
                 self.invalidate_draw_commands();
-                let Some(vcd) = self.vcd.as_mut() else { return };
-                if let Some(idx) = vcd.focused_item {
-                    let visible_signals_len = vcd.displayed_items.len();
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+                if let Some(idx) = waves.focused_item {
+                    let visible_signals_len = waves.displayed_items.len();
                     if visible_signals_len > 0 {
                         match direction {
                             MoveDir::Up => {
@@ -989,14 +1104,14 @@ impl State {
                                     ..=idx)
                                     .rev()
                                 {
-                                    vcd.displayed_items.swap(i, i - 1);
-                                    vcd.focused_item = Some(i - 1);
+                                    waves.displayed_items.swap(i, i - 1);
+                                    waves.focused_item = Some(i - 1);
                                 }
                             }
                             MoveDir::Down => {
                                 for i in idx..(idx + count).clamp(0, visible_signals_len - 1) {
-                                    vcd.displayed_items.swap(i, i + 1);
-                                    vcd.focused_item = Some(i + 1);
+                                    waves.displayed_items.swap(i, i + 1);
+                                    waves.focused_item = Some(i + 1);
                                 }
                             }
                         }
@@ -1012,9 +1127,9 @@ impl State {
                 mouse_ptr_timestamp,
             } => {
                 self.invalidate_draw_commands();
-                self.vcd
+                self.waves
                     .as_mut()
-                    .map(|vcd| vcd.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
+                    .map(|waves| waves.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64));
             }
             Message::ZoomToFit => {
                 self.invalidate_draw_commands();
@@ -1033,126 +1148,136 @@ impl State {
                 self.wanted_timescale = timescale;
             }
             Message::ZoomToRange { start, end } => {
-                if let Some(vcd) = &mut self.vcd {
-                    vcd.viewport.curr_left = start;
-                    vcd.viewport.curr_right = end;
+                if let Some(waves) = &mut self.waves {
+                    waves.viewport.curr_left = start;
+                    waves.viewport.curr_right = end;
                 }
                 self.invalidate_draw_commands();
             }
-            Message::SignalFormatChange(descriptor, format) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
-                if let Some(idx) = &descriptor.0.resolve(vcd) {
-                    let path = descriptor.1;
+            Message::SignalFormatChange(field, format) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
 
-                    if self.translators.all_translator_names().contains(&&format) {
-                        *vcd.signal_format
-                            .entry((idx.clone(), path.clone()))
-                            .or_default() = format;
+                if self.translators.all_translator_names().contains(&&format) {
+                    *waves.signal_format.entry(field.clone()).or_default() = format;
 
-                        if path.is_empty() {
-                            let signal = vcd.inner.signal_from_signal_idx(*idx);
-                            let translator = vcd
-                                .signal_translator((idx.clone(), path.clone()), &self.translators);
-                            let new_info = translator
-                                .signal_info(&signal, &vcd.signal_name(*idx))
-                                .unwrap();
+                    if field.field.is_empty() {
+                        let Ok(meta) = waves
+                            .inner
+                            .signal_meta(&field.root)
+                            .map_err(|e| warn!("{e:#?}"))
+                        else {
+                            return;
+                        };
+                        let translator = waves.signal_translator(&field, &self.translators);
+                        let new_info = translator.signal_info(&meta).unwrap();
 
-                            for item in &mut vcd.displayed_items {
-                                match item {
-                                    DisplayedItem::Signal(signal) => {
-                                        if &signal.idx == idx {
-                                            signal.info = new_info;
-                                            break;
-                                        }
+                        for item in &mut waves.displayed_items {
+                            match item {
+                                DisplayedItem::Signal(disp) => {
+                                    if &disp.signal_ref == &field.root {
+                                        disp.info = new_info;
+                                        break;
                                     }
-                                    DisplayedItem::Divider(_) => {}
-                                    DisplayedItem::Cursor(_) => {}
                                 }
+                                DisplayedItem::Cursor(_) => {}
+                                DisplayedItem::Divider(_) => {}
                             }
                         }
-                        self.invalidate_draw_commands();
-                    } else {
-                        println!("WARN: No translator {format}")
                     }
+                    self.invalidate_draw_commands();
+                } else {
+                    warn!("No translator {format}")
                 }
             }
             Message::ItemColorChange(vidx, color_name) => {
-                let Some(vcd) = self.vcd.as_mut() else {
+                let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
 
-                if let Some(idx) = vidx.or(vcd.focused_item) {
-                    vcd.displayed_items[idx].set_color(color_name);
+                if let Some(idx) = vidx.or(waves.focused_item) {
+                    waves.displayed_items[idx].set_color(color_name);
                 };
             }
             Message::ItemNameChange(vidx, name) => {
-                let Some(vcd) = self.vcd.as_mut() else {
+                let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
 
-                if let Some(idx) = vidx.or(vcd.focused_item) {
-                    vcd.displayed_items[idx].set_name(name);
+                if let Some(idx) = vidx.or(waves.focused_item) {
+                    waves.displayed_items[idx].set_name(name);
                 };
             }
             Message::ItemBackgroundColorChange(vidx, color_name) => {
-                let Some(vcd) = self.vcd.as_mut() else {
+                let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
 
-                if let Some(idx) = vidx.or(vcd.focused_item) {
-                    vcd.displayed_items[idx].set_background_color(color_name)
+                if let Some(idx) = vidx.or(waves.focused_item) {
+                    waves.displayed_items[idx].set_background_color(color_name)
                 };
             }
             Message::ResetSignalFormat(idx) => {
                 self.invalidate_draw_commands();
-                self.vcd.as_mut().map(|vcd| vcd.signal_format.remove(&idx));
+                self.waves
+                    .as_mut()
+                    .map(|waves| waves.signal_format.remove(&idx));
             }
             Message::CursorSet(new) => {
-                if let Some(vcd) = self.vcd.as_mut() {
-                    vcd.cursor = Some(new)
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.cursor = Some(new)
                 }
             }
             Message::LoadVcd(filename) => {
-                self.load_vcd_from_file(filename).ok();
+                self.load_vcd_from_file(filename, false).ok();
             }
             Message::LoadVcdFromUrl(url) => {
-                self.load_vcd_from_url(url);
+                self.load_vcd_from_url(url, false);
             }
             Message::FileDropped(dropped_file) => {
-                self.load_vcd_from_dropped(dropped_file)
+                self.load_vcd_from_dropped(dropped_file, false)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
-            Message::VcdLoaded(filename, new_vcd_data) => {
+            Message::WavesLoaded(filename, new_waves, keep_signals) => {
                 info!("VCD file loaded");
-                let num_timestamps = new_vcd_data
+                let num_timestamps = new_waves
                     .max_timestamp()
                     .as_ref()
                     .map(|t| t.to_bigint().unwrap())
                     .unwrap_or(BigInt::from_u32(1).unwrap());
+                let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
 
-                let mut new_vcd = VcdData {
-                    inner: *new_vcd_data,
-                    filename: filename.to_string(),
-                    active_scope: None,
-                    displayed_items: vec![],
-                    signals_to_ids: HashMap::new(),
-                    scopes_to_ids: HashMap::new(),
-                    ids_to_fullnames: HashMap::new(),
-                    viewport: Viewport::new(0., num_timestamps.clone().to_f64().unwrap()),
-                    signal_format: HashMap::new(),
-                    num_timestamps,
-                    cursor: None,
-                    cursors: HashMap::new(),
-                    focused_item: None,
-                    default_signal_name_type: self.config.default_signal_name_type,
-                    scroll: 0,
+                let new_wave = if keep_signals && self.waves.is_some() {
+                    self.waves.take().unwrap().update_with(
+                        new_waves,
+                        filename,
+                        num_timestamps,
+                        viewport,
+                        &self.translators,
+                    )
+                } else {
+                    WaveData {
+                        inner: *new_waves,
+                        source: filename,
+                        active_module: None,
+                        displayed_items: vec![],
+                        viewport,
+                        signal_format: HashMap::new(),
+                        num_timestamps,
+                        cursor: None,
+                        cursors: HashMap::new(),
+                        focused_item: None,
+                        default_signal_name_type: self.config.default_signal_name_type,
+                        scroll: 0,
+                    }
                 };
-                new_vcd.initialize_signal_scope_maps();
+                self.invalidate_draw_commands();
 
                 // Must clone timescale before consuming new_vcd
-                self.wanted_timescale = new_vcd.inner.metadata.timescale.1;
-                self.vcd = Some(new_vcd);
+                self.wanted_timescale = new_wave.inner.metadata().timescale.1;
+                self.waves = Some(new_wave);
                 self.vcd_progress = None;
                 info!("Done setting up VCD file");
             }
@@ -1178,9 +1303,14 @@ impl State {
                 }
                 self.command_prompt.visible = new_visibility;
             }
-            Message::FileDownloaded(url, bytes) => {
+            Message::FileDownloaded(url, bytes, keep_signals) => {
                 let size = bytes.len() as u64;
-                self.load_vcd(WaveSource::Url(url), bytes.reader(), Some(size))
+                self.load_vcd(
+                    WaveSource::Url(url),
+                    bytes.reader(),
+                    Some(size),
+                    keep_signals,
+                )
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1193,20 +1323,35 @@ impl State {
                     }
                 }
             }
+            Message::ReloadWaveform => {
+                let Some(waves) = &self.waves else { return };
+                match &waves.source {
+                    WaveSource::File(filename) => {
+                        self.load_vcd_from_file(filename.clone(), true).ok()
+                    }
+                    WaveSource::DragAndDrop(filename) => filename
+                        .clone()
+                        .and_then(|filename| self.load_vcd_from_file(filename, true).ok()),
+                    WaveSource::Url(url) => {
+                        self.load_vcd_from_url(url.clone(), true);
+                        Some(())
+                    }
+                };
+            }
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type
             }
             Message::SetCursorPosition(idx) => {
-                let Some(vcd) = self.vcd.as_mut() else {
+                let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                let Some(location) = &vcd.cursor else {
+                let Some(location) = &waves.cursor else {
                     return;
                 };
-                if vcd
+                if waves
                     .displayed_items
                     .iter()
-                    .filter_map(|item| match item {
+                    .find_map(|item| match item {
                         DisplayedItem::Cursor(cursor) => {
                             if cursor.idx == idx {
                                 Some(cursor)
@@ -1216,7 +1361,6 @@ impl State {
                         }
                         _ => None,
                     })
-                    .next()
                     .is_none()
                 {
                     let cursor = DisplayedCursor {
@@ -1225,40 +1369,44 @@ impl State {
                         name: format!("Cursor"),
                         idx,
                     };
-                    vcd.displayed_items.push(DisplayedItem::Cursor(cursor));
+                    waves.displayed_items.push(DisplayedItem::Cursor(cursor));
                 }
-                vcd.cursors.insert(idx, location.clone());
+                waves.cursors.insert(idx, location.clone());
             }
 
             Message::GoToCursorPosition(idx) => {
-                let Some(vcd) = self.vcd.as_mut() else {
+                let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                if let Some(cursor) = vcd.cursors.get(&idx) {
+                if let Some(cursor) = waves.cursors.get(&idx) {
                     let center_point = cursor.to_f64().unwrap();
-                    let half_width = (vcd.viewport.curr_right - vcd.viewport.curr_left) / 2.;
+                    let half_width = (waves.viewport.curr_right - waves.viewport.curr_left) / 2.;
 
-                    vcd.viewport.curr_left = center_point - half_width;
-                    vcd.viewport.curr_right = center_point + half_width;
+                    waves.viewport.curr_left = center_point - half_width;
+                    waves.viewport.curr_right = center_point + half_width;
 
                     self.invalidate_draw_commands();
                 }
             }
 
             Message::ChangeSignalNameType(vidx, name_type) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
                 // checks if vidx is Some then use that, else try focused signal
-                if let Some(idx) = vidx.or(vcd.focused_item) {
-                    if vcd.displayed_items.len() > idx {
-                        if let DisplayedItem::Signal(signal) = &mut vcd.displayed_items[idx] {
+                if let Some(idx) = vidx.or(waves.focused_item) {
+                    if waves.displayed_items.len() > idx {
+                        if let DisplayedItem::Signal(signal) = &mut waves.displayed_items[idx] {
                             signal.display_name_type = name_type;
-                            vcd.compute_signal_display_names();
+                            waves.compute_signal_display_names();
                         }
                     }
                 }
             }
             Message::ForceSignalNameTypes(name_type) => {
-                let Some(vcd) = self.vcd.as_mut() else { return };
+                let Some(vcd) = self.waves.as_mut() else {
+                    return;
+                };
                 for signal in &mut vcd.displayed_items {
                     if let DisplayedItem::Signal(signal) = signal {
                         signal.display_name_type = name_type;
@@ -1279,7 +1427,7 @@ impl State {
                 self.command_prompt.expanded = expanded;
                 self.command_prompt.suggestions = suggestions;
             }
-            Message::OpenFileDialog => {
+            Message::OpenFileDialog(mode) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = FileDialog::new()
                     .set_title("Open waveform file")
@@ -1287,8 +1435,14 @@ impl State {
                     .add_filter("All files", &["*"])
                     .pick_file()
                 {
-                    self.load_vcd_from_file(camino::Utf8PathBuf::from_path_buf(path).unwrap())
-                        .ok();
+                    self.load_vcd_from_file(
+                        camino::Utf8PathBuf::from_path_buf(path).unwrap(),
+                        match mode {
+                            OpenMode::Open => false,
+                            OpenMode::Switch => true,
+                        },
+                    )
+                    .ok();
                 }
             }
             Message::SetAboutVisible(s) => self.show_about = s,
@@ -1328,7 +1482,7 @@ impl State {
         // Canvas relative
         delta: Vec2,
     ) {
-        if let Some(vcd) = &mut self.vcd {
+        if let Some(vcd) = &mut self.waves {
             // Scroll 5% of the viewport per scroll event.
             // One scroll event yields 50
             let scroll_step = -(vcd.viewport.curr_right - vcd.viewport.curr_left) / (50. * 20.);
@@ -1342,7 +1496,7 @@ impl State {
     }
 
     pub fn scroll_to_start(&mut self) {
-        if let Some(vcd) = &mut self.vcd {
+        if let Some(vcd) = &mut self.waves {
             let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
 
             vcd.viewport.curr_left = 0.0;
@@ -1351,7 +1505,7 @@ impl State {
     }
 
     pub fn scroll_to_end(&mut self) {
-        if let Some(vcd) = &mut self.vcd {
+        if let Some(vcd) = &mut self.waves {
             let end_point = vcd.num_timestamps.clone().to_f64().unwrap();
             let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
 
@@ -1361,18 +1515,18 @@ impl State {
     }
 
     pub fn set_center_point(&mut self, center: BigInt) {
-        if let Some(vcd) = &mut self.vcd {
+        if let Some(waves) = &mut self.waves {
             let center_point = center.to_f64().unwrap();
-            let half_width = (vcd.viewport.curr_right - vcd.viewport.curr_left) / 2.;
+            let half_width = (waves.viewport.curr_right - waves.viewport.curr_left) / 2.;
 
-            vcd.viewport.curr_left = center_point - half_width;
-            vcd.viewport.curr_right = center_point + half_width;
+            waves.viewport.curr_left = center_point - half_width;
+            waves.viewport.curr_right = center_point + half_width;
         }
     }
     pub fn zoom_to_fit(&mut self) {
-        if let Some(vcd) = &mut self.vcd {
-            vcd.viewport.curr_left = 0.0;
-            vcd.viewport.curr_right = vcd.num_timestamps.clone().to_f64().unwrap();
+        if let Some(waves) = &mut self.waves {
+            waves.viewport.curr_left = 0.0;
+            waves.viewport.curr_right = waves.num_timestamps.clone().to_f64().unwrap();
         }
     }
 
@@ -1431,33 +1585,26 @@ impl State {
     }
 }
 
-impl VcdData {
-    pub fn signal_name(&self, idx: SignalIdx) -> String {
-        self.inner.signal_from_signal_idx(idx).name()
-    }
-
+impl WaveData {
     pub fn select_preferred_translator(
         &self,
-        sig: SignalIdx,
+        sig: SignalMeta,
         translators: &TranslatorList,
     ) -> String {
         translators
             .all_translators()
             .iter()
-            .filter_map(|t| {
-                let signal = self.inner.signal_from_signal_idx(sig);
-                match t.translates(&signal) {
-                    Ok(TranslationPreference::Prefer) => Some(t.name()),
-                    Ok(TranslationPreference::Yes) => None,
-                    Ok(TranslationPreference::No) => None,
-                    Err(e) => {
-                        error!(
-                            "Failed to check if {} translates {}\n{e:#?}",
-                            t.name(),
-                            signal.name()
-                        );
-                        None
-                    }
+            .filter_map(|t| match t.translates(&sig) {
+                Ok(TranslationPreference::Prefer) => Some(t.name()),
+                Ok(TranslationPreference::Yes) => None,
+                Ok(TranslationPreference::No) => None,
+                Err(e) => {
+                    error!(
+                        "Failed to check if {} translates {}\n{e:#?}",
+                        t.name(),
+                        sig.sig.full_path_string()
+                    );
+                    None
                 }
             })
             .next()
@@ -1466,12 +1613,18 @@ impl VcdData {
 
     pub fn signal_translator<'a>(
         &'a self,
-        sig: TraceIdx,
+        field: &FieldRef,
         translators: &'a TranslatorList,
     ) -> &'a dyn Translator {
-        let translator_name = self.signal_format.get(&sig).cloned().unwrap_or_else(|| {
-            if sig.1.is_empty() {
-                self.select_preferred_translator(sig.0, translators)
+        let translator_name = self.signal_format.get(&field).cloned().unwrap_or_else(|| {
+            if field.field.is_empty() {
+                self.inner
+                    .signal_meta(&field.root)
+                    .map(|meta| self.select_preferred_translator(meta, translators))
+                    .unwrap_or_else(|e| {
+                        warn!("{e:#?}");
+                        translators.default.clone()
+                    })
             } else {
                 translators.default.clone()
             }
@@ -1510,57 +1663,27 @@ impl VcdData {
         self.viewport.curr_right = target_right;
     }
 
-    // Initializes the scopes_to_ids and signals_to_ids
-    // fields by iterating down the scope hierarchy and collectiong
-    // the absolute names of all signals and scopes
-    pub fn initialize_signal_scope_maps(&mut self) {
-        // in scope S and path P, adds all signals x to all_signal_names
-        // as [S.]P.x
-        // does the same for scopes
-        // goes down into subscopes and does the same there
-        fn add_scope_signals(scope: ScopeIdx, path: String, vcd: &mut VcdData) {
-            let scope_name = vcd.inner.scope_name_by_idx(scope);
-            let full_scope_name = if !path.is_empty() {
-                format!("{path}.{}", scope_name)
-            } else {
-                scope_name.to_string()
-            };
-            vcd.scopes_to_ids.insert(full_scope_name.clone(), scope);
+    pub fn add_signal(&mut self, translators: &TranslatorList, sig: &SignalRef) {
+        let Ok(meta) = self
+            .inner
+            .signal_meta(&sig)
+            .context("When adding signal")
+            .map_err(|e| error!("{e:#?}"))
+        else {
+            return;
+        };
 
-            let signal_idxs = vcd.inner.get_children_signal_idxs(scope);
-            for signal in signal_idxs {
-                let signal_name = vcd.inner.signal_from_signal_idx(signal).name();
-                if !signal_name.starts_with('_') {
-                    let fullname = format!("{}.{}", full_scope_name, signal_name);
-                    vcd.signals_to_ids.insert(fullname.clone(), signal);
-                    vcd.ids_to_fullnames.insert(signal, fullname);
-                }
-            }
-
-            for sub_scope in vcd.inner.child_scopes_by_idx(scope) {
-                add_scope_signals(sub_scope, full_scope_name.clone(), vcd);
-            }
-        }
-
-        for root_scope in self.inner.root_scopes_by_idx() {
-            add_scope_signals(root_scope, String::from(""), self);
-        }
-    }
-
-    pub fn add_signal(&mut self, translators: &TranslatorList, sidx: SignalIdx) {
-        let signal = self.inner.signal_from_signal_idx(sidx);
-        let translator = self.signal_translator((sidx, vec![]), translators);
-        let info = translator
-            .signal_info(&signal, &self.signal_name(sidx))
-            .unwrap();
+        let translator =
+            self.signal_translator(&FieldRef::without_fields(sig.clone()), translators);
+        let info = translator.signal_info(&meta).unwrap();
 
         self.displayed_items
             .push(DisplayedItem::Signal(DisplayedSignal {
-                idx: sidx,
+                signal_ref: sig.clone(),
                 info,
                 color: None,
                 background_color: None,
-                display_name: signal.name().clone(),
+                display_name: sig.name.clone(),
                 display_name_type: self.default_signal_name_type,
             }));
         self.compute_signal_display_names();
@@ -1571,34 +1694,26 @@ impl VcdData {
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Signal(idx) => Some(idx),
+                DisplayedItem::Signal(signal_ref) => Some(signal_ref),
                 _ => None,
             })
-            .map(|sig| sig.idx)
+            .map(|sig| sig.signal_ref.full_path_string())
             .unique()
-            .map(|idx| {
-                self.ids_to_fullnames
-                    .get(&idx)
-                    .map(|name| name.clone())
-                    .unwrap_or_else(|| self.inner.signal_from_signal_idx(idx).name())
-            })
             .collect_vec();
 
         for item in &mut self.displayed_items {
             match item {
                 DisplayedItem::Signal(signal) => {
-                    let local_name = self.inner.signal_from_signal_idx(signal.idx).name();
+                    let local_name = signal.signal_ref.name.clone();
                     signal.display_name = match signal.display_name_type {
                         SignalNameType::Local => local_name,
-                        SignalNameType::Global => self
-                            .ids_to_fullnames
-                            .get(&signal.idx)
-                            .unwrap_or(&local_name)
-                            .clone(),
+                        SignalNameType::Global => signal.signal_ref.full_path_string(),
                         SignalNameType::Unique => {
                             /// This function takes a full signal name and a list of other
                             /// full signal names and returns a minimal unique signal name.
                             /// It takes scopes from the back of the signal until the name is unique.
+                            // FIXME: Rewrite this to take SignalRef which already has done the
+                            // `.` splitting
                             fn unique(signal: String, signals: &[String]) -> String {
                                 // if the full signal name is very short just return it
                                 if signal.len() < 20 {
@@ -1634,7 +1749,7 @@ impl VcdData {
                                 take_front(&split_this, l)
                             }
 
-                            let full_name = self.ids_to_fullnames.get(&signal.idx).unwrap().clone();
+                            let full_name = signal.signal_ref.full_path_string();
                             unique(full_name, &full_names)
                         }
                     };

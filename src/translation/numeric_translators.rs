@@ -1,6 +1,8 @@
 use color_eyre::Result;
-use fastwave_backend::{Signal, SignalValue};
+use fastwave_backend::SignalValue;
 use num::BigUint;
+
+use crate::wave_container::SignalMeta;
 
 use super::{
     map_vector_signal, translates_all_bit_types, BasicTranslator, NumberParseResult,
@@ -10,7 +12,7 @@ use super::{
 pub trait NumericTranslator {
     fn name(&self) -> String;
     fn translate_biguint(&self, _: u64, _: BigUint) -> String;
-    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         translates_all_bit_types(signal)
     }
 }
@@ -35,7 +37,7 @@ impl<T: NumericTranslator> BasicTranslator for T {
         }
     }
 
-    fn translates(&self, signal: &Signal) -> Result<TranslationPreference> {
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         self.translates(signal)
     }
 }
