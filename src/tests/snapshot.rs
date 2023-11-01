@@ -351,19 +351,19 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 snapshot_ui_with_file_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
-    Message::SetClockHighlightType(crate::ClockHighlightType::Line),
+    Message::SetClockHighlightType(crate::clock_highlighting::ClockHighlightType::Line),
 ]}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
-    Message::SetClockHighlightType(crate::ClockHighlightType::Cycle),
+    Message::SetClockHighlightType(crate::clock_highlighting::ClockHighlightType::Cycle),
 ]}
 
 snapshot_ui_with_file_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
-    Message::SetClockHighlightType(crate::ClockHighlightType::None),
+    Message::SetClockHighlightType(crate::clock_highlighting::ClockHighlightType::None),
 ]}
 
 snapshot_ui_with_file_msgs! {vertical_scrolling_works, "examples/picorv32.vcd", [
