@@ -3,7 +3,8 @@ use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{FontId, Pos2, Rect, Stroke, Vec2};
 use num::ToPrimitive;
 
-use crate::view::{time_string, DrawingContext};
+use crate::time::time_string;
+use crate::view::DrawingContext;
 use crate::{Message, State, WaveData};
 
 #[derive(Clone, PartialEq, Copy)]
