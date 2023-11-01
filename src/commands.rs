@@ -2,9 +2,10 @@ use std::collections::BTreeMap;
 use std::{fs, str::FromStr};
 
 use crate::{
+    message::Message,
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
     wave_container::{ModuleRef, SignalRef},
-    ClockHighlightType, DisplayedItem, Message, SignalNameType, State,
+    ClockHighlightType, DisplayedItem, SignalNameType, State,
 };
 
 use fzcmd::{expand_command, Command, FuzzyOutput, ParamGreed};

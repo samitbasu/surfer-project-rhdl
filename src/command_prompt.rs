@@ -9,7 +9,8 @@ use fzcmd::parse_command;
 
 use crate::{
     commands::{get_parser, run_fuzzy_parser},
-    Message, State,
+    message::Message,
+    State,
 };
 
 pub struct CommandPrompt {
