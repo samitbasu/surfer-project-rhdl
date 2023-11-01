@@ -85,13 +85,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         })
         .unwrap_or_default();
 
-    let color_names = state
-        .config
-        .theme
-        .colors
-        .keys()
-        .map(|k| k.clone())
-        .collect_vec();
+    let color_names = state.config.theme.colors.keys().cloned().collect_vec();
 
     fn vcd_files() -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
@@ -107,18 +101,18 @@ pub fn get_parser(state: &State) -> Command<Message> {
         }
     }
 
-    let cursors = state
-        .vcd
-        .as_ref()
-        .unwrap()
-        .displayed_items
-        .iter()
-        .filter_map(|item| match item {
-            DisplayedItem::Cursor(tmp_cursor) => Some(tmp_cursor),
-            _ => None,
-        })
-        .map(|cursor| (cursor.name.clone(), cursor.idx))
-        .collect::<BTreeMap<_, _>>();
+    let cursors = if let Some(vcd) = &state.vcd {
+        vcd.displayed_items
+            .iter()
+            .filter_map(|item| match item {
+                DisplayedItem::Cursor(tmp_cursor) => Some(tmp_cursor),
+                _ => None,
+            })
+            .map(|cursor| (cursor.name.clone(), cursor.idx))
+            .collect::<BTreeMap<_, _>>()
+    } else {
+        BTreeMap::new()
+    };
 
     Command::NonTerminal(
         ParamGreed::Word,
@@ -264,7 +258,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "preference_set_clock_highlight" => single_word(
-                    vec!["Line", "Cycle", "None"]
+                    ["Line", "Cycle", "None"]
                         .iter()
                         .map(|o| o.to_string())
                         .collect_vec(),
