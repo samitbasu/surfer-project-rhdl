@@ -4,7 +4,6 @@ use num::BigUint;
 
 use crate::fast_wave_container::FastWaveContainer;
 
-// TODO: Should we call this ModuleRef or ScopeRef?
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ModuleRef(Vec<String>);
 
@@ -35,7 +34,7 @@ impl std::fmt::Display for ModuleRef {
     }
 }
 
-// TODO: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` would be better
+// FIXME: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` or Rc/Arc would be better
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SignalRef {
     /// Path in the module hierarchy to where this signal resides
@@ -175,6 +174,12 @@ impl WaveContainer {
     pub fn modules(&self) -> Vec<ModuleRef> {
         match self {
             WaveContainer::Fwb(f) => f.modules(),
+        }
+    }
+
+    pub fn has_module(&self, module: &ModuleRef) -> bool {
+        match self {
+            WaveContainer::Fwb(f) => f.module_map.contains_key(module),
         }
     }
 

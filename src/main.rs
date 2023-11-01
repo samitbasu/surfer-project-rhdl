@@ -96,7 +96,7 @@ struct Args {
 struct StartupParams {
     pub spade_state: Option<Utf8PathBuf>,
     pub spade_top: Option<String>,
-    pub vcd: Option<WaveSource>,
+    pub waves: Option<WaveSource>,
 }
 
 impl StartupParams {
@@ -105,7 +105,7 @@ impl StartupParams {
         Self {
             spade_state: None,
             spade_top: None,
-            vcd: None,
+            waves: None,
         }
     }
 
@@ -114,7 +114,7 @@ impl StartupParams {
         Self {
             spade_state: None,
             spade_top: None,
-            vcd: url.map(WaveSource::Url),
+            waves: url.map(WaveSource::Url),
         }
     }
 
@@ -123,7 +123,7 @@ impl StartupParams {
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
-            vcd: args.vcd_file.map(WaveSource::File),
+            waves: args.vcd_file.map(WaveSource::File),
         }
     }
 }
@@ -808,7 +808,7 @@ impl State {
             item_renaming_string: RefCell::new(String::new()),
         };
 
-        match args.vcd {
+        match args.waves {
             Some(WaveSource::Url(url)) => result.load_vcd_from_url(url, false),
             Some(WaveSource::File(file)) => result.load_vcd_from_file(file, false).unwrap(),
             Some(WaveSource::DragAndDrop(_)) => {
@@ -929,12 +929,15 @@ impl State {
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::SetActiveScope(sig) => {
+            Message::SetActiveScope(module) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                // TODO: Perhaps we should verify that the scope exists here
-                waves.active_module = Some(sig)
+                if waves.inner.has_module(&module) {
+                    waves.active_module = Some(module)
+                } else {
+                    warn!("Setting active scope to {module} which does not exist")
+                }
             }
             Message::AddSignal(sig) => {
                 self.invalidate_draw_commands();
@@ -1709,7 +1712,7 @@ impl WaveData {
                             /// This function takes a full signal name and a list of other
                             /// full signal names and returns a minimal unique signal name.
                             /// It takes scopes from the back of the signal until the name is unique.
-                            // TODO: Rewrite this to take SignalRef which already has done the
+                            // FIXME: Rewrite this to take SignalRef which already has done the
                             // `.` splitting
                             fn unique(signal: String, signals: &[String]) -> String {
                                 // if the full signal name is very short just return it

@@ -692,7 +692,7 @@ impl State {
         let Some(child_modules) = wave
             .inner
             .child_modules(module)
-            .context("Faield to get child modules")
+            .context("Failed to get child modules")
             .map_err(|e| warn!("{e:#?}"))
             .ok()
         else {
@@ -739,7 +739,7 @@ impl State {
         let Some(child_modules) = wave
             .inner
             .child_modules(root_module)
-            .context("Faield to get child modules")
+            .context("Failed to get child modules")
             .map_err(|e| warn!("{e:#?}"))
             .ok()
         else {
@@ -1243,8 +1243,6 @@ impl State {
                                 if let Some((_, Some((v, _)))) = subfield {
                                     ui.label(v).context_menu(|ui| {
                                         self.item_context_menu(
-                                            // TODO: I'm pretty sure this is wrong, we shouldn't
-                                            // create a root field here
                                             Some(&FieldRef::without_fields(signal.clone())),
                                             msgs,
                                             ui,
