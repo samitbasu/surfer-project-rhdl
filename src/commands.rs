@@ -107,18 +107,18 @@ pub fn get_parser(state: &State) -> Command<Message> {
         }
     }
 
-    let cursors = state
-        .vcd
-        .as_ref()
-        .unwrap()
-        .displayed_items
-        .iter()
-        .filter_map(|item| match item {
-            DisplayedItem::Cursor(tmp_cursor) => Some(tmp_cursor),
-            _ => None,
-        })
-        .map(|cursor| (cursor.name.clone(), cursor.idx))
-        .collect::<BTreeMap<_, _>>();
+    let cursors = if let Some(vcd) = &state.vcd {
+        vcd.displayed_items
+            .iter()
+            .filter_map(|item| match item {
+                DisplayedItem::Cursor(tmp_cursor) => Some(tmp_cursor),
+                _ => None,
+            })
+            .map(|cursor| (cursor.name.clone(), cursor.idx))
+            .collect::<BTreeMap<_, _>>()
+    } else {
+        BTreeMap::new()
+    };
 
     Command::NonTerminal(
         ParamGreed::Word,
