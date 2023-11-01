@@ -28,11 +28,7 @@ pub fn show_command_prompt(
     egui::Window::new("Commands")
         .anchor(Align2::CENTER_TOP, Vec2::ZERO)
         .title_bar(false)
-        .min_width({
-            let width = window_size.map(|s| s.x * 0.3).unwrap_or(200.);
-
-            width
-        })
+        .min_width(window_size.map(|s| s.x * 0.3).unwrap_or(200.))
         .resizable(true)
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
@@ -47,7 +43,7 @@ pub fn show_command_prompt(
                     );
 
                     if response.changed() {
-                        run_fuzzy_parser(&input, state, msgs);
+                        run_fuzzy_parser(input, state, msgs);
                     }
 
                     if response.lost_focus()
@@ -56,10 +52,10 @@ pub fn show_command_prompt(
                         let command_parsed =
                             parse_command(&state.command_prompt.expanded, get_parser(state)).ok();
 
-                        if command_parsed.is_some() {
+                        if let Some(command_parsed) = command_parsed {
                             msgs.push(Message::ShowCommandPrompt(false));
                             msgs.push(Message::CommandPromptClear);
-                            msgs.push(command_parsed.unwrap());
+                            msgs.push(command_parsed);
                         }
                     }
 
@@ -70,7 +66,7 @@ pub fn show_command_prompt(
             ui.separator();
 
             // show expanded command below textedit
-            if state.command_prompt.expanded != "" {
+            if !state.command_prompt.expanded.is_empty() {
                 let mut job = LayoutJob::default();
                 // // indicate that the first row is selected
                 job.append(
