@@ -49,10 +49,10 @@ impl State {
                     }
                     (Key::Home, true, false, false) => msgs.push(Message::SetVerticalScroll(0)),
                     (Key::End, true, false, false) => {
-                        if let Some(vcd) = &self.waves {
-                            if vcd.displayed_items.len() > 1 {
+                        if let Some(waves) = &self.waves {
+                            if waves.displayed_items.len() > 1 {
                                 msgs.push(Message::SetVerticalScroll(
-                                    vcd.displayed_items.len() - 1,
+                                    waves.displayed_items.len() - 1,
                                 ));
                             }
                         }
@@ -117,8 +117,8 @@ impl State {
                         msgs.push(Message::InvalidateCount);
                     }
                     (Key::Delete, true, false, false) => {
-                        if let Some(vcd) = &self.waves {
-                            if let Some(idx) = vcd.focused_item {
+                        if let Some(waves) = &self.waves {
+                            if let Some(idx) = waves.focused_item {
                                 msgs.push(Message::RemoveItem(idx, self.get_count()));
                                 msgs.push(Message::InvalidateCount);
                             }
