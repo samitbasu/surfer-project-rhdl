@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use color_eyre::eyre::Context;
+use color_eyre::eyre::WrapErr;
 use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
@@ -9,7 +9,9 @@ use num::BigRational;
 use num::ToPrimitive;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
+use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
+use crate::cursor::draw_cursor_boxes;
 use crate::translation::{SignalInfo, ValueKind};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::wave_container::FieldRef;
@@ -114,7 +116,7 @@ impl State {
 
                     // In order to insert a final draw command at the end of a trace,
                     // we need to know if this is the last timestamp to draw
-                    let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
+                    let end_pixel = timestamps.iter().last().map(|t| (*t).0).unwrap_or_default();
                     // The first pixel we actually draw is the second pixel in the
                     // list, since we skip one pixel to have a previous value
                     let start_pixel = timestamps
@@ -269,7 +271,7 @@ impl State {
             *self.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
-        let Some(vcd) = &self.waves else { return };
+        let Some(waves) = &self.waves else { return };
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
@@ -287,7 +289,7 @@ impl State {
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr_timestamp = vcd
+                let mouse_ptr_timestamp = waves
                     .viewport
                     .to_time(mouse_ptr_pos.x as f64, frame_width)
                     .to_f64();
@@ -301,7 +303,7 @@ impl State {
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
             let x = pointer_pos_canvas.unwrap().x;
-            let timestamp = vcd.viewport.to_time(x as f64, frame_width);
+            let timestamp = waves.viewport.to_time(x as f64, frame_width);
             msgs.push(Message::CursorSet(timestamp.round().to_integer()));
         });
 
@@ -327,7 +329,7 @@ impl State {
         let gap = self.get_item_gap(item_offsets, &ctx);
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
             let default_background_color = self.get_default_alternating_background_color(idx);
-            let background_color = *vcd
+            let background_color = *waves
                 .displayed_items
                 .get(drawing_info.signal_list_idx())
                 .and_then(|signal| signal.background_color())
@@ -344,7 +346,7 @@ impl State {
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
 
-        self.draw_mouse_gesture_widget(vcd, pointer_pos_canvas, &response, msgs, &mut ctx);
+        self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
 
         if let Some(draw_data) = &*self.draw_data.borrow() {
             let clock_edges = &draw_data.clock_edges;
@@ -359,7 +361,7 @@ impl State {
                 let mut last_edge = 0.0;
                 let mut cycle = false;
                 for current_edge in clock_edges {
-                    self.draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx);
+                    draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx, &self.config);
                     cycle = !cycle;
                     last_edge = *current_edge;
                 }
@@ -371,7 +373,7 @@ impl State {
                 // compensate for that
                 let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
 
-                let color = *vcd
+                let color = *waves
                     .displayed_items
                     .get(drawing_info.signal_list_idx())
                     .and_then(|signal| signal.color())
@@ -403,21 +405,30 @@ impl State {
             }
         }
 
-        vcd.draw_cursor(
+        waves.draw_cursor(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             to_screen,
         );
 
-        vcd.draw_cursors(
+        waves.draw_cursors(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             to_screen,
         );
 
-        self.draw_cursor_boxes(ctx, item_offsets, to_screen, vcd, response, gap);
+        draw_cursor_boxes(
+            ctx,
+            item_offsets,
+            to_screen,
+            waves,
+            response,
+            gap,
+            &self.config,
+            self.wanted_timescale,
+        );
     }
 
     fn draw_region(
