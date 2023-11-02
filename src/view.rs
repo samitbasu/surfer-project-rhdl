@@ -9,7 +9,7 @@ use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
-use crate::displayed_item::DisplayedItem;
+use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window};
 use crate::signal_filter::filtered_signals;
 use crate::time::{time_string, timescale_menu};
@@ -17,7 +17,8 @@ use crate::util::uint_idx_to_alpha_idx;
 use crate::wave_container::{FieldRef, ModuleRef};
 use crate::wave_source::draw_progress_panel;
 use crate::{
-    command_prompt::show_command_prompt, translation::SignalInfo, Message, MoveDir, State, WaveData,
+    command_prompt::show_command_prompt, translation::SignalInfo, wave_data::WaveData, Message,
+    MoveDir, State,
 };
 
 pub struct DrawingContext<'a> {
@@ -281,7 +282,12 @@ impl State {
                     });
 
                 if let Some(idx) = self.rename_target {
-                    self.draw_rename_window(ctx, &mut msgs, idx);
+                    draw_rename_window(
+                        ctx,
+                        &mut msgs,
+                        idx,
+                        &mut *self.item_renaming_string.borrow_mut(),
+                    );
                 }
             }
         };
@@ -469,12 +475,12 @@ impl State {
     fn draw_item_list(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &WaveData,
+        waves: &WaveData,
         ui: &mut egui::Ui,
     ) -> Vec<ItemDrawingInfo> {
         let mut item_offsets = Vec::new();
 
-        for (vidx, displayed_item) in vcd.displayed_items.iter().enumerate().skip(vcd.scroll) {
+        for (vidx, displayed_item) in waves.displayed_items.iter().enumerate().skip(waves.scroll) {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| match displayed_item {

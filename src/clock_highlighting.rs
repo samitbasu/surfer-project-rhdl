@@ -1,9 +1,12 @@
 use std::str::FromStr;
 
-use eframe::epaint::{Pos2, Rect, Stroke};
+use eframe::{
+    egui,
+    epaint::{Pos2, Rect, Stroke},
+};
 use serde::Deserialize;
 
-use crate::{view::DrawingContext, State};
+use crate::{config::SurferConfig, message::Message, view::DrawingContext};
 
 #[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
 pub enum ClockHighlightType {
@@ -38,43 +41,70 @@ impl std::fmt::Display for ClockHighlightType {
     }
 }
 
-impl State {
-    pub fn draw_clock_edge(&self, x_start: f32, x_end: f32, cycle: bool, ctx: &mut DrawingContext) {
-        match self.config.default_clock_highlight_type {
-            ClockHighlightType::Line => {
+pub fn draw_clock_edge(
+    x_start: f32,
+    x_end: f32,
+    cycle: bool,
+    ctx: &mut DrawingContext,
+    config: &SurferConfig,
+) {
+    match config.default_clock_highlight_type {
+        ClockHighlightType::Line => {
+            let Pos2 {
+                x: x_pos,
+                y: y_start,
+            } = (ctx.to_screen)(x_start, 0.);
+            ctx.painter.vline(
+                x_pos,
+                (y_start)..=(y_start + ctx.cfg.canvas_height),
+                Stroke {
+                    color: config.theme.clock_highlight_line.color,
+                    width: config.theme.clock_highlight_line.width,
+                },
+            );
+        }
+        ClockHighlightType::Cycle => {
+            if cycle {
                 let Pos2 {
-                    x: x_pos,
+                    x: x_end,
                     y: y_start,
-                } = (ctx.to_screen)(x_start, 0.);
-                ctx.painter.vline(
-                    x_pos,
-                    (y_start)..=(y_start + ctx.cfg.canvas_height),
-                    Stroke {
-                        color: self.config.theme.clock_highlight_line.color,
-                        width: self.config.theme.clock_highlight_line.width,
+                } = (ctx.to_screen)(x_end, 0.);
+                ctx.painter.rect_filled(
+                    Rect {
+                        min: (ctx.to_screen)(x_start, 0.),
+                        max: Pos2 {
+                            x: x_end,
+                            y: ctx.cfg.canvas_height + y_start,
+                        },
                     },
+                    0.0,
+                    config.theme.clock_highlight_cycle,
                 );
             }
-            ClockHighlightType::Cycle => {
-                if cycle {
-                    let Pos2 {
-                        x: x_end,
-                        y: y_start,
-                    } = (ctx.to_screen)(x_end, 0.);
-                    ctx.painter.rect_filled(
-                        Rect {
-                            min: (ctx.to_screen)(x_start, 0.),
-                            max: Pos2 {
-                                x: x_end,
-                                y: ctx.cfg.canvas_height + y_start,
-                            },
-                        },
-                        0.0,
-                        self.config.theme.clock_highlight_cycle,
-                    );
-                }
-            }
-            ClockHighlightType::None => (),
         }
+        ClockHighlightType::None => (),
+    }
+}
+
+pub fn clock_highlight_type_menu(
+    ui: &mut egui::Ui,
+    msgs: &mut Vec<Message>,
+    clock_highlight_type: ClockHighlightType,
+) {
+    let highlight_types = vec![
+        ClockHighlightType::Line,
+        ClockHighlightType::Cycle,
+        ClockHighlightType::None,
+    ];
+    for highlight_type in highlight_types {
+        ui.radio(
+            highlight_type == clock_highlight_type,
+            highlight_type.to_string(),
+        )
+        .clicked()
+        .then(|| {
+            ui.close_menu();
+            msgs.push(Message::SetClockHighlightType(highlight_type));
+        });
     }
 }

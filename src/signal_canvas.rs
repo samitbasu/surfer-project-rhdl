@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use color_eyre::eyre::Context;
+use color_eyre::eyre::WrapErr;
 use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
@@ -9,7 +9,9 @@ use num::BigRational;
 use num::ToPrimitive;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
+use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
+use crate::cursor::draw_cursor_boxes;
 use crate::translation::{SignalInfo, ValueKind};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::wave_container::FieldRef;
@@ -114,7 +116,7 @@ impl State {
 
                     // In order to insert a final draw command at the end of a trace,
                     // we need to know if this is the last timestamp to draw
-                    let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
+                    let end_pixel = timestamps.iter().last().map(|t| (*t).0).unwrap_or_default();
                     // The first pixel we actually draw is the second pixel in the
                     // list, since we skip one pixel to have a previous value
                     let start_pixel = timestamps
@@ -359,7 +361,7 @@ impl State {
                 let mut last_edge = 0.0;
                 let mut cycle = false;
                 for current_edge in clock_edges {
-                    self.draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx);
+                    draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx, &self.config);
                     cycle = !cycle;
                     last_edge = *current_edge;
                 }
@@ -417,7 +419,16 @@ impl State {
             to_screen,
         );
 
-        self.draw_cursor_boxes(ctx, item_offsets, to_screen, vcd, response, gap);
+        draw_cursor_boxes(
+            ctx,
+            item_offsets,
+            to_screen,
+            vcd,
+            response,
+            gap,
+            &self.config,
+            self.wanted_timescale,
+        );
     }
 
     fn draw_region(
