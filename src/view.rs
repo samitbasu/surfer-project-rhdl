@@ -1,25 +1,23 @@
 use color_eyre::eyre::Context;
-use eframe::egui::{self, style::Margin, Align, Color32, Event, Key, Layout, Painter, RichText};
-use eframe::egui::{menu, Frame, Grid, Sense, TextStyle, Ui};
+use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
+use eframe::egui::{Frame, Sense, TextStyle};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
-use fastwave_backend::{Metadata, Timescale};
 use itertools::Itertools;
 use log::{info, warn};
-use num::{BigInt, BigRational, ToPrimitive};
-use regex::Regex;
+use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
+use crate::displayed_item::DisplayedItem;
+use crate::files::draw_progress_panel;
+use crate::help::{draw_about_window, draw_control_help_window};
+use crate::signal_filter::filtered_signals;
+use crate::time::{time_string, timescale_menu};
 use crate::util::uint_idx_to_alpha_idx;
-use crate::wave_container::{FieldRef, ModuleRef, SignalRef};
+use crate::wave_container::{FieldRef, ModuleRef};
 use crate::{
-    command_prompt::show_command_prompt,
-    translation::{SignalInfo, TranslationPreference},
-    Message, MoveDir, State, WaveData,
-};
-use crate::{
-    ClockHighlightType, DisplayedItem, LoadProgress, OpenMode, SignalFilterType, SignalNameType,
+    command_prompt::show_command_prompt, translation::SignalInfo, Message, MoveDir, State, WaveData,
 };
 
 pub struct DrawingContext<'a> {
@@ -195,58 +193,7 @@ impl State {
                                     ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                                         ui.heading("Signals");
                                         ui.add_space(3.0);
-                                        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                                            ui.button("➕")
-                                                .on_hover_text("Add all signals")
-                                                .clicked()
-                                                .then(|| {
-                                                    if let Some(waves) = self.waves.as_ref() {
-                                                        // Iterate over the reversed list to get
-                                                        // waves in the same order as the signal
-                                                        // list
-                                                        for sig in self
-                                                            .listed_signals(waves, filter)
-                                                            .into_iter()
-                                                            .rev()
-                                                        {
-                                                            msgs.push(Message::AddSignal(sig))
-                                                        }
-                                                    }
-                                                });
-                                            ui.button("❌")
-                                                .on_hover_text("Clear filter")
-                                                .clicked()
-                                                .then(|| filter.clear());
-
-                                            // Check if regex and if an incorrect regex, change background color
-                                            if self.signal_filter_type == SignalFilterType::Regex
-                                                && Regex::new(filter).is_err()
-                                            {
-                                                ui.style_mut().visuals.extreme_bg_color =
-                                                    self.config.theme.accent_error.background;
-                                            }
-                                            // Create text edit
-                                            let response = ui
-                                                .add(
-                                                    egui::TextEdit::singleline(filter).hint_text(
-                                                        "Filter (context menu for type)",
-                                                    ),
-                                                )
-                                                .context_menu(|ui| {
-                                                    signal_filter_type_menu(
-                                                        ui,
-                                                        &mut msgs,
-                                                        &self.signal_filter_type,
-                                                    )
-                                                });
-                                            // Handle focus
-                                            if response.gained_focus() {
-                                                msgs.push(Message::SetFilterFocused(true));
-                                            }
-                                            if response.lost_focus() {
-                                                msgs.push(Message::SetFilterFocused(false));
-                                            }
-                                        })
+                                        self.draw_signal_filter_edit(ui, filter, &mut msgs);
                                     });
                                     ui.add_space(3.0);
 
@@ -268,30 +215,7 @@ impl State {
         }
 
         if let Some(vcd_progress_data) = &self.vcd_progress {
-            egui::TopBottomPanel::top("progress panel").show(ctx, |ui| {
-                ui.vertical_centered_justified(|ui| match vcd_progress_data {
-                    LoadProgress::Downloading(url) => {
-                        ui.spinner();
-                        ui.monospace(format!("Downloading {url}"));
-                    }
-                    LoadProgress::Loading(total_bytes, bytes_done) => {
-                        let num_bytes = bytes_done.load(std::sync::atomic::Ordering::Relaxed);
-
-                        if let Some(total) = total_bytes {
-                            ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
-                            let progress = num_bytes as f32 / *total as f32;
-                            let progress_bar = egui::ProgressBar::new(progress)
-                                .show_percentage()
-                                .desired_width(300.);
-
-                            ui.add(progress_bar);
-                        } else {
-                            ui.spinner();
-                            ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
-                        };
-                    }
-                });
-            });
+            draw_progress_panel(ctx, vcd_progress_data);
         }
 
         if let Some(vcd) = &self.waves {
@@ -357,29 +281,7 @@ impl State {
                     });
 
                 if let Some(idx) = self.rename_target {
-                    let mut open = true;
-                    let name = &mut *self.item_renaming_string.borrow_mut();
-                    egui::Window::new("Rename item")
-                        .open(&mut open)
-                        .collapsible(false)
-                        .resizable(true)
-                        .show(ctx, |ui| {
-                            ui.vertical_centered(|ui| {
-                                ui.text_edit_singleline(name);
-                                ui.horizontal(|ui| {
-                                    if ui.button("Rename").clicked() {
-                                        msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
-                                        msgs.push(Message::SetRenameItemVisible(false))
-                                    }
-                                    if ui.button("Cancel").clicked() {
-                                        msgs.push(Message::SetRenameItemVisible(false))
-                                    }
-                                });
-                            });
-                        });
-                    if !open {
-                        msgs.push(Message::SetRenameItemVisible(false))
-                    }
+                    self.draw_rename_window(ctx, &mut msgs, idx);
                 }
             }
         };
@@ -411,62 +313,11 @@ impl State {
         }
 
         if self.show_about {
-            let mut open = true;
-            egui::Window::new("About Surfer")
-                .open(&mut open)
-                .collapsible(false)
-                .resizable(true)
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
-                        ui.add_space(20.);
-                        ui.label(format!("Version: {ver}", ver = env!("CARGO_PKG_VERSION")));
-                        ui.label(format!(
-                            "Exact version: {info}",
-                            info = env!("VERGEN_GIT_DESCRIBE")
-                        ));
-                        ui.label(format!(
-                            "Build date: {date}",
-                            date = env!("VERGEN_BUILD_DATE")
-                        ));
-                        ui.hyperlink_to(" repository", "https://gitlab.com/surfer-project/surfer");
-                        ui.add_space(10.);
-                        if ui.button("Close").clicked() {
-                            msgs.push(Message::SetAboutVisible(false))
-                        }
-                    });
-                });
-            if !open {
-                msgs.push(Message::SetAboutVisible(false))
-            }
+            draw_about_window(ctx, &mut msgs);
         }
 
         if self.show_keys {
-            let mut open = true;
-            egui::Window::new("🖮 Surfer control")
-                .collapsible(true)
-                .resizable(true)
-                .open(&mut open)
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let layout = egui::Layout::top_down(egui::Align::LEFT);
-                        ui.allocate_ui_with_layout(
-                            Vec2 {
-                                x: max_width * 0.35,
-                                y: max_height * 0.5,
-                            },
-                            layout,
-                            |ui| self.key_listing(ui),
-                        );
-                        ui.add_space(10.);
-                        if ui.button("Close").clicked() {
-                            msgs.push(Message::SetKeyHelpVisible(false))
-                        }
-                    });
-                });
-            if !open {
-                msgs.push(Message::SetKeyHelpVisible(false))
-            }
+            draw_control_help_window(ctx, max_width, max_height, &mut msgs);
         }
 
         if self.show_gestures {
@@ -515,161 +366,6 @@ impl State {
         }
 
         msgs
-    }
-
-    fn handle_pressed_keys(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
-        ctx.input(|i| {
-            i.events.iter().for_each(|event| match event {
-                Event::Key {
-                    key,
-                    repeat: _,
-                    pressed,
-                    modifiers,
-                } => match (
-                    key,
-                    pressed,
-                    self.command_prompt.visible,
-                    self.signal_filter_focused,
-                ) {
-                    (Key::Num0, true, false, false) => {
-                        handle_digit(0, modifiers, msgs);
-                    }
-                    (Key::Num1, true, false, false) => {
-                        handle_digit(1, modifiers, msgs);
-                    }
-                    (Key::Num2, true, false, false) => {
-                        handle_digit(2, modifiers, msgs);
-                    }
-                    (Key::Num3, true, false, false) => {
-                        handle_digit(3, modifiers, msgs);
-                    }
-                    (Key::Num4, true, false, false) => {
-                        handle_digit(4, modifiers, msgs);
-                    }
-                    (Key::Num5, true, false, false) => {
-                        handle_digit(5, modifiers, msgs);
-                    }
-                    (Key::Num6, true, false, false) => {
-                        handle_digit(6, modifiers, msgs);
-                    }
-                    (Key::Num7, true, false, false) => {
-                        handle_digit(7, modifiers, msgs);
-                    }
-                    (Key::Num8, true, false, false) => {
-                        handle_digit(8, modifiers, msgs);
-                    }
-                    (Key::Num9, true, false, false) => {
-                        handle_digit(9, modifiers, msgs);
-                    }
-                    (Key::Home, true, false, false) => msgs.push(Message::SetVerticalScroll(0)),
-                    (Key::End, true, false, false) => {
-                        if let Some(vcd) = &self.waves {
-                            if vcd.displayed_items.len() > 1 {
-                                msgs.push(Message::SetVerticalScroll(
-                                    vcd.displayed_items.len() - 1,
-                                ));
-                            }
-                        }
-                    }
-                    (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                    (Key::Escape, true, true, false) => {
-                        msgs.push(Message::ShowCommandPrompt(false))
-                    }
-                    (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
-                    (Key::Escape, true, _, true) => msgs.push(Message::SetFilterFocused(false)),
-                    (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
-                    (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
-                    (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
-                    (Key::S, true, false, false) => msgs.push(Message::GoToStart),
-                    (Key::E, true, false, false) => msgs.push(Message::GoToEnd),
-                    (Key::Minus, true, false, false) => msgs.push(Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 2.0,
-                    }),
-                    (Key::PlusEquals, true, false, false) => msgs.push(Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 0.5,
-                    }),
-                    (Key::J, true, false, false) => {
-                        if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
-                        } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
-                        } else {
-                            msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
-                        }
-                        msgs.push(Message::InvalidateCount);
-                    }
-                    (Key::K, true, false, false) => {
-                        if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
-                        } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
-                        } else {
-                            msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
-                        }
-                        msgs.push(Message::InvalidateCount);
-                    }
-                    (Key::ArrowDown, true, false, false) => {
-                        if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
-                        } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
-                        } else {
-                            msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
-                        }
-                        msgs.push(Message::InvalidateCount);
-                    }
-                    (Key::ArrowUp, true, false, false) => {
-                        if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
-                        } else if modifiers.ctrl {
-                            msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
-                        } else {
-                            msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
-                        }
-                        msgs.push(Message::InvalidateCount);
-                    }
-                    (Key::Delete, true, false, false) => {
-                        if let Some(vcd) = &self.waves {
-                            if let Some(idx) = vcd.focused_item {
-                                msgs.push(Message::RemoveItem(idx, self.get_count()));
-                                msgs.push(Message::InvalidateCount);
-                            }
-                        }
-                    }
-                    _ => {}
-                },
-                _ => {}
-            })
-        });
-    }
-
-    fn listed_signals(&self, waves: &WaveData, filter: &str) -> Vec<SignalRef> {
-        if let Some(scope) = &waves.active_module {
-            let listed = waves
-                .inner
-                .signals_in_module(scope)
-                .iter()
-                .filter(|sig| self.signal_filter_type.is_match(&sig.name, filter))
-                .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
-                .cloned()
-                .collect_vec();
-
-            listed
-        } else {
-            vec![]
-        }
-    }
-}
-
-fn handle_digit(digit: u8, modifiers: &egui::Modifiers, msgs: &mut Vec<Message>) {
-    if modifiers.alt {
-        msgs.push(Message::AddCount((digit + 48) as char))
-    } else if modifiers.ctrl {
-        msgs.push(Message::SetCursorPosition(digit))
-    } else {
-        msgs.push(Message::GoToCursorPosition(digit))
     }
 }
 
@@ -758,7 +454,7 @@ impl State {
         ui: &mut egui::Ui,
         filter: &str,
     ) {
-        for sig in self.listed_signals(wave, filter) {
+        for sig in filtered_signals(wave, filter, &self.signal_filter_type) {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
@@ -800,10 +496,10 @@ impl State {
                         );
                     }
                     DisplayedItem::Divider(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(msgs, vidx, &displayed_item, &mut item_offsets, ui);
                     }
                     DisplayedItem::Cursor(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(msgs, vidx, &displayed_item, &mut item_offsets, ui);
                     }
                 },
             );
@@ -993,163 +689,6 @@ impl State {
         );
     }
 
-    fn item_context_menu(
-        &self,
-        path: Option<&FieldRef>,
-        msgs: &mut Vec<Message>,
-        ui: &mut egui::Ui,
-        vidx: usize,
-    ) {
-        if let Some(path) = path {
-            self.add_format_menu(path, msgs, ui);
-        }
-
-        let displayed_item = &self.waves.as_ref().unwrap().displayed_items[vidx];
-        ui.menu_button("Color", |ui| {
-            let selected_color = &displayed_item
-                .color()
-                .clone()
-                .unwrap_or("__nocolor__".to_string());
-            for color_name in self.config.theme.colors.keys() {
-                ui.radio(selected_color == color_name, color_name)
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(Message::ItemColorChange(
-                            Some(vidx),
-                            Some(color_name.clone()),
-                        ));
-                    });
-            }
-            ui.separator();
-            ui.radio(selected_color == "__nocolor__", "Default")
-                .clicked()
-                .then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::ItemColorChange(Some(vidx), None));
-                });
-        });
-
-        ui.menu_button("Background color", |ui| {
-            let selected_color = &displayed_item
-                .background_color()
-                .clone()
-                .unwrap_or("__nocolor__".to_string());
-            for color_name in self.config.theme.colors.keys() {
-                ui.radio(selected_color == color_name, color_name)
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(Message::ItemBackgroundColorChange(
-                            Some(vidx),
-                            Some(color_name.clone()),
-                        ));
-                    });
-            }
-            ui.separator();
-            ui.radio(selected_color == "__nocolor__", "Default")
-                .clicked()
-                .then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::ItemBackgroundColorChange(Some(vidx), None));
-                });
-        });
-
-        if let DisplayedItem::Signal(signal) = &self.waves.as_ref().unwrap().displayed_items[vidx] {
-            ui.menu_button("Name", |ui| {
-                let name_types = vec![
-                    SignalNameType::Local,
-                    SignalNameType::Global,
-                    SignalNameType::Unique,
-                ];
-                let signal_name_type = signal.display_name_type;
-                for name_type in name_types {
-                    ui.radio(signal_name_type == name_type, name_type.to_string())
-                        .clicked()
-                        .then(|| {
-                            ui.close_menu();
-                            msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type));
-                        });
-                }
-            });
-        }
-
-        if ui.button("Remove").clicked() {
-            msgs.push(Message::RemoveItem(vidx, 1));
-            msgs.push(Message::InvalidateCount);
-            ui.close_menu();
-        }
-
-        if path.is_none() {
-            if ui.button("Rename").clicked() {
-                ui.close_menu();
-                msgs.push(Message::RenameItem(vidx));
-            }
-        }
-    }
-
-    fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
-        // Should not call this unless a signal is selected, and, hence, a VCD is loaded
-        let Some(waves) = self.waves.as_ref() else {
-            return;
-        };
-
-        let mut available_translators = if path.field.is_empty() {
-            self.translators
-                .all_translator_names()
-                .into_iter()
-                .filter(|translator_name| {
-                    let t = self.translators.get_translator(translator_name);
-
-                    if self
-                        .blacklisted_translators
-                        .contains(&(path.root.clone(), (*translator_name).clone()))
-                    {
-                        false
-                    } else {
-                        match waves
-                            .inner
-                            .signal_meta(&path.root)
-                            .and_then(|meta| t.translates(&meta))
-                            .context(format!(
-                                "Failed to check if {translator_name} translates {:?}",
-                                path.root.full_path(),
-                            )) {
-                            Ok(TranslationPreference::Yes) => true,
-                            Ok(TranslationPreference::Prefer) => true,
-                            Ok(TranslationPreference::No) => false,
-                            Err(e) => {
-                                msgs.push(Message::BlacklistTranslator(
-                                    path.root.clone(),
-                                    (*translator_name).clone(),
-                                ));
-                                msgs.push(Message::Error(e));
-                                false
-                            }
-                        }
-                    }
-                })
-                .collect()
-        } else {
-            self.translators.basic_translator_names()
-        };
-
-        available_translators.sort_by(|a, b| human_sort::compare(a, b));
-        let format_menu = available_translators
-            .iter()
-            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
-            .collect::<Vec<_>>();
-
-        ui.menu_button("Format", |ui| {
-            for (name, msg) in format_menu {
-                ui.button(name).clicked().then(|| {
-                    ui.close_menu();
-                    msgs.push(msg);
-                });
-            }
-        });
-    }
-
     fn draw_var_values(
         &self,
         item_offsets: &[ItemDrawingInfo],
@@ -1325,350 +864,5 @@ impl State {
         } else {
             Color32::TRANSPARENT
         }
-    }
-
-    fn controls_listing(&self, ui: &mut egui::Ui) {
-        let controls = vec![
-            ("🚀", "Space", "Show command prompt"),
-            ("↔", "Horizontal Scroll", "Pan"),
-            ("↕", "j, k, Up, Down", "Scroll down/up"),
-            ("⌖", "Ctrl+j, k, Up, Down", "Move focus down/up"),
-            ("🔃", "Alt+j, k, Up, Down", "Move focused item down/up"),
-            ("🔎", "Ctrl+Scroll", "Zoom"),
-            ("〰", "b", "Show or hide the design hierarchy"),
-            ("☰", "m", "Show or hide menu"),
-        ];
-
-        Grid::new("controls")
-            .num_columns(2)
-            .spacing([20., 5.])
-            .show(ui, |ui| {
-                for (symbol, control, description) in controls {
-                    ui.label(format!("{symbol}  {control}"));
-                    ui.label(description);
-                    ui.end_row();
-                }
-            });
-
-        ui.add_space(20.);
-        ui.label(RichText::new("Hint: You can repeat keybinds by typing Alt+0-9 before them. For example, Alt+1 Alt+0 k scrolls 10 steps up."));
-    }
-
-    fn key_listing(&self, ui: &mut egui::Ui) {
-        let keys = vec![
-            ("🚀", "Space", "Show command prompt"),
-            ("↔", "Scroll", "Pan"),
-            ("🔎", "Ctrl+Scroll", "Zoom"),
-            ("〰", "b", "Show or hide the design hierarchy"),
-            ("☰", "m", "Show or hide menu"),
-            ("🔎➕", "+", "Zoom in"),
-            ("🔎➖", "-", "Zoom out"),
-            ("", "k/⬆", "Scroll up"),
-            ("", "j/⬇", "Scroll down"),
-            ("", "Ctrl+k/⬆", "Move focused item up"),
-            ("", "Ctrl+j/⬇", "Move focused item down"),
-            ("", "Alt+k/⬆", "Move focus up"),
-            ("", "Alt+j/⬇", "Move focus down"),
-            ("", "Ctrl+0-9", "Add numbered cursor"),
-            ("", "0-9", "Center view at numbered cursor"),
-            ("🔙", "s", "Scroll to start"),
-            ("🔚", "e", "Scroll to end"),
-            ("🗙", "Delete", "Delete focused item"),
-            #[cfg(not(target_arch = "wasm32"))]
-            ("⛶", "F11", "Toggle full screen"),
-        ];
-
-        Grid::new("keys")
-            .num_columns(3)
-            .spacing([5., 5.])
-            .show(ui, |ui| {
-                for (symbol, control, description) in keys {
-                    ui.label(symbol);
-                    ui.label(control);
-                    ui.label(description);
-                    ui.end_row();
-                }
-            });
-
-        ui.add_space(20.);
-        ui.label(RichText::new("Hint: You can repeat keybinds by typing Alt+0-9 before them. For example, Alt+1 Alt+0 k scrolls 10 steps up."));
-    }
-
-    fn help_message(&self, ui: &mut egui::Ui) {
-        if self.waves.is_none() {
-            ui.label(RichText::new("Drag and drop a VCD file here to open it"));
-
-            #[cfg(target_arch = "wasm32")]
-            ui.label(RichText::new("Or press space and type load_url"));
-            #[cfg(not(target_arch = "wasm32"))]
-            ui.label(RichText::new(
-                "Or press space and type load_vcd or load_url",
-            ));
-            #[cfg(target_arch = "wasm32")]
-            ui.label(RichText::new("Or use the file menu to open a URL"));
-            #[cfg(not(target_arch = "wasm32"))]
-            ui.label(RichText::new(
-                "Or use the file menu to open a file or a URL",
-            ));
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Or click"));
-                if ui.link("here").clicked() {
-                    self.msg_sender
-                        .send(Message::LoadVcdFromUrl(
-                            "https://app.surfer-project.org/picorv32.vcd".to_string(),
-                        ))
-                        .ok();
-                }
-                ui.label("to open an example waveform");
-            });
-
-            ui.add_space(20.0);
-            ui.separator();
-            ui.add_space(20.0);
-        }
-
-        self.controls_listing(ui);
-
-        ui.add_space(20.0);
-        ui.separator();
-        ui.add_space(20.0);
-        if let Some(vcd) = &self.waves {
-            ui.label(RichText::new(format!("Filename: {}", vcd.source)).monospace());
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            ui.label(RichText::new(
-                "Note that this web based version is a bit slower than a natively installed version. There may also be a long delay with unresponsiveness when loading large waveforms because the web assembly version does not currently support multi threading.",
-            ));
-
-            ui.hyperlink_to(
-                "See https://gitlab.com/surfer-project/surfer for install instructions",
-                "https://gitlab.com/surfer-project/surfer",
-            );
-        }
-    }
-
-    fn draw_menu(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
-        menu::bar(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                #[cfg(not(target_arch = "wasm32"))]
-                if ui.button("Open file...").clicked() {
-                    msgs.push(Message::OpenFileDialog(OpenMode::Open));
-                    ui.close_menu();
-                }
-                if ui.button("Switch file...").clicked() {
-                    msgs.push(Message::OpenFileDialog(OpenMode::Switch));
-                    ui.close_menu()
-                }
-                if ui.button("Open URL...").clicked() {
-                    msgs.push(Message::SetUrlEntryVisible(true));
-                    ui.close_menu();
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                if ui.button("Exit").clicked() {
-                    msgs.push(Message::Exit);
-                    ui.close_menu();
-                }
-            });
-            ui.menu_button("View", |ui| {
-                if ui
-                    .add(egui::Button::new("Zoom in").shortcut_text("+"))
-                    .clicked()
-                {
-                    msgs.push(Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 0.5,
-                    });
-                }
-                if ui
-                    .add(egui::Button::new("Zoom out").shortcut_text("-"))
-                    .clicked()
-                {
-                    msgs.push(Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 2.0,
-                    });
-                }
-                if ui.button("Zoom to fit").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::ZoomToFit);
-                }
-                ui.separator();
-                if ui
-                    .add(egui::Button::new("Scroll to start").shortcut_text("s"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::GoToStart);
-                }
-                if ui
-                    .add(egui::Button::new("Scroll to end").shortcut_text("e"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::GoToEnd);
-                }
-                ui.separator();
-                if ui
-                    .add(egui::Button::new("Toggle side panel").shortcut_text("b"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleSidePanel);
-                }
-                if ui
-                    .add(egui::Button::new("Toggle menu").shortcut_text("m"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleMenu);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                if ui
-                    .add(egui::Button::new("Toggle full screen").shortcut_text("F11"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleFullscreen);
-                }
-            });
-            ui.menu_button("Settings", |ui| {
-                ui.menu_button("Clock highlighting", |ui| {
-                    let highlight_types = vec![
-                        ClockHighlightType::Line,
-                        ClockHighlightType::Cycle,
-                        ClockHighlightType::None,
-                    ];
-                    for highlight_type in highlight_types {
-                        ui.radio(
-                            highlight_type == self.config.default_clock_highlight_type,
-                            highlight_type.to_string(),
-                        )
-                        .clicked()
-                        .then(|| {
-                            ui.close_menu();
-                            msgs.push(Message::SetClockHighlightType(highlight_type));
-                        });
-                    }
-                });
-                ui.menu_button("Time scale", |ui| {
-                    timescale_menu(ui, msgs, &self.wanted_timescale);
-                });
-                if let Some(waves) = &self.waves {
-                    let signal_name_type = waves.default_signal_name_type;
-                    ui.menu_button("Signal names", |ui| {
-                        let name_types = vec![
-                            SignalNameType::Local,
-                            SignalNameType::Global,
-                            SignalNameType::Unique,
-                        ];
-                        for name_type in name_types {
-                            ui.radio(signal_name_type == name_type, name_type.to_string())
-                                .clicked()
-                                .then(|| {
-                                    ui.close_menu();
-                                    msgs.push(Message::ForceSignalNameTypes(name_type));
-                                });
-                        }
-                    });
-                }
-                ui.menu_button("Signal filter type", |ui| {
-                    signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
-                });
-            });
-            ui.menu_button("Help", |ui| {
-                if ui.button("Control keys").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::SetKeyHelpVisible(true));
-                }
-                if ui.button("Mouse gestures").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::SetGestureHelpVisible(true));
-                }
-                ui.separator();
-                if ui.button("About").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::SetAboutVisible(true));
-                }
-            });
-        });
-    }
-}
-
-fn signal_filter_type_menu(
-    ui: &mut Ui,
-    msgs: &mut Vec<Message>,
-    signal_filter_type: &SignalFilterType,
-) {
-    let filter_types = vec![
-        SignalFilterType::Fuzzy,
-        SignalFilterType::Regex,
-        SignalFilterType::Start,
-        SignalFilterType::Contain,
-    ];
-    for filter_type in filter_types {
-        ui.radio(*signal_filter_type == filter_type, filter_type.to_string())
-            .clicked()
-            .then(|| {
-                ui.close_menu();
-                msgs.push(Message::SetSignalFilterType(filter_type));
-            });
-    }
-}
-
-fn timescale_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timescale: &Timescale) {
-    let timescales = vec![
-        Timescale::Fs,
-        Timescale::Ps,
-        Timescale::Ns,
-        Timescale::Us,
-        Timescale::Ms,
-        Timescale::S,
-    ];
-    for timescale in timescales {
-        ui.radio(*wanted_timescale == timescale, timescale.to_string())
-            .clicked()
-            .then(|| {
-                ui.close_menu();
-                msgs.push(Message::SetTimeScale(timescale));
-            });
-    }
-}
-
-pub fn time_string(time: &BigInt, metadata: &Metadata, wanted_timescale: &Timescale) -> String {
-    let wanted_exponent = timescale_to_exponent(wanted_timescale);
-    let data_exponent = timescale_to_exponent(&metadata.timescale.1);
-    let exponent_diff = wanted_exponent - data_exponent;
-    if exponent_diff >= 0 {
-        let precision = exponent_diff as usize;
-        format!(
-            "{scaledtime:.precision$} {wanted_timescale}",
-            scaledtime = BigRational::new(
-                time * metadata.timescale.0.unwrap_or(1),
-                (BigInt::from(10)).pow(exponent_diff as u32)
-            )
-            .to_f64()
-            .unwrap_or(f64::NAN)
-        )
-    } else {
-        format!(
-            "{scaledtime} {wanted_timescale}",
-            scaledtime = time
-                * metadata.timescale.0.unwrap_or(1)
-                * (BigInt::from(10)).pow(-exponent_diff as u32)
-        )
-    }
-}
-
-fn timescale_to_exponent(timescale: &Timescale) -> i8 {
-    match timescale {
-        Timescale::Fs => -15,
-        Timescale::Ps => -12,
-        Timescale::Ns => -9,
-        Timescale::Us => -6,
-        Timescale::Ms => -3,
-        Timescale::S => 0,
-        _ => 0,
     }
 }
