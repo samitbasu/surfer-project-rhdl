@@ -11,7 +11,7 @@ use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
-use crate::{ClockHighlightType, SignalNameType};
+use crate::{clock_highlighting::ClockHighlightType, signal_name_type::SignalNameType};
 
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {

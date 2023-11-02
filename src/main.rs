@@ -1,65 +1,68 @@
 mod benchmark;
+mod clock_highlighting;
 mod command_prompt;
 mod commands;
 mod config;
+mod cursor;
+mod displayed_item;
 mod fast_wave_container;
+mod help;
+mod keys;
+mod menus;
+mod message;
 mod mousegestures;
 mod signal_canvas;
+mod signal_filter;
+mod signal_name_type;
 #[cfg(test)]
 mod tests;
+mod time;
 mod translation;
 mod util;
 mod view;
 mod viewport;
 mod wasm_util;
 mod wave_container;
+mod wave_source;
 
 use bytes::Buf;
-use bytes::Bytes;
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
-use color_eyre::eyre::anyhow;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use derivative::Derivative;
+use config::SurferConfig;
+use displayed_item::DisplayedCursor;
+use displayed_item::DisplayedDivider;
+use displayed_item::DisplayedItem;
+use displayed_item::DisplayedSignal;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
 use eframe::egui::style::Widgets;
-use eframe::egui::DroppedFile;
 use eframe::egui::Visuals;
 use eframe::emath;
-use eframe::epaint::Pos2;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use eframe::epaint::Vec2;
-use fastwave_backend::parse_vcd;
 use fastwave_backend::Timescale;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
-use futures_util::FutureExt;
-use futures_util::TryFutureExt;
-use fuzzy_matcher::skim::SkimMatcherV2;
-use fuzzy_matcher::FuzzyMatcher;
-use itertools::Itertools;
 use log::error;
 use log::info;
 use log::trace;
 use log::warn;
+use message::Message;
 use num::bigint::ToBigInt;
 use num::BigInt;
 use num::FromPrimitive;
 use num::ToPrimitive;
-use progress_streams::ProgressReader;
-use regex::Regex;
-#[cfg(not(target_arch = "wasm32"))]
-use rfd::FileDialog;
-use serde::Deserialize;
+use signal_filter::SignalFilterType;
+use signal_name_type::SignalNameType;
+use translation::all_translators;
 use translation::spade::SpadeTranslator;
-use translation::SignalInfo;
 use translation::TranslationPreference;
 use translation::Translator;
 use translation::TranslatorList;
@@ -70,19 +73,14 @@ use wave_container::ModuleRef;
 use wave_container::SignalMeta;
 use wave_container::SignalRef;
 use wave_container::WaveContainer;
+use wave_source::LoadProgress;
+use wave_source::WaveSource;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::VecDeque;
-use std::fs::File;
-use std::io::Read;
-use std::str::FromStr;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
 
 #[derive(clap::Parser, Default)]
 struct Args {
@@ -229,199 +227,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
-pub enum WaveSource {
-    File(Utf8PathBuf),
-    DragAndDrop(Option<Utf8PathBuf>),
-    Url(String),
-}
-
-impl std::fmt::Display for WaveSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WaveSource::File(file) => write!(f, "{file}"),
-            WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
-            WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
-            WaveSource::Url(url) => write!(f, "{url}"),
-        }
-    }
-}
-
-#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
-pub enum SignalNameType {
-    Local,  // local signal name only (i.e. for tb.dut.clk => clk)
-    Unique, // add unique prefix, prefix + local
-    Global, // full signal name (i.e. tb.dut.clk => tb.dut.clk)
-}
-
-impl FromStr for SignalNameType {
-    type Err = String;
-
-    fn from_str(input: &str) -> Result<SignalNameType, Self::Err> {
-        match input {
-            "Local" => Ok(SignalNameType::Local),
-            "Unique" => Ok(SignalNameType::Unique),
-            "Global" => Ok(SignalNameType::Global),
-            _ => Err(format!(
-                "'{}' is not a valid SignalNameType (Valid options: Local|Unique|Global)",
-                input
-            )),
-        }
-    }
-}
-
-impl std::fmt::Display for SignalNameType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SignalNameType::Local => write!(f, "Local"),
-            SignalNameType::Unique => write!(f, "Unique"),
-            SignalNameType::Global => write!(f, "Global"),
-        }
-    }
-}
-
-#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
-pub enum ClockHighlightType {
-    Line,  // Draw a line at every posedge of the clokcs
-    Cycle, // Highlight every other cycle
-    None,  // No highlighting
-}
-
-impl FromStr for ClockHighlightType {
-    type Err = String;
-
-    fn from_str(input: &str) -> Result<ClockHighlightType, Self::Err> {
-        match input {
-            "Line" => Ok(ClockHighlightType::Line),
-            "Cycle" => Ok(ClockHighlightType::Cycle),
-            "None" => Ok(ClockHighlightType::None),
-            _ => Err(format!(
-                "'{}' is not a valid ClockHighlightType (Valid options: Line|Cycle|None)",
-                input
-            )),
-        }
-    }
-}
-
-impl std::fmt::Display for ClockHighlightType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ClockHighlightType::Line => write!(f, "Line"),
-            ClockHighlightType::Cycle => write!(f, "Cycle"),
-            ClockHighlightType::None => write!(f, "None"),
-        }
-    }
-}
-
-pub struct DisplayedSignal {
-    signal_ref: SignalRef,
-    info: SignalInfo,
-    color: Option<String>,
-    background_color: Option<String>,
-    display_name: String,
-    display_name_type: SignalNameType,
-}
-
-pub struct DisplayedDivider {
-    color: Option<String>,
-    background_color: Option<String>,
-    name: String,
-}
-
-pub struct DisplayedCursor {
-    color: Option<String>,
-    background_color: Option<String>,
-    name: String,
-    idx: u8,
-}
-
-enum DisplayedItem {
-    Signal(DisplayedSignal),
-    Divider(DisplayedDivider),
-    Cursor(DisplayedCursor),
-}
-
-impl DisplayedItem {
-    pub fn color(&self) -> Option<String> {
-        let color = match self {
-            DisplayedItem::Signal(signal) => &signal.color,
-            DisplayedItem::Divider(divider) => &divider.color,
-            DisplayedItem::Cursor(cursor) => &cursor.color,
-        };
-        color.clone()
-    }
-
-    pub fn set_color(&mut self, color_name: Option<String>) {
-        match self {
-            DisplayedItem::Signal(signal) => {
-                signal.color = color_name.clone();
-            }
-            DisplayedItem::Divider(divider) => {
-                divider.color = color_name.clone();
-            }
-            DisplayedItem::Cursor(cursor) => {
-                cursor.color = color_name.clone();
-            }
-        }
-    }
-
-    pub fn name(&self) -> String {
-        let name = match self {
-            DisplayedItem::Signal(signal) => &signal.display_name,
-            DisplayedItem::Divider(divider) => &divider.name,
-            DisplayedItem::Cursor(cursor) => &cursor.name,
-        };
-        name.clone()
-    }
-
-    pub fn display_name(&self) -> String {
-        match self {
-            DisplayedItem::Signal(signal) => signal.display_name.clone(),
-            DisplayedItem::Divider(divider) => divider.name.clone(),
-            DisplayedItem::Cursor(cursor) => {
-                format!("{idx}: {name}", idx = cursor.idx, name = cursor.name)
-            }
-        }
-    }
-
-    pub fn set_name(&mut self, name: String) {
-        match self {
-            DisplayedItem::Signal(_) => {
-                warn!("Renaming signal");
-            }
-            DisplayedItem::Divider(divider) => {
-                divider.name = name.clone();
-            }
-            DisplayedItem::Cursor(cursor) => {
-                cursor.name = name.clone();
-            }
-        }
-    }
-
-    pub fn background_color(&self) -> Option<String> {
-        let background_color = match self {
-            DisplayedItem::Signal(signal) => &signal.background_color,
-            DisplayedItem::Divider(divider) => &divider.background_color,
-            DisplayedItem::Cursor(cursor) => &cursor.background_color,
-        };
-        background_color.clone()
-    }
-
-    pub fn set_background_color(&mut self, color_name: Option<String>) {
-        match self {
-            DisplayedItem::Signal(signal) => {
-                signal.background_color = color_name.clone();
-            }
-            DisplayedItem::Divider(divider) => {
-                divider.background_color = color_name.clone();
-            }
-            DisplayedItem::Cursor(cursor) => {
-                cursor.background_color = color_name.clone();
-            }
-        }
-    }
-}
-
 pub struct WaveData {
     inner: WaveContainer,
     source: WaveSource,
@@ -536,136 +341,6 @@ pub enum ColorSpecifier {
     Name(String),
 }
 
-#[derive(Debug, PartialEq)]
-pub enum SignalFilterType {
-    Fuzzy,
-    Regex,
-    Start,
-    Contain,
-}
-
-impl std::fmt::Display for SignalFilterType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SignalFilterType::Fuzzy => write!(f, "Fuzzy"),
-            SignalFilterType::Regex => write!(f, "Regular expression"),
-            SignalFilterType::Start => write!(f, "Signal starts with"),
-            SignalFilterType::Contain => write!(f, "Signal contains"),
-        }
-    }
-}
-
-impl SignalFilterType {
-    fn is_match(&self, signal_name: &str, filter: &str) -> bool {
-        match self {
-            SignalFilterType::Fuzzy => {
-                let matcher = SkimMatcherV2::default();
-                matcher.fuzzy_match(signal_name, filter).is_some()
-            }
-            SignalFilterType::Contain => signal_name.contains(filter),
-            SignalFilterType::Start => signal_name.starts_with(filter),
-            SignalFilterType::Regex => {
-                if let Ok(regex) = Regex::new(filter) {
-                    regex.is_match(signal_name)
-                } else {
-                    false
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum OpenMode {
-    Open,
-    Switch,
-}
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub enum Message {
-    SetActiveScope(ModuleRef),
-    AddSignal(SignalRef),
-    AddModule(ModuleRef),
-    AddCount(char),
-    InvalidateCount,
-    RemoveItem(usize, CommandCount),
-    FocusItem(usize),
-    RenameItem(usize),
-    UnfocusItem,
-    MoveFocus(MoveDir, CommandCount),
-    MoveFocusedItem(MoveDir, CommandCount),
-    VerticalScroll(MoveDir, CommandCount),
-    SetVerticalScroll(usize),
-    SignalFormatChange(FieldRef, String),
-    ItemColorChange(Option<usize>, Option<String>),
-    ItemBackgroundColorChange(Option<usize>, Option<String>),
-    ItemNameChange(Option<usize>, String),
-    ChangeSignalNameType(Option<usize>, SignalNameType),
-    ForceSignalNameTypes(SignalNameType),
-    SetClockHighlightType(ClockHighlightType),
-    // Reset the translator for this signal back to default. Sub-signals,
-    // i.e. those with the signal idx and a shared path are also reset
-    ResetSignalFormat(FieldRef),
-    CanvasScroll {
-        delta: Vec2,
-    },
-    CanvasZoom {
-        mouse_ptr_timestamp: Option<f64>,
-        delta: f32,
-    },
-    ZoomToRange {
-        start: f64,
-        end: f64,
-    },
-    CursorSet(BigInt),
-    LoadVcd(Utf8PathBuf),
-    LoadVcdFromUrl(String),
-    WavesLoaded(WaveSource, Box<WaveContainer>, bool),
-    Error(color_eyre::eyre::Error),
-    TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
-    /// Take note that the specified translator errored on a `translates` call on the
-    /// specified signal
-    BlacklistTranslator(SignalRef, String),
-    ToggleSidePanel,
-    ShowCommandPrompt(bool),
-    FileDropped(DroppedFile),
-    FileDownloaded(String, Bytes, bool),
-    ReloadConfig,
-    ReloadWaveform,
-    ZoomToFit,
-    GoToStart,
-    GoToEnd,
-    ToggleMenu,
-    SetTimeScale(Timescale),
-    CommandPromptClear,
-    CommandPromptUpdate {
-        expanded: String,
-        suggestions: Vec<(String, Vec<bool>)>,
-    },
-    OpenFileDialog(OpenMode),
-    SetAboutVisible(bool),
-    SetKeyHelpVisible(bool),
-    SetGestureHelpVisible(bool),
-    SetUrlEntryVisible(bool),
-    SetRenameItemVisible(bool),
-    SetDragStart(Option<Pos2>),
-    SetFilterFocused(bool),
-    SetSignalFilterType(SignalFilterType),
-    ToggleFullscreen,
-    AddDivider(String),
-    SetCursorPosition(u8),
-    GoToCursorPosition(u8),
-    /// Exit the application. This has no effect on wasm and closes the window
-    /// on other platforms
-    Exit,
-}
-
-pub enum LoadProgress {
-    Downloading(String),
-    Loading(Option<u64>, Arc<AtomicU64>),
-}
-
 struct CachedDrawData {
     pub draw_commands: HashMap<FieldRef, signal_canvas::DrawingCommands>,
     pub clock_edges: Vec<f32>,
@@ -725,35 +400,7 @@ impl State {
         let (sender, receiver) = channel();
 
         // Basic translators that we can load quickly
-        let translators = TranslatorList::new(
-            vec![
-                Box::new(translation::BitTranslator {}),
-                Box::new(translation::HexTranslator {}),
-                Box::new(translation::OctalTranslator {}),
-                Box::new(translation::UnsignedTranslator {}),
-                Box::new(translation::SignedTranslator {}),
-                Box::new(translation::GroupingBinaryTranslator {}),
-                Box::new(translation::BinaryTranslator {}),
-                Box::new(translation::ASCIITranslator {}),
-                Box::new(translation::SinglePrecisionTranslator {}),
-                Box::new(translation::DoublePrecisionTranslator {}),
-                Box::new(translation::HalfPrecisionTranslator {}),
-                Box::new(translation::BFloat16Translator {}),
-                Box::new(translation::Posit32Translator {}),
-                Box::new(translation::Posit16Translator {}),
-                Box::new(translation::Posit8Translator {}),
-                Box::new(translation::PositQuire8Translator {}),
-                Box::new(translation::PositQuire16Translator {}),
-                Box::new(translation::E5M2Translator {}),
-                Box::new(translation::E4M3Translator {}),
-                Box::new(translation::RiscvTranslator {}),
-                Box::new(translation::LebTranslator {}),
-            ],
-            vec![
-                Box::new(translation::clock::ClockTranslator::new()),
-                Box::new(translation::StringTranslator {}),
-            ],
-        );
+        let translators = all_translators();
 
         // Long running translators which we load in a thread
         {
@@ -820,114 +467,7 @@ impl State {
         Ok(result)
     }
 
-    fn load_vcd_from_file(&mut self, vcd_filename: Utf8PathBuf, keep_signals: bool) -> Result<()> {
-        // We'll open the file to check if it exists here to panic the main thread if not.
-        // Then we pass the file into the thread for parsing
-        info!("Load VCD: {vcd_filename}");
-        let file =
-            File::open(&vcd_filename).with_context(|| format!("Failed to open {vcd_filename}"))?;
-        let total_bytes = file
-            .metadata()
-            .map(|m| m.len())
-            .map_err(|e| info!("Failed to get vcd file metadata {e}"))
-            .ok();
-
-        self.load_vcd(
-            WaveSource::File(vcd_filename),
-            file,
-            total_bytes,
-            keep_signals,
-        );
-
-        Ok(())
-    }
-
-    fn load_vcd_from_dropped(&mut self, file: DroppedFile, keep_signals: bool) -> Result<()> {
-        info!("Got a dropped file");
-
-        let filename = file.path.and_then(|p| Utf8PathBuf::try_from(p).ok());
-        let bytes = file
-            .bytes
-            .ok_or_else(|| anyhow!("Dropped a file with no bytes"))?;
-
-        let total_bytes = bytes.len();
-
-        self.load_vcd(
-            WaveSource::DragAndDrop(filename),
-            VecDeque::from_iter(bytes.into_iter().cloned()),
-            Some(total_bytes as u64),
-            keep_signals,
-        );
-        Ok(())
-    }
-
-    fn load_vcd_from_url(&mut self, url: String, keep_signals: bool) {
-        let sender = self.msg_sender.clone();
-        let url_ = url.clone();
-        let task = async move {
-            let bytes = reqwest::get(&url)
-                .map(|e| e.with_context(|| format!("Failed fetch download {url}")))
-                .and_then(|resp| {
-                    resp.bytes()
-                        .map(|e| e.with_context(|| format!("Failed to download {url}")))
-                })
-                .await;
-
-            match bytes {
-                Ok(b) => sender.send(Message::FileDownloaded(url, b, keep_signals)),
-                Err(e) => sender.send(Message::Error(e)),
-            }
-            .unwrap();
-        };
-        #[cfg(not(target_arch = "wasm32"))]
-        tokio::spawn(task);
-        #[cfg(target_arch = "wasm32")]
-        wasm_bindgen_futures::spawn_local(task);
-
-        self.vcd_progress = Some(LoadProgress::Downloading(url_))
-    }
-
-    fn load_vcd(
-        &mut self,
-        source: WaveSource,
-        reader: impl Read + Send + 'static,
-        total_bytes: Option<u64>,
-        keep_signals: bool,
-    ) {
-        // Progress tracking in bytes
-        let progress_bytes = Arc::new(AtomicU64::new(0));
-        let reader = {
-            info!("Creating progress reader");
-            let progress_bytes = progress_bytes.clone();
-            ProgressReader::new(reader, move |progress: usize| {
-                progress_bytes.fetch_add(progress as u64, Ordering::SeqCst);
-            })
-        };
-
-        let sender = self.msg_sender.clone();
-
-        perform_work(move || {
-            let result = parse_vcd(reader)
-                .map_err(|e| anyhow!("{e}"))
-                .with_context(|| format!("Failed to parse VCD file: {source}"));
-
-            match result {
-                Ok(waves) => sender
-                    .send(Message::WavesLoaded(
-                        source,
-                        Box::new(WaveContainer::new_vcd(waves)),
-                        keep_signals,
-                    ))
-                    .unwrap(),
-                Err(e) => sender.send(Message::Error(e)).unwrap(),
-            }
-        });
-
-        info!("Setting VCD progress");
-        self.vcd_progress = Some(LoadProgress::Loading(total_bytes, progress_bytes));
-    }
-
-    fn update(&mut self, message: Message) {
+    pub fn update(&mut self, message: Message) {
         match message {
             Message::SetActiveScope(module) => {
                 let Some(waves) = self.waves.as_mut() else {
@@ -1137,11 +677,11 @@ impl State {
             }
             Message::GoToEnd => {
                 self.invalidate_draw_commands();
-                self.scroll_to_end();
+                self.go_to_end();
             }
             Message::GoToStart => {
                 self.invalidate_draw_commands();
-                self.scroll_to_start();
+                self.go_to_start();
             }
             Message::SetTimeScale(timescale) => {
                 self.invalidate_draw_commands();
@@ -1315,7 +855,7 @@ impl State {
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
                 if let Ok(config) =
-                    config::SurferConfig::new().with_context(|| "Failed to load config file")
+                    SurferConfig::new().with_context(|| "Failed to load config file")
                 {
                     self.config = config;
                     if let Some(ctx) = &self.context {
@@ -1373,22 +913,16 @@ impl State {
                 }
                 waves.cursors.insert(idx, location.clone());
             }
-
             Message::GoToCursorPosition(idx) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.waves.as_ref() else {
                     return;
                 };
+
                 if let Some(cursor) = waves.cursors.get(&idx) {
-                    let center_point = cursor.to_f64().unwrap();
-                    let half_width = (waves.viewport.curr_right - waves.viewport.curr_left) / 2.;
-
-                    waves.viewport.curr_left = center_point - half_width;
-                    waves.viewport.curr_right = center_point + half_width;
-
+                    self.go_to_time(&cursor.clone());
                     self.invalidate_draw_commands();
                 }
             }
-
             Message::ChangeSignalNameType(vidx, name_type) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
@@ -1428,22 +962,7 @@ impl State {
                 self.command_prompt.suggestions = suggestions;
             }
             Message::OpenFileDialog(mode) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                if let Some(path) = FileDialog::new()
-                    .set_title("Open waveform file")
-                    .add_filter("VCD-files (*.vcd)", &["vcd"])
-                    .add_filter("All files", &["*"])
-                    .pick_file()
-                {
-                    self.load_vcd_from_file(
-                        camino::Utf8PathBuf::from_path_buf(path).unwrap(),
-                        match mode {
-                            OpenMode::Open => false,
-                            OpenMode::Switch => true,
-                        },
-                    )
-                    .ok();
-                }
+                self.open_file_dialog(mode);
             }
             Message::SetAboutVisible(s) => self.show_about = s,
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
@@ -1482,39 +1001,39 @@ impl State {
         // Canvas relative
         delta: Vec2,
     ) {
-        if let Some(vcd) = &mut self.waves {
+        if let Some(waves) = &mut self.waves {
             // Scroll 5% of the viewport per scroll event.
             // One scroll event yields 50
-            let scroll_step = -(vcd.viewport.curr_right - vcd.viewport.curr_left) / (50. * 20.);
+            let scroll_step = -(waves.viewport.curr_right - waves.viewport.curr_left) / (50. * 20.);
 
-            let target_left = &vcd.viewport.curr_left + scroll_step * delta.y as f64;
-            let target_right = &vcd.viewport.curr_right + scroll_step * delta.y as f64;
+            let target_left = &waves.viewport.curr_left + scroll_step * delta.y as f64;
+            let target_right = &waves.viewport.curr_right + scroll_step * delta.y as f64;
 
-            vcd.viewport.curr_left = target_left;
-            vcd.viewport.curr_right = target_right;
+            waves.viewport.curr_left = target_left;
+            waves.viewport.curr_right = target_right;
         }
     }
 
-    pub fn scroll_to_start(&mut self) {
-        if let Some(vcd) = &mut self.waves {
-            let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
+    pub fn go_to_start(&mut self) {
+        if let Some(waves) = &mut self.waves {
+            let width = waves.viewport.curr_right - waves.viewport.curr_left;
 
-            vcd.viewport.curr_left = 0.0;
-            vcd.viewport.curr_right = width;
+            waves.viewport.curr_left = 0.0;
+            waves.viewport.curr_right = width;
         }
     }
 
-    pub fn scroll_to_end(&mut self) {
-        if let Some(vcd) = &mut self.waves {
-            let end_point = vcd.num_timestamps.clone().to_f64().unwrap();
-            let width = vcd.viewport.curr_right - vcd.viewport.curr_left;
+    pub fn go_to_end(&mut self) {
+        if let Some(waves) = &mut self.waves {
+            let end_point = waves.num_timestamps.clone().to_f64().unwrap();
+            let width = waves.viewport.curr_right - waves.viewport.curr_left;
 
-            vcd.viewport.curr_left = end_point - width;
-            vcd.viewport.curr_right = end_point;
+            waves.viewport.curr_left = end_point - width;
+            waves.viewport.curr_right = end_point;
         }
     }
 
-    pub fn set_center_point(&mut self, center: BigInt) {
+    pub fn go_to_time(&mut self, center: &BigInt) {
         if let Some(waves) = &mut self.waves {
             let center_point = center.to_f64().unwrap();
             let half_width = (waves.viewport.curr_right - waves.viewport.curr_left) / 2.;
@@ -1523,6 +1042,7 @@ impl State {
             waves.viewport.curr_right = center_point + half_width;
         }
     }
+
     pub fn zoom_to_fit(&mut self) {
         if let Some(waves) = &mut self.waves {
             waves.viewport.curr_left = 0.0;
@@ -1573,14 +1093,6 @@ impl State {
                 ..Default::default()
             },
             ..Visuals::dark()
-        }
-    }
-
-    fn get_count(&self) -> usize {
-        if let Some(count) = &self.count {
-            usize::from_str_radix(count, 10).unwrap_or(1)
-        } else {
-            1
         }
     }
 }
@@ -1687,76 +1199,5 @@ impl WaveData {
                 display_name_type: self.default_signal_name_type,
             }));
         self.compute_signal_display_names();
-    }
-
-    pub fn compute_signal_display_names(&mut self) {
-        let full_names = self
-            .displayed_items
-            .iter()
-            .filter_map(|item| match item {
-                DisplayedItem::Signal(signal_ref) => Some(signal_ref),
-                _ => None,
-            })
-            .map(|sig| sig.signal_ref.full_path_string())
-            .unique()
-            .collect_vec();
-
-        for item in &mut self.displayed_items {
-            match item {
-                DisplayedItem::Signal(signal) => {
-                    let local_name = signal.signal_ref.name.clone();
-                    signal.display_name = match signal.display_name_type {
-                        SignalNameType::Local => local_name,
-                        SignalNameType::Global => signal.signal_ref.full_path_string(),
-                        SignalNameType::Unique => {
-                            /// This function takes a full signal name and a list of other
-                            /// full signal names and returns a minimal unique signal name.
-                            /// It takes scopes from the back of the signal until the name is unique.
-                            // FIXME: Rewrite this to take SignalRef which already has done the
-                            // `.` splitting
-                            fn unique(signal: String, signals: &[String]) -> String {
-                                // if the full signal name is very short just return it
-                                if signal.len() < 20 {
-                                    return signal;
-                                }
-
-                                let split_this =
-                                    signal.split('.').map(|p| p.to_string()).collect_vec();
-                                let split_signals = signals
-                                    .iter()
-                                    .filter(|&s| *s != signal)
-                                    .map(|s| s.split('.').map(|p| p.to_string()).collect_vec())
-                                    .collect_vec();
-
-                                fn take_front(s: &Vec<String>, l: usize) -> String {
-                                    if l == 0 {
-                                        s.last().unwrap().clone()
-                                    } else if l < s.len() - 1 {
-                                        format!("...{}", s.iter().rev().take(l + 1).rev().join("."))
-                                    } else {
-                                        s.join(".")
-                                    }
-                                }
-
-                                let mut l = 0;
-                                while split_signals
-                                    .iter()
-                                    .map(|s| take_front(s, l))
-                                    .contains(&take_front(&split_this, l))
-                                {
-                                    l += 1;
-                                }
-                                take_front(&split_this, l)
-                            }
-
-                            let full_name = signal.signal_ref.full_path_string();
-                            unique(full_name, &full_names)
-                        }
-                    };
-                }
-                DisplayedItem::Divider(_) => {}
-                DisplayedItem::Cursor(_) => {}
-            }
-        }
     }
 }

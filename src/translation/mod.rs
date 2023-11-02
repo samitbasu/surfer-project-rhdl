@@ -15,6 +15,38 @@ use num::BigUint;
 
 use crate::wave_container::{FieldRef, SignalMeta};
 
+pub fn all_translators() -> TranslatorList {
+    TranslatorList::new(
+        vec![
+            Box::new(BitTranslator {}),
+            Box::new(HexTranslator {}),
+            Box::new(OctalTranslator {}),
+            Box::new(UnsignedTranslator {}),
+            Box::new(SignedTranslator {}),
+            Box::new(GroupingBinaryTranslator {}),
+            Box::new(BinaryTranslator {}),
+            Box::new(ASCIITranslator {}),
+            Box::new(SinglePrecisionTranslator {}),
+            Box::new(DoublePrecisionTranslator {}),
+            Box::new(HalfPrecisionTranslator {}),
+            Box::new(BFloat16Translator {}),
+            Box::new(Posit32Translator {}),
+            Box::new(Posit16Translator {}),
+            Box::new(Posit8Translator {}),
+            Box::new(PositQuire8Translator {}),
+            Box::new(PositQuire16Translator {}),
+            Box::new(E5M2Translator {}),
+            Box::new(E4M3Translator {}),
+            Box::new(RiscvTranslator {}),
+            Box::new(LebTranslator {}),
+        ],
+        vec![
+            Box::new(clock::ClockTranslator::new()),
+            Box::new(StringTranslator {}),
+        ],
+    )
+}
+
 pub struct TranslatorList {
     inner: HashMap<String, Box<dyn Translator>>,
     basic: HashMap<String, Box<dyn BasicTranslator>>,
