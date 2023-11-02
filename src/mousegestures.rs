@@ -5,7 +5,7 @@ use num::ToPrimitive;
 
 use crate::time::time_string;
 use crate::view::DrawingContext;
-use crate::{Message, State, WaveData};
+use crate::{wave_data::WaveData, Message, State};
 
 #[derive(Clone, PartialEq, Copy)]
 enum GestureKind {
