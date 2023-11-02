@@ -6,11 +6,11 @@ use eframe::{
 use num::BigInt;
 
 use crate::{
-    config::SurferTheme,
-    displayed_item::DisplayedItem,
+    config::{SurferConfig, SurferTheme},
+    displayed_item::{DisplayedCursor, DisplayedItem},
     time::time_string,
     view::{DrawingContext, ItemDrawingInfo},
-    State, WaveData,
+    wave_data::WaveData,
 };
 
 impl WaveData {
@@ -76,17 +76,46 @@ impl WaveData {
             )
         }
     }
-}
 
-impl State {
+    pub fn set_cursor_position(&mut self, idx: u8) {
+        let Some(location) = &self.cursor else {
+            return;
+        };
+        if self
+            .displayed_items
+            .iter()
+            .find_map(|item| match item {
+                DisplayedItem::Cursor(cursor) => {
+                    if cursor.idx == idx {
+                        Some(cursor)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .is_none()
+        {
+            let cursor = DisplayedCursor {
+                color: None,
+                background_color: None,
+                name: format!("Cursor"),
+                idx,
+            };
+            self.displayed_items.push(DisplayedItem::Cursor(cursor));
+        }
+        self.cursors.insert(idx, location.clone());
+    }
+
     pub fn draw_cursor_boxes(
         &self,
         ctx: DrawingContext<'_>,
         item_offsets: &[ItemDrawingInfo],
         to_screen: RectTransform,
-        waves: &WaveData,
         response: Response,
         gap: f32,
+        config: &SurferConfig,
+        wanted_timescale: fastwave_backend::Timescale,
     ) {
         let text_size = ctx.cfg.line_height - 5.;
 
@@ -99,28 +128,27 @@ impl State {
             // compensate for that
             let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
 
-            let Some(item) = waves.displayed_items.get(drawing_info.signal_list_idx) else {
+            let Some(item) = self.displayed_items.get(drawing_info.signal_list_idx) else {
                 return;
             };
 
             let background_color = item
                 .color()
-                .and_then(|color| self.config.theme.colors.get(&color))
-                .unwrap_or(&self.config.theme.cursor.color);
+                .and_then(|color| config.theme.colors.get(&color))
+                .unwrap_or(&config.theme.cursor.color);
 
-            let x = waves.viewport.from_time(
-                waves.cursors.get(&drawing_info.idx).unwrap(),
+            let x = self.viewport.from_time(
+                self.cursors.get(&drawing_info.idx).unwrap(),
                 response.rect.size().x as f64,
             ) as f32;
 
             // Time string
             let time = time_string(
-                waves
-                    .cursors
+                self.cursors
                     .get(&drawing_info.idx)
                     .unwrap_or(&BigInt::from(0)),
-                &waves.inner.metadata(),
-                &self.wanted_timescale,
+                &self.inner.metadata(),
+                &wanted_timescale,
             );
 
             // Determine size of text
@@ -129,7 +157,7 @@ impl State {
                 Align2::CENTER_TOP,
                 time.clone(),
                 FontId::proportional(text_size),
-                self.config.theme.foreground,
+                config.theme.foreground,
             );
             // Background rectangle
             let min = (ctx.to_screen)(rect.min.x, y_offset - gap);
@@ -146,7 +174,7 @@ impl State {
                 Align2::CENTER_TOP,
                 time,
                 FontId::proportional(text_size),
-                self.config.theme.foreground,
+                config.theme.foreground,
             );
         }
     }
