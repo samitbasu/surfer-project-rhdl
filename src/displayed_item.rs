@@ -3,7 +3,7 @@ use log::warn;
 
 use crate::{
     message::Message, signal_name_type::SignalNameType, translation::SignalInfo,
-    wave_container::SignalRef, State,
+    wave_container::SignalRef,
 };
 
 pub enum DisplayedItem {
@@ -115,30 +115,32 @@ impl DisplayedItem {
     }
 }
 
-impl State {
-    pub fn draw_rename_window(&self, ctx: &egui::Context, msgs: &mut Vec<Message>, idx: usize) {
-        let mut open = true;
-        let name = &mut *self.item_renaming_string.borrow_mut();
-        egui::Window::new("Rename item")
-            .open(&mut open)
-            .collapsible(false)
-            .resizable(true)
-            .show(ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.text_edit_singleline(name);
-                    ui.horizontal(|ui| {
-                        if ui.button("Rename").clicked() {
-                            msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
-                            msgs.push(Message::SetRenameItemVisible(false))
-                        }
-                        if ui.button("Cancel").clicked() {
-                            msgs.push(Message::SetRenameItemVisible(false))
-                        }
-                    });
+pub fn draw_rename_window(
+    ctx: &egui::Context,
+    msgs: &mut Vec<Message>,
+    idx: usize,
+    name: &mut String,
+) {
+    let mut open = true;
+    egui::Window::new("Rename item")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(true)
+        .show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.text_edit_singleline(name);
+                ui.horizontal(|ui| {
+                    if ui.button("Rename").clicked() {
+                        msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
+                        msgs.push(Message::SetRenameItemVisible(false))
+                    }
+                    if ui.button("Cancel").clicked() {
+                        msgs.push(Message::SetRenameItemVisible(false))
+                    }
                 });
             });
-        if !open {
-            msgs.push(Message::SetRenameItemVisible(false))
-        }
+        });
+    if !open {
+        msgs.push(Message::SetRenameItemVisible(false))
     }
 }
