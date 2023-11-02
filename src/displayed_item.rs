@@ -1,0 +1,112 @@
+use log::warn;
+
+use crate::{signal_name_type::SignalNameType, translation::SignalInfo, wave_container::SignalRef};
+
+pub enum DisplayedItem {
+    Signal(DisplayedSignal),
+    Divider(DisplayedDivider),
+    Cursor(DisplayedCursor),
+}
+
+pub struct DisplayedSignal {
+    pub signal_ref: SignalRef,
+    pub info: SignalInfo,
+    pub color: Option<String>,
+    pub background_color: Option<String>,
+    pub display_name: String,
+    pub display_name_type: SignalNameType,
+}
+
+pub struct DisplayedDivider {
+    pub color: Option<String>,
+    pub background_color: Option<String>,
+    pub name: String,
+}
+
+pub struct DisplayedCursor {
+    pub color: Option<String>,
+    pub background_color: Option<String>,
+    pub name: String,
+    pub idx: u8,
+}
+
+impl DisplayedItem {
+    pub fn color(&self) -> Option<String> {
+        let color = match self {
+            DisplayedItem::Signal(signal) => &signal.color,
+            DisplayedItem::Divider(divider) => &divider.color,
+            DisplayedItem::Cursor(cursor) => &cursor.color,
+        };
+        color.clone()
+    }
+
+    pub fn set_color(&mut self, color_name: Option<String>) {
+        match self {
+            DisplayedItem::Signal(signal) => {
+                signal.color = color_name.clone();
+            }
+            DisplayedItem::Divider(divider) => {
+                divider.color = color_name.clone();
+            }
+            DisplayedItem::Cursor(cursor) => {
+                cursor.color = color_name.clone();
+            }
+        }
+    }
+
+    pub fn name(&self) -> String {
+        let name = match self {
+            DisplayedItem::Signal(signal) => &signal.display_name,
+            DisplayedItem::Divider(divider) => &divider.name,
+            DisplayedItem::Cursor(cursor) => &cursor.name,
+        };
+        name.clone()
+    }
+
+    pub fn display_name(&self) -> String {
+        match self {
+            DisplayedItem::Signal(signal) => signal.display_name.clone(),
+            DisplayedItem::Divider(divider) => divider.name.clone(),
+            DisplayedItem::Cursor(cursor) => {
+                format!("{idx}: {name}", idx = cursor.idx, name = cursor.name)
+            }
+        }
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        match self {
+            DisplayedItem::Signal(_) => {
+                warn!("Renaming signal");
+            }
+            DisplayedItem::Divider(divider) => {
+                divider.name = name.clone();
+            }
+            DisplayedItem::Cursor(cursor) => {
+                cursor.name = name.clone();
+            }
+        }
+    }
+
+    pub fn background_color(&self) -> Option<String> {
+        let background_color = match self {
+            DisplayedItem::Signal(signal) => &signal.background_color,
+            DisplayedItem::Divider(divider) => &divider.background_color,
+            DisplayedItem::Cursor(cursor) => &cursor.background_color,
+        };
+        background_color.clone()
+    }
+
+    pub fn set_background_color(&mut self, color_name: Option<String>) {
+        match self {
+            DisplayedItem::Signal(signal) => {
+                signal.background_color = color_name.clone();
+            }
+            DisplayedItem::Divider(divider) => {
+                divider.background_color = color_name.clone();
+            }
+            DisplayedItem::Cursor(cursor) => {
+                cursor.background_color = color_name.clone();
+            }
+        }
+    }
+}
