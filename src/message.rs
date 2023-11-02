@@ -14,8 +14,10 @@ use crate::{
     translation::Translator,
     wave_container::{FieldRef, ModuleRef, SignalRef, WaveContainer},
     wave_source::OpenMode,
-    CommandCount, MoveDir, SignalFilterType, WaveSource,
+    MoveDir, SignalFilterType, WaveSource,
 };
+
+type CommandCount = usize;
 
 #[derive(Derivative)]
 #[derivative(Debug)]

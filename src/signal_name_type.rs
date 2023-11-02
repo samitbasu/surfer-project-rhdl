@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use serde::Deserialize;
 
-use crate::{displayed_item::DisplayedItem, WaveData};
+use crate::{displayed_item::DisplayedItem, wave_data::WaveData};
 
 #[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
 pub enum SignalNameType {
