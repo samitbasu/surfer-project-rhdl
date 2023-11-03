@@ -193,7 +193,7 @@ impl WaveData {
     pub fn add_signal(&mut self, translators: &TranslatorList, sig: &SignalRef) {
         let Ok(meta) = self
             .inner
-            .signal_meta(&sig)
+            .signal_meta(sig)
             .context("When adding signal")
             .map_err(|e| error!("{e:#?}"))
         else {
