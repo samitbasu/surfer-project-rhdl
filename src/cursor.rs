@@ -65,7 +65,7 @@ impl WaveData {
                 color: *color,
                 width: theme.cursor.width,
             };
-            let x = self.viewport.from_time(&cursor, size.x as f64);
+            let x = self.viewport.from_time(cursor, size.x as f64);
             ctx.painter.line_segment(
                 [
                     to_screen.transform_pos(Pos2::new(x as f32 + 0.5, 0.)),

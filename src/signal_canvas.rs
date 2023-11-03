@@ -115,15 +115,10 @@ impl State {
 
                     // In order to insert a final draw command at the end of a trace,
                     // we need to know if this is the last timestamp to draw
-                    let end_pixel = timestamps.iter().last().map(|t| (*t).0).unwrap_or_default();
+                    let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
                     // The first pixel we actually draw is the second pixel in the
                     // list, since we skip one pixel to have a previous value
-                    let start_pixel = timestamps
-                        .iter()
-                        .skip(1)
-                        .next()
-                        .map(|t| t.0)
-                        .unwrap_or_default();
+                    let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
 
                     // Iterate over all the time stamps to draw on
                     for ((_, prev_time), (pixel, time)) in
@@ -443,7 +438,7 @@ impl State {
                 width: self.config.theme.linewidth,
             };
 
-            let transition_width = (new_x - old_x).min(6.) as f32;
+            let transition_width = (new_x - old_x).min(6.);
 
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
@@ -463,7 +458,7 @@ impl State {
             let text_size = ctx.cfg.text_size;
             let char_width = text_size * (20. / 31.);
 
-            let text_area = (new_x - old_x) as f32 - transition_width;
+            let text_area = (new_x - old_x) - transition_width;
             let num_chars = (text_area / char_width).floor();
             let fits_text = num_chars >= 1.;
 
@@ -472,7 +467,7 @@ impl State {
                     prev_value
                         .chars()
                         .take(num_chars as usize - 1)
-                        .chain(['…'].into_iter())
+                        .chain(['…'])
                         .collect::<String>()
                 } else {
                     prev_value.to_string()
@@ -562,7 +557,7 @@ impl ValueKind {
             ValueKind::Undef => theme.signal_undef,
             ValueKind::DontCare => theme.signal_dontcare,
             ValueKind::Warn => theme.signal_undef,
-            ValueKind::Custom(custom_color) => custom_color.clone(),
+            ValueKind::Custom(custom_color) => *custom_color,
             ValueKind::Weak => theme.signal_weak,
             ValueKind::Normal => user_color,
         }

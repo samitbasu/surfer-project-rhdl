@@ -230,7 +230,7 @@ impl State {
                         self.check_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| self.draw_item_list(&mut msgs, &waves, ui),
+                            |ui| self.draw_item_list(&mut msgs, waves, ui),
                         )
                         .inner
                     })
@@ -267,7 +267,7 @@ impl State {
                         ctx,
                         &mut msgs,
                         idx,
-                        &mut *self.item_renaming_string.borrow_mut(),
+                        &mut self.item_renaming_string.borrow_mut(),
                     );
                 }
             }
@@ -494,10 +494,10 @@ impl State {
                         );
                     }
                     DisplayedItem::Divider(_) => {
-                        self.draw_plain_var(msgs, vidx, &displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
                     DisplayedItem::Cursor(_) => {
-                        self.draw_plain_var(msgs, vidx, &displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
                 },
             );
@@ -518,7 +518,7 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             let tooltip = if let Some(waves) = &self.waves {
-                if field.field.len() == 0 {
+                if field.field.is_empty() {
                     format!(
                         "{}\nNum bits: {}",
                         field.root.full_path_string(),
@@ -753,10 +753,10 @@ impl State {
                                 waves.signal_translator(&drawing_info.field_ref, &self.translators);
 
                             let signal = &drawing_info.field_ref.root;
-                            let meta = waves.inner.signal_meta(&signal);
+                            let meta = waves.inner.signal_meta(signal);
                             let translation_result = waves
                                 .inner
-                                .query_signal(&signal, &num::BigInt::to_biguint(&cursor).unwrap())
+                                .query_signal(signal, &num::BigInt::to_biguint(cursor).unwrap())
                                 .ok()
                                 .flatten()
                                 .map(|(_time, value)| {

@@ -91,7 +91,7 @@ impl State {
 
         self.load_vcd(
             WaveSource::DragAndDrop(filename),
-            VecDeque::from_iter(bytes.into_iter().cloned()),
+            VecDeque::from_iter(bytes.iter().cloned()),
             Some(total_bytes as u64),
             keep_signals,
         );

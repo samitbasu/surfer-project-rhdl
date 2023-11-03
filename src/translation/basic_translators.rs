@@ -9,7 +9,7 @@ use num::Zero;
 // Forms groups of n chars from from a string. If the string size is
 // not divisible by n, the first group will be smaller than n
 // The string must only consist of ascii characters
-fn group_n_chars<'a>(s: &'a str, n: usize) -> Vec<&'a str> {
+fn group_n_chars(s: &str, n: usize) -> Vec<&str> {
     let num_extra_chars = s.len() % n;
 
     let last_group = &s[0..num_extra_chars];
