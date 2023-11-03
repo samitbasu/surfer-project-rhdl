@@ -38,7 +38,7 @@ impl FastWaveContainer {
     fn get_signal_idx(&self, signal_ref: &SignalRef) -> Result<SignalIdx> {
         self.signal_map
             .get(signal_ref)
-            .map(|s| *s)
+            .copied()
             .ok_or_else(|| anyhow!("No FWB signal index for {}", signal_ref.full_path_string()))
     }
 
@@ -47,7 +47,7 @@ impl FastWaveContainer {
     }
 
     pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
-        let Some(module_idx) = self.module_map.get(&module) else {
+        let Some(module_idx) = self.module_map.get(module) else {
             warn!("Found no module '{module}'. Defaulting to no signals");
             return vec![];
         };
@@ -115,7 +115,7 @@ impl FastWaveContainer {
             .inner
             .child_scopes_by_idx(*idx)
             .iter()
-            .map(|id| self.inv_module_map[&id].clone())
+            .map(|id| self.inv_module_map[id].clone())
             .collect())
     }
 

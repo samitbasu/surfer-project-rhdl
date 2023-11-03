@@ -483,10 +483,10 @@ impl State {
                 }
             }
             Message::MoveFocusedItem(direction, count) => {
+                self.invalidate_draw_commands();
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                self.invalidate_draw_commands();
                 if let Some(idx) = waves.focused_item {
                     let visible_signals_len = waves.displayed_items.len();
                     if visible_signals_len > 0 {
@@ -570,7 +570,7 @@ impl State {
                         for item in &mut waves.displayed_items {
                             match item {
                                 DisplayedItem::Signal(disp) => {
-                                    if &disp.signal_ref == &field.root {
+                                    if disp.signal_ref == field.root {
                                         disp.info = new_info;
                                         break;
                                     }
@@ -818,8 +818,8 @@ impl State {
             // One scroll event yields 50
             let scroll_step = -(waves.viewport.curr_right - waves.viewport.curr_left) / (50. * 20.);
 
-            let target_left = &waves.viewport.curr_left + scroll_step * delta.y as f64;
-            let target_right = &waves.viewport.curr_right + scroll_step * delta.y as f64;
+            let target_left = waves.viewport.curr_left + scroll_step * delta.y as f64;
+            let target_right = waves.viewport.curr_right + scroll_step * delta.y as f64;
 
             waves.viewport.curr_left = target_left;
             waves.viewport.curr_right = target_right;
@@ -902,7 +902,6 @@ impl State {
                 hovered: widget_style,
                 active: widget_style,
                 open: widget_style,
-                ..Default::default()
             },
             ..Visuals::dark()
         }

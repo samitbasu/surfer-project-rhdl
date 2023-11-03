@@ -113,7 +113,7 @@ pub fn draw_control_help_window(
                         y: max_height * 0.5,
                     },
                     layout,
-                    |ui| key_listing(ui),
+                    key_listing,
                 );
                 ui.add_space(10.);
                 if ui.button("Close").clicked() {

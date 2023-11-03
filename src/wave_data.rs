@@ -143,7 +143,7 @@ impl WaveData {
         field: &FieldRef,
         translators: &'a TranslatorList,
     ) -> &'a dyn Translator {
-        let translator_name = self.signal_format.get(&field).cloned().unwrap_or_else(|| {
+        let translator_name = self.signal_format.get(field).cloned().unwrap_or_else(|| {
             if field.field.is_empty() {
                 self.inner
                     .signal_meta(&field.root)
@@ -193,7 +193,7 @@ impl WaveData {
     pub fn add_signal(&mut self, translators: &TranslatorList, sig: &SignalRef) {
         let Ok(meta) = self
             .inner
-            .signal_meta(&sig)
+            .signal_meta(sig)
             .context("When adding signal")
             .map_err(|e| error!("{e:#?}"))
         else {
