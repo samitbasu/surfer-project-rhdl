@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use serde::Deserialize;
 
-use crate::{displayed_item::DisplayedItem, WaveData};
+use crate::{displayed_item::DisplayedItem, wave_data::WaveData};
 
 #[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
 pub enum SignalNameType {
@@ -108,5 +108,15 @@ impl WaveData {
                 DisplayedItem::Cursor(_) => {}
             }
         }
+    }
+
+    pub fn force_signal_name_type(&mut self, name_type: SignalNameType) {
+        for signal in &mut self.displayed_items {
+            if let DisplayedItem::Signal(signal) = signal {
+                signal.display_name_type = name_type;
+            }
+        }
+        self.default_signal_name_type = name_type;
+        self.compute_signal_display_names();
     }
 }

@@ -6,7 +6,7 @@ use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::Itertools;
 use regex::Regex;
 
-use crate::{message::Message, wave_container::SignalRef, State, WaveData};
+use crate::{message::Message, wave_container::SignalRef, wave_data::WaveData, State};
 
 #[derive(Debug, PartialEq)]
 pub enum SignalFilterType {
