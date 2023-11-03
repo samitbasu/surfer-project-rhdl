@@ -12,6 +12,7 @@ pub mod spade;
 pub use basic_translators::*;
 use itertools::Itertools;
 use num::BigUint;
+pub use numeric_translators::*;
 
 use crate::wave_container::{FieldRef, SignalMeta};
 
@@ -472,5 +473,17 @@ fn map_vector_signal(s: &str) -> NumberParseResult {
         NumberParseResult::Unparsable("WEAK".to_string(), ValueKind::Weak)
     } else {
         NumberParseResult::Unparsable("UNKNOWN VALUES".to_string(), ValueKind::Undef)
+    }
+}
+
+fn check_single_wordlength(num_bits: Option<u32>, required: u32) -> Result<TranslationPreference> {
+    if let Some(num_bits) = num_bits {
+        if num_bits == required {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    } else {
+        Ok(TranslationPreference::No)
     }
 }
