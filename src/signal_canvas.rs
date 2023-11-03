@@ -252,12 +252,7 @@ impl State {
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
-        let cfg = DrawConfig {
-            canvas_height: response.rect.size().y,
-            line_height: 16.,
-            text_size: 16. - 5.,
-            max_transition_width: 6,
-        };
+        let cfg = DrawConfig::new(response.rect.size().y);
         // the draw commands have been invalidated, recompute
         if self.draw_data.borrow().is_none()
             || Some(response.rect) != *self.last_canvas_rect.borrow()

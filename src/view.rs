@@ -36,6 +36,18 @@ pub struct DrawConfig {
     pub max_transition_width: i32,
 }
 
+impl DrawConfig {
+    pub fn new(canvas_height: f32) -> Self {
+        let line_height = 16.;
+        Self {
+            canvas_height,
+            line_height,
+            text_size: line_height - 5.,
+            max_transition_width: 6,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct SignalDrawingInfo {
     pub field_ref: FieldRef,
@@ -227,7 +239,7 @@ impl State {
                     .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
-                        self.check_pointer_in_ui(ui, &mut msgs);
+                        self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| self.draw_item_list(&mut msgs, waves, ui),
@@ -241,7 +253,7 @@ impl State {
                     .width_range(30.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
-                        self.check_pointer_in_ui(ui, &mut msgs);
+                        self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
@@ -355,7 +367,7 @@ impl State {
         msgs
     }
 
-    fn check_pointer_in_ui(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+    fn handle_pointer_in_ui(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         if ui.ui_contains_pointer() {
             let scroll_delta = ui.input(|i| i.scroll_delta);
             if scroll_delta.y > 0.0 {
@@ -697,12 +709,7 @@ impl State {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = RectTransform::from_to(container_rect, response.rect);
-        let cfg = DrawConfig {
-            canvas_height: response.rect.size().y,
-            line_height: 16.,
-            text_size: 16. - 5.,
-            max_transition_width: 6,
-        };
+        let cfg = DrawConfig::new(response.rect.size().y);
         let frame_width = response.rect.width();
 
         let ctx = DrawingContext {
