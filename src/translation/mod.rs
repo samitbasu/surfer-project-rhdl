@@ -12,6 +12,7 @@ pub mod spade;
 pub use basic_translators::*;
 use itertools::Itertools;
 use num::BigUint;
+pub use numeric_translators::*;
 
 use crate::wave_container::{FieldRef, SignalMeta};
 
@@ -65,11 +66,11 @@ impl TranslatorList {
         }
     }
 
-    pub fn all_translator_names<'a>(&'a self) -> Vec<&'a String> {
+    pub fn all_translator_names(&self) -> Vec<&String> {
         self.inner.keys().chain(self.basic.keys()).collect()
     }
 
-    pub fn all_translators<'a>(&'a self) -> Vec<&'a dyn Translator> {
+    pub fn all_translators(&self) -> Vec<&dyn Translator> {
         // This is kind of inefficient, but I don't feel like messing with lifetimes
         // and downcasting BasicTranslator to Translator again. Since this function
         // isn't run very often, this should be sufficient
@@ -79,11 +80,11 @@ impl TranslatorList {
             .collect()
     }
 
-    pub fn basic_translator_names<'a>(&'a self) -> Vec<&'a String> {
+    pub fn basic_translator_names(&self) -> Vec<&String> {
         self.basic.keys().collect()
     }
 
-    pub fn get_translator<'a, 'b>(&'a self, name: &'b str) -> &'a dyn Translator {
+    pub fn get_translator(&self, name: &str) -> &dyn Translator {
         let full = self.inner.get(name);
         if let Some(full) = full.map(|t| t.as_ref()) {
             full
@@ -155,7 +156,7 @@ impl FlatTranslationResult {
     pub fn as_fields(self) -> Vec<(Vec<String>, Option<(String, ValueKind)>)> {
         vec![(vec![], self.this)]
             .into_iter()
-            .chain(self.fields.into_iter())
+            .chain(self.fields)
             .collect()
     }
 }
@@ -472,5 +473,17 @@ fn map_vector_signal(s: &str) -> NumberParseResult {
         NumberParseResult::Unparsable("WEAK".to_string(), ValueKind::Weak)
     } else {
         NumberParseResult::Unparsable("UNKNOWN VALUES".to_string(), ValueKind::Undef)
+    }
+}
+
+fn check_single_wordlength(num_bits: Option<u32>, required: u32) -> Result<TranslationPreference> {
+    if let Some(num_bits) = num_bits {
+        if num_bits == required {
+            Ok(TranslationPreference::Yes)
+        } else {
+            Ok(TranslationPreference::No)
+        }
+    } else {
+        Ok(TranslationPreference::No)
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use color_eyre::eyre::Context;
+use color_eyre::eyre::WrapErr;
 use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
@@ -9,6 +9,7 @@ use num::BigRational;
 use num::ToPrimitive;
 
 use crate::benchmark::{TimedRegion, TranslationTimings};
+use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
 use crate::translation::{SignalInfo, ValueKind};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
@@ -117,12 +118,7 @@ impl State {
                     let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
                     // The first pixel we actually draw is the second pixel in the
                     // list, since we skip one pixel to have a previous value
-                    let start_pixel = timestamps
-                        .iter()
-                        .skip(1)
-                        .next()
-                        .map(|t| t.0)
-                        .unwrap_or_default();
+                    let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
 
                     // Iterate over all the time stamps to draw on
                     for ((_, prev_time), (pixel, time)) in
@@ -259,6 +255,7 @@ impl State {
         let cfg = DrawConfig {
             canvas_height: response.rect.size().y,
             line_height: 16.,
+            text_size: 16. - 5.,
             max_transition_width: 6,
         };
         // the draw commands have been invalidated, recompute
@@ -269,7 +266,7 @@ impl State {
             *self.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
-        let Some(vcd) = &self.waves else { return };
+        let Some(waves) = &self.waves else { return };
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
@@ -287,7 +284,7 @@ impl State {
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr_timestamp = vcd
+                let mouse_ptr_timestamp = waves
                     .viewport
                     .to_time(mouse_ptr_pos.x as f64, frame_width)
                     .to_f64();
@@ -301,7 +298,7 @@ impl State {
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
             let x = pointer_pos_canvas.unwrap().x;
-            let timestamp = vcd.viewport.to_time(x as f64, frame_width);
+            let timestamp = waves.viewport.to_time(x as f64, frame_width);
             msgs.push(Message::CursorSet(timestamp.round().to_integer()));
         });
 
@@ -327,7 +324,7 @@ impl State {
         let gap = self.get_item_gap(item_offsets, &ctx);
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
             let default_background_color = self.get_default_alternating_background_color(idx);
-            let background_color = *vcd
+            let background_color = *waves
                 .displayed_items
                 .get(drawing_info.signal_list_idx())
                 .and_then(|signal| signal.background_color())
@@ -344,7 +341,7 @@ impl State {
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
 
-        self.draw_mouse_gesture_widget(vcd, pointer_pos_canvas, &response, msgs, &mut ctx);
+        self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
 
         if let Some(draw_data) = &*self.draw_data.borrow() {
             let clock_edges = &draw_data.clock_edges;
@@ -359,7 +356,7 @@ impl State {
                 let mut last_edge = 0.0;
                 let mut cycle = false;
                 for current_edge in clock_edges {
-                    self.draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx);
+                    draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx, &self.config);
                     cycle = !cycle;
                     last_edge = *current_edge;
                 }
@@ -371,7 +368,7 @@ impl State {
                 // compensate for that
                 let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
 
-                let color = *vcd
+                let color = *waves
                     .displayed_items
                     .get(drawing_info.signal_list_idx())
                     .and_then(|signal| signal.color())
@@ -403,21 +400,29 @@ impl State {
             }
         }
 
-        vcd.draw_cursor(
+        waves.draw_cursor(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             to_screen,
         );
 
-        vcd.draw_cursors(
+        waves.draw_cursors(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             to_screen,
         );
 
-        self.draw_cursor_boxes(ctx, item_offsets, to_screen, vcd, response, gap);
+        waves.draw_cursor_boxes(
+            ctx,
+            item_offsets,
+            to_screen,
+            response.rect.size(),
+            gap,
+            &self.config,
+            self.wanted_timescale,
+        );
     }
 
     fn draw_region(
@@ -433,7 +438,7 @@ impl State {
                 width: self.config.theme.linewidth,
             };
 
-            let transition_width = (new_x - old_x).min(6.) as f32;
+            let transition_width = (new_x - old_x).min(6.);
 
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
@@ -450,10 +455,10 @@ impl State {
                 stroke,
             ));
 
-            let text_size = ctx.cfg.line_height - 5.;
+            let text_size = ctx.cfg.text_size;
             let char_width = text_size * (20. / 31.);
 
-            let text_area = (new_x - old_x) as f32 - transition_width;
+            let text_area = (new_x - old_x) - transition_width;
             let num_chars = (text_area / char_width).floor();
             let fits_text = num_chars >= 1.;
 
@@ -462,7 +467,7 @@ impl State {
                     prev_value
                         .chars()
                         .take(num_chars as usize - 1)
-                        .chain(['…'].into_iter())
+                        .chain(['…'])
                         .collect::<String>()
                 } else {
                     prev_value.to_string()
@@ -552,7 +557,7 @@ impl ValueKind {
             ValueKind::Undef => theme.signal_undef,
             ValueKind::DontCare => theme.signal_dontcare,
             ValueKind::Warn => theme.signal_undef,
-            ValueKind::Custom(custom_color) => custom_color.clone(),
+            ValueKind::Custom(custom_color) => *custom_color,
             ValueKind::Weak => theme.signal_weak,
             ValueKind::Normal => user_color,
         }

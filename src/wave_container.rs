@@ -49,7 +49,7 @@ impl SignalRef {
     }
 
     pub fn from_hierarchy_string(s: &str) -> Self {
-        let components = s.split(".").map(|s| s.to_string()).collect::<Vec<_>>();
+        let components = s.split('.').map(|s| s.to_string()).collect::<Vec<_>>();
 
         if components.is_empty() {
             Self {
