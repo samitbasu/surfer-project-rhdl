@@ -14,15 +14,15 @@ camino = "1.1.6"
 derivative = "2.2.0"
 num = "0.4"
 color-eyre = "0.6.2"
-clap = {version = "4.4.6", features=['derive']}
+clap = {version = "4.4.7", features=['derive']}
 fern = { version = "0.6.2", features = ["colored"] }
-futures-util = "0.3.28"
-futures-core = "0.3.28"
+futures-util = "0.3.29"
+futures-core = "0.3.29"
 log = "0.4"
 progress-streams = "1.1.0"
 itertools = "0.11.0"
 reqwest = {version = "0.11.22", features = ["stream"]}
-serde = {version = "1.0.189", features = ["derive"]}
+serde = {version = "1.0.190", features = ["derive"]}
 serde_stacker = "0.1"
 spade = {path = "spade/spade-compiler"}
 spade-common = {path = "spade/spade-common"}
@@ -38,7 +38,7 @@ web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
 config = "0.13.3"
 human-sort = "0.2.2"
 directories = "5.0"
-toml = "0.8.1"
+toml = "0.8.6"
 half = "2.3.1"
 softposit = "0.4.0"
 fuzzy-matcher = "0.3.7"
@@ -55,7 +55,7 @@ console_error_panic_hook = "0.1.6"
 egui_skia = {version = "0.4.0", features = ["cpu_fix"]}
 skia-safe = "0.66.3"
 dssim = "3.2.4"
-rgb = "0.8.34"
+rgb = "0.8.37"
 image = "0.24.7"
 imgref = "1.9.4"
 project-root = "0.2.2"

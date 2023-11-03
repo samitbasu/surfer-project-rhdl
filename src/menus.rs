@@ -2,7 +2,7 @@ use color_eyre::eyre::WrapErr;
 use eframe::egui::{self, menu};
 
 use crate::{
-    clock_highlighting::ClockHighlightType, displayed_item::DisplayedItem, message::Message,
+    clock_highlighting::clock_highlight_type_menu, displayed_item::DisplayedItem, message::Message,
     signal_filter::signal_filter_type_menu, signal_name_type::SignalNameType, time::timescale_menu,
     translation::TranslationPreference, wave_container::FieldRef, wave_source::OpenMode, State,
 };
@@ -94,22 +94,7 @@ impl State {
             });
             ui.menu_button("Settings", |ui| {
                 ui.menu_button("Clock highlighting", |ui| {
-                    let highlight_types = vec![
-                        ClockHighlightType::Line,
-                        ClockHighlightType::Cycle,
-                        ClockHighlightType::None,
-                    ];
-                    for highlight_type in highlight_types {
-                        ui.radio(
-                            highlight_type == self.config.default_clock_highlight_type,
-                            highlight_type.to_string(),
-                        )
-                        .clicked()
-                        .then(|| {
-                            ui.close_menu();
-                            msgs.push(Message::SetClockHighlightType(highlight_type));
-                        });
-                    }
+                    clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
                 });
                 ui.menu_button("Time scale", |ui| {
                     timescale_menu(ui, msgs, &self.wanted_timescale);
