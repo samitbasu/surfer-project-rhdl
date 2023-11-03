@@ -9,7 +9,7 @@ use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
-use crate::displayed_item::DisplayedItem;
+use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window};
 use crate::signal_filter::filtered_signals;
 use crate::time::{time_string, timescale_menu};
@@ -17,7 +17,8 @@ use crate::util::uint_idx_to_alpha_idx;
 use crate::wave_container::{FieldRef, ModuleRef};
 use crate::wave_source::draw_progress_panel;
 use crate::{
-    command_prompt::show_command_prompt, translation::SignalInfo, Message, MoveDir, State, WaveData,
+    command_prompt::show_command_prompt, translation::SignalInfo, wave_data::WaveData, Message,
+    MoveDir, State,
 };
 
 pub struct DrawingContext<'a> {
@@ -31,7 +32,20 @@ pub struct DrawingContext<'a> {
 pub struct DrawConfig {
     pub canvas_height: f32,
     pub line_height: f32,
+    pub text_size: f32,
     pub max_transition_width: i32,
+}
+
+impl DrawConfig {
+    pub fn new(canvas_height: f32) -> Self {
+        let line_height = 16.;
+        Self {
+            canvas_height,
+            line_height,
+            text_size: line_height - 5.,
+            max_transition_width: 6,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -113,7 +127,7 @@ impl State {
                 self.draw_menu(ui, &mut msgs);
             });
         }
-        if let Some(vcd) = &self.waves {
+        if let Some(waves) = &self.waves {
             egui::TopBottomPanel::bottom("modeline")
                 .frame(egui::containers::Frame {
                     fill: self.config.theme.primary_ui_color.background,
@@ -125,17 +139,17 @@ impl State {
                     ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
                         ui.add_space(10.0);
                         if self.show_wave_source {
-                            ui.label(&vcd.source.to_string());
-                            if let Some(datetime) = vcd.inner.metadata().date {
+                            ui.label(&waves.source.to_string());
+                            if let Some(datetime) = waves.inner.metadata().date {
                                 ui.add_space(10.0);
                                 ui.label(format!("Generated: {datetime}"));
                             }
                         }
                         ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
-                            if let Some(time) = &vcd.cursor {
+                            if let Some(time) = &waves.cursor {
                                 ui.label(time_string(
                                     time,
-                                    &vcd.inner.metadata(),
+                                    &waves.inner.metadata(),
                                     &self.wanted_timescale,
                                 ))
                                 .context_menu(|ui| {
@@ -180,8 +194,8 @@ impl State {
                                         .id_source("modules")
                                         .show(ui, |ui| {
                                             ui.style_mut().wrap = Some(false);
-                                            if let Some(vcd) = &self.waves {
-                                                self.draw_all_scopes(&mut msgs, vcd, ui);
+                                            if let Some(waves) = &self.waves {
+                                                self.draw_all_scopes(&mut msgs, waves, ui);
                                             }
                                         });
                                 });
@@ -200,8 +214,8 @@ impl State {
                                     egui::ScrollArea::both()
                                         .id_source("signals")
                                         .show(ui, |ui| {
-                                            if let Some(vcd) = &self.waves {
-                                                self.draw_signal_list(&mut msgs, vcd, ui, filter);
+                                            if let Some(waves) = &self.waves {
+                                                self.draw_signal_list(&mut msgs, waves, ui, filter);
                                             }
                                         });
                                 });
@@ -218,28 +232,17 @@ impl State {
             draw_progress_panel(ctx, vcd_progress_data);
         }
 
-        if let Some(vcd) = &self.waves {
-            if !vcd.displayed_items.is_empty() {
+        if let Some(waves) = &self.waves {
+            if !waves.displayed_items.is_empty() {
                 let item_offsets = egui::SidePanel::left("signal list")
                     .default_width(200.)
                     .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
-
-                        if ui.ui_contains_pointer() {
-                            let scroll_delta = ui.input(|i| i.scroll_delta);
-                            if scroll_delta.y > 0.0 {
-                                msgs.push(Message::InvalidateCount);
-                                msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
-                            } else if scroll_delta.y < 0.0 {
-                                msgs.push(Message::InvalidateCount);
-                                msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
-                            }
-                        }
-
+                        self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| self.draw_item_list(&mut msgs, &vcd, ui),
+                            |ui| self.draw_item_list(&mut msgs, waves, ui),
                         )
                         .inner
                     })
@@ -250,21 +253,12 @@ impl State {
                     .width_range(30.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
-                        if ui.ui_contains_pointer() {
-                            let scroll_delta = ui.input(|i| i.scroll_delta);
-                            if scroll_delta.y > 0.0 {
-                                msgs.push(Message::InvalidateCount);
-                                msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
-                            } else if scroll_delta.y < 0.0 {
-                                msgs.push(Message::InvalidateCount);
-                                msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
-                            }
-                        }
+                        self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
                                 egui::ScrollArea::horizontal().show(ui, |ui| {
-                                    self.draw_var_values(&item_offsets, vcd, ui, &mut msgs)
+                                    self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
                                 })
                             },
                         )
@@ -281,7 +275,12 @@ impl State {
                     });
 
                 if let Some(idx) = self.rename_target {
-                    self.draw_rename_window(ctx, &mut msgs, idx);
+                    draw_rename_window(
+                        ctx,
+                        &mut msgs,
+                        idx,
+                        &mut self.item_renaming_string.borrow_mut(),
+                    );
                 }
             }
         };
@@ -290,7 +289,7 @@ impl State {
             || self
                 .waves
                 .as_ref()
-                .map_or(false, |vcd| vcd.displayed_items.is_empty())
+                .map_or(false, |waves| waves.displayed_items.is_empty())
         {
             egui::CentralPanel::default()
                 .frame(egui::Frame::none().fill(self.config.theme.canvas_colors.background))
@@ -367,9 +366,20 @@ impl State {
 
         msgs
     }
-}
 
-impl State {
+    fn handle_pointer_in_ui(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+        if ui.ui_contains_pointer() {
+            let scroll_delta = ui.input(|i| i.scroll_delta);
+            if scroll_delta.y > 0.0 {
+                msgs.push(Message::InvalidateCount);
+                msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
+            } else if scroll_delta.y < 0.0 {
+                msgs.push(Message::InvalidateCount);
+                msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
+            }
+        }
+    }
+
     pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, wave: &WaveData, ui: &mut egui::Ui) {
         for module in wave.inner.root_modules() {
             self.draw_selectable_child_or_orphan_scope(msgs, wave, &module, ui);
@@ -469,12 +479,12 @@ impl State {
     fn draw_item_list(
         &self,
         msgs: &mut Vec<Message>,
-        vcd: &WaveData,
+        waves: &WaveData,
         ui: &mut egui::Ui,
     ) -> Vec<ItemDrawingInfo> {
         let mut item_offsets = Vec::new();
 
-        for (vidx, displayed_item) in vcd.displayed_items.iter().enumerate().skip(vcd.scroll) {
+        for (vidx, displayed_item) in waves.displayed_items.iter().enumerate().skip(waves.scroll) {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| match displayed_item {
@@ -496,10 +506,10 @@ impl State {
                         );
                     }
                     DisplayedItem::Divider(_) => {
-                        self.draw_plain_var(msgs, vidx, &displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
                     DisplayedItem::Cursor(_) => {
-                        self.draw_plain_var(msgs, vidx, &displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
                 },
             );
@@ -520,7 +530,7 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             let tooltip = if let Some(waves) = &self.waves {
-                if field.field.len() == 0 {
+                if field.field.is_empty() {
                     format!(
                         "{}\nNum bits: {}",
                         field.root.full_path_string(),
@@ -679,7 +689,7 @@ impl State {
             vidx,
             self.waves
                 .as_ref()
-                .map_or(0, |vcd| vcd.displayed_items.len()),
+                .map_or(0, |waves| waves.displayed_items.len()),
         );
         ui.label(
             egui::RichText::new(alpha_id)
@@ -699,11 +709,7 @@ impl State {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = RectTransform::from_to(container_rect, response.rect);
-        let cfg = DrawConfig {
-            canvas_height: response.rect.size().y,
-            line_height: 16.,
-            max_transition_width: 6,
-        };
+        let cfg = DrawConfig::new(response.rect.size().y);
         let frame_width = response.rect.width();
 
         let ctx = DrawingContext {
@@ -754,10 +760,10 @@ impl State {
                                 waves.signal_translator(&drawing_info.field_ref, &self.translators);
 
                             let signal = &drawing_info.field_ref.root;
-                            let meta = waves.inner.signal_meta(&signal);
+                            let meta = waves.inner.signal_meta(signal);
                             let translation_result = waves
                                 .inner
-                                .query_signal(&signal, &num::BigInt::to_biguint(&cursor).unwrap())
+                                .query_signal(signal, &num::BigInt::to_biguint(cursor).unwrap())
                                 .ok()
                                 .flatten()
                                 .map(|(_time, value)| {
@@ -835,7 +841,7 @@ impl State {
     fn draw_background(
         &self,
         vidx: usize,
-        vcd: &WaveData,
+        waves: &WaveData,
         drawing_info: &ItemDrawingInfo,
         y_offset: f32,
         ctx: &DrawingContext<'_>,
@@ -843,7 +849,7 @@ impl State {
         frame_width: f32,
     ) {
         let default_background_color = self.get_default_alternating_background_color(vidx);
-        let background_color = *vcd
+        let background_color = *waves
             .displayed_items
             .get(drawing_info.signal_list_idx())
             .and_then(|signal| signal.background_color())

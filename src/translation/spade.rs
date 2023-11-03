@@ -31,7 +31,7 @@ pub struct SpadeTranslator {
 
 impl SpadeTranslator {
     pub fn new(top: &str, state_file: &Utf8Path) -> Result<Self> {
-        let file_content = std::fs::read_to_string(&state_file)
+        let file_content = std::fs::read_to_string(state_file)
             .with_context(|| format!("Failed to read {state_file}"))?;
 
         let mut opt = ron::Options::default();
@@ -154,7 +154,7 @@ fn not_present_enum_fields(
 }
 
 fn not_present_enum_options(
-    options: &Vec<(NameID, Vec<(Identifier, ConcreteType)>)>,
+    options: &[(NameID, Vec<(Identifier, ConcreteType)>)],
 ) -> Vec<(String, TranslationResult)> {
     options
         .iter()
@@ -268,7 +268,7 @@ fn translate_concrete(
                 *problematic = true;
                 TranslationResult {
                     val: ValueRepr::String(format!("xTAG(0b{tag_section})")),
-                    subfields: not_present_enum_options(&options),
+                    subfields: not_present_enum_options(options),
                     color: ValueKind::Undef,
                     durations: HashMap::new(),
                 }
@@ -276,7 +276,7 @@ fn translate_concrete(
                 *problematic = true;
                 TranslationResult {
                     val: ValueRepr::String(format!("zTAG(0b{tag_section})")),
-                    subfields: not_present_enum_options(&options),
+                    subfields: not_present_enum_options(options),
                     color: ValueKind::HighImp,
                     durations: HashMap::new(),
                 }
@@ -288,7 +288,7 @@ fn translate_concrete(
                     *problematic = true;
                     TranslationResult {
                         val: ValueRepr::String(format!("?TAG(0b{tag_section})")),
-                        subfields: not_present_enum_options(&options),
+                        subfields: not_present_enum_options(options),
                         color: ValueKind::Undef,
                         durations: HashMap::new(),
                     }
