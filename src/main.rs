@@ -297,13 +297,7 @@ impl State {
             let sender = sender.clone();
             perform_work(move || {
                 if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
-                    let t = SpadeTranslator::new(&top, &state);
-                    match t {
-                        Ok(result) => sender
-                            .send(Message::TranslatorLoaded(Box::new(result)))
-                            .unwrap(),
-                        Err(e) => sender.send(Message::Error(e)).unwrap(),
-                    }
+                    SpadeTranslator::load(&top, &state, sender);
                 } else {
                     info!("spade-top and spade-state not set, not loading spade translator");
                 }
@@ -677,7 +671,7 @@ impl State {
             }
             Message::TranslatorLoaded(t) => {
                 info!("Translator {} loaded", t.name());
-                self.translators.add(t)
+                self.translators.add_or_replace(t)
             }
             Message::ToggleSidePanel => {
                 self.config.layout.show_hierarchy = !self.config.layout.show_hierarchy;
@@ -725,6 +719,10 @@ impl State {
                         Some(())
                     }
                 };
+
+                for translator in self.translators.all_translators() {
+                    translator.reload(self.msg_sender.clone())
+                }
             }
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc::Sender};
 
 use color_eyre::Result;
 use eframe::epaint::Color32;
@@ -14,7 +14,10 @@ use itertools::Itertools;
 use num::BigUint;
 pub use numeric_translators::*;
 
-use crate::wave_container::{FieldRef, SignalMeta};
+use crate::{
+    message::Message,
+    wave_container::{FieldRef, SignalMeta},
+};
 
 pub fn all_translators() -> TranslatorList {
     TranslatorList::new(
@@ -94,7 +97,7 @@ impl TranslatorList {
         }
     }
 
-    pub fn add(&mut self, t: Box<dyn Translator>) {
+    pub fn add_or_replace(&mut self, t: Box<dyn Translator>) {
         self.inner.insert(t.name(), t);
     }
 
@@ -374,6 +377,11 @@ pub trait Translator {
     fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo>;
 
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference>;
+
+    // By default translators are stateless, but if they need to reload, they can
+    // do by defining this method.
+    // Long running translators should run the reloading in the background using `perform_work`
+    fn reload(&self, _sender: Sender<Message>) {}
 }
 
 pub trait BasicTranslator {
