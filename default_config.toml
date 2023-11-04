@@ -1,4 +1,4 @@
-default_signal_name_type = "Global"
+default_signal_name_type = "Unique"
 default_clock_highlight_type = "Line"
 
 [layout]
