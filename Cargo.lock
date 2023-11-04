@@ -4004,6 +4004,7 @@ dependencies = [
 name = "spade-ast-lowering"
 version = "0.4.0"
 dependencies = [
+ "itertools 0.10.5",
  "local-impl",
  "num",
  "pretty_assertions",
@@ -4110,7 +4111,6 @@ dependencies = [
  "spade-common",
  "spade-diagnostics",
  "spade-macros",
- "thiserror",
 ]
 
 [[package]]

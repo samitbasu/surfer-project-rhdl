@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc::Sender};
 
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use eframe::epaint::Color32;
 use fastwave_backend::SignalValue;
 use num::ToPrimitive;
@@ -18,7 +18,7 @@ use spade_common::{
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
-use crate::wave_container::SignalMeta;
+use crate::{message::Message, wasm_util::perform_work, wave_container::SignalMeta};
 
 use super::{
     SignalInfo, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
@@ -27,10 +27,12 @@ use super::{
 pub struct SpadeTranslator {
     state: CompilerState,
     top: NameID,
+    top_name: String,
+    state_file: Utf8PathBuf,
 }
 
 impl SpadeTranslator {
-    pub fn new(top: &str, state_file: &Utf8Path) -> Result<Self> {
+    pub fn new(top_name: &str, state_file: &Utf8Path) -> Result<Self> {
         let file_content = std::fs::read_to_string(state_file)
             .with_context(|| format!("Failed to read {state_file}"))?;
 
@@ -43,14 +45,35 @@ impl SpadeTranslator {
         let state = CompilerState::deserialize(de)
             .with_context(|| format!("Failed to decode {state_file}"))?;
 
-        let path = top.split("::").map(|s| Identifier(s.to_string()).nowhere());
+        let path = top_name
+            .split("::")
+            .map(|s| Identifier(s.to_string()).nowhere());
         let (top, _) = state
             .symtab
             .symtab()
             .lookup_unit(&Path(path.collect()).nowhere())
-            .map_err(|_| anyhow!("Did not find a unit {top} in {state_file}"))?;
+            .map_err(|_| anyhow!("Did not find a unit {top_name} in {state_file}"))?;
 
-        Ok(Self { state, top })
+        Ok(Self {
+            state,
+            top,
+            top_name: top_name.to_string(),
+            state_file: state_file.into(),
+        })
+    }
+
+    pub fn load(top_name: &str, state_file: &Utf8Path, sender: Sender<Message>) {
+        let top_name = top_name.to_string();
+        let state_file = state_file.to_owned();
+        perform_work(move || {
+            let t = SpadeTranslator::new(&top_name, &state_file);
+            match t {
+                Ok(result) => sender
+                    .send(Message::TranslatorLoaded(Box::new(result)))
+                    .unwrap(),
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
+            }
+        });
     }
 }
 
@@ -111,6 +134,10 @@ impl Translator for SpadeTranslator {
             ConcreteType::Single { base: _, params: _ } => Ok(TranslationPreference::No),
             _ => Ok(TranslationPreference::Prefer),
         }
+    }
+
+    fn reload(&self, sender: Sender<Message>) {
+        Self::load(&self.top_name, &self.state_file, sender);
     }
 }
 

@@ -223,22 +223,45 @@ macro_rules! snapshot_empty_state_with_msgs {
     };
 }
 
-macro_rules! snapshot_ui_with_file_msgs {
+macro_rules! snapshot_ui_with_file_and_msgs {
     ($name:ident, $file:expr, $msgs:expr) => {
+        snapshot_ui_with_file_spade_and_msgs!($name, $file, None, None, $msgs);
+    };
+}
+
+macro_rules! snapshot_ui_with_file_spade_and_msgs {
+    ($name:ident, $file:expr, $spade_top:expr, $spade_state:expr, $msgs:expr) => {
         snapshot_ui!($name, || {
+            let spade_top = $spade_top;
             let mut state = State::new(StartupParams {
                 waves: Some(WaveSource::File(
                     get_project_root().unwrap().join($file).try_into().unwrap(),
                 )),
-                spade_top: None,
-                spade_state: None,
+                spade_top: spade_top.clone(),
+                spade_state: $spade_state,
             })
             .unwrap();
 
+            let load_start = std::time::Instant::now();
+
             loop {
                 state.handle_async_messages();
-                if state.waves.is_some() {
+                let spade_loaded = if spade_top.is_some() {
+                    state
+                        .translators
+                        .all_translator_names()
+                        .iter()
+                        .any(|n| *n == "spade")
+                } else {
+                    true
+                };
+
+                if state.waves.is_some() && spade_loaded {
                     break;
+                }
+
+                if load_start.elapsed().as_secs() > 1 {
+                    panic!("Timeout")
                 }
             }
             state.update(Message::ToggleMenu);
@@ -306,7 +329,7 @@ snapshot_empty_state_with_msgs! {
     ]
 }
 
-snapshot_ui_with_file_msgs! {top_level_signals_have_no_aliasing, "examples/picorv32.vcd", [
+snapshot_ui_with_file_and_msgs! {top_level_signals_have_no_aliasing, "examples/picorv32.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["testbench"]))
 ]}
 
@@ -349,26 +372,42 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state
 }}
 
-snapshot_ui_with_file_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
+snapshot_ui_with_file_and_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Line),
 ]}
 
-snapshot_ui_with_file_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
+snapshot_ui_with_file_and_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Cycle),
 ]}
 
-snapshot_ui_with_file_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
+snapshot_ui_with_file_and_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::None),
 ]}
 
-snapshot_ui_with_file_msgs! {vertical_scrolling_works, "examples/picorv32.vcd", [
+snapshot_ui_with_file_and_msgs! {vertical_scrolling_works, "examples/picorv32.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["testbench", "top", "mem"])),
     Message::VerticalScroll(crate::MoveDir::Down, 5),
     Message::VerticalScroll(crate::MoveDir::Up, 2),
 ]}
+
+snapshot_ui_with_file_and_msgs! {vcd_with_empty_scope_loads, "examples/verilator_empty_scope.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["top_test"])),
+]}
+
+snapshot_ui_with_file_spade_and_msgs! {
+    spade_translation_works,
+    "examples/spade.vcd",
+    Some("proj::pipeline_ready_valid::ready_valid_pipeline".to_string()),
+    Some("examples/spade_state.ron".into()),
+    [
+    Message::AddModule(ModuleRef::from_strs(&[
+        "proj::pipeline_ready_valid::ready_valid_pipeline"
+    ])),
+    ]
+}
