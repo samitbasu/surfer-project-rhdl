@@ -336,8 +336,6 @@ impl State {
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
 
-        self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
-
         if let Some(draw_data) = &*self.draw_data.borrow() {
             let clock_edges = &draw_data.clock_edges;
             let draw_commands = &draw_data.draw_commands;
@@ -410,7 +408,7 @@ impl State {
         );
 
         waves.draw_cursor_boxes(
-            ctx,
+            &mut ctx,
             item_offsets,
             to_screen,
             response.rect.size(),
@@ -418,6 +416,8 @@ impl State {
             &self.config,
             self.wanted_timescale,
         );
+
+        self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
     }
 
     fn draw_region(

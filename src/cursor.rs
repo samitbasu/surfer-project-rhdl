@@ -108,7 +108,7 @@ impl WaveData {
 
     pub fn draw_cursor_boxes(
         &self,
-        ctx: DrawingContext<'_>,
+        ctx: &mut DrawingContext,
         item_offsets: &[ItemDrawingInfo],
         to_screen: RectTransform,
         size: Vec2,
