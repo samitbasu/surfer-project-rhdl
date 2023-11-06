@@ -802,11 +802,11 @@ impl State {
                         ItemDrawingInfo::Divider(_) => {}
                         ItemDrawingInfo::Cursor(extra_cursor) => {
                             let delta = time_string(
-                                &(cursor
-                                    - waves
-                                        .cursors
-                                        .get(&extra_cursor.idx)
-                                        .unwrap_or(&BigInt::from(0))),
+                                &(waves
+                                    .cursors
+                                    .get(&extra_cursor.idx)
+                                    .unwrap_or(&BigInt::from(0))
+                                    - cursor),
                                 &waves.inner.metadata(),
                                 &self.wanted_timescale,
                             );
