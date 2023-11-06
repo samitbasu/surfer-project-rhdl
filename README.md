@@ -54,7 +54,7 @@ not work on all systems.
 You can download a pre-built Windows binary
 [here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=windows_build).
 
-Note that sometimes Windows Defender has been known to report Surfer as a trojan. If in doubt, please use [Virus total](https://www.virustotal.com/) to check.
+Note that sometimes Windows Defender has been known to report Surfer [and other rust projects](https://github.com/cargo-bins/cargo-binstall/issues/945) as a trojan. If in doubt, please use [Virus total](https://www.virustotal.com/) to check.
 
 ## Project Status
 
