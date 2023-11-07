@@ -22,7 +22,7 @@ log = "0.4"
 progress-streams = "1.1.0"
 itertools = "0.11.0"
 reqwest = {version = "0.11.22", features = ["stream"]}
-serde = {version = "1.0.190", features = ["derive"]}
+serde = {version = "1.0.192", features = ["derive"]}
 serde_stacker = "0.1"
 spade = {path = "spade/spade-compiler"}
 spade-common = {path = "spade/spade-common"}
@@ -38,12 +38,13 @@ web-sys = {version = "0.3.64", features = ["Location", "UrlSearchParams"]}
 config = "0.13.3"
 human-sort = "0.2.2"
 directories = "5.0"
-toml = "0.8.6"
+toml = "0.8.8"
 half = "2.3.1"
 softposit = "0.4.0"
 fuzzy-matcher = "0.3.7"
 regex = "1.10.2"
 rfd = {version = "0.12.1", default-features = false, features = ["xdg-portal"]}
+chrono = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
@@ -71,4 +72,4 @@ opt-level = 3 # fast and small wasm
 opt-level=3
 
 [build-dependencies]
-vergen = { version = "8.2", features = ["build", "git", "gitcl"] }
+vergen = { version = "8.2.6", features = ["build", "git", "gitcl"] }
