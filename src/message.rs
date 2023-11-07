@@ -5,12 +5,12 @@ use eframe::{
     egui::DroppedFile,
     epaint::{Pos2, Vec2},
 };
-use fastwave_backend::Timescale;
 use num::BigInt;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
     signal_name_type::SignalNameType,
+    time::TimeScale,
     translation::Translator,
     wave_container::{FieldRef, ModuleRef, SignalRef, WaveContainer},
     wave_source::OpenMode,
@@ -75,7 +75,7 @@ pub enum Message {
     GoToStart,
     GoToEnd,
     ToggleMenu,
-    SetTimeScale(Timescale),
+    SetTimeScale(TimeScale),
     CommandPromptClear,
     CommandPromptUpdate {
         expanded: String,
