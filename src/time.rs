@@ -1,17 +1,72 @@
+use std::fmt;
+
 use eframe::egui;
-use fastwave_backend::{Metadata, Timescale};
+use fastwave_backend::{self, Metadata};
 use num::{BigInt, BigRational, ToPrimitive};
 
 use crate::Message;
 
-pub fn timescale_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timescale: &Timescale) {
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum TimeScale {
+    FemtoSeconds,
+    PicoSeconds,
+    NanoSeconds,
+    MicroSeconds,
+    MilliSeconds,
+    Seconds,
+    None,
+}
+
+impl fmt::Display for TimeScale {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TimeScale::FemtoSeconds => write!(f, "fs"),
+            TimeScale::PicoSeconds => write!(f, "ps"),
+            TimeScale::NanoSeconds => write!(f, "ns"),
+            TimeScale::MicroSeconds => write!(f, "μs"),
+            TimeScale::MilliSeconds => write!(f, "ms"),
+            TimeScale::Seconds => write!(f, "s"),
+            TimeScale::None => write!(f, "-"),
+        }
+    }
+}
+
+impl From<fastwave_backend::Timescale> for TimeScale {
+    fn from(timescale: fastwave_backend::Timescale) -> Self {
+        match timescale {
+            fastwave_backend::Timescale::Fs => TimeScale::FemtoSeconds,
+            fastwave_backend::Timescale::Ps => TimeScale::PicoSeconds,
+            fastwave_backend::Timescale::Ns => TimeScale::NanoSeconds,
+            fastwave_backend::Timescale::Us => TimeScale::MicroSeconds,
+            fastwave_backend::Timescale::Ms => TimeScale::MilliSeconds,
+            fastwave_backend::Timescale::S => TimeScale::Seconds,
+            fastwave_backend::Timescale::Unit => TimeScale::None,
+        }
+    }
+}
+
+impl TimeScale {
+    fn exponent(&self) -> i8 {
+        match self {
+            TimeScale::FemtoSeconds => -15,
+            TimeScale::PicoSeconds => -12,
+            TimeScale::NanoSeconds => -9,
+            TimeScale::MicroSeconds => -6,
+            TimeScale::MilliSeconds => -3,
+            TimeScale::Seconds => 0,
+            TimeScale::None => 0,
+        }
+    }
+}
+
+pub fn timescale_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timescale: &TimeScale) {
     let timescales = vec![
-        Timescale::Fs,
-        Timescale::Ps,
-        Timescale::Ns,
-        Timescale::Us,
-        Timescale::Ms,
-        Timescale::S,
+        TimeScale::FemtoSeconds,
+        TimeScale::PicoSeconds,
+        TimeScale::NanoSeconds,
+        TimeScale::MicroSeconds,
+        TimeScale::MilliSeconds,
+        TimeScale::Seconds,
     ];
     for timescale in timescales {
         ui.radio(*wanted_timescale == timescale, timescale.to_string())
@@ -23,9 +78,9 @@ pub fn timescale_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timesca
     }
 }
 
-pub fn time_string(time: &BigInt, metadata: &Metadata, wanted_timescale: &Timescale) -> String {
-    let wanted_exponent = timescale_to_exponent(wanted_timescale);
-    let data_exponent = timescale_to_exponent(&metadata.timescale.1);
+pub fn time_string(time: &BigInt, metadata: &Metadata, wanted_timescale: &TimeScale) -> String {
+    let wanted_exponent = wanted_timescale.exponent();
+    let data_exponent = TimeScale::from(metadata.timescale.1).exponent();
     let exponent_diff = wanted_exponent - data_exponent;
     if exponent_diff >= 0 {
         let precision = exponent_diff as usize;
@@ -45,17 +100,5 @@ pub fn time_string(time: &BigInt, metadata: &Metadata, wanted_timescale: &Timesc
                 * metadata.timescale.0.unwrap_or(1)
                 * (BigInt::from(10)).pow(-exponent_diff as u32)
         )
-    }
-}
-
-fn timescale_to_exponent(timescale: &Timescale) -> i8 {
-    match timescale {
-        Timescale::Fs => -15,
-        Timescale::Ps => -12,
-        Timescale::Ns => -9,
-        Timescale::Us => -6,
-        Timescale::Ms => -3,
-        Timescale::S => 0,
-        _ => 0,
     }
 }
