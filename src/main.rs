@@ -520,16 +520,22 @@ impl State {
                 }
             }
             Message::ZoomToFit => {
-                self.invalidate_draw_commands();
-                self.zoom_to_fit();
+                if let Some(waves) = &mut self.waves {
+                    waves.zoom_to_fit();
+                    self.invalidate_draw_commands();
+                }
             }
             Message::GoToEnd => {
-                self.invalidate_draw_commands();
-                self.go_to_end();
+                if let Some(waves) = &mut self.waves {
+                    waves.go_to_end();
+                    self.invalidate_draw_commands();
+                }
             }
             Message::GoToStart => {
-                self.invalidate_draw_commands();
-                self.go_to_start();
+                if let Some(waves) = &mut self.waves {
+                    waves.go_to_start();
+                    self.invalidate_draw_commands();
+                }
             }
             Message::SetTimeScale(timescale) => {
                 self.invalidate_draw_commands();
@@ -733,9 +739,9 @@ impl State {
                 };
             }
             Message::GoToCursorPosition(idx) => {
-                if let Some(waves) = self.waves.as_ref() {
+                if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.cursors.get(&idx) {
-                        self.go_to_time(&cursor.clone());
+                        waves.go_to_time(&cursor.clone());
                         self.invalidate_draw_commands();
                     }
                 };
@@ -821,42 +827,6 @@ impl State {
 
             waves.viewport.curr_left = target_left;
             waves.viewport.curr_right = target_right;
-        }
-    }
-
-    pub fn go_to_start(&mut self) {
-        if let Some(waves) = &mut self.waves {
-            let width = waves.viewport.curr_right - waves.viewport.curr_left;
-
-            waves.viewport.curr_left = 0.0;
-            waves.viewport.curr_right = width;
-        }
-    }
-
-    pub fn go_to_end(&mut self) {
-        if let Some(waves) = &mut self.waves {
-            let end_point = waves.num_timestamps.clone().to_f64().unwrap();
-            let width = waves.viewport.curr_right - waves.viewport.curr_left;
-
-            waves.viewport.curr_left = end_point - width;
-            waves.viewport.curr_right = end_point;
-        }
-    }
-
-    pub fn go_to_time(&mut self, center: &BigInt) {
-        if let Some(waves) = &mut self.waves {
-            let center_point = center.to_f64().unwrap();
-            let half_width = (waves.viewport.curr_right - waves.viewport.curr_left) / 2.;
-
-            waves.viewport.curr_left = center_point - half_width;
-            waves.viewport.curr_right = center_point + half_width;
-        }
-    }
-
-    pub fn zoom_to_fit(&mut self) {
-        if let Some(waves) = &mut self.waves {
-            waves.viewport.curr_left = 0.0;
-            waves.viewport.curr_right = waves.num_timestamps.clone().to_f64().unwrap();
         }
     }
 

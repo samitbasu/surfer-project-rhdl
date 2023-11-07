@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
 use log::{error, warn};
-use num::BigInt;
+use num::{BigInt, ToPrimitive};
 
 use crate::{
     displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal},
@@ -251,5 +251,33 @@ impl WaveData {
                 background_color: None,
                 name,
             }))
+    }
+
+    pub fn go_to_start(&mut self) {
+        let width = self.viewport.curr_right - self.viewport.curr_left;
+
+        self.viewport.curr_left = 0.0;
+        self.viewport.curr_right = width;
+    }
+
+    pub fn go_to_end(&mut self) {
+        let end_point = self.num_timestamps.clone().to_f64().unwrap();
+        let width = self.viewport.curr_right - self.viewport.curr_left;
+
+        self.viewport.curr_left = end_point - width;
+        self.viewport.curr_right = end_point;
+    }
+
+    pub fn zoom_to_fit(&mut self) {
+        self.viewport.curr_left = 0.0;
+        self.viewport.curr_right = self.num_timestamps.clone().to_f64().unwrap();
+    }
+
+    pub fn go_to_time(&mut self, center: &BigInt) {
+        let center_point = center.to_f64().unwrap();
+        let half_width = (self.viewport.curr_right - self.viewport.curr_left) / 2.;
+
+        self.viewport.curr_left = center_point - half_width;
+        self.viewport.curr_right = center_point + half_width;
     }
 }
