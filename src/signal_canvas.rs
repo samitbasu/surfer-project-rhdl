@@ -318,7 +318,8 @@ impl State {
 
         let gap = self.get_item_gap(item_offsets, &ctx);
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
-            let default_background_color = self.get_default_alternating_background_color(idx);
+            let default_background_color =
+                self.get_default_alternating_background_color(idx + waves.scroll);
             let background_color = *waves
                 .displayed_items
                 .get(drawing_info.signal_list_idx())
