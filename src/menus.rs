@@ -55,14 +55,14 @@ impl State {
                 }
                 ui.separator();
                 if ui
-                    .add(egui::Button::new("Scroll to start").shortcut_text("s"))
+                    .add(egui::Button::new("Go to start").shortcut_text("s"))
                     .clicked()
                 {
                     ui.close_menu();
                     msgs.push(Message::GoToStart);
                 }
                 if ui
-                    .add(egui::Button::new("Scroll to end").shortcut_text("e"))
+                    .add(egui::Button::new("Go to end").shortcut_text("e"))
                     .clicked()
                 {
                     ui.close_menu();
