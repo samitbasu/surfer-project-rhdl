@@ -7,7 +7,7 @@ use num::BigInt;
 use crate::{
     config::{SurferConfig, SurferTheme},
     displayed_item::{DisplayedCursor, DisplayedItem},
-    time::time_string,
+    time::{time_string, TimeUnit},
     view::{DrawingContext, ItemDrawingInfo},
     wave_data::WaveData,
 };
@@ -114,7 +114,7 @@ impl WaveData {
         size: Vec2,
         gap: f32,
         config: &SurferConfig,
-        wanted_timescale: fastwave_backend::Timescale,
+        wanted_timeunit: TimeUnit,
     ) {
         let text_size = ctx.cfg.text_size;
 
@@ -146,8 +146,8 @@ impl WaveData {
                 self.cursors
                     .get(&drawing_info.idx)
                     .unwrap_or(&BigInt::from(0)),
-                &self.inner.metadata(),
-                &wanted_timescale,
+                &self.inner.metadata().timescale,
+                &wanted_timeunit,
             );
 
             // Determine size of text

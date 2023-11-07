@@ -46,7 +46,6 @@ use eframe::emath;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
-use fastwave_backend::Timescale;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
@@ -62,6 +61,7 @@ use num::BigInt;
 use num::FromPrimitive;
 use num::ToPrimitive;
 use signal_filter::SignalFilterType;
+use time::TimeUnit;
 use translation::all_translators;
 use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
@@ -323,7 +323,7 @@ pub struct State {
     /// with absolute path diffs
     show_wave_source: bool,
     show_logs: bool,
-    wanted_timescale: Timescale,
+    wanted_timeunit: TimeUnit,
     gesture_start_location: Option<emath::Pos2>,
     show_url_entry: bool,
     signal_filter_focused: bool,
@@ -395,7 +395,7 @@ impl State {
             show_gestures: false,
             show_logs: false,
             show_performance: false,
-            wanted_timescale: Timescale::Unit,
+            wanted_timeunit: TimeUnit::None,
             gesture_start_location: None,
             show_url_entry: false,
             show_quick_start: false,
@@ -619,9 +619,9 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
-            Message::SetTimeScale(timescale) => {
+            Message::SetTimeUnit(timeunit) => {
                 self.invalidate_draw_commands();
-                self.wanted_timescale = timescale;
+                self.wanted_timeunit = timeunit;
             }
             Message::ZoomToRange { start, end } => {
                 if let Some(waves) = &mut self.waves {
@@ -748,8 +748,8 @@ impl State {
                 };
                 self.invalidate_draw_commands();
 
-                // Must clone timescale before consuming new_vcd
-                self.wanted_timescale = new_wave.inner.metadata().timescale.1;
+                // Set time unit to the file time unit before consuming new_wave
+                self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
                 self.waves = Some(new_wave);
                 self.vcd_progress = None;
                 info!("Done setting up VCD file");

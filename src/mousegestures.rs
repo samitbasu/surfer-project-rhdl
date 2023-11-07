@@ -209,8 +209,8 @@ impl State {
                         .to_time(minx as f64, width)
                         .round()
                         .to_integer()),
-                    &waves.inner.metadata(),
-                    &(self.wanted_timescale)
+                    &waves.inner.metadata().timescale,
+                    &(self.wanted_timeunit)
                 ),
                 time_string(
                     &(waves
@@ -218,8 +218,8 @@ impl State {
                         .to_time(maxx as f64, width)
                         .round()
                         .to_integer()),
-                    &waves.inner.metadata(),
-                    &(self.wanted_timescale)
+                    &waves.inner.metadata().timescale,
+                    &(self.wanted_timeunit)
                 ),
             ),
             FontId::default(),
