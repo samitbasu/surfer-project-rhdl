@@ -12,7 +12,7 @@ use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window};
 use crate::signal_filter::filtered_signals;
-use crate::time::{time_string, timescale_menu};
+use crate::time::{time_string, timeunit_menu};
 use crate::util::uint_idx_to_alpha_idx;
 use crate::wave_container::{FieldRef, ModuleRef};
 use crate::wave_source::draw_progress_panel;
@@ -149,11 +149,11 @@ impl State {
                             if let Some(time) = &waves.cursor {
                                 ui.label(time_string(
                                     time,
-                                    &waves.inner.metadata(),
-                                    &self.wanted_timescale,
+                                    &waves.inner.metadata().timescale,
+                                    &self.wanted_timeunit,
                                 ))
                                 .context_menu(|ui| {
-                                    timescale_menu(ui, &mut msgs, &self.wanted_timescale)
+                                    timeunit_menu(ui, &mut msgs, &self.wanted_timeunit)
                                 });
                                 ui.add_space(10.0)
                             }
@@ -807,8 +807,8 @@ impl State {
                                     .get(&extra_cursor.idx)
                                     .unwrap_or(&BigInt::from(0))
                                     - cursor),
-                                &waves.inner.metadata(),
-                                &self.wanted_timescale,
+                                &waves.inner.metadata().timescale,
+                                &self.wanted_timeunit,
                             );
 
                             ui.label(format!("Δ: {delta}",)).context_menu(|ui| {
