@@ -848,7 +848,8 @@ impl State {
         gap: f32,
         frame_width: f32,
     ) {
-        let default_background_color = self.get_default_alternating_background_color(vidx);
+        let default_background_color =
+            self.get_default_alternating_background_color(vidx + waves.scroll);
         let background_color = *waves
             .displayed_items
             .get(drawing_info.signal_list_idx())
