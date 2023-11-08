@@ -1,11 +1,21 @@
+use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::Context, Result};
-use fastwave_backend::{Metadata, SignalValue, VCD};
+use fastwave_backend::{SignalValue, VCD};
 use num::BigUint;
 
-use crate::fast_wave_container::FastWaveContainer;
+use crate::{
+    fast_wave_container::FastWaveContainer,
+    time::{TimeScale, TimeUnit},
+};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ModuleRef(Vec<String>);
+
+pub struct MetaData {
+    pub date: Option<DateTime<Utc>>,
+    pub version: Option<String>,
+    pub timescale: TimeScale,
+}
 
 impl ModuleRef {
     pub fn from_strs(s: &[&str]) -> Self {
@@ -183,13 +193,15 @@ impl WaveContainer {
         }
     }
 
-    // FIXME: Do not return FWB type
-    pub fn metadata(&self) -> Metadata {
+    pub fn metadata(&self) -> MetaData {
         match self {
-            WaveContainer::Fwb(f) => Metadata {
+            WaveContainer::Fwb(f) => MetaData {
                 date: f.inner.metadata.date,
-                version: f.inner.metadata.version.clone(),
-                timescale: f.inner.metadata.timescale,
+                version: f.inner.metadata.version.as_ref().map(|m| m.0.clone()),
+                timescale: TimeScale {
+                    unit: TimeUnit::from(f.inner.metadata.timescale.1),
+                    multiplier: f.inner.metadata.timescale.0,
+                },
             },
         }
     }
