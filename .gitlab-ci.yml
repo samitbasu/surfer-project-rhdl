@@ -53,6 +53,21 @@ test:
     rules:
         - when: always
 
+coverage:
+    stage: test
+    interruptible: true
+    before_script:
+        - cargo install cargo-tarpaulin
+    script:
+        - shopt -s globstar
+        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* FastWaveBackend/**/*
+    coverage: '/^\d+.\d+% coverage/'
+    artifacts:
+        reports:
+            coverage_report:
+                coverage_format: cobertura
+                path: coverage/cobertura-coverage.xml
+        expire_in: 1 week
 
 cargo-fmt:
     stage: test
