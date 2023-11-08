@@ -53,6 +53,27 @@ test:
     rules:
         - when: always
 
+coverage:
+    image: xd009642/tarpaulin
+    stage: test
+    interruptible: true
+    cache:
+        key: coverage-$CI_COMMIT_REF_SLUG
+        paths:
+            - target
+            - $CARGO_HOME
+    script:
+        - shopt -s globstar
+        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* FastWaveBackend/**/* --skip-clean
+    coverage: '/^\d+.\d+% coverage/'
+    artifacts:
+        reports:
+            coverage_report:
+                coverage_format: cobertura
+                path: cobertura.xml
+        expire_in: 1 week
+    rules:
+        - when: always
 
 cargo-fmt:
     stage: test
