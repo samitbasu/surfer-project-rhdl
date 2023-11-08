@@ -7,6 +7,12 @@ show_menu = true
 window_width = 1920
 window_height = 1080
 
+[waves]
+wave_height = 16
+text_height = 11
+gap = 5
+max_transition = 6
+
 [gesture]
 style = { color="35b635", width=2 }
 size = 300

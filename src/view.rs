@@ -8,7 +8,7 @@ use log::{info, warn};
 use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
-use crate::config::SurferTheme;
+use crate::config::{SurferConfig, SurferTheme};
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window};
 use crate::signal_filter::filtered_signals;
@@ -34,16 +34,17 @@ pub struct DrawConfig {
     pub line_height: f32,
     pub text_size: f32,
     pub max_transition_width: i32,
+    pub half_gap: f32,
 }
 
 impl DrawConfig {
-    pub fn new(canvas_height: f32) -> Self {
-        let line_height = 16.;
+    pub fn new(canvas_height: f32, config: &SurferConfig) -> Self {
         Self {
             canvas_height,
-            line_height,
-            text_size: line_height - 5.,
-            max_transition_width: 6,
+            line_height: config.waves.wave_height,
+            text_size: config.waves.text_height,
+            max_transition_width: config.waves.max_transition,
+            half_gap: config.waves.gap / 2.,
         }
     }
 }
@@ -235,6 +236,11 @@ impl State {
         if let Some(waves) = &self.waves {
             if !waves.displayed_items.is_empty() {
                 let item_offsets = egui::SidePanel::left("signal list")
+                    .frame(Frame {
+                        inner_margin: Margin::same(0.0),
+                        outer_margin: Margin::same(0.0),
+                        ..Default::default()
+                    })
                     .default_width(200.)
                     .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
@@ -249,6 +255,11 @@ impl State {
                     .inner;
 
                 egui::SidePanel::left("signal values")
+                    .frame(Frame {
+                        inner_margin: Margin::same(0.0),
+                        outer_margin: Margin::same(0.0),
+                        ..Default::default()
+                    })
                     .default_width(100.)
                     .width_range(30.0..=max_width)
                     .show(ctx, |ui| {
@@ -482,38 +493,85 @@ impl State {
         waves: &WaveData,
         ui: &mut egui::Ui,
     ) -> Vec<ItemDrawingInfo> {
+        let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
+        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
+        let to_screen = RectTransform::from_to(container_rect, response.rect);
+        let cfg = DrawConfig::new(response.rect.size().y, &self.config);
+        let frame_width = response.rect.width();
+
+        let ctx = DrawingContext {
+            painter: &mut painter,
+            cfg: &cfg,
+            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
+            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
+            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
+            theme: &self.config.theme,
+        };
         let mut item_offsets = Vec::new();
+        let rect = response.rect;
+        let rect = Rect {
+            min: rect.min + Vec2::new(8.0, 0.0),
+            max: rect.max,
+        };
 
-        for (vidx, displayed_item) in waves.displayed_items.iter().enumerate().skip(waves.scroll) {
-            ui.with_layout(
-                Layout::top_down(Align::LEFT).with_cross_justify(true),
-                |ui| match displayed_item {
-                    DisplayedItem::Signal(displayed_signal) => {
-                        let sig = displayed_signal;
-                        let info = &displayed_signal.info;
-
-                        self.draw_signal_var(
-                            msgs,
-                            vidx,
-                            &displayed_signal.display_name,
-                            FieldRef {
-                                root: sig.signal_ref.clone(),
-                                field: vec![],
-                            },
-                            &mut item_offsets,
-                            info,
-                            ui,
+        ui.allocate_ui_at_rect(rect, |ui| {
+            for (vidx, displayed_item) in
+                waves.displayed_items.iter().enumerate().skip(waves.scroll)
+            {
+                ui.with_layout(
+                    Layout::top_down(Align::LEFT).with_cross_justify(true),
+                    |ui| {
+                        let next_y = ui.cursor().top();
+                        self.draw_background(
+                            vidx - waves.scroll,
+                            waves,
+                            Some(displayed_item),
+                            next_y - ctx.cfg.line_height - 3. * ctx.cfg.half_gap,
+                            &ctx,
+                            frame_width,
                         );
-                    }
-                    DisplayedItem::Divider(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
-                    }
-                    DisplayedItem::Cursor(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
-                    }
-                },
-            );
-        }
+
+                        match displayed_item {
+                            DisplayedItem::Signal(displayed_signal) => {
+                                let sig = displayed_signal;
+                                let info = &displayed_signal.info;
+
+                                self.draw_signal_var(
+                                    msgs,
+                                    vidx,
+                                    &displayed_signal.display_name,
+                                    FieldRef {
+                                        root: sig.signal_ref.clone(),
+                                        field: vec![],
+                                    },
+                                    &mut item_offsets,
+                                    info,
+                                    ui,
+                                );
+                            }
+                            DisplayedItem::Divider(_) => {
+                                self.draw_plain_var(
+                                    msgs,
+                                    vidx,
+                                    displayed_item,
+                                    &mut item_offsets,
+                                    ui,
+                                );
+                            }
+                            DisplayedItem::Cursor(_) => {
+                                self.draw_plain_var(
+                                    msgs,
+                                    vidx,
+                                    displayed_item,
+                                    &mut item_offsets,
+                                    ui,
+                                );
+                            }
+                        }
+                    },
+                );
+            }
+        });
 
         item_offsets
     }
@@ -709,7 +767,7 @@ impl State {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = RectTransform::from_to(container_rect, response.rect);
-        let cfg = DrawConfig::new(response.rect.size().y);
+        let cfg = DrawConfig::new(response.rect.size().y, &self.config);
         let frame_width = response.rect.width();
 
         let ctx = DrawingContext {
@@ -721,9 +779,13 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = self.get_item_gap(item_offsets, &ctx);
         if let Some(cursor) = &waves.cursor {
-            ui.allocate_ui_at_rect(response.rect, |ui| {
+            let rect = response.rect;
+            let rect = Rect {
+                min: rect.min + Vec2::new(8.0, 0.0),
+                max: rect.max,
+            };
+            ui.allocate_ui_at_rect(rect, |ui| {
                 let text_style = TextStyle::Monospace;
                 ui.style_mut().override_text_style = Some(text_style);
                 for (vidx, drawing_info) in item_offsets
@@ -744,10 +806,9 @@ impl State {
                     self.draw_background(
                         vidx,
                         waves,
-                        drawing_info,
+                        waves.displayed_items.get(drawing_info.signal_list_idx()),
                         y_offset,
                         &ctx,
-                        gap,
                         frame_width,
                     );
                     match drawing_info {
@@ -821,20 +882,15 @@ impl State {
         } else {
             for (vidx, drawing_info) in item_offsets.iter().enumerate() {
                 let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
-                self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
+                self.draw_background(
+                    vidx,
+                    waves,
+                    waves.displayed_items.get(drawing_info.signal_list_idx()),
+                    y_offset,
+                    &ctx,
+                    frame_width,
+                );
             }
-        }
-    }
-
-    pub fn get_item_gap(&self, item_offsets: &[ItemDrawingInfo], ctx: &DrawingContext<'_>) -> f32 {
-        if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
-            // Assume that first signal has standard height (for now)
-            (item_offsets.get(1).unwrap().offset()
-                - item_offsets.get(0).unwrap().offset()
-                - ctx.cfg.line_height)
-                / 2.0
-        } else {
-            0.0
         }
     }
 
@@ -842,21 +898,19 @@ impl State {
         &self,
         vidx: usize,
         waves: &WaveData,
-        drawing_info: &ItemDrawingInfo,
+        item: Option<&DisplayedItem>,
         y_offset: f32,
         ctx: &DrawingContext<'_>,
-        gap: f32,
         frame_width: f32,
     ) {
         let default_background_color =
             self.get_default_alternating_background_color(vidx + waves.scroll);
-        let background_color = *waves
-            .displayed_items
-            .get(drawing_info.signal_list_idx())
+        let background_color = *item
             .and_then(|signal| signal.background_color())
             .and_then(|color| self.config.theme.colors.get(&color))
             .unwrap_or(&default_background_color);
         // Draw background
+        let gap = ctx.cfg.half_gap;
         let min = (ctx.to_screen)(0.0, y_offset - gap);
         let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
         ctx.painter
