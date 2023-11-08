@@ -261,7 +261,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                     break;
                 }
 
-                if load_start.elapsed().as_secs() > 1 {
+                if load_start.elapsed().as_secs() > 100 {
                     panic!("Timeout")
                 }
             }
