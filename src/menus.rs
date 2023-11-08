@@ -3,7 +3,7 @@ use eframe::egui::{self, menu};
 
 use crate::{
     clock_highlighting::clock_highlight_type_menu, displayed_item::DisplayedItem, message::Message,
-    signal_filter::signal_filter_type_menu, signal_name_type::SignalNameType, time::timescale_menu,
+    signal_filter::signal_filter_type_menu, signal_name_type::SignalNameType, time::timeunit_menu,
     translation::TranslationPreference, wave_container::FieldRef, wave_source::OpenMode, State,
 };
 
@@ -96,8 +96,8 @@ impl State {
                 ui.menu_button("Clock highlighting", |ui| {
                     clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
                 });
-                ui.menu_button("Time scale", |ui| {
-                    timescale_menu(ui, msgs, &self.wanted_timescale);
+                ui.menu_button("Time unit", |ui| {
+                    timeunit_menu(ui, msgs, &self.wanted_timeunit);
                 });
                 if let Some(waves) = &self.waves {
                     let signal_name_type = waves.default_signal_name_type;
