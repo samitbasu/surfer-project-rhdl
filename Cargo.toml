@@ -10,15 +10,15 @@ license-file = "LICENSE-EUPL-1.2.txt"
 asm_riscv = "0.2.0"
 bytes = "1.5.0"
 camino = "1.1.6"
-chrono = "0.4"
+chrono = "0.4.31"
 clap = {version = "4.4.10", features=['derive']}
 color-eyre = "0.6.2"
 config = "0.13.4"
 derivative = "2.2.0"
 directories = "5.0"
-eframe = { version = "0.23.0" }
-egui_extras = "0.23.0"
-egui_plot = "0.23.0"
+eframe = "~0.23"
+egui_extras = "~0.23"
+egui_plot = "~0.23"
 f128 = {path = "f128", optional=true}
 fastwave_backend = {path = "FastWaveBackend"}
 fern = { version = "0.6.2", features = ["colored"] }
