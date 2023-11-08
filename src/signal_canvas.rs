@@ -315,7 +315,7 @@ impl State {
     ) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
-        let cfg = DrawConfig::new(response.rect.size().y);
+        let cfg = DrawConfig::new(response.rect.size().y, &self.config);
         // the draw commands have been invalidated, recompute
         if self.draw_data.borrow().is_none()
             || Some(response.rect) != *self.last_canvas_rect.borrow()
@@ -379,7 +379,7 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = self.get_item_gap(item_offsets, &ctx);
+        let gap = ctx.cfg.half_gap;
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
             let default_background_color =
                 self.get_default_alternating_background_color(idx + waves.scroll);
@@ -478,7 +478,6 @@ impl State {
             item_offsets,
             to_screen,
             response.rect.size(),
-            gap,
             &self.config,
             self.wanted_timeunit,
         );
