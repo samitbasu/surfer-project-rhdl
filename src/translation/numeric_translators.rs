@@ -111,6 +111,30 @@ impl NumericTranslator for DoublePrecisionTranslator {
     }
 }
 
+#[cfg(feature = "f128")]
+pub struct QuadPrecisionTranslator {}
+
+#[cfg(feature = "f128")]
+impl NumericTranslator for QuadPrecisionTranslator {
+    fn name(&self) -> String {
+        String::from("FP: 128-bit IEEE 754")
+    }
+    fn translate_biguint(&self, _: u64, v: num::BigUint) -> String {
+        let mut digits = v.iter_u64_digits();
+        let lsb = digits.next().unwrap_or(0);
+        let msb = if digits.len() > 0 {
+            digits.next().unwrap_or(0)
+        } else {
+            0
+        };
+        let val = lsb as u128 | (msb as u128) << 64;
+        f128::f128::from_bits(val).to_string()
+    }
+    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(signal.num_bits, 128)
+    }
+}
+
 pub struct HalfPrecisionTranslator {}
 
 impl NumericTranslator for HalfPrecisionTranslator {

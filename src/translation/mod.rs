@@ -43,6 +43,8 @@ pub fn all_translators() -> TranslatorList {
             Box::new(E4M3Translator {}),
             Box::new(RiscvTranslator {}),
             Box::new(LebTranslator {}),
+            #[cfg(feature = "f128")]
+            Box::new(QuadPrecisionTranslator {}),
         ],
         vec![
             Box::new(clock::ClockTranslator::new()),
