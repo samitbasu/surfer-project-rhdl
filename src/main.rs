@@ -65,7 +65,6 @@ use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
 use signal_filter::SignalFilterType;
-use time::TimeScale;
 use time::TimeUnit;
 use translation::all_translators;
 use translation::spade::SpadeTranslator;
@@ -310,6 +309,7 @@ pub enum ColorSpecifier {
 struct CachedDrawData {
     pub draw_commands: HashMap<FieldRef, signal_canvas::DrawingCommands>,
     pub clock_edges: Vec<f32>,
+    pub ticks: Vec<(String, f32)>,
 }
 
 struct Channels {
@@ -426,7 +426,7 @@ pub struct State {
     show_wave_source: bool,
     show_performance: bool,
     show_logs: bool,
-    wanted_timescale: TimeScale,
+    wanted_timeunit: TimeUnit,
     show_url_entry: bool,
     signal_filter_focused: bool,
     signal_filter_type: SignalFilterType,
@@ -456,10 +456,7 @@ impl State {
             show_gestures: false,
             show_performance: false,
             show_logs: false,
-            wanted_timescale: TimeScale {
-                unit: TimeUnit::None,
-                multiplier: None,
-            },
+            wanted_timeunit: TimeUnit::None,
             show_url_entry: false,
             show_quick_start: false,
             rename_target: None,
@@ -526,6 +523,11 @@ impl State {
             Message::AddDivider(name) => {
                 if let Some(waves) = self.waves.as_mut() {
                     waves.add_divider(name);
+                }
+            }
+            Message::AddTimeLine => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.add_timeline();
                 }
             }
             Message::AddModule(module) => {
@@ -696,7 +698,7 @@ impl State {
             }
             Message::SetTimeUnit(timeunit) => {
                 self.invalidate_draw_commands();
-                self.wanted_timescale.unit = timeunit;
+                self.wanted_timeunit = timeunit;
             }
             Message::ZoomToRange { start, end } => {
                 if let Some(waves) = &mut self.waves {
@@ -739,6 +741,7 @@ impl State {
                                 }
                                 DisplayedItem::Cursor(_) => {}
                                 DisplayedItem::Divider(_) => {}
+                                DisplayedItem::TimeLine(_) => {}
                             }
                         }
                     }
@@ -837,7 +840,7 @@ impl State {
                 self.invalidate_draw_commands();
 
                 // Set time unit to the file time unit before consuming new_wave
-                self.wanted_timescale = new_wave.inner.metadata().timescale;
+                self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
                 self.waves = Some(new_wave);
                 self.sys.vcd_progress = None;
                 info!("Done setting up VCD file");
