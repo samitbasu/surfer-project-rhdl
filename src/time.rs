@@ -1,10 +1,13 @@
 use std::fmt;
 
-use eframe::egui;
+use eframe::{
+    egui,
+    epaint::{Pos2, Stroke},
+};
 use num::{BigInt, BigRational, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
-use crate::Message;
+use crate::{view::DrawingContext, wave_data::WaveData, Message, State};
 
 #[derive(Serialize, Deserialize)]
 pub struct TimeScale {
@@ -116,6 +119,75 @@ pub fn time_string(time: &BigInt, timescale: &TimeScale, wanted_timeunit: &TimeU
                 * timescale.multiplier.unwrap_or(1)
                 * (BigInt::from(10)).pow(-exponent_diff as u32)
         )
+    }
+}
+
+impl State {
+    pub fn get_ticks(
+        &self,
+        waves: &WaveData,
+        frame_width: f32,
+        text_size: f32,
+    ) -> Vec<(String, f32)> {
+        let char_width = text_size * (20. / 31.);
+        let left_time = waves.viewport.to_time(0., frame_width).to_f64().unwrap();
+        let frame_width_64 = frame_width as f64;
+        let right_time = waves
+            .viewport
+            .to_time(frame_width_64, frame_width)
+            .to_f64()
+            .unwrap();
+        let time_width = right_time - left_time;
+        let rightexp = right_time.abs().log10().round() as i16;
+        let leftexp = left_time.abs().log10().round() as i16;
+        let max_labelwidth = (rightexp.max(leftexp) + 3) as f32 * char_width;
+        let max_labels = ((frame_width * self.config.ticks.density) / max_labelwidth).floor() + 1.;
+        let scale = 10.0f64.powf((time_width / max_labels as f64).log10().floor());
+
+        let steps = &[1., 2., 2.5, 5., 10.];
+        let mut ticks: Vec<(String, f32)> = [].to_vec();
+        for step in steps {
+            let scaled_step = scale * step;
+            if (scaled_step.round() - scaled_step).abs() >= 0.1 {
+                // Do not select a step size so that we get ticks that are drawn inbetween
+                // possible cursor positions
+                continue;
+            }
+            let rounded_min_label_time = (left_time / scaled_step).ceil() * scaled_step;
+            let high = ((right_time - rounded_min_label_time) / scaled_step).ceil() as f32;
+            if high <= max_labels {
+                ticks = (0..high as i16)
+                    .map(|v| {
+                        BigInt::from(((v as f64) * scaled_step + rounded_min_label_time) as i128)
+                    })
+                    .map(|tick| {
+                        (
+                            // Time string
+                            time_string(
+                                &tick,
+                                &waves.inner.metadata().timescale,
+                                &self.wanted_timeunit,
+                            ),
+                            waves.viewport.from_time(&tick, frame_width_64) as f32,
+                        )
+                    })
+                    .collect::<Vec<(String, f32)>>();
+                break;
+            }
+        }
+        ticks
+    }
+
+    pub fn draw_tick_line(&self, x: f32, ctx: &mut DrawingContext, stroke: &Stroke) {
+        let Pos2 {
+            x: x_pos,
+            y: y_start,
+        } = (ctx.to_screen)(x, 0.);
+        ctx.painter.vline(
+            x_pos,
+            (y_start)..=(y_start + ctx.cfg.canvas_height),
+            *stroke,
+        );
     }
 }
 

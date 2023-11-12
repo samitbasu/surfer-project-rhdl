@@ -235,11 +235,15 @@ impl State {
         *self.sys.draw_data.borrow_mut() = None;
     }
 
-    pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
+    pub fn generate_draw_commands(
+        &self,
+        cfg: &DrawConfig,
+        frame_width: f32,
+        msgs: &mut Vec<Message>,
+    ) {
         self.sys.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
-            let frame_width = width;
             let max_time = BigRational::from_integer(waves.num_timestamps.clone());
             let mut clock_edges = vec![];
             // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
@@ -298,10 +302,12 @@ impl State {
                 }
                 clock_edges.append(&mut new_clock_edges)
             }
+            let ticks = self.get_ticks(waves, frame_width, cfg.text_size);
 
             *self.sys.draw_data.borrow_mut() = Some(CachedDrawData {
                 draw_commands,
                 clock_edges,
+                ticks,
             });
         }
         self.sys.timing.borrow_mut().end("Generate draw commands");
@@ -409,6 +415,21 @@ impl State {
                 [_single] => true,
                 [first, second, ..] => second - first > 15.,
             };
+            let ticks = &draw_data.ticks;
+            if !ticks.is_empty()
+                && self
+                    .show_ticks
+                    .unwrap_or_else(|| self.config.layout.show_ticks())
+            {
+                let stroke = Stroke {
+                    color: self.config.ticks.style.color,
+                    width: self.config.ticks.style.width,
+                };
+
+                for (_, x) in ticks {
+                    self.draw_tick_line(*x, &mut ctx, &stroke)
+                }
+            }
 
             if draw_clock_edges {
                 let mut last_edge = 0.0;
@@ -454,6 +475,17 @@ impl State {
                     }
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {
+                        for (tick_text, x) in ticks {
+                            ctx.painter.text(
+                                (ctx.to_screen)(*x, y_offset),
+                                Align2::CENTER_TOP,
+                                tick_text,
+                                FontId::proportional(ctx.cfg.text_size),
+                                self.config.theme.foreground,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -480,7 +512,7 @@ impl State {
             response.rect.size(),
             gap,
             &self.config,
-            self.wanted_timescale.unit,
+            self.wanted_timeunit,
         );
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
