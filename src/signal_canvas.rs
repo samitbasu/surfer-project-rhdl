@@ -235,11 +235,15 @@ impl State {
         *self.sys.draw_data.borrow_mut() = None;
     }
 
-    pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
+    pub fn generate_draw_commands(
+        &self,
+        cfg: &DrawConfig,
+        frame_width: f32,
+        msgs: &mut Vec<Message>,
+    ) {
         self.sys.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
-            let frame_width = width;
             let max_time = BigRational::from_integer(waves.num_timestamps.clone());
             let mut clock_edges = vec![];
             // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
@@ -298,10 +302,12 @@ impl State {
                 }
                 clock_edges.append(&mut new_clock_edges)
             }
+            let ticks = self.get_ticks(waves, frame_width, cfg.text_size);
 
             *self.sys.draw_data.borrow_mut() = Some(CachedDrawData {
                 draw_commands,
                 clock_edges,
+                ticks,
             });
         }
         self.sys.timing.borrow_mut().end("Generate draw commands");
@@ -409,6 +415,21 @@ impl State {
                 [_single] => true,
                 [first, second, ..] => second - first > 15.,
             };
+            let ticks = &draw_data.ticks;
+            if !ticks.is_empty()
+                && self
+                    .show_ticks
+                    .unwrap_or_else(|| self.config.layout.show_ticks())
+            {
+                let stroke = Stroke {
+                    color: self.config.ticks.style.color,
+                    width: self.config.ticks.style.width,
+                };
+
+                for (_, x) in ticks {
+                    self.draw_tick_line(*x, &mut ctx, &stroke)
+                }
+            }
 
             if draw_clock_edges {
                 let mut last_edge = 0.0;
@@ -426,18 +447,19 @@ impl State {
                 // compensate for that
                 let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
 
-                let color = *waves
+                let color = waves
                     .displayed_items
                     .get(drawing_info.signal_list_idx())
                     .and_then(|signal| signal.color())
-                    .and_then(|color| self.config.theme.colors.get(&color))
-                    .unwrap_or(&self.config.theme.signal_default);
+                    .and_then(|color| self.config.theme.colors.get(&color));
+
                 match drawing_info {
                     ItemDrawingInfo::Signal(drawing_info) => {
                         if let Some(commands) = draw_commands.get(&drawing_info.field_ref) {
                             for (old, new) in
                                 commands.values.iter().zip(commands.values.iter().skip(1))
                             {
+                                let color = *color.unwrap_or(&self.config.theme.signal_default);
                                 if commands.is_bool {
                                     self.draw_bool_transition(
                                         (old, new),
@@ -454,6 +476,19 @@ impl State {
                     }
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {
+                        let color = *color.unwrap_or(&self.config.theme.foreground);
+
+                        for (tick_text, x) in ticks {
+                            ctx.painter.text(
+                                (ctx.to_screen)(*x, y_offset),
+                                Align2::CENTER_TOP,
+                                tick_text,
+                                FontId::proportional(ctx.cfg.text_size),
+                                color,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -480,7 +515,7 @@ impl State {
             response.rect.size(),
             gap,
             &self.config,
-            self.wanted_timescale.unit,
+            self.wanted_timeunit,
         );
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
