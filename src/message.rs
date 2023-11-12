@@ -92,6 +92,7 @@ pub enum Message {
     SetSignalFilterType(SignalFilterType),
     ToggleFullscreen,
     AddDivider(String),
+    AddTimeLine,
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
     /// Exit the application. This has no effect on wasm and closes the window
