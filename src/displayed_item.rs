@@ -12,6 +12,7 @@ pub enum DisplayedItem {
     Signal(DisplayedSignal),
     Divider(DisplayedDivider),
     Cursor(DisplayedCursor),
+    TimeLine(DisplayedTimeLine),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -40,12 +41,19 @@ pub struct DisplayedCursor {
     pub idx: u8,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct DisplayedTimeLine {
+    pub color: Option<String>,
+    pub background_color: Option<String>,
+}
+
 impl DisplayedItem {
     pub fn color(&self) -> Option<String> {
         let color = match self {
             DisplayedItem::Signal(signal) => &signal.color,
             DisplayedItem::Divider(divider) => &divider.color,
             DisplayedItem::Cursor(cursor) => &cursor.color,
+            DisplayedItem::TimeLine(timeline) => &timeline.color,
         };
         color.clone()
     }
@@ -61,16 +69,19 @@ impl DisplayedItem {
             DisplayedItem::Cursor(cursor) => {
                 cursor.color = color_name.clone();
             }
+            DisplayedItem::TimeLine(timeline) => {
+                timeline.color = color_name.clone();
+            }
         }
     }
 
     pub fn name(&self) -> String {
-        let name = match self {
-            DisplayedItem::Signal(signal) => &signal.display_name,
-            DisplayedItem::Divider(divider) => &divider.name,
-            DisplayedItem::Cursor(cursor) => &cursor.name,
-        };
-        name.clone()
+        match self {
+            DisplayedItem::Signal(signal) => signal.display_name.clone(),
+            DisplayedItem::Divider(divider) => divider.name.clone(),
+            DisplayedItem::Cursor(cursor) => cursor.name.clone(),
+            DisplayedItem::TimeLine(_) => "Time".to_string(),
+        }
     }
 
     pub fn display_name(&self) -> String {
@@ -80,6 +91,7 @@ impl DisplayedItem {
             DisplayedItem::Cursor(cursor) => {
                 format!("{idx}: {name}", idx = cursor.idx, name = cursor.name)
             }
+            DisplayedItem::TimeLine(_) => "Time".to_string(),
         }
     }
 
@@ -94,6 +106,9 @@ impl DisplayedItem {
             DisplayedItem::Cursor(cursor) => {
                 cursor.name = name.clone();
             }
+            DisplayedItem::TimeLine(_) => {
+                warn!("Renaming time line");
+            }
         }
     }
 
@@ -102,6 +117,7 @@ impl DisplayedItem {
             DisplayedItem::Signal(signal) => &signal.background_color,
             DisplayedItem::Divider(divider) => &divider.background_color,
             DisplayedItem::Cursor(cursor) => &cursor.background_color,
+            DisplayedItem::TimeLine(timeline) => &timeline.background_color,
         };
         background_color.clone()
     }
@@ -116,6 +132,9 @@ impl DisplayedItem {
             }
             DisplayedItem::Cursor(cursor) => {
                 cursor.background_color = color_name.clone();
+            }
+            DisplayedItem::TimeLine(timeline) => {
+                timeline.background_color = color_name.clone();
             }
         }
     }
