@@ -117,7 +117,7 @@ impl State {
                     clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
                 });
                 ui.menu_button("Time unit", |ui| {
-                    timeunit_menu(ui, msgs, &self.wanted_timescale.unit);
+                    timeunit_menu(ui, msgs, &self.wanted_timeunit);
                 });
                 if let Some(waves) = &self.waves {
                     let signal_name_type = waves.default_signal_name_type;
@@ -149,7 +149,8 @@ impl State {
                                 msgs.push(Message::SetUiScale(scale))
                             });
                     }
-                })
+                });
+                b("Show tick lines", Message::ToggleTickLines).add_closing_menu(msgs, ui);
             });
             ui.menu_button("Help", |ui| {
                 b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);

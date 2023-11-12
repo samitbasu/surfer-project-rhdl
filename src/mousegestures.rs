@@ -214,7 +214,7 @@ impl State {
                         .round()
                         .to_integer()),
                     &waves.inner.metadata().timescale,
-                    &(self.wanted_timescale.unit)
+                    &(self.wanted_timeunit)
                 ),
                 time_string(
                     &(waves
@@ -223,7 +223,7 @@ impl State {
                         .round()
                         .to_integer()),
                     &waves.inner.metadata().timescale,
-                    &(self.wanted_timescale.unit)
+                    &(self.wanted_timeunit)
                 ),
             ),
             &self.config.theme,
