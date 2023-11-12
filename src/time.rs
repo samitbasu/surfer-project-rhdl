@@ -1,10 +1,13 @@
 use std::fmt;
 
-use eframe::egui;
+use eframe::{
+    egui,
+    epaint::{Pos2, Stroke},
+};
 use num::{BigInt, BigRational, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
-use crate::Message;
+use crate::{view::DrawingContext, Message};
 
 #[derive(Serialize, Deserialize)]
 pub struct TimeScale {
@@ -117,6 +120,18 @@ pub fn time_string(time: &BigInt, timescale: &TimeScale, wanted_timeunit: &TimeU
                 * (BigInt::from(10)).pow(-exponent_diff as u32)
         )
     }
+}
+
+pub fn draw_tick_line(x: f32, ctx: &mut DrawingContext, stroke: &Stroke) {
+    let Pos2 {
+        x: x_pos,
+        y: y_start,
+    } = (ctx.to_screen)(x, 0.);
+    ctx.painter.vline(
+        x_pos,
+        (y_start)..=(y_start + ctx.cfg.canvas_height),
+        *stroke,
+    );
 }
 
 #[cfg(test)]
