@@ -390,6 +390,7 @@ impl State {
                     }
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {}
                 }
             }
         }

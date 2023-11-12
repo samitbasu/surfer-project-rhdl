@@ -6,7 +6,7 @@ use log::{error, warn};
 use num::{BigInt, ToPrimitive};
 
 use crate::{
-    displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal},
+    displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal, DisplayedTimeLine},
     signal_name_type::SignalNameType,
     translation::{TranslationPreference, Translator, TranslatorList},
     viewport::Viewport,
@@ -51,6 +51,7 @@ impl WaveData {
                 DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
                 DisplayedItem::Divider(_) => true,
                 DisplayedItem::Cursor(_) => true,
+                DisplayedItem::TimeLine(_) => true,
             })
             .collect::<Vec<_>>();
         let mut nested_format = self
@@ -251,6 +252,14 @@ impl WaveData {
                 color: None,
                 background_color: None,
                 name,
+            }))
+    }
+
+    pub fn add_timeline(&mut self) {
+        self.displayed_items
+            .push(DisplayedItem::TimeLine(DisplayedTimeLine {
+                color: None,
+                background_color: None,
             }))
     }
 
