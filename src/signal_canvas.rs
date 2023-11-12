@@ -6,6 +6,7 @@ use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
+use num::BigInt;
 use num::BigRational;
 use num::ToPrimitive;
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
@@ -14,6 +15,7 @@ use spade_common::num_ext::InfallibleToBigInt;
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
 use crate::displayed_item::DisplayedSignal;
+use crate::time::time_string;
 use crate::translation::{SignalInfo, TranslatorList, ValueKind};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::wave_container::{FieldRef, QueryResult, SignalRef};
@@ -454,6 +456,30 @@ impl State {
                     }
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {
+                        let ticks = self.get_ticks(&ctx, waves, frame_width);
+                        let stroke = Stroke {
+                            color: self.config.theme.foreground,
+                            width: self.config.theme.cursor.width,
+                        };
+                        for (tick_text, x) in ticks {
+                            ctx.painter.line_segment(
+                                [
+                                    to_screen.transform_pos(Pos2::new(x + 0.5, y_offset)),
+                                    to_screen.transform_pos(Pos2::new(x + 0.5, y_offset + 1.0)),
+                                ],
+                                stroke,
+                            );
+
+                            ctx.painter.text(
+                                (ctx.to_screen)(x, y_offset),
+                                Align2::CENTER_TOP,
+                                tick_text,
+                                FontId::proportional(ctx.cfg.text_size),
+                                self.config.theme.foreground,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -484,6 +510,59 @@ impl State {
         );
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
+    }
+
+    fn get_ticks(
+        &self,
+        ctx: &DrawingContext<'_>,
+        waves: &WaveData,
+        frame_width: f32,
+    ) -> Vec<(String, f32)> {
+        let text_size = ctx.cfg.text_size;
+        let char_width = text_size * (20. / 31.);
+        let left_time = waves.viewport.to_time(0., frame_width).to_f64().unwrap();
+        let right_time = waves
+            .viewport
+            .to_time(frame_width as f64, frame_width)
+            .to_f64()
+            .unwrap();
+        let time_width = right_time - left_time;
+        let rightexp = right_time.abs().log10().round() as i16;
+        let leftexp = left_time.abs().log10().round() as i16;
+        let max_labelwidth = (rightexp.max(leftexp) + 3) as f32 * char_width;
+        let max_labels = (frame_width / max_labelwidth).floor();
+        let scale = 10.0f64.powf((time_width / max_labels as f64).log10().floor());
+
+        let steps = &[1., 2., 2.5, 5., 10.];
+        let mut ticks: Vec<(String, f32)> = [].to_vec();
+        for step in steps {
+            let scaled_step = scale * step;
+            if (scaled_step.round() - scaled_step).abs() >= 0.1 {
+                // Do not select a step size so that we get ticks that are drawn inbetween
+                // possible cursor positions
+                continue;
+            }
+            let rounded_min_label_time = (left_time / scaled_step).ceil() * scaled_step;
+            let high = ((right_time - rounded_min_label_time) / scaled_step).ceil() as f32;
+            if high <= max_labels {
+                ticks = (0..high as i16)
+                    .map(|v| BigInt::from((v as f64 * scaled_step + left_time) as i128))
+                    .map(|tick| {
+                        (
+                            // Time string
+                            time_string(
+                                &tick,
+                                &waves.inner.metadata().timescale,
+                                &self.wanted_timeunit,
+                            ),
+                            waves.viewport.from_time(&tick, frame_width as f64) as f32,
+                        )
+                    })
+                    .collect::<Vec<(String, f32)>>();
+                break;
+            }
+        }
+        ticks
     }
 
     fn draw_region(
