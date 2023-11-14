@@ -239,3 +239,55 @@ pages_preview_stop:
     action: stop
   script:
     - echo "👋 bye"
+
+
+
+docs_build:
+  image: rustlang/rust:nightly
+  stage: test
+  script:
+    # Install tomldoc
+    - wget https://gitlab.com/api/v4/projects/51930386/jobs/artifacts/main/download?job=linux_build -O artifacts.zip
+    - unzip artifacts.zip
+    - cp tomldoc /bin
+    - wget https://github.com/rust-lang/mdBook/releases/download/v0.3.7/mdbook-v0.3.7-x86_64-unknown-linux-gnu.tar.gz
+    - tar xvzf mdbook-v0.3.7-x86_64-unknown-linux-gnu.tar.gz
+  # NOTE: uncomment for table of contents (needs mdbook-toc)
+  # - wget https://github.com/badboy/mdbook-toc/releases/download/0.2.4/mdbook-toc-0.2.4-x86_64-unknown-linux-gnu.tar.gz
+  # - tar xvzf mdbook-toc-0.2.4-x86_64-unknown-linux-gnu.tar.gz
+    - ./generate_tomldoc
+    - ./mdbook build
+  artifacts:
+    paths:
+      - public
+  rules:
+    - when: always
+
+docs_preview:
+  stage: test
+  dependencies: [docs_build]
+  # The build process puts stuff in teh right place anyway, so we don't need to run any script here
+  script:
+    - echo "Deploying preview"
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+  environment:
+    name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+    url: https://${CI_PROJECT_NAMESPACE}.gitlab.io/-/${CI_PROJECT_NAME}/-/jobs/${CI_JOB_ID}/artifacts/public/index.html
+    on_stop: pages_preview_stop
+
+
+docs_preview_stop:
+  stage: test
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+      when: manual
+  allow_failure: true
+  environment:
+    name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+    action: stop
+  script:
+    - echo "👋 bye"
