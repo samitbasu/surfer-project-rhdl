@@ -120,6 +120,16 @@ impl State {
                 ui.menu_button("Signal filter type", |ui| {
                     signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
                 });
+                ui.menu_button("UI Scale", |ui| {
+                    for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {
+                        ui.radio(self.ui_scale == scale, format!("{} %", scale * 100.))
+                            .clicked()
+                            .then(|| {
+                                ui.close_menu();
+                                msgs.push(Message::SetUiScale(scale))
+                            });
+                    }
+                })
             });
             ui.menu_button("Help", |ui| {
                 if ui.button("Control keys").clicked() {
