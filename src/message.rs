@@ -90,6 +90,7 @@ pub enum Message {
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
     SetSignalFilterType(SignalFilterType),
+    SetUiScale(f32),
     ToggleFullscreen,
     AddDivider(String),
     SetCursorPosition(u8),

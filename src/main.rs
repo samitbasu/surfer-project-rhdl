@@ -179,6 +179,7 @@ fn main() -> Result<()> {
         options,
         Box::new(|cc| {
             state.context = Some(cc.egui_ctx.clone());
+            state.ui_scale = cc.egui_ctx.pixels_per_point();
             cc.egui_ctx.set_visuals(state.get_visuals());
             Box::new(state)
         }),
@@ -200,7 +201,7 @@ fn main() -> Result<()> {
 
     let url = wasm_util::vcd_from_url();
 
-    let state = State::new(StartupParams::vcd_from_url(url))?;
+    let mut state = State::new(StartupParams::vcd_from_url(url))?;
 
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
@@ -208,6 +209,8 @@ fn main() -> Result<()> {
                 "the_canvas_id", // hardcode it
                 web_options,
                 Box::new(|cc| {
+                    state.context = Some(cc.egui_ctx.clone());
+                    state.ui_scale = cc.egui_ctx.pixels_per_point();
                     cc.egui_ctx.set_visuals(state.get_visuals());
                     Box::new(state)
                 }),
@@ -271,6 +274,8 @@ pub struct State {
     signal_filter_type: SignalFilterType,
     rename_target: Option<usize>,
 
+    ui_scale: f32,
+
     /// The draw commands for every signal currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
     // mutability
@@ -330,6 +335,7 @@ impl State {
             show_wave_source: true,
             signal_filter_focused: false,
             signal_filter_type: SignalFilterType::Fuzzy,
+            ui_scale: 1.0,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(None),
@@ -790,6 +796,12 @@ impl State {
             Message::SetFilterFocused(s) => self.signal_filter_focused = s,
             Message::SetSignalFilterType(signal_filter_type) => {
                 self.signal_filter_type = signal_filter_type
+            }
+            Message::SetUiScale(scale) => {
+                if let Some(ctx) = &mut self.context {
+                    ctx.set_pixels_per_point(scale)
+                }
+                self.ui_scale = scale
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
