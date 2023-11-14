@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -o pipefail
+
+mkdir -p generated
+cd .. || exit 1
+tomldoc -o docs/src/generated
+cd docs
+wget https://gitlab.com/TheZoq2/tomldoc/-/raw/main/assets/mdbook.css -O tomldoc.css
+
