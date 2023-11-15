@@ -106,6 +106,7 @@ impl WaveData {
                 }
                 DisplayedItem::Divider(_) => {}
                 DisplayedItem::Cursor(_) => {}
+                DisplayedItem::TimeLine(_) => {}
             }
         }
     }
