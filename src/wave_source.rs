@@ -30,6 +30,14 @@ pub enum WaveSource {
     Url(String),
 }
 
+pub fn string_to_wavesource(path: String) -> WaveSource {
+    if path.starts_with("https://") || path.starts_with("http://") {
+        WaveSource::Url(path)
+    } else {
+        WaveSource::File(path.into())
+    }
+}
+
 impl std::fmt::Display for WaveSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
