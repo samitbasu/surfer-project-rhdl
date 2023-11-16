@@ -65,6 +65,7 @@ use wasm_util::perform_work;
 use wave_container::FieldRef;
 use wave_container::SignalRef;
 use wave_data::WaveData;
+use wave_source::string_to_wavesource;
 use wave_source::LoadProgress;
 use wave_source::WaveSource;
 
@@ -76,7 +77,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 #[derive(clap::Parser, Default)]
 struct Args {
-    vcd_file: Option<Utf8PathBuf>,
+    vcd_file: Option<String>,
     #[clap(long)]
     spade_state: Option<Utf8PathBuf>,
     #[clap(long)]
@@ -113,7 +114,7 @@ impl StartupParams {
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
-            waves: args.vcd_file.map(WaveSource::File),
+            waves: args.vcd_file.map(string_to_wavesource),
         }
     }
 }
