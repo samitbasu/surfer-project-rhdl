@@ -113,7 +113,7 @@ impl StartupParams {
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
-            waves: args.vcd_file.map(WaveSource::File),
+            waves: args.vcd_file.map(WaveSource::from_path),
         }
     }
 }
