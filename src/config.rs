@@ -38,8 +38,11 @@ pub struct SurferLayout {
 
 #[derive(Debug, Deserialize)]
 pub struct SurferGesture {
+    /// Line style for gesture lines
     pub style: SurferLineStyle,
+    /// Size of the overlay help
     pub size: f32,
+    /// (Squared) minimum distance to move to remove the overlay help and perform gesture
     pub deadzone: f32,
 }
 
@@ -52,46 +55,57 @@ pub struct SurferLineStyle {
 
 #[derive(Debug, Deserialize)]
 pub struct SurferTheme {
-    /// The color used for text across the UI
+    /// Color used for text across the UI
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub foreground: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
-    /// The color of borders between UI elements
+    /// Color of borders between UI elements
     pub border_color: Color32,
-    /// The colors used for the background and text of the wave view
+    /// Colors used for the background and text of the wave view
     pub canvas_colors: ThemeColorTriple,
-    /// The colors used for most UI elements not on the signal canvas
+    /// Colors used for most UI elements not on the signal canvas
     pub primary_ui_color: ThemeColorPair,
-    /// The colors used for the variable and value list, as well as secondary elements
+    /// Colors used for the variable and value list, as well as secondary elements
     /// like text fields
     pub secondary_ui_color: ThemeColorPair,
-    /// The color used for selected ui elements such as the currently selected hierarchy
+    /// Color used for selected ui elements such as the currently selected hierarchy
     pub selected_elements_colors: ThemeColorPair,
 
     pub accent_info: ThemeColorPair,
     pub accent_warn: ThemeColorPair,
     pub accent_error: ThemeColorPair,
 
+    ///  Line style for cursor
     pub cursor: SurferLineStyle,
+
+    ///  Line style for clock highlight lines
     pub clock_highlight_line: SurferLineStyle,
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub clock_highlight_cycle: Color32,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
+    /// Default signal color
     pub signal_default: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
+    /// Color used for high-impedance signals
     pub signal_highimp: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
+    /// Color used for undefined signals
     pub signal_undef: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
+    /// Color used for don't-care signals
     pub signal_dontcare: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
+    /// Color used for weak signals
     pub signal_weak: Color32,
     #[serde(default = "default_colors", deserialize_with = "deserialize_color_map")]
     pub colors: HashMap<String, Color32>,
 
+    /// Signal line width
     pub linewidth: f32,
 
+    /// Number of lines using standard background before changing to
+    /// alternate background and so on, set to zero to disable
     pub alt_frequency: usize,
 }
 
