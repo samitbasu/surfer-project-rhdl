@@ -30,13 +30,11 @@ pub enum WaveSource {
     Url(String),
 }
 
-impl WaveSource {
-    pub fn from_path(path: Utf8PathBuf) -> WaveSource {
-        if path.starts_with("https://") || path.starts_with("http://") {
-            WaveSource::Url(path.to_string())
-        } else {
-            WaveSource::File(path)
-        }
+pub fn string_to_wavesource(path: String) -> WaveSource {
+    if path.starts_with("https://") || path.starts_with("http://") {
+        WaveSource::Url(path)
+    } else {
+        WaveSource::File(path.into())
     }
 }
 
