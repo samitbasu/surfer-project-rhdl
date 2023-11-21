@@ -1,7 +1,6 @@
 mod benchmark;
 mod clock_highlighting;
 mod command_prompt;
-mod commands;
 mod config;
 mod cursor;
 mod displayed_item;
@@ -33,6 +32,7 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
+use command_prompt::get_parser;
 use config::SurferConfig;
 use displayed_item::DisplayedItem;
 #[cfg(not(target_arch = "wasm32"))]
@@ -48,6 +48,7 @@ use eframe::epaint::Stroke;
 use fastwave_backend::Timescale;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
+use fzcmd::parse_command;
 use log::error;
 use log::info;
 use log::trace;
@@ -83,6 +84,14 @@ struct Args {
     spade_state: Option<Utf8PathBuf>,
     #[clap(long)]
     spade_top: Option<String>,
+    /// Path to a file containing 'commands' to run after a waveform has been loaded. The commands
+    /// are the same as those used in the command line interface inside the program.
+    /// Commands are separated by lines or ;. Empty lines are ignored. Line comments starting with
+    /// `#` are supported
+    /// NOTE: This feature is not permanent, it will be removed once a solid scripting system
+    /// is implemented.
+    #[clap(long, short)]
+    command_file: Option<Utf8PathBuf>,
 }
 
 struct StartupParams {
@@ -115,11 +124,20 @@ impl StartupParams {
 
     #[allow(dead_code)] // NOTE: Only used in desktop version
     pub fn from_args(args: Args) -> Self {
+        let startup_commands = if let Some(cmd_file) = args.command_file {
+            std::fs::read_to_string(&cmd_file)
+                .map_err(|e| error!("Failed to read commands from {cmd_file}. {e:#?}"))
+                .ok()
+                .map(|file_content| file_content.lines().map(|l| l.to_string()).collect())
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
             waves: args.vcd_file.map(string_to_wavesource),
-            startup_commands: vec![],
+            startup_commands,
         }
     }
 
@@ -145,7 +163,7 @@ fn main() -> Result<()> {
 
     let egui_log_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
-        .format(move |out, message, record| out.finish(format_args!(" {}", message)))
+        .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
         .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
 
     let stdout_config = fern::Dispatch::new()
@@ -298,6 +316,9 @@ pub struct State {
 
     ui_scale: f32,
 
+    // List of unparsed commands to run at startup after the first wave has been loaded
+    startup_commands: Vec<String>,
+
     /// The draw commands for every signal currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
     // mutability
@@ -359,6 +380,7 @@ impl State {
             signal_filter_focused: false,
             signal_filter_type: SignalFilterType::Fuzzy,
             ui_scale: 1.0,
+            startup_commands: args.startup_commands,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(None),
@@ -699,6 +721,7 @@ impl State {
                 self.waves = Some(new_wave);
                 self.vcd_progress = None;
                 info!("Done setting up VCD file");
+                self.run_startup_commands();
             }
             Message::BlacklistTranslator(idx, translator) => {
                 self.blacklisted_translators.insert((idx, translator));
@@ -891,6 +914,40 @@ impl State {
                 open: widget_style,
             },
             ..Visuals::dark()
+        }
+    }
+
+    pub fn run_startup_commands(&mut self) {
+        let parsed = self
+            .startup_commands
+            .clone()
+            .drain(0..(self.startup_commands.len()))
+            // Add line numbers
+            .enumerate()
+            // Make the line numbers start at 1 as is tradition
+            .map(|(no, line)| (no + 1, line))
+            .map(|(no, line)| (no, line.trim().to_string()))
+            // NOTE: Safe unwrap. Split will always return one element
+            .map(|(no, line)| (no, line.split("#").next().unwrap().to_string()))
+            .filter(|(_no, line)| !line.is_empty())
+            .flat_map(|(no, line)| {
+                line.split(";")
+                    .map(|cmd| (no, cmd.to_string()))
+                    .collect::<Vec<_>>()
+            })
+            .map(|(no, command)| {
+                parse_command(&command, get_parser(&self)).map_err(|e| {
+                    error!("Error on startup commands line {no}: {e:#?}");
+                    e
+                })
+            })
+            .collect::<std::result::Result<Vec<_>, _>>()
+            // We reported the errors so we can just ignore everything if we had any errors
+            .ok()
+            .unwrap_or_default();
+
+        for message in parsed {
+            self.update(message)
         }
     }
 }
