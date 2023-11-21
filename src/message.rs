@@ -87,6 +87,7 @@ pub enum Message {
     SetGestureHelpVisible(bool),
     SetUrlEntryVisible(bool),
     SetRenameItemVisible(bool),
+    SetLogsVisible(bool),
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
     SetSignalFilterType(SignalFilterType),

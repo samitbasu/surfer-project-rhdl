@@ -7,90 +7,110 @@ use crate::{
     translation::TranslationPreference, wave_container::FieldRef, wave_source::OpenMode, State,
 };
 
+// Button builder. Short name because we use it a ton
+struct ButtonBuilder {
+    text: String,
+    shortcut: Option<String>,
+    message: Message,
+}
+
+impl ButtonBuilder {
+    fn new(text: impl Into<String>, message: Message) -> Self {
+        Self {
+            text: text.into(),
+            message,
+            shortcut: None,
+        }
+    }
+
+    fn shortcut(mut self, shortcut: impl Into<String>) -> Self {
+        self.shortcut = Some(shortcut.into());
+        self
+    }
+
+    pub fn add_leave_menu(self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+        self.add_inner(false, msgs, ui)
+    }
+    pub fn add_closing_menu(self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+        self.add_inner(true, msgs, ui)
+    }
+
+    pub fn add_inner(self, close_menu: bool, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+        let button = egui::Button::new(self.text);
+        let button = if let Some(s) = self.shortcut {
+            button.shortcut_text(s)
+        } else {
+            button
+        };
+        if ui.add(button).clicked() {
+            msgs.push(self.message);
+            if close_menu {
+                ui.close_menu();
+            }
+        }
+    }
+}
+
 impl State {
     pub fn draw_menu(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+        fn b(text: impl Into<String>, message: Message) -> ButtonBuilder {
+            ButtonBuilder::new(text, message)
+        }
+
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]
-                if ui.button("Open file...").clicked() {
-                    msgs.push(Message::OpenFileDialog(OpenMode::Open));
-                    ui.close_menu();
-                }
-                if ui.button("Switch file...").clicked() {
-                    msgs.push(Message::OpenFileDialog(OpenMode::Switch));
-                    ui.close_menu()
-                }
-                if ui.button("Open URL...").clicked() {
-                    msgs.push(Message::SetUrlEntryVisible(true));
-                    ui.close_menu();
-                }
+                b("open file...", Message::OpenFileDialog(OpenMode::Open))
+                    .add_closing_menu(msgs, ui);
+                b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
+                    .add_closing_menu(msgs, ui);
+                b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
                 #[cfg(not(target_arch = "wasm32"))]
-                if ui.button("Exit").clicked() {
-                    msgs.push(Message::Exit);
-                    ui.close_menu();
-                }
+                b("Exit", Message::Exit).add_closing_menu(msgs, ui);
             });
             ui.menu_button("View", |ui| {
-                if ui
-                    .add(egui::Button::new("Zoom in").shortcut_text("+"))
-                    .clicked()
-                {
-                    msgs.push(Message::CanvasZoom {
+                b(
+                    "Zoom in",
+                    Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 0.5,
-                    });
-                }
-                if ui
-                    .add(egui::Button::new("Zoom out").shortcut_text("-"))
-                    .clicked()
-                {
-                    msgs.push(Message::CanvasZoom {
+                    },
+                )
+                .shortcut("+")
+                .add_leave_menu(msgs, ui);
+
+                b(
+                    "Zoom out",
+                    Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 2.0,
-                    });
-                }
-                if ui.button("Zoom to fit").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::ZoomToFit);
-                }
+                    },
+                )
+                .shortcut("-")
+                .add_leave_menu(msgs, ui);
+
+                b("Zoom to fit", Message::ZoomToFit).add_closing_menu(msgs, ui);
+
                 ui.separator();
-                if ui
-                    .add(egui::Button::new("Go to start").shortcut_text("s"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::GoToStart);
-                }
-                if ui
-                    .add(egui::Button::new("Go to end").shortcut_text("e"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::GoToEnd);
-                }
+
+                b("Go to start", Message::GoToStart)
+                    .shortcut("s")
+                    .add_closing_menu(msgs, ui);
+                b("Go to end", Message::GoToEnd)
+                    .shortcut("e")
+                    .add_closing_menu(msgs, ui);
+
                 ui.separator();
-                if ui
-                    .add(egui::Button::new("Toggle side panel").shortcut_text("b"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleSidePanel);
-                }
-                if ui
-                    .add(egui::Button::new("Toggle menu").shortcut_text("m"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleMenu);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                if ui
-                    .add(egui::Button::new("Toggle full screen").shortcut_text("F11"))
-                    .clicked()
-                {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleFullscreen);
-                }
+
+                b("Toggle side panel", Message::ToggleSidePanel)
+                    .shortcut("b")
+                    .add_closing_menu(msgs, ui);
+                b("Toggle menu", Message::ToggleSidePanel)
+                    .shortcut("m")
+                    .add_closing_menu(msgs, ui);
+                b("Toggle full screen", Message::ToggleFullscreen)
+                    .shortcut("F11")
+                    .add_closing_menu(msgs, ui);
             });
             ui.menu_button("Settings", |ui| {
                 ui.menu_button("Clock highlighting", |ui| {
@@ -132,19 +152,17 @@ impl State {
                 })
             });
             ui.menu_button("Help", |ui| {
-                if ui.button("Control keys").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::SetKeyHelpVisible(true));
-                }
-                if ui.button("Mouse gestures").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::SetGestureHelpVisible(true));
-                }
+                b("control keys", Message::SetKeyHelpVisible(true)).add_closing_menu(msgs, ui);
+                b("Mouse gestures", Message::SetGestureHelpVisible(true))
+                    .add_closing_menu(msgs, ui);
+
                 ui.separator();
-                if ui.button("About").clicked() {
-                    ui.close_menu();
-                    msgs.push(Message::SetAboutVisible(true));
-                }
+
+                b("Show logs", Message::SetLogsVisible(true)).add_closing_menu(msgs, ui);
+
+                ui.separator();
+
+                b("About", Message::SetAboutVisible(true)).add_closing_menu(msgs, ui)
             });
         });
     }

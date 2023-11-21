@@ -88,6 +88,7 @@ struct StartupParams {
     pub spade_state: Option<Utf8PathBuf>,
     pub spade_top: Option<String>,
     pub waves: Option<WaveSource>,
+    pub startup_commands: Vec<String>,
 }
 
 impl StartupParams {
@@ -97,6 +98,7 @@ impl StartupParams {
             spade_state: None,
             spade_top: None,
             waves: None,
+            startup_commands: vec![],
         }
     }
 
@@ -106,6 +108,7 @@ impl StartupParams {
             spade_state: None,
             spade_top: None,
             waves: url.map(WaveSource::Url),
+            startup_commands: vec![],
         }
     }
 
@@ -115,7 +118,13 @@ impl StartupParams {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
             waves: args.vcd_file.map(string_to_wavesource),
+            startup_commands: vec![],
         }
+    }
+
+    pub fn with_startup_commands(mut self, startup_commands: Vec<String>) -> Self {
+        self.startup_commands = startup_commands;
+        self
     }
 }
 
@@ -268,6 +277,7 @@ pub struct State {
     /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
+    show_logs: bool,
     wanted_timescale: Timescale,
     gesture_start_location: Option<emath::Pos2>,
     show_url_entry: bool,
@@ -329,6 +339,7 @@ impl State {
             show_about: false,
             show_keys: false,
             show_gestures: false,
+            show_logs: false,
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,
             show_url_entry: false,
@@ -455,6 +466,7 @@ impl State {
                     waves.scroll = position.clamp(0, waves.displayed_items.len() - 1);
                 }
             }
+            Message::SetLogsVisible(visibility) => self.show_logs = visibility,
             Message::VerticalScroll(direction, count) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
