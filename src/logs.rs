@@ -20,7 +20,7 @@ impl EguiLogger<'_> {
     pub fn records<'a>(&'a self) -> Vec<LogMessage<'a>> {
         self.records
             .lock()
-            .expect("Failed to lock logger. Thead poisoned?")
+            .expect("Failed to lock logger. Thread poisoned?")
             .to_vec()
     }
 }

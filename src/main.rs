@@ -48,11 +48,13 @@ use eframe::epaint::Stroke;
 use fastwave_backend::Timescale;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
+use fern::Dispatch;
 use fzcmd::parse_command;
 use log::error;
 use log::info;
 use log::trace;
 use log::warn;
+use logs::EGUI_LOGGER;
 use message::Message;
 use num::bigint::ToBigInt;
 use num::BigInt;
@@ -64,6 +66,7 @@ use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use viewport::Viewport;
 use wasm_util::perform_work;
+use wasm_util::UrlArgs;
 use wave_container::FieldRef;
 use wave_container::SignalRef;
 use wave_data::WaveData;
@@ -113,12 +116,12 @@ impl StartupParams {
     }
 
     #[allow(dead_code)] // NOTE: Only used in wasm version
-    pub fn vcd_from_url(url: Option<String>) -> Self {
+    pub fn from_url(url: UrlArgs) -> Self {
         Self {
             spade_state: None,
             spade_top: None,
-            waves: url.map(WaveSource::Url),
-            startup_commands: vec![],
+            waves: url.load_url.map(WaveSource::Url),
+            startup_commands: url.startup_commands.map(|c| vec![c]).unwrap_or_default(),
         }
     }
 
@@ -147,24 +150,28 @@ impl StartupParams {
     }
 }
 
+fn setup_logging(platform_logger: Dispatch) -> Result<()> {
+    let egui_log_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
+        .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
+
+    fern::Dispatch::new()
+        .chain(platform_logger)
+        .chain(egui_log_config)
+        .apply()?;
+    Ok(())
+}
+
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
-    use logs::EGUI_LOGGER;
-
-    color_eyre::install()?;
-
     let colors = ColoredLevelConfig::new()
         .error(fern::colors::Color::Red)
         .warn(fern::colors::Color::Yellow)
         .info(fern::colors::Color::Green)
         .debug(fern::colors::Color::Blue)
         .trace(fern::colors::Color::White);
-
-    let egui_log_config = fern::Dispatch::new()
-        .level(log::LevelFilter::Info)
-        .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
-        .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
 
     let stdout_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
@@ -176,11 +183,9 @@ fn main() -> Result<()> {
             ))
         })
         .chain(std::io::stdout());
+    setup_logging(stdout_config)?;
 
-    fern::Dispatch::new()
-        .chain(stdout_config)
-        .chain(egui_log_config)
-        .apply()?;
+    color_eyre::install()?;
 
     // https://tokio.rs/tokio/topics/bridging
     // We want to run the gui in the main thread, but some long running tasks like
@@ -233,14 +238,21 @@ fn main() -> Result<()> {
 fn main() -> Result<()> {
     console_error_panic_hook::set_once();
     color_eyre::install()?;
-    // Redirect `log` message to `console.log` and friends:
-    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
+
+    let web_log_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .format(move |out, message, record| {
+            out.finish(format_args!("[{}] {}", record.level(), message))
+        })
+        .chain(Box::new(eframe::WebLogger::new(log::LevelFilter::Debug)) as Box<dyn log::Log>);
+
+    setup_logging(web_log_config)?;
 
     let web_options = eframe::WebOptions::default();
 
     let url = wasm_util::vcd_from_url();
 
-    let mut state = State::new(StartupParams::vcd_from_url(url))?;
+    let mut state = State::new(StartupParams::from_url(url))?;
 
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
@@ -918,6 +930,7 @@ impl State {
     }
 
     pub fn run_startup_commands(&mut self) {
+        trace!("Parsing startup commands {:?}", self.startup_commands);
         let parsed = self
             .startup_commands
             .clone()
@@ -936,17 +949,20 @@ impl State {
                     .collect::<Vec<_>>()
             })
             .map(|(no, command)| {
-                parse_command(&command, get_parser(&self)).map_err(|e| {
-                    error!("Error on startup commands line {no}: {e:#?}");
-                    e
-                })
+                parse_command(&command, get_parser(&self))
+                    .map_err(|e| {
+                        error!("Error on startup commands line {no}: {e:#?}");
+                        e
+                    })
+                    .map(|message| (message, command))
             })
             .collect::<std::result::Result<Vec<_>, _>>()
             // We reported the errors so we can just ignore everything if we had any errors
             .ok()
             .unwrap_or_default();
 
-        for message in parsed {
+        for (message, message_string) in parsed {
+            info!("Applying message {message_string}");
             self.update(message)
         }
     }

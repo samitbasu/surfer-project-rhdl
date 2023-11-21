@@ -60,7 +60,7 @@ impl State {
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 #[cfg(not(target_arch = "wasm32"))]
-                b("open file...", Message::OpenFileDialog(OpenMode::Open))
+                b("Open file...", Message::OpenFileDialog(OpenMode::Open))
                     .add_closing_menu(msgs, ui);
                 b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
                     .add_closing_menu(msgs, ui);
@@ -152,7 +152,7 @@ impl State {
                 })
             });
             ui.menu_button("Help", |ui| {
-                b("control keys", Message::SetKeyHelpVisible(true)).add_closing_menu(msgs, ui);
+                b("Control keys", Message::SetKeyHelpVisible(true)).add_closing_menu(msgs, ui);
                 b("Mouse gestures", Message::SetGestureHelpVisible(true))
                     .add_closing_menu(msgs, ui);
 
