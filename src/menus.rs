@@ -157,7 +157,6 @@ impl State {
                     .add_closing_menu(msgs, ui);
 
                 ui.separator();
-
                 b("Show logs", Message::SetLogsVisible(true)).add_closing_menu(msgs, ui);
 
                 ui.separator();

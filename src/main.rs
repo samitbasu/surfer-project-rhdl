@@ -8,6 +8,7 @@ mod displayed_item;
 mod fast_wave_container;
 mod help;
 mod keys;
+mod logs;
 mod menus;
 mod message;
 mod mousegestures;
@@ -131,6 +132,8 @@ impl StartupParams {
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
+    use logs::EGUI_LOGGER;
+
     color_eyre::install()?;
 
     let colors = ColoredLevelConfig::new()
@@ -139,6 +142,11 @@ fn main() -> Result<()> {
         .info(fern::colors::Color::Green)
         .debug(fern::colors::Color::Blue)
         .trace(fern::colors::Color::White);
+
+    let egui_log_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .format(move |out, message, record| out.finish(format_args!(" {}", message)))
+        .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
 
     let stdout_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
@@ -151,7 +159,10 @@ fn main() -> Result<()> {
         })
         .chain(std::io::stdout());
 
-    fern::Dispatch::new().chain(stdout_config).apply()?;
+    fern::Dispatch::new()
+        .chain(stdout_config)
+        .chain(egui_log_config)
+        .apply()?;
 
     // https://tokio.rs/tokio/topics/bridging
     // We want to run the gui in the main thread, but some long running tasks like
