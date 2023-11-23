@@ -240,6 +240,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                 )),
                 spade_top: spade_top.clone(),
                 spade_state: $spade_state,
+                startup_commands: vec![],
             })
             .unwrap();
 
@@ -304,6 +305,7 @@ snapshot_ui! {example_vcd_renders, || {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
+        startup_commands: vec![]
     }).unwrap();
 
     loop {
@@ -339,6 +341,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
+        startup_commands: vec![]
     }).unwrap();
 
     loop {
