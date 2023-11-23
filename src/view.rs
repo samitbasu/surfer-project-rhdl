@@ -11,7 +11,7 @@ use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
-use crate::help::{draw_about_window, draw_control_help_window};
+use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
 use crate::logs::EGUI_LOGGER;
 use crate::signal_filter::filtered_signals;
 use crate::time::{time_string, timescale_menu};
@@ -124,6 +124,27 @@ impl State {
         let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
+
+        if self.show_about {
+            draw_about_window(ctx, &mut msgs);
+        }
+
+        if self.show_keys {
+            draw_control_help_window(ctx, max_width, max_height, &mut msgs);
+        }
+
+        if self.show_quick_start {
+            draw_quickstart_help_window(ctx, &mut msgs);
+        }
+
+        if self.show_gestures {
+            self.mouse_gesture_help(ctx, &mut msgs);
+        }
+
+        if self.show_logs {
+            self.draw_log_window(ctx, &mut msgs)
+        }
+
         if self.config.layout.show_menu {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
                 self.draw_menu(ui, &mut msgs);
@@ -311,22 +332,6 @@ impl State {
                         );
                     });
                 });
-        }
-
-        if self.show_about {
-            draw_about_window(ctx, &mut msgs);
-        }
-
-        if self.show_keys {
-            draw_control_help_window(ctx, max_width, max_height, &mut msgs);
-        }
-
-        if self.show_gestures {
-            self.mouse_gesture_help(ctx, &mut msgs);
-        }
-
-        if self.show_logs {
-            self.draw_log_window(ctx, &mut msgs)
         }
 
         if self.show_url_entry {
