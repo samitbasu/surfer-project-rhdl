@@ -85,6 +85,7 @@ pub enum Message {
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),
     SetGestureHelpVisible(bool),
+    SetQuickStartVisible(bool),
     SetUrlEntryVisible(bool),
     SetRenameItemVisible(bool),
     SetLogsVisible(bool),
