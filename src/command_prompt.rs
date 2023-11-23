@@ -152,6 +152,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "preference_set_clock_highlight",
             "divider_add",
             "goto_cursor",
+            "show_controls",
+            "show_mouse_gestures",
+            "show_quick_start",
         ]
         .into_iter()
         .map(|s| s.into())
@@ -300,6 +303,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             .map(|idx| Command::Terminal(Message::GoToCursorPosition(*idx)))
                     }),
                 ),
+                "show_controls" => Some(Command::Terminal(Message::SetKeyHelpVisible(true))),
+                "show_mouse_gestures" => {
+                    Some(Command::Terminal(Message::SetGestureHelpVisible(true)))
+                }
+                "show_quick_start" => Some(Command::Terminal(Message::SetQuickStartVisible(true))),
                 _ => None,
             }
         }),

@@ -343,7 +343,13 @@ snapshot_empty_state_with_msgs! {
     [
         Message::SetUrlEntryVisible(true),
         Message::SetKeyHelpVisible(true),
-        Message::SetGestureHelpVisible(true)
+        Message::SetGestureHelpVisible(true),
+    ]
+}
+snapshot_empty_state_with_msgs! {
+    quick_start_works,
+    [
+        Message::SetQuickStartVisible(true),
     ]
 }
 

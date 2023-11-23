@@ -1,6 +1,6 @@
 use eframe::{
     egui::{self, Grid, RichText},
-    epaint::Vec2,
+    epaint::{Pos2, Vec2},
 };
 
 use crate::{message::Message, State};
@@ -93,6 +93,50 @@ pub fn draw_about_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
     }
 }
 
+pub fn draw_quickstart_help_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
+    let mut open = true;
+    egui::Window::new("🏄 Surfer quick start")
+        .collapsible(true)
+        .resizable(true)
+        .open(&mut open)
+        .default_pos(Pos2::new(
+            ctx.available_rect().size().x / 2.,
+            ctx.available_rect().size().y / 2.,
+        ))
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.add_space(5.);
+
+                ui.label(RichText::new("Controls").size(20.));
+                ui.add_space(5.);
+                ui.label("↔ Use scroll and ctrl+scroll to navigate the waveform");
+                ui.label("🚀 Press space to open the command palette");
+                ui.label("✋ Click the middle mouse button for gestures");
+                ui.label("❓ See the help menu for more controls");
+                ui.add_space(10.);
+                ui.label(RichText::new("Adding traces").size(20.));
+                ui.add_space(5.);
+                ui.label("Add more traces using the command palette or in the sidebar");
+                ui.add_space(10.);
+                ui.label(RichText::new("Opening files").size(20.));
+                ui.add_space(5.);
+                ui.label("Open a new file by");
+                ui.label("- dragging a vcd file");
+                ui.label("- typing load_url in the command palette");
+                ui.label("- the file menu");
+                ui.add_space(10.);
+            });
+            ui.vertical_centered(|ui| {
+                if ui.button("Close").clicked() {
+                    msgs.push(Message::SetQuickStartVisible(false))
+                }
+            })
+        });
+    if !open {
+        msgs.push(Message::SetQuickStartVisible(false))
+    }
+}
+
 pub fn draw_control_help_window(
     ctx: &egui::Context,
     max_width: f32,
@@ -100,7 +144,7 @@ pub fn draw_control_help_window(
     msgs: &mut Vec<Message>,
 ) {
     let mut open = true;
-    egui::Window::new("🖮 Surfer control")
+    egui::Window::new("🖮 Surfer controls")
         .collapsible(true)
         .resizable(true)
         .open(&mut open)
