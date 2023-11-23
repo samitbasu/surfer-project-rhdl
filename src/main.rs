@@ -1,13 +1,13 @@
 mod benchmark;
 mod clock_highlighting;
 mod command_prompt;
-mod commands;
 mod config;
 mod cursor;
 mod displayed_item;
 mod fast_wave_container;
 mod help;
 mod keys;
+mod logs;
 mod menus;
 mod message;
 mod mousegestures;
@@ -32,6 +32,7 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
+use command_prompt::get_parser;
 use config::SurferConfig;
 use displayed_item::DisplayedItem;
 #[cfg(not(target_arch = "wasm32"))]
@@ -47,10 +48,13 @@ use eframe::epaint::Stroke;
 use fastwave_backend::Timescale;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
+use fern::Dispatch;
+use fzcmd::parse_command;
 use log::error;
 use log::info;
 use log::trace;
 use log::warn;
+use logs::EGUI_LOGGER;
 use message::Message;
 use num::bigint::ToBigInt;
 use num::BigInt;
@@ -62,6 +66,7 @@ use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use viewport::Viewport;
 use wasm_util::perform_work;
+use wasm_util::UrlArgs;
 use wave_container::FieldRef;
 use wave_container::SignalRef;
 use wave_data::WaveData;
@@ -82,12 +87,21 @@ struct Args {
     spade_state: Option<Utf8PathBuf>,
     #[clap(long)]
     spade_top: Option<String>,
+    /// Path to a file containing 'commands' to run after a waveform has been loaded. The commands
+    /// are the same as those used in the command line interface inside the program.
+    /// Commands are separated by lines or ;. Empty lines are ignored. Line comments starting with
+    /// `#` are supported
+    /// NOTE: This feature is not permanent, it will be removed once a solid scripting system
+    /// is implemented.
+    #[clap(long, short)]
+    command_file: Option<Utf8PathBuf>,
 }
 
 struct StartupParams {
     pub spade_state: Option<Utf8PathBuf>,
     pub spade_top: Option<String>,
     pub waves: Option<WaveSource>,
+    pub startup_commands: Vec<String>,
 }
 
 impl StartupParams {
@@ -97,33 +111,61 @@ impl StartupParams {
             spade_state: None,
             spade_top: None,
             waves: None,
+            startup_commands: vec![],
         }
     }
 
     #[allow(dead_code)] // NOTE: Only used in wasm version
-    pub fn vcd_from_url(url: Option<String>) -> Self {
+    pub fn from_url(url: UrlArgs) -> Self {
         Self {
             spade_state: None,
             spade_top: None,
-            waves: url.map(WaveSource::Url),
+            waves: url.load_url.map(WaveSource::Url),
+            startup_commands: url.startup_commands.map(|c| vec![c]).unwrap_or_default(),
         }
     }
 
     #[allow(dead_code)] // NOTE: Only used in desktop version
     pub fn from_args(args: Args) -> Self {
+        let startup_commands = if let Some(cmd_file) = args.command_file {
+            std::fs::read_to_string(&cmd_file)
+                .map_err(|e| error!("Failed to read commands from {cmd_file}. {e:#?}"))
+                .ok()
+                .map(|file_content| file_content.lines().map(|l| l.to_string()).collect())
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
             waves: args.vcd_file.map(string_to_wavesource),
+            startup_commands,
         }
     }
+
+    pub fn with_startup_commands(mut self, startup_commands: Vec<String>) -> Self {
+        self.startup_commands = startup_commands;
+        self
+    }
+}
+
+fn setup_logging(platform_logger: Dispatch) -> Result<()> {
+    let egui_log_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
+        .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
+
+    fern::Dispatch::new()
+        .chain(platform_logger)
+        .chain(egui_log_config)
+        .apply()?;
+    Ok(())
 }
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
-    color_eyre::install()?;
-
     let colors = ColoredLevelConfig::new()
         .error(fern::colors::Color::Red)
         .warn(fern::colors::Color::Yellow)
@@ -141,8 +183,9 @@ fn main() -> Result<()> {
             ))
         })
         .chain(std::io::stdout());
+    setup_logging(stdout_config)?;
 
-    fern::Dispatch::new().chain(stdout_config).apply()?;
+    color_eyre::install()?;
 
     // https://tokio.rs/tokio/topics/bridging
     // We want to run the gui in the main thread, but some long running tasks like
@@ -195,14 +238,21 @@ fn main() -> Result<()> {
 fn main() -> Result<()> {
     console_error_panic_hook::set_once();
     color_eyre::install()?;
-    // Redirect `log` message to `console.log` and friends:
-    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
+
+    let web_log_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .format(move |out, message, record| {
+            out.finish(format_args!("[{}] {}", record.level(), message))
+        })
+        .chain(Box::new(eframe::WebLogger::new(log::LevelFilter::Debug)) as Box<dyn log::Log>);
+
+    setup_logging(web_log_config)?;
 
     let web_options = eframe::WebOptions::default();
 
     let url = wasm_util::vcd_from_url();
 
-    let mut state = State::new(StartupParams::vcd_from_url(url))?;
+    let mut state = State::new(StartupParams::from_url(url))?;
 
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
@@ -268,6 +318,7 @@ pub struct State {
     /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
+    show_logs: bool,
     wanted_timescale: Timescale,
     gesture_start_location: Option<emath::Pos2>,
     show_url_entry: bool,
@@ -276,6 +327,9 @@ pub struct State {
     rename_target: Option<usize>,
 
     ui_scale: f32,
+
+    // List of unparsed commands to run at startup after the first wave has been loaded
+    startup_commands: Vec<String>,
 
     /// The draw commands for every signal currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
@@ -329,6 +383,7 @@ impl State {
             show_about: false,
             show_keys: false,
             show_gestures: false,
+            show_logs: false,
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,
             show_url_entry: false,
@@ -337,6 +392,7 @@ impl State {
             signal_filter_focused: false,
             signal_filter_type: SignalFilterType::Fuzzy,
             ui_scale: 1.0,
+            startup_commands: args.startup_commands,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(None),
@@ -455,6 +511,7 @@ impl State {
                     waves.scroll = position.clamp(0, waves.displayed_items.len() - 1);
                 }
             }
+            Message::SetLogsVisible(visibility) => self.show_logs = visibility,
             Message::VerticalScroll(direction, count) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
@@ -676,6 +733,7 @@ impl State {
                 self.waves = Some(new_wave);
                 self.vcd_progress = None;
                 info!("Done setting up VCD file");
+                self.run_startup_commands();
             }
             Message::BlacklistTranslator(idx, translator) => {
                 self.blacklisted_translators.insert((idx, translator));
@@ -868,6 +926,44 @@ impl State {
                 open: widget_style,
             },
             ..Visuals::dark()
+        }
+    }
+
+    pub fn run_startup_commands(&mut self) {
+        trace!("Parsing startup commands {:?}", self.startup_commands);
+        let parsed = self
+            .startup_commands
+            .clone()
+            .drain(0..(self.startup_commands.len()))
+            // Add line numbers
+            .enumerate()
+            // Make the line numbers start at 1 as is tradition
+            .map(|(no, line)| (no + 1, line))
+            .map(|(no, line)| (no, line.trim().to_string()))
+            // NOTE: Safe unwrap. Split will always return one element
+            .map(|(no, line)| (no, line.split("#").next().unwrap().to_string()))
+            .filter(|(_no, line)| !line.is_empty())
+            .flat_map(|(no, line)| {
+                line.split(";")
+                    .map(|cmd| (no, cmd.to_string()))
+                    .collect::<Vec<_>>()
+            })
+            .map(|(no, command)| {
+                parse_command(&command, get_parser(&self))
+                    .map_err(|e| {
+                        error!("Error on startup commands line {no}: {e:#?}");
+                        e
+                    })
+                    .map(|message| (message, command))
+            })
+            .collect::<std::result::Result<Vec<_>, _>>()
+            // We reported the errors so we can just ignore everything if we had any errors
+            .ok()
+            .unwrap_or_default();
+
+        for (message, message_string) in parsed {
+            info!("Applying message {message_string}");
+            self.update(message)
         }
     }
 }

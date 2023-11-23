@@ -25,10 +25,21 @@ where
     }
 }
 
+pub struct UrlArgs {
+    pub load_url: Option<String>,
+    pub startup_commands: Option<String>,
+}
+
 #[cfg(target_arch = "wasm32")]
-pub fn vcd_from_url() -> Option<String> {
-    web_sys::window()
+pub fn vcd_from_url() -> UrlArgs {
+    let search_params = web_sys::window()
         .and_then(|window| window.location().search().ok())
-        .and_then(|l| web_sys::UrlSearchParams::new_with_str(&l).ok())
-        .and_then(|p| p.get("load_url"))
+        .and_then(|l| web_sys::UrlSearchParams::new_with_str(&l).ok());
+
+    UrlArgs {
+        load_url: search_params.as_ref().and_then(|p| p.get("load_url")),
+        startup_commands: search_params
+            .as_ref()
+            .and_then(|p| p.get("startup_commands")),
+    }
 }

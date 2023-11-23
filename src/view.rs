@@ -1,8 +1,9 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
-use eframe::egui::{Frame, Sense, TextStyle};
+use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
+use egui_extras::{Column, TableBuilder, TableRow};
 use itertools::Itertools;
 use log::{info, warn};
 use num::BigInt;
@@ -11,6 +12,7 @@ use spade_common::num_ext::InfallibleToBigInt;
 use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window};
+use crate::logs::EGUI_LOGGER;
 use crate::signal_filter::filtered_signals;
 use crate::time::{time_string, timescale_menu};
 use crate::util::uint_idx_to_alpha_idx;
@@ -321,6 +323,10 @@ impl State {
 
         if self.show_gestures {
             self.mouse_gesture_help(ctx, &mut msgs);
+        }
+
+        if self.show_logs {
+            self.draw_log_window(ctx, &mut msgs)
         }
 
         if self.show_url_entry {
@@ -870,6 +876,68 @@ impl State {
             self.config.theme.canvas_colors.alt_background
         } else {
             Color32::TRANSPARENT
+        }
+    }
+
+    pub fn draw_log_window(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
+        let mut open = true;
+        egui::Window::new("Logs")
+            .open(&mut open)
+            .collapsible(true)
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.style_mut().wrap = Some(false);
+
+                ScrollArea::new([true, false]).show(ui, |ui| {
+                    TableBuilder::new(ui)
+                        .column(Column::auto().resizable(true))
+                        .column(Column::remainder())
+                        .vscroll(true)
+                        .stick_to_bottom(true)
+                        .header(20.0, |mut header| {
+                            header.col(|ui| {
+                                ui.heading("Level");
+                            });
+                            header.col(|ui| {
+                                ui.heading("Message");
+                            });
+                        })
+                        .body(|body| {
+                            let records = EGUI_LOGGER.records();
+                            let heights = records
+                                .iter()
+                                .map(|record| {
+                                    let height = record.msg.lines().count() as f32;
+
+                                    height * 15.
+                                })
+                                .collect::<Vec<_>>();
+
+                            body.heterogeneous_rows(
+                                heights.into_iter(),
+                                |index: usize, mut row: TableRow| {
+                                    let record = &records[index];
+                                    row.col(|ui| {
+                                        let (color, text) = match record.level {
+                                            log::Level::Error => (Color32::RED, "Error"),
+                                            log::Level::Warn => (Color32::YELLOW, "Warn"),
+                                            log::Level::Info => (Color32::GREEN, "Info"),
+                                            log::Level::Debug => (Color32::BLUE, "Debug"),
+                                            log::Level::Trace => (Color32::GRAY, "Trace"),
+                                        };
+
+                                        ui.colored_label(color, text);
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(RichText::new(record.msg.clone()).monospace());
+                                    });
+                                },
+                            );
+                        })
+                })
+            });
+        if !open {
+            msgs.push(Message::SetLogsVisible(false))
         }
     }
 }
