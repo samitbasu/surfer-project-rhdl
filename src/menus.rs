@@ -152,6 +152,7 @@ impl State {
                 })
             });
             ui.menu_button("Help", |ui| {
+                b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);
                 b("Control keys", Message::SetKeyHelpVisible(true)).add_closing_menu(msgs, ui);
                 b("Mouse gestures", Message::SetGestureHelpVisible(true))
                     .add_closing_menu(msgs, ui);
