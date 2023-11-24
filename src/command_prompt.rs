@@ -348,7 +348,7 @@ pub fn show_command_prompt(
                             .lock_focus(true),
                     );
 
-                    if response.changed() {
+                    if response.changed() || input.is_empty() {
                         run_fuzzy_parser(input, state, msgs);
                     }
 
