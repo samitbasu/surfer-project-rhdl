@@ -18,7 +18,7 @@ use test_log::test;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
-    wave_container::{FieldRef, ModuleRef},
+    wave_container::{FieldRef, ModuleRef, SignalRef},
     Message, StartupParams, State, WaveSource,
 };
 
@@ -458,3 +458,20 @@ snapshot_ui_with_file_and_msgs! {
     }),
     []
 }
+
+snapshot_ui_with_file_and_msgs! {signals_are_added_at_focus, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(1),
+    Message::AddSignal(SignalRef::from_hierarchy_string("tb.dut.counter"))
+]}
+
+snapshot_ui_with_file_and_msgs! {dividers_are_added_at_focus, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(1),
+    Message::AddDivider(String::from("Test"))
+]}
+
+snapshot_ui_with_file_and_msgs! {dividers_are_appended_without_focus, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::AddDivider(String::from("Test"))
+]}

@@ -127,30 +127,30 @@ pub fn get_parser(state: &State) -> Command<Message> {
         ParamGreed::Word,
         vec![
             "load_vcd",
-            "load_url",
+            "signal_add",
+            "signal_focus",
+            "signal_set_color",
+            "zoom_fit",
+            "module_add",
+            "module_select",
+            "divider_add",
             "config_reload",
+            "reload",
+            "load_url",
             "scroll_to_start",
             "scroll_to_end",
             "goto_start",
             "goto_end",
             "zoom_in",
             "zoom_out",
-            "zoom_fit",
             "toggle_menu",
             "toggle_fullscreen",
-            "module_add",
-            "module_select",
-            "reload",
-            "signal_add",
             "signal_add_from_module",
-            "signal_set_color",
             "signal_set_name_type",
             "signal_force_name_type",
-            "signal_focus",
             "signal_unfocus",
             "signal_unset_color",
             "preference_set_clock_highlight",
-            "divider_add",
             "goto_cursor",
         ]
         .into_iter()
@@ -348,7 +348,7 @@ pub fn show_command_prompt(
                             .lock_focus(true),
                     );
 
-                    if response.changed() {
+                    if response.changed() || input.is_empty() {
                         run_fuzzy_parser(input, state, msgs);
                     }
 
