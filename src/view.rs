@@ -568,8 +568,17 @@ impl State {
                     .context_menu(|ui| {
                         self.item_context_menu(Some(&field), msgs, ui, vidx);
                     });
+
                 if signal_label.clicked() {
-                    msgs.push(Message::FocusItem(vidx))
+                    if self
+                        .waves
+                        .as_ref()
+                        .is_some_and(|w| w.focused_item.is_some_and(|f| f == vidx))
+                    {
+                        msgs.push(Message::UnfocusItem);
+                    } else {
+                        msgs.push(Message::FocusItem(vidx));
+                    }
                 }
                 signal_label
             })
