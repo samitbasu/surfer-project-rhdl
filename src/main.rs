@@ -315,6 +315,7 @@ pub struct State {
     show_about: bool,
     show_keys: bool,
     show_gestures: bool,
+    show_quick_start: bool,
     /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
@@ -387,6 +388,7 @@ impl State {
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,
             show_url_entry: false,
+            show_quick_start: false,
             rename_target: None,
             show_wave_source: true,
             signal_filter_focused: false,
@@ -850,6 +852,7 @@ impl State {
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetGestureHelpVisible(s) => self.show_gestures = s,
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
+            Message::SetQuickStartVisible(s) => self.show_quick_start = s,
             Message::SetRenameItemVisible(_) => self.rename_target = None,
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
             Message::SetFilterFocused(s) => self.signal_filter_focused = s,
