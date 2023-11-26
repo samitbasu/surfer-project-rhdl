@@ -595,10 +595,10 @@ impl State {
             };
 
             ui.horizontal_top(|ui| {
-<<<<<<< HEAD
-                if self.command_prompt.expanded.starts_with("signal_focus") {
+                if self.command_prompt.expanded().is_some_and(|e| e.starts_with("signal_focus")) {
                     self.add_alpha_id(vidx, ui);
-=======
+                }
+
                 if self
                     .command_prompt
                     .expanded()
@@ -607,7 +607,7 @@ impl State {
                 {
                     let alpha_id = uint_idx_to_alpha_idx(
                         vidx,
-                        self.vcd.as_ref().map_or(0, |vcd| vcd.signals.len()),
+                        self.waves.as_ref().map_or(0, |waves| waves.displayed_items.len()),
                     );
                     ui.label(
                         egui::RichText::new(alpha_id)
@@ -615,7 +615,6 @@ impl State {
                             .monospace()
                             .color(self.config.theme.accent_warn.foreground),
                     );
->>>>>>> f50d8c7 (Allow selection from command menu)
                 }
 
                 self.add_focus_marker(vidx, ui);
@@ -706,7 +705,7 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded.starts_with("focus") {
+                if self.command_prompt.expanded().is_some_and(|e| e.starts_with("focus")) {
                     self.add_alpha_id(vidx, ui);
                 }
 

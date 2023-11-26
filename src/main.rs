@@ -537,8 +537,8 @@ impl State {
                     MoveDir::Down => {
                         if waves.scroll + count < waves.displayed_items.len() {
                             waves.scroll += count;
-                        } else if waves.displayed_items.len() > 0 {
-                            waves.scroll = waves.displayed_items.len() - 1;
+                        } else {
+                            waves.scroll = waves.displayed_items.len().saturating_sub(1);
                         }
                     }
                     MoveDir::Up => {
@@ -858,10 +858,7 @@ impl State {
                 self.command_prompt.suggestions = vec![];
                 self.command_prompt.selected = 0;
             }
-            Message::CommandPromptUpdate {
-                expanded,
-                suggestions,
-            } => {
+            Message::CommandPromptUpdate { suggestions } => {
                 self.command_prompt.suggestions = suggestions;
                 self.command_prompt.selected = 0;
             }
@@ -893,12 +890,12 @@ impl State {
                 self.ui_scale = scale
             }
             Message::SelectPrevCommand => {
-                self.command_prompt.selected = std::cmp::max(self.command_prompt.selected - 1, 0);
+                self.command_prompt.selected = self.command_prompt.selected.saturating_sub(1);
             }
             Message::SelectNextCommand => {
                 self.command_prompt.selected = std::cmp::min(
                     self.command_prompt.selected + 1,
-                    self.command_prompt.suggestions.len() - 1,
+                    self.command_prompt.suggestions.len().saturating_sub(1),
                 );
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update

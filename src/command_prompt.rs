@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
+use eframe::egui::NumExt;
 use eframe::egui::{self};
 use eframe::emath::Align2;
 use eframe::epaint::Vec2;
@@ -333,12 +334,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
 pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
     let FuzzyOutput {
-        expanded,
+        expanded: _,
         suggestions,
     } = expand_command(input, get_parser(state));
 
     msgs.push(Message::CommandPromptUpdate {
-        expanded,
         suggestions: suggestions.unwrap_or(vec![]),
     })
 }
@@ -347,12 +347,6 @@ pub struct CommandPrompt {
     pub visible: bool,
     pub suggestions: Vec<(String, Vec<bool>)>,
     pub selected: usize,
-}
-
-impl CommandPrompt {
-    pub fn expanded(&self) -> Option<&String> {
-        self.suggestions.get(self.selected).and_then(|s| Some(&s.0))
-    }
 }
 
 pub fn show_command_prompt(
@@ -369,99 +363,192 @@ pub fn show_command_prompt(
         .resizable(true)
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
-                ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                    ui.colored_label(state.config.theme.primary_ui_color.foreground, "🏄");
+                let input = &mut *state.command_prompt_text.borrow_mut();
+                let response = ui.add(
+                    egui::TextEdit::singleline(input)
+                        .desired_width(f32::INFINITY)
+                        .lock_focus(true),
+                );
 
-                    let input = &mut *state.command_prompt_text.borrow_mut();
-                    let response = ui.add(
-                        egui::TextEdit::singleline(input)
-                            .desired_width(f32::INFINITY)
-                            .lock_focus(true),
-                    );
+                if response.changed() || state.command_prompt.suggestions.is_empty() {
+                    run_fuzzy_parser(input, state, msgs);
+                }
 
-                    if response.changed() || input.is_empty() {
-                        run_fuzzy_parser(input, state, msgs);
+                let set_cursor_to_pos = |pos, ui: &mut egui::Ui| {
+                    if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), response.id) {
+                        let ccursor = egui::text::CCursor::new(pos);
+                        state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                        state.store(ui.ctx(), response.id);
+                        ui.ctx().memory_mut(|m| m.request_focus(response.id));
                     }
+                };
 
-                    if response.lost_focus()
-                        && response.ctx.input(|i| i.key_pressed(egui::Key::Enter))
-                    {
-                        let selected = state.command_prompt.selected;
-                        let command_parsed = state
-                            .command_prompt
-                            .suggestions
-                            .get(selected)
-                            .and_then(|cmd| {
-                                parse_command((*cmd).0.as_str(), get_parser(state)).ok()
-                            });
+                if response.ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                    set_cursor_to_pos(input.chars().count(), ui);
+                }
 
-                        if let Some(command_parsed) = command_parsed {
+                if response.lost_focus() && response.ctx.input(|i| i.key_pressed(egui::Key::Enter))
+                {
+                    let selection = state
+                        .command_prompt
+                        .suggestions
+                        .get(state.command_prompt.selected)
+                        .map(|s| {
+                            let new_input =
+                                if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                                    // if no input exists for current argument just append
+                                    input.to_owned() + " " + &s.0
+                                } else {
+                                    // if something was already typed for this argument removed then append
+                                    let parts = input.split_ascii_whitespace().collect_vec();
+                                    parts.iter().take(parts.len().saturating_sub(1)).join(" ")
+                                        + " "
+                                        + &s.0
+                                };
+                            let expanded = expand_command(&new_input, get_parser(state)).expanded;
+                            (
+                                expanded.clone(),
+                                parse_command(&expanded, get_parser(state)),
+                            )
+                        });
+
+                    if let Some(res) = selection {
+                        if let Ok(cmd) = res.1 {
                             msgs.push(Message::ShowCommandPrompt(false));
                             msgs.push(Message::CommandPromptClear);
-                            msgs.push(command_parsed);
-                        } else if let Some(expanded) = state.command_prompt.expanded() {
-                            *input = expanded.clone();
-
+                            msgs.push(cmd);
+                            run_fuzzy_parser("", state, msgs);
+                        } else {
+                            *input = res.0 + " ";
                             // move cursor to end of input
-                            if let Some(mut state) =
-                                egui::TextEdit::load_state(ui.ctx(), response.id)
-                            {
-                                let ccursor = egui::text::CCursor::new(input.chars().count());
-                                state.set_ccursor_range(Some(egui::text::CCursorRange::one(
-                                    ccursor,
-                                )));
-                                state.store(ui.ctx(), response.id);
-                                ui.ctx().memory_mut(|m| m.request_focus(response.id));
-                            }
-
+                            set_cursor_to_pos(input.chars().count(), ui);
                             // run fuzzy parser since setting the cursor swallows the `changed` flag
                             run_fuzzy_parser(&input, state, msgs);
                         }
                     }
-
-                    response.request_focus();
-                });
-            });
-
-            ui.separator();
-
-            // only show the top 15 suggestions
-            for (idx, suggestion) in state.command_prompt.suggestions.iter().enumerate().take(15) {
-                let mut job = LayoutJob::default();
-                let marker = if idx == state.command_prompt.selected {
-                    "↦ "
-                } else {
-                    "   "
-                };
-                job.append(
-                    marker,
-                    0.0,
-                    TextFormat {
-                        font_id: FontId::new(14.0, FontFamily::Monospace),
-                        color: state.config.theme.primary_ui_color.foreground,
-                        ..Default::default()
-                    },
-                );
-
-                for (c, highlight) in zip(suggestion.0.chars(), &suggestion.1) {
-                    let mut tmp = [0u8; 4];
-                    let sub_string = c.encode_utf8(&mut tmp);
-                    job.append(
-                        sub_string,
-                        0.0,
-                        TextFormat {
-                            font_id: FontId::new(14.0, FontFamily::Monospace),
-                            color: if *highlight {
-                                state.config.theme.accent_info.background
-                            } else {
-                                state.config.theme.primary_ui_color.foreground
-                            },
-                            ..Default::default()
-                        },
-                    );
                 }
 
-                ui.label(job);
-            }
+                response.request_focus();
+
+                let suggestions = state
+                    .command_prompt
+                    .suggestions
+                    .iter()
+                    .enumerate()
+                    .skip(state.command_prompt.selected.saturating_sub(14))
+                    .take(15)
+                    .collect_vec();
+
+                for (idx, suggestion) in suggestions {
+                    let mut job = LayoutJob::default();
+                    let selected = state.command_prompt.selected == idx;
+
+                    for (c, highlight) in zip(suggestion.0.chars(), &suggestion.1) {
+                        let mut tmp = [0u8; 4];
+                        let sub_string = c.encode_utf8(&mut tmp);
+                        job.append(
+                            sub_string,
+                            0.0,
+                            TextFormat {
+                                font_id: FontId::new(14.0, FontFamily::Monospace),
+                                color: if selected || *highlight {
+                                    state.config.theme.accent_info.background
+                                } else {
+                                    state.config.theme.primary_ui_color.foreground
+                                },
+                                ..Default::default()
+                            },
+                        );
+                    }
+
+                    // make label full width of the palette
+                    let resp = ui.allocate_ui_with_layout(
+                        ui.available_size(),
+                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        |ui| ui.add(SuggestionLabel::new(job)),
+                    );
+
+                    if resp.inner.clicked() {
+                        let new_input = if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                            // if no input exists for current argument just append
+                            input.to_owned() + " " + &suggestion.0
+                        } else {
+                            // if something was already typed for this argument removed then append
+                            let parts = input.split_ascii_whitespace().collect_vec();
+                            parts.iter().take(parts.len().saturating_sub(1)).join(" ")
+                                + " "
+                                + &suggestion.0
+                        };
+                        let expanded = expand_command(&new_input, get_parser(state)).expanded;
+                        let result = (
+                            expanded.clone(),
+                            parse_command(&expanded, get_parser(state)),
+                        );
+
+                        if let Ok(cmd) = result.1 {
+                            msgs.push(Message::ShowCommandPrompt(false));
+                            msgs.push(Message::CommandPromptClear);
+                            msgs.push(cmd);
+                            run_fuzzy_parser("", state, msgs);
+                        } else {
+                            *input = result.0 + " ";
+                            set_cursor_to_pos(input.chars().count(), ui);
+                            // run fuzzy parser since setting the cursor swallows the `changed` flag
+                            run_fuzzy_parser(&input, state, msgs);
+                        }
+                    }
+                }
+            });
         });
+}
+
+#[must_use = "You should put this widget in an ui with `ui.add(widget);`"]
+pub struct SuggestionLabel {
+    text: egui::WidgetText,
+}
+
+impl SuggestionLabel {
+    pub fn new(text: impl Into<egui::WidgetText>) -> Self {
+        Self { text: text.into() }
+    }
+}
+
+impl egui::Widget for SuggestionLabel {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        let Self { text } = self;
+
+        let button_padding = ui.spacing().button_padding;
+        let total_extra = button_padding + button_padding;
+
+        let wrap_width = ui.available_width() - total_extra.x;
+        let text = text.into_galley(ui, None, wrap_width, egui::TextStyle::Button);
+
+        let mut desired_size = total_extra + text.size();
+        desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
+        let (rect, response) = ui.allocate_at_least(desired_size, egui::Sense::click());
+
+        if ui.is_rect_visible(response.rect) {
+            let text_pos = ui
+                .layout()
+                .align_size_within_rect(text.size(), rect.shrink2(button_padding))
+                .min;
+
+            let visuals = ui.style().interact_selectable(&response, false);
+
+            if response.hovered() {
+                let rect = rect.expand(visuals.expansion);
+
+                ui.painter().rect(
+                    rect,
+                    visuals.rounding,
+                    visuals.weak_bg_fill,
+                    egui::Stroke::NONE,
+                );
+            }
+
+            text.paint_with_visuals(ui.painter(), text_pos, &visuals);
+        }
+
+        response
+    }
 }
