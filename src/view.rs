@@ -597,9 +597,10 @@ impl State {
             };
 
             ui.horizontal_top(|ui| {
-                if self.command_prompt.visible && expand_command(&self.command_prompt_text.borrow(), get_parser(self))
-                    .expanded
-                    .starts_with("signal_focus")
+                if self.command_prompt.visible
+                    && expand_command(&self.command_prompt_text.borrow(), get_parser(self))
+                        .expanded
+                        .starts_with("signal_focus")
                 {
                     self.add_alpha_id(vidx, ui);
                 }

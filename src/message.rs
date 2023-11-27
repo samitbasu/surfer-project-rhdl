@@ -81,6 +81,7 @@ pub enum Message {
     CommandPromptUpdate {
         suggestions: Vec<(String, Vec<bool>)>,
     },
+    CommandPromptPushPrevious(String),
     SelectPrevCommand,
     SelectNextCommand,
     OpenFileDialog(OpenMode),

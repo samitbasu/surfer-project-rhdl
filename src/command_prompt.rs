@@ -347,6 +347,7 @@ pub struct CommandPrompt {
     pub visible: bool,
     pub suggestions: Vec<(String, Vec<bool>)>,
     pub selected: usize,
+    pub previous_commands: Vec<(String, Vec<bool>)>,
 }
 
 pub fn show_command_prompt(
@@ -387,35 +388,41 @@ pub fn show_command_prompt(
                     set_cursor_to_pos(input.chars().count(), ui);
                 }
 
+                let suggestions = state
+                    .command_prompt
+                    .previous_commands
+                    .iter()
+                    .chain(state.command_prompt.suggestions.iter())
+                    .enumerate()
+                    .skip(state.command_prompt.selected.saturating_sub(14))
+                    .take(15)
+                    .collect_vec();
+
                 if response.lost_focus() && response.ctx.input(|i| i.key_pressed(egui::Key::Enter))
                 {
-                    let selection = state
-                        .command_prompt
-                        .suggestions
-                        .get(state.command_prompt.selected)
-                        .map(|s| {
-                            let new_input =
-                                if input.chars().last().is_some_and(|c| c.is_whitespace()) {
-                                    // if no input exists for current argument just append
-                                    input.to_owned() + " " + &s.0
-                                } else {
-                                    // if something was already typed for this argument removed then append
-                                    let parts = input.split_ascii_whitespace().collect_vec();
-                                    parts.iter().take(parts.len().saturating_sub(1)).join(" ")
-                                        + " "
-                                        + &s.0
-                                };
-                            let expanded = expand_command(&new_input, get_parser(state)).expanded;
-                            (
-                                expanded.clone(),
-                                parse_command(&expanded, get_parser(state)),
-                            )
-                        });
+                    let selection = suggestions.get(state.command_prompt.selected).map(|s| {
+                        let new_input = if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                            // if no input exists for current argument just append
+                            input.to_owned() + " " + &s.1 .0
+                        } else {
+                            // if something was already typed for this argument removed then append
+                            let parts = input.split_ascii_whitespace().collect_vec();
+                            parts.iter().take(parts.len().saturating_sub(1)).join(" ")
+                                + " "
+                                + &s.1 .0
+                        };
+                        let expanded = expand_command(&new_input, get_parser(state)).expanded;
+                        (
+                            expanded.clone(),
+                            parse_command(&expanded, get_parser(state)),
+                        )
+                    });
 
                     if let Some(res) = selection {
                         if let Ok(cmd) = res.1 {
                             msgs.push(Message::ShowCommandPrompt(false));
                             msgs.push(Message::CommandPromptClear);
+                            msgs.push(Message::CommandPromptPushPrevious(res.0));
                             msgs.push(cmd);
                             run_fuzzy_parser("", state, msgs);
                         } else {
@@ -430,18 +437,14 @@ pub fn show_command_prompt(
 
                 response.request_focus();
 
-                let suggestions = state
-                    .command_prompt
-                    .suggestions
-                    .iter()
-                    .enumerate()
-                    .skip(state.command_prompt.selected.saturating_sub(14))
-                    .take(15)
-                    .collect_vec();
-
                 for (idx, suggestion) in suggestions {
                     let mut job = LayoutJob::default();
                     let selected = state.command_prompt.selected == idx;
+
+                    let previous_cmds_len = state.command_prompt.previous_commands.len();
+                    if idx == previous_cmds_len && previous_cmds_len != 0 {
+                        ui.separator();
+                    }
 
                     for (c, highlight) in zip(suggestion.0.chars(), &suggestion.1) {
                         let mut tmp = [0u8; 4];
@@ -488,6 +491,7 @@ pub fn show_command_prompt(
                         if let Ok(cmd) = result.1 {
                             msgs.push(Message::ShowCommandPrompt(false));
                             msgs.push(Message::CommandPromptClear);
+                            msgs.push(Message::CommandPromptPushPrevious(expanded));
                             msgs.push(cmd);
                             run_fuzzy_parser("", state, msgs);
                         } else {
