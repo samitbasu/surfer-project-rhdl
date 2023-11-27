@@ -4,12 +4,14 @@ use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
+use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::benchmark::NUM_PERF_SAMPLES;
+use crate::command_prompt::get_parser;
 use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
@@ -595,26 +597,11 @@ impl State {
             };
 
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded().is_some_and(|e| e.starts_with("signal_focus")) {
-                    self.add_alpha_id(vidx, ui);
-                }
-
-                if self
-                    .command_prompt
-                    .expanded()
-                    .map(|e| e.starts_with("signal_focus"))
-                    .unwrap_or(false)
+                if self.command_prompt.visible && expand_command(&self.command_prompt_text.borrow(), get_parser(self))
+                    .expanded
+                    .starts_with("signal_focus")
                 {
-                    let alpha_id = uint_idx_to_alpha_idx(
-                        vidx,
-                        self.waves.as_ref().map_or(0, |waves| waves.displayed_items.len()),
-                    );
-                    ui.label(
-                        egui::RichText::new(alpha_id)
-                            .background_color(self.config.theme.accent_warn.background)
-                            .monospace()
-                            .color(self.config.theme.accent_warn.foreground),
-                    );
+                    self.add_alpha_id(vidx, ui);
                 }
 
                 self.add_focus_marker(vidx, ui);
@@ -705,7 +692,11 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded().is_some_and(|e| e.starts_with("focus")) {
+                if self
+                    .command_prompt_text
+                    .borrow()
+                    .starts_with("signal_focus")
+                {
                     self.add_alpha_id(vidx, ui);
                 }
 
