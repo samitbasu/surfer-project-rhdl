@@ -53,7 +53,7 @@ impl DrawingCommands {
 
 impl State {
     pub fn invalidate_draw_commands(&mut self) {
-        *self.draw_data.borrow_mut() = None;
+        *self.sys.draw_data.borrow_mut() = None;
     }
 
     pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
@@ -104,7 +104,7 @@ impl State {
                             root: displayed_signal.signal_ref.clone(),
                             field: vec![],
                         },
-                        &self.translators,
+                        &self.sys.translators,
                     );
                     // we need to get the signal info here to get the correct info for aliases
                     let info = translator.signal_info(&meta).unwrap();
@@ -172,7 +172,7 @@ impl State {
                                     field: vec![],
                                 },
                                 &waves.signal_format,
-                                &self.translators,
+                                &self.sys.translators,
                             )
                             .as_fields();
 
@@ -237,7 +237,7 @@ impl State {
                     });
                 });
 
-            *self.draw_data.borrow_mut() = Some(CachedDrawData {
+            *self.sys.draw_data.borrow_mut() = Some(CachedDrawData {
                 draw_commands,
                 clock_edges,
             });
@@ -254,11 +254,11 @@ impl State {
 
         let cfg = DrawConfig::new(response.rect.size().y);
         // the draw commands have been invalidated, recompute
-        if self.draw_data.borrow().is_none()
-            || Some(response.rect) != *self.last_canvas_rect.borrow()
+        if self.sys.draw_data.borrow().is_none()
+            || Some(response.rect) != *self.sys.last_canvas_rect.borrow()
         {
             self.generate_draw_commands(&cfg, response.rect.width(), msgs);
-            *self.last_canvas_rect.borrow_mut() = Some(response.rect);
+            *self.sys.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
         let Some(waves) = &self.waves else { return };
@@ -337,7 +337,7 @@ impl State {
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
 
-        if let Some(draw_data) = &*self.draw_data.borrow() {
+        if let Some(draw_data) = &*self.sys.draw_data.borrow() {
             let clock_edges = &draw_data.clock_edges;
             let draw_commands = &draw_data.draw_commands;
             let draw_clock_edges = match clock_edges.as_slice() {

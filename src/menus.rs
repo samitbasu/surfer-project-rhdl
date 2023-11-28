@@ -141,7 +141,7 @@ impl State {
                 });
                 ui.menu_button("UI Scale", |ui| {
                     for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {
-                        ui.radio(self.ui_scale == scale, format!("{} %", scale * 100.))
+                        ui.radio(self.ui_scale == Some(scale), format!("{} %", scale * 100.))
                             .clicked()
                             .then(|| {
                                 ui.close_menu();
@@ -268,11 +268,12 @@ impl State {
         };
 
         let mut available_translators = if path.field.is_empty() {
-            self.translators
+            self.sys
+                .translators
                 .all_translator_names()
                 .into_iter()
                 .filter(|translator_name| {
-                    let t = self.translators.get_translator(translator_name);
+                    let t = self.sys.translators.get_translator(translator_name);
 
                     if self
                         .blacklisted_translators
@@ -304,7 +305,7 @@ impl State {
                 })
                 .collect()
         } else {
-            self.translators.basic_translator_names()
+            self.sys.translators.basic_translator_names()
         };
 
         available_translators.sort_by(|a, b| human_sort::compare(a, b));

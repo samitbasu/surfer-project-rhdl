@@ -1,10 +1,14 @@
-use color_eyre::{eyre::Context, Result};
-use fastwave_backend::{Metadata, SignalValue, VCD};
+use color_eyre::{
+    eyre::{bail, Context},
+    Result,
+};
+use fastwave_backend::{Metadata, SignalValue, Timescale, VCD};
 use num::BigUint;
+use serde::{Deserialize, Serialize};
 
 use crate::fast_wave_container::FastWaveContainer;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModuleRef(Vec<String>);
 
 impl ModuleRef {
@@ -35,7 +39,7 @@ impl std::fmt::Display for ModuleRef {
 }
 
 // FIXME: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` or Rc/Arc would be better
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignalRef {
     /// Path in the module hierarchy to where this signal resides
     pub path: ModuleRef,
@@ -96,7 +100,7 @@ impl SignalRef {
 
 /// A reference to a field of a larger signal, such as a field in a struct. The fields
 /// are the recursive path to the fields inside the (translated) root
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldRef {
     pub root: SignalRef,
     pub field: Vec<String>,
@@ -122,6 +126,9 @@ impl FieldRef {
 #[derive(Debug)]
 pub enum WaveContainer {
     Fwb(FastWaveContainer),
+    /// A wave container that contains nothing. Currently, the only practical use for this is
+    /// a placehodler when serializing and deserializing wave state.
+    Empty,
 }
 
 impl WaveContainer {
@@ -129,15 +136,24 @@ impl WaveContainer {
         WaveContainer::Fwb(FastWaveContainer::new(vcd))
     }
 
-    pub fn signals(&self) -> &Vec<SignalRef> {
+    /// Creates a new empty wave container. Should only be used as a default for serde. If
+    /// no wave container is present, the WaveData should be None, rather than this being
+    /// Empty
+    pub fn __new_empty() -> Self {
+        WaveContainer::Empty
+    }
+
+    pub fn signals(&self) -> &[SignalRef] {
         match self {
             WaveContainer::Fwb(f) => f.signals(),
+            WaveContainer::Empty => &[],
         }
     }
 
     pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
         match self {
             WaveContainer::Fwb(f) => f.signals_in_module(module),
+            WaveContainer::Empty => vec![],
         }
     }
 
@@ -152,6 +168,7 @@ impl WaveContainer {
                         signal_type: signal.signal_type().cloned(),
                     })
             }
+            WaveContainer::Empty => bail!("Getting meta from empty wave container"),
         }
     }
 
@@ -162,24 +179,28 @@ impl WaveContainer {
     ) -> Result<Option<(BigUint, SignalValue)>> {
         match self {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
+            WaveContainer::Empty => bail!("Querying signal from emtpy wave container"),
         }
     }
 
     pub fn signal_exists(&self, signal: &SignalRef) -> bool {
         match self {
             WaveContainer::Fwb(f) => f.signal_exists(signal),
+            WaveContainer::Empty => false,
         }
     }
 
     pub fn modules(&self) -> Vec<ModuleRef> {
         match self {
             WaveContainer::Fwb(f) => f.modules(),
+            WaveContainer::Empty => vec![],
         }
     }
 
     pub fn has_module(&self, module: &ModuleRef) -> bool {
         match self {
             WaveContainer::Fwb(f) => f.module_map.contains_key(module),
+            WaveContainer::Empty => false,
         }
     }
 
@@ -191,30 +212,39 @@ impl WaveContainer {
                 version: f.inner.metadata.version.clone(),
                 timescale: f.inner.metadata.timescale,
             },
+            WaveContainer::Empty => Metadata {
+                date: None,
+                version: None,
+                timescale: (None, Timescale::Fs),
+            },
         }
     }
 
     pub fn root_modules(&self) -> Vec<ModuleRef> {
         match self {
             WaveContainer::Fwb(f) => f.root_modules(),
+            WaveContainer::Empty => vec![],
         }
     }
 
     pub fn child_modules(&self, module: &ModuleRef) -> Result<Vec<ModuleRef>> {
         match self {
             WaveContainer::Fwb(f) => f.child_modules(module),
+            WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
         }
     }
 
     pub fn max_timestamp(&self) -> Option<BigUint> {
         match self {
             WaveContainer::Fwb(f) => f.inner.max_timestamp().clone(),
+            WaveContainer::Empty => None,
         }
     }
 
     pub fn module_exists(&self, module: &ModuleRef) -> bool {
         match self {
             WaveContainer::Fwb(f) => f.module_exists(module),
+            WaveContainer::Empty => false,
         }
     }
 }

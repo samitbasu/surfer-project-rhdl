@@ -98,6 +98,7 @@ pub enum Message {
     AddDivider(String),
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
+    SaveState(Utf8PathBuf),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,

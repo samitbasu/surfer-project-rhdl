@@ -51,6 +51,7 @@ pub fn all_translators() -> TranslatorList {
     )
 }
 
+#[derive(Default)]
 pub struct TranslatorList {
     inner: HashMap<String, Box<dyn Translator>>,
     basic: HashMap<String, Box<dyn BasicTranslator>>,
@@ -92,7 +93,10 @@ impl TranslatorList {
         if let Some(full) = full.map(|t| t.as_ref()) {
             full
         } else {
-            let basic = self.basic.get(name).unwrap();
+            let basic = self
+                .basic
+                .get(name)
+                .expect(&format!("Did not find a translator named '{name}'"));
             basic
         }
     }
@@ -344,6 +348,13 @@ impl SignalInfo {
                 _ => false,
             },
         }
+    }
+}
+
+// NOTE: only used for state saving where translators will clear this out with the actual value
+impl Default for SignalInfo {
+    fn default() -> Self {
+        SignalInfo::String
     }
 }
 

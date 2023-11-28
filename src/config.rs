@@ -27,13 +27,22 @@ pub struct SurferConfig {
 #[derive(Debug, Deserialize)]
 pub struct SurferLayout {
     /// Flag to show/hide the hierarchy view
-    pub show_hierarchy: bool,
+    show_hierarchy: bool,
     /// Flag to show/hide the menu
-    pub show_menu: bool,
+    show_menu: bool,
     /// Initial window height
     pub window_height: usize,
     /// Initial window width
     pub window_width: usize,
+}
+
+impl SurferLayout {
+    pub fn show_hierarchy(&self) -> bool {
+        self.show_hierarchy
+    }
+    pub fn show_menu(&self) -> bool {
+        self.show_menu
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,6 +191,12 @@ impl SurferConfig {
             .build()?
             .try_deserialize()
             .map_err(|e| anyhow!("Failed to parse config {e}"))
+    }
+}
+
+impl Default for SurferConfig {
+    fn default() -> Self {
+        Self::new().expect("Failed to load default config")
     }
 }
 
