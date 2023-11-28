@@ -232,11 +232,11 @@ fn signal_draw_commands(
 
 impl State {
     pub fn invalidate_draw_commands(&mut self) {
-        *self.draw_data.borrow_mut() = None;
+        *self.sys.draw_data.borrow_mut() = None;
     }
 
     pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
-        self.timing.borrow_mut().start("Generate draw commands");
+        self.sys.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
             let frame_width = width;
@@ -258,7 +258,7 @@ impl State {
                 .collect::<Vec<_>>();
             timestamps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
-            let translators = &self.translators;
+            let translators = &self.sys.translators;
             let commands = waves
                 .displayed_items
                 .par_iter()
@@ -299,12 +299,12 @@ impl State {
                 clock_edges.append(&mut new_clock_edges)
             }
 
-            *self.draw_data.borrow_mut() = Some(CachedDrawData {
+            *self.sys.draw_data.borrow_mut() = Some(CachedDrawData {
                 draw_commands,
                 clock_edges,
             });
         }
-        self.timing.borrow_mut().end("Generate draw commands");
+        self.sys.timing.borrow_mut().end("Generate draw commands");
     }
 
     pub fn draw_signals(
@@ -317,11 +317,11 @@ impl State {
 
         let cfg = DrawConfig::new(response.rect.size().y);
         // the draw commands have been invalidated, recompute
-        if self.draw_data.borrow().is_none()
-            || Some(response.rect) != *self.last_canvas_rect.borrow()
+        if self.sys.draw_data.borrow().is_none()
+            || Some(response.rect) != *self.sys.last_canvas_rect.borrow()
         {
             self.generate_draw_commands(&cfg, response.rect.width(), msgs);
-            *self.last_canvas_rect.borrow_mut() = Some(response.rect);
+            *self.sys.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
         let Some(waves) = &self.waves else { return };
@@ -400,8 +400,8 @@ impl State {
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
 
-        self.timing.borrow_mut().start("Wave drawing");
-        if let Some(draw_data) = &*self.draw_data.borrow() {
+        self.sys.timing.borrow_mut().start("Wave drawing");
+        if let Some(draw_data) = &*self.sys.draw_data.borrow() {
             let clock_edges = &draw_data.clock_edges;
             let draw_commands = &draw_data.draw_commands;
             let draw_clock_edges = match clock_edges.as_slice() {
@@ -457,7 +457,7 @@ impl State {
                 }
             }
         }
-        self.timing.borrow_mut().end("Wave drawing");
+        self.sys.timing.borrow_mut().end("Wave drawing");
 
         waves.draw_cursor(
             &self.config.theme,
@@ -480,7 +480,7 @@ impl State {
             response.rect.size(),
             gap,
             &self.config,
-            self.wanted_timeunit,
+            self.wanted_timescale.unit,
         );
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);

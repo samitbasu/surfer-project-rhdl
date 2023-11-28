@@ -27,7 +27,7 @@ impl State {
         ctx: &mut DrawingContext,
     ) {
         let frame_width = response.rect.width();
-        if let Some(start_location) = self.gesture_start_location {
+        if let Some(start_location) = self.sys.gesture_start_location {
             response.dragged_by(egui::PointerButton::Middle).then(|| {
                 let current_location = pointer_pos_canvas.unwrap();
                 let distance = current_location - start_location;
@@ -214,7 +214,7 @@ impl State {
                         .round()
                         .to_integer()),
                     &waves.inner.metadata().timescale,
-                    &(self.wanted_timeunit)
+                    &(self.wanted_timescale.unit)
                 ),
                 time_string(
                     &(waves
@@ -223,7 +223,7 @@ impl State {
                         .round()
                         .to_integer()),
                     &waves.inner.metadata().timescale,
-                    &(self.wanted_timeunit)
+                    &(self.wanted_timescale.unit)
                 ),
             ),
             &self.config.theme,

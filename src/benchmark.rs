@@ -166,7 +166,7 @@ impl State {
             .resizable(true)
             .default_width(700.)
             .show(ctx, |ui| {
-                let timing = self.timing.borrow_mut();
+                let timing = self.sys.timing.borrow_mut();
 
                 let frame_times_f32 = timing.regions[&vec![]]
                     .durations
@@ -175,9 +175,9 @@ impl State {
                     .collect::<Vec<_>>();
 
                 ui.horizontal(|ui| {
-                    let mut redraw_state = self.continuous_redraw;
+                    let mut redraw_state = self.sys.continuous_redraw;
                     ui.checkbox(&mut redraw_state, "Continuous redraw");
-                    if redraw_state != self.continuous_redraw {
+                    if redraw_state != self.sys.continuous_redraw {
                         msgs.push(Message::SetContinuousRedraw(redraw_state))
                     }
 
@@ -229,7 +229,7 @@ impl State {
                 plot.show(ui, |plot_ui| {
                     plot_ui.line(
                         Line::new(PlotPoints::from_ys_f32(
-                            &self.rendering_cpu_times.iter().cloned().collect::<Vec<_>>(),
+                            &self.sys.rendering_cpu_times.iter().cloned().collect::<Vec<_>>(),
                         ))
                         .name("egui CPU draw time"),
                     );

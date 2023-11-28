@@ -95,9 +95,9 @@ impl ItemDrawingInfo {
 
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        self.timing.borrow_mut().start_frame();
+        self.sys.timing.borrow_mut().start_frame();
 
-        if self.continuous_redraw {
+        if self.sys.continuous_redraw {
             self.invalidate_draw_commands();
         }
 
@@ -108,11 +108,17 @@ impl eframe::App for State {
             )
         });
 
-        self.timing.borrow_mut().start("draw");
+        self.sys.timing.borrow_mut().start("draw");
         let mut msgs = self.draw(ctx, window_size);
-        self.timing.borrow_mut().end("draw");
+        self.sys.timing.borrow_mut().end("draw");
 
-        self.timing.borrow_mut().start("update");
+        self.sys.timing.borrow_mut().start("update");
+        if let Some(scale) = self.ui_scale {
+            if ctx.pixels_per_point() != scale {
+                ctx.set_pixels_per_point(scale)
+            }
+        }
+
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::Exit = msg {
@@ -124,29 +130,29 @@ impl eframe::App for State {
             }
             self.update(msg);
         }
-        self.timing.borrow_mut().end("update");
+        self.sys.timing.borrow_mut().end("update");
 
-        self.timing.borrow_mut().start("handle_async_messages");
+        self.sys.timing.borrow_mut().start("handle_async_messages");
         self.handle_async_messages();
-        self.timing.borrow_mut().end("handle_async_messages");
+        self.sys.timing.borrow_mut().end("handle_async_messages");
 
         // We can save some user battery life by not redrawing unless needed. At the moment,
         // we only need to continuously redraw to make surfer interactive during loading, otherwise
         // we'll back off a bit
-        if self.continuous_redraw || self.vcd_progress.is_some() {
+        if self.sys.continuous_redraw || self.sys.vcd_progress.is_some() {
             ctx.request_repaint();
         } else {
             ctx.request_repaint_after(std::time::Duration::from_millis(50));
         }
 
         if let Some(prev_cpu) = frame.info().cpu_usage {
-            self.rendering_cpu_times.push_back(prev_cpu);
-            if self.rendering_cpu_times.len() > NUM_PERF_SAMPLES {
-                self.rendering_cpu_times.pop_front();
+            self.sys.rendering_cpu_times.push_back(prev_cpu);
+            if self.sys.rendering_cpu_times.len() > NUM_PERF_SAMPLES {
+                self.sys.rendering_cpu_times.pop_front();
             }
         }
 
-        self.timing.borrow_mut().end_frame();
+        self.sys.timing.borrow_mut().end_frame();
     }
 }
 
@@ -181,7 +187,10 @@ impl State {
             self.draw_performance_graph(ctx, &mut msgs);
         }
 
-        if self.config.layout.show_menu {
+        if self
+            .show_menu
+            .unwrap_or_else(|| self.config.layout.show_menu())
+        {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
                 self.draw_menu(ui, &mut msgs);
             });
@@ -195,7 +204,7 @@ impl State {
                 .resizable(true)
                 .show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
-                        let url = &mut *self.url.borrow_mut();
+                        let url = &mut *self.sys.url.borrow_mut();
                         let response = ui.text_edit_singleline(url);
                         ui.horizontal(|ui| {
                             if ui.button("Load URL").clicked()
@@ -239,10 +248,10 @@ impl State {
                                 ui.label(time_string(
                                     time,
                                     &waves.inner.metadata().timescale,
-                                    &self.wanted_timeunit,
+                                    &self.wanted_timescale.unit,
                                 ))
                                 .context_menu(|ui| {
-                                    timeunit_menu(ui, &mut msgs, &self.wanted_timeunit)
+                                    timeunit_menu(ui, &mut msgs, &self.wanted_timescale.unit)
                                 });
                                 ui.add_space(10.0)
                             }
@@ -255,7 +264,10 @@ impl State {
                 });
         }
 
-        if self.config.layout.show_hierarchy {
+        if self
+            .show_hierarchy
+            .unwrap_or_else(|| self.config.layout.show_hierarchy())
+        {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
@@ -292,7 +304,7 @@ impl State {
                             egui::Frame::none()
                                 .inner_margin(Margin::same(5.0))
                                 .show(ui, |ui| {
-                                    let filter = &mut *self.signal_filter.borrow_mut();
+                                    let filter = &mut *self.sys.signal_filter.borrow_mut();
                                     ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                                         ui.heading("Signals");
                                         ui.add_space(3.0);
@@ -313,11 +325,11 @@ impl State {
                 });
         }
 
-        if self.command_prompt.visible {
+        if self.sys.command_prompt.visible {
             show_command_prompt(self, ctx, window_size, &mut msgs);
         }
 
-        if let Some(vcd_progress_data) = &self.vcd_progress {
+        if let Some(vcd_progress_data) = &self.sys.vcd_progress {
             draw_progress_panel(ctx, vcd_progress_data);
         }
 
@@ -368,7 +380,7 @@ impl State {
                         ctx,
                         &mut msgs,
                         idx,
-                        &mut self.item_renaming_string.borrow_mut(),
+                        &mut self.sys.item_renaming_string.borrow_mut(),
                     );
                 }
             }
@@ -605,7 +617,7 @@ impl State {
             };
 
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded.starts_with("signal_focus") {
+                if self.sys.command_prompt.expanded.starts_with("signal_focus") {
                     self.add_alpha_id(vidx, ui);
                 }
 
@@ -697,7 +709,7 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded.starts_with("focus") {
+                if self.sys.command_prompt.expanded.starts_with("focus") {
                     self.add_alpha_id(vidx, ui);
                 }
 
@@ -822,8 +834,8 @@ impl State {
                                 break;
                             }
 
-                            let translator =
-                                waves.signal_translator(&drawing_info.field_ref, &self.translators);
+                            let translator = waves
+                                .signal_translator(&drawing_info.field_ref, &self.sys.translators);
 
                             let signal = &drawing_info.field_ref.root;
                             let meta = waves.inner.signal_meta(signal);
@@ -843,7 +855,7 @@ impl State {
                                             drawing_info.field_ref.root.clone(),
                                         ),
                                         &waves.signal_format,
-                                        &self.translators,
+                                        &self.sys.translators,
                                     )
                                     .as_fields();
 
@@ -874,7 +886,7 @@ impl State {
                                     .unwrap_or(&BigInt::from(0))
                                     - cursor),
                                 &waves.inner.metadata().timescale,
-                                &self.wanted_timeunit,
+                                &self.wanted_timescale.unit,
                             );
 
                             ui.label(format!("Δ: {delta}",)).context_menu(|ui| {

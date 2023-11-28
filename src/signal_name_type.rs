@@ -1,11 +1,11 @@
 use itertools::Itertools;
 use std::str::FromStr;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{displayed_item::DisplayedItem, wave_container::SignalRef, wave_data::WaveData};
 
-#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize, Serialize)]
 pub enum SignalNameType {
     Local,  // local signal name only (i.e. for tb.dut.clk => clk)
     Unique, // add unique prefix, prefix + local

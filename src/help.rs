@@ -26,7 +26,9 @@ impl State {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Or click"));
                 if ui.link("here").clicked() {
-                    self.msg_sender
+                    self.sys
+                        .channels
+                        .msg_sender
                         .send(Message::LoadVcdFromUrl(
                             "https://app.surfer-project.org/picorv32.vcd".to_string(),
                             false,
