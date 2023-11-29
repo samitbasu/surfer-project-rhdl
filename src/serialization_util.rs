@@ -47,7 +47,6 @@ impl<'de> Visitor<'de> for TimeScaleVisitor {
     }
 }
 
-// TODO: Very cursed impl, we'll just return a default value
 pub fn deserialize_timescale<'de, D>(de: D) -> Result<Timescale, D::Error>
 where
     D: Deserializer<'de>,

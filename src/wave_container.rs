@@ -179,7 +179,7 @@ impl WaveContainer {
     ) -> Result<Option<(BigUint, SignalValue)>> {
         match self {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
-            WaveContainer::Empty => bail!("Querying signal from emtpy wave container"),
+            WaveContainer::Empty => bail!("Querying signal from empty wave container"),
         }
     }
 

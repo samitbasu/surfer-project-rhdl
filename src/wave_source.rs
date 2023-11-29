@@ -16,7 +16,7 @@ use eframe::egui::{self, DroppedFile};
 use fastwave_backend::parse_vcd;
 use futures_util::FutureExt;
 use futures_util::TryFutureExt;
-use log::info;
+use log::{error, info};
 use progress_streams::ProgressReader;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
@@ -222,15 +222,25 @@ impl State {
     }
 
     pub fn open_state_save_dialog(&mut self) {
-        #[cfg(not(target_arch = "wasm32"))]
-        if let Some(path) = FileDialog::new()
-            .set_title("Save state")
-            .add_filter("Surfer state files (*.ron)", &["ron"])
-            .add_filter("All files", &["*"])
-            .save_file()
-        {
-            self.save_state(&path)
-        }
+        let Some(encoded) = self.encode_state() else {
+            return;
+        };
+
+        perform_async_work(async move {
+            if let Some(write_dest) = AsyncFileDialog::new()
+                .set_title("Save state")
+                .add_filter("Surfer state files (*.ron)", &["ron"])
+                .add_filter("All files", &["*"])
+                .save_file()
+                .await
+            {
+                write_dest
+                    .write(encoded.as_bytes())
+                    .await
+                    .map_err(|e| error!("Failed to write state. {e:#?}"))
+                    .ok();
+            }
+        });
     }
 }
 
