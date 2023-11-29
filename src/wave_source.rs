@@ -220,6 +220,18 @@ impl State {
             }
         });
     }
+
+    pub fn open_state_save_dialog(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(path) = FileDialog::new()
+            .set_title("Save state")
+            .add_filter("Surfer state files (*.ron)", &["ron"])
+            .add_filter("All files", &["*"])
+            .save_file()
+        {
+            self.save_state(&path)
+        }
+    }
 }
 
 pub fn draw_progress_panel(ctx: &egui::Context, vcd_progress_data: &LoadProgress) {

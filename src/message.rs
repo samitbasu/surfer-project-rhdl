@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use bytes::Bytes;
 use camino::Utf8PathBuf;
 use derivative::Derivative;
@@ -83,6 +85,7 @@ pub enum Message {
         suggestions: Vec<(String, Vec<bool>)>,
     },
     OpenFileDialog(OpenMode),
+    OpenSaveStateDialog,
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),
     SetGestureHelpVisible(bool),
@@ -98,7 +101,7 @@ pub enum Message {
     AddDivider(String),
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
-    SaveState(Utf8PathBuf),
+    SaveState(PathBuf),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
