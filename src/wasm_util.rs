@@ -32,11 +32,7 @@ pub fn perform_async_work<F>(f: F)
 where
     F: Future<Output = ()> + 'static,
 {
-    wasm_bindgen_futures::spawn_local(async {
-        info!("Starting async task");
-        f.await;
-    });
-    info!("Returning from perform work")
+    wasm_bindgen_futures::spawn_local(f);
 }
 
 // NOTE: not wasm32 requires a Send bound too.
@@ -45,11 +41,7 @@ pub fn perform_async_work<F>(f: F)
 where
     F: Future<Output = ()> + Send + 'static,
 {
-    tokio::spawn(async {
-        info!("Starting async task");
-        f.await;
-    });
-    info!("Returning from perform work")
+    tokio::spawn(f);
 }
 
 pub struct UrlArgs {
