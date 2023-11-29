@@ -29,6 +29,7 @@ impl State {
                     self.msg_sender
                         .send(Message::LoadVcdFromUrl(
                             "https://app.surfer-project.org/picorv32.vcd".to_string(),
+                            false,
                         ))
                         .ok();
                 }

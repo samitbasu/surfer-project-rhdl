@@ -1,3 +1,4 @@
+use futures_core::Future;
 use log::info;
 
 // Wasm doesn't seem to support std::thread, so this spawns a thread where we can
@@ -23,6 +24,32 @@ where
         });
         info!("Returning from perform work")
     }
+}
+
+// NOTE: wasm32 does not require a Send bound.
+#[cfg(target_arch = "wasm32")]
+pub fn perform_async_work<F>(f: F)
+where
+    F: Future<Output = ()> + 'static,
+{
+    wasm_bindgen_futures::spawn_local(async {
+        info!("Starting async task");
+        f.await;
+    });
+    info!("Returning from perform work")
+}
+
+// NOTE: not wasm32 requires a Send bound too.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn perform_async_work<F>(f: F)
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    tokio::spawn(async {
+        info!("Starting async task");
+        f.await;
+    });
+    info!("Returning from perform work")
 }
 
 pub struct UrlArgs {

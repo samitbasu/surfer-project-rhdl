@@ -406,6 +406,7 @@ impl State {
         match args.waves {
             Some(WaveSource::Url(url)) => result.load_vcd_from_url(url, false),
             Some(WaveSource::File(file)) => result.load_vcd_from_file(file, false).unwrap(),
+            Some(WaveSource::Data) => error!("Attemped to load data at startup"),
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
             }
@@ -684,11 +685,14 @@ impl State {
                     waves.cursor = Some(new)
                 }
             }
-            Message::LoadVcd(filename) => {
-                self.load_vcd_from_file(filename, false).ok();
+            Message::LoadVcd(filename, keep_signals) => {
+                self.load_vcd_from_file(filename, keep_signals).ok();
             }
-            Message::LoadVcdFromUrl(url) => {
-                self.load_vcd_from_url(url, false);
+            Message::LoadVcdFromUrl(url, keep_signals) => {
+                self.load_vcd_from_url(url, keep_signals);
+            }
+            Message::LoadVcdFromData(data, keep_signals) => {
+                self.load_vcd_from_data(data, keep_signals).ok();
             }
             Message::FileDropped(dropped_file) => {
                 self.load_vcd_from_dropped(dropped_file, false)
@@ -783,14 +787,16 @@ impl State {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
                     WaveSource::File(filename) => {
-                        self.load_vcd_from_file(filename.clone(), true).ok()
+                        self.load_vcd_from_file(filename.clone(), true).ok();
                     }
-                    WaveSource::DragAndDrop(filename) => filename
-                        .clone()
-                        .and_then(|filename| self.load_vcd_from_file(filename, true).ok()),
+                    WaveSource::Data => {} // can't reload
+                    WaveSource::DragAndDrop(filename) => {
+                        filename
+                            .clone()
+                            .and_then(|filename| self.load_vcd_from_file(filename, true).ok());
+                    }
                     WaveSource::Url(url) => {
                         self.load_vcd_from_url(url.clone(), true);
-                        Some(())
                     }
                 };
 

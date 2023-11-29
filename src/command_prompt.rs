@@ -180,7 +180,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             match query {
                 "load_vcd" => single_word_delayed_suggestions(
                     Box::new(vcd_files),
-                    Box::new(|word| Some(Command::Terminal(Message::LoadVcd(word.into())))),
+                    Box::new(|word| Some(Command::Terminal(Message::LoadVcd(word.into(), false)))),
                 ),
                 "load_url" => Some(Command::NonTerminal(
                     ParamGreed::Rest,
@@ -188,6 +188,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|query, _| {
                         Some(Command::Terminal(Message::LoadVcdFromUrl(
                             query.to_string(),
+                            false,
                         )))
                     }),
                 )),

@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use crate::wasm_util::perform_work;
+use crate::wasm_util::{perform_async_work, perform_work};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
@@ -18,14 +18,14 @@ use futures_util::FutureExt;
 use futures_util::TryFutureExt;
 use log::info;
 use progress_streams::ProgressReader;
-#[cfg(not(target_arch = "wasm32"))]
-use rfd::FileDialog;
+use rfd::AsyncFileDialog;
 
 use crate::{message::Message, wave_container::WaveContainer, State};
 
 #[derive(Debug)]
 pub enum WaveSource {
     File(Utf8PathBuf),
+    Data,
     DragAndDrop(Option<Utf8PathBuf>),
     Url(String),
 }
@@ -42,6 +42,7 @@ impl std::fmt::Display for WaveSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WaveSource::File(file) => write!(f, "{file}"),
+            WaveSource::Data => write!(f, "File data"),
             WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
             WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
             WaveSource::Url(url) => write!(f, "{url}"),
@@ -84,6 +85,18 @@ impl State {
             keep_signals,
         );
 
+        Ok(())
+    }
+
+    pub fn load_vcd_from_data(&mut self, vcd_data: Vec<u8>, keep_signals: bool) -> Result<()> {
+        let total_bytes = vcd_data.len();
+
+        self.load_vcd(
+            WaveSource::Data,
+            VecDeque::from(vcd_data),
+            Some(total_bytes as u64),
+            keep_signals,
+        );
         Ok(())
     }
 
@@ -173,22 +186,38 @@ impl State {
     }
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
-        #[cfg(not(target_arch = "wasm32"))]
-        if let Some(path) = FileDialog::new()
-            .set_title("Open waveform file")
-            .add_filter("VCD-files (*.vcd)", &["vcd"])
-            .add_filter("All files", &["*"])
-            .pick_file()
-        {
-            self.load_vcd_from_file(
-                camino::Utf8PathBuf::from_path_buf(path).unwrap(),
-                match mode {
+        let sender = self.msg_sender.clone();
+
+        perform_async_work(async move {
+            if let Some(file) = AsyncFileDialog::new()
+                .set_title("Open waveform file")
+                .add_filter("VCD-files (*.vcd)", &["vcd"])
+                .add_filter("All files", &["*"])
+                .pick_file()
+                .await
+            {
+                let keep_signals = match mode {
                     OpenMode::Open => false,
                     OpenMode::Switch => true,
-                },
-            )
-            .ok();
-        }
+                };
+
+                #[cfg(not(target_arch = "wasm32"))]
+                sender
+                    .send(Message::LoadVcd(
+                        camino::Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
+                        keep_signals,
+                    ))
+                    .unwrap();
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let data = file.read().await;
+                    sender
+                        .send(Message::LoadVcdFromData(data, keep_signals))
+                        .unwrap();
+                }
+            }
+        });
     }
 }
 

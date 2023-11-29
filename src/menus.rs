@@ -59,7 +59,6 @@ impl State {
 
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                #[cfg(not(target_arch = "wasm32"))]
                 b("Open file...", Message::OpenFileDialog(OpenMode::Open))
                     .add_closing_menu(msgs, ui);
                 b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
