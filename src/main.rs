@@ -406,7 +406,7 @@ impl State {
         match args.waves {
             Some(WaveSource::Url(url)) => result.load_vcd_from_url(url, false),
             Some(WaveSource::File(file)) => result.load_vcd_from_file(file, false).unwrap(),
-            Some(WaveSource::Data) => error!("Attemped to load data at startup"),
+            Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
             }
