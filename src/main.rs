@@ -29,7 +29,6 @@ mod wave_source;
 
 use benchmark::Timing;
 use bytes::Buf;
-use camino::Utf8Path;
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
@@ -84,6 +83,7 @@ use wave_source::WaveSource;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::path::Path;
 use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver, Sender};
 
@@ -963,6 +963,9 @@ impl State {
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);
             }
+            Message::OpenSaveStateDialog => {
+                self.open_state_save_dialog();
+            }
             Message::SetAboutVisible(s) => self.show_about = s,
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetGestureHelpVisible(s) => self.show_gestures = s,
@@ -1095,12 +1098,14 @@ impl State {
         }
     }
 
-    fn save_state(&self, filename: &Utf8Path) {
+    fn save_state(&self, filename: &Path) {
+        let filename_str = filename.to_string_lossy();
         let opt = ron::Options::default();
         opt.to_string_pretty(self, PrettyConfig::default())
             .context("Failed to encode state")
             .and_then(|ser| {
-                std::fs::write(filename, ser).context("Failed to write state to {filename}")
+                std::fs::write(filename, ser)
+                    .context(format!("Failed to write state to {filename_str}"))
             })
             .map_err(|e| error!("Failed to write state. {e:#?}"))
             .ok();

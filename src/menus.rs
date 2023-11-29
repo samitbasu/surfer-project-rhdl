@@ -63,6 +63,7 @@ impl State {
                     .add_closing_menu(msgs, ui);
                 b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
                     .add_closing_menu(msgs, ui);
+                b("Save state...", Message::OpenSaveStateDialog).add_closing_menu(msgs, ui);
                 b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
                 #[cfg(not(target_arch = "wasm32"))]
                 b("Exit", Message::Exit).add_closing_menu(msgs, ui);

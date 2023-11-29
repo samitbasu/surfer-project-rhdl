@@ -18,7 +18,7 @@ use futures_util::FutureExt;
 use futures_util::TryFutureExt;
 use log::info;
 use progress_streams::ProgressReader;
-use rfd::AsyncFileDialog;
+use rfd::{AsyncFileDialog, FileDialog};
 use serde::{Deserialize, Serialize};
 
 use crate::{message::Message, wave_container::WaveContainer, State};
@@ -219,6 +219,18 @@ impl State {
                 }
             }
         });
+    }
+
+    pub fn open_state_save_dialog(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(path) = FileDialog::new()
+            .set_title("Save state")
+            .add_filter("Surfer state files (*.ron)", &["ron"])
+            .add_filter("All files", &["*"])
+            .save_file()
+        {
+            self.save_state(&path)
+        }
     }
 }
 
