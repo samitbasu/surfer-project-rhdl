@@ -156,6 +156,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "signal_unset_color",
                 "preference_set_clock_highlight",
                 "goto_cursor",
+                "save_state",
             ]
         } else {
             vec![
@@ -322,6 +323,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Some(Command::Terminal(Message::SetGestureHelpVisible(true)))
                 }
                 "show_quick_start" => Some(Command::Terminal(Message::SetQuickStartVisible(true))),
+                "save_state" => single_word(
+                    vec![],
+                    Box::new(|word| Some(Command::Terminal(Message::SaveState(word.into())))),
+                ),
                 _ => None,
             }
         }),
@@ -346,6 +351,16 @@ pub struct CommandPrompt {
     pub suggestions: Vec<(String, Vec<bool>)>,
 }
 
+impl Default for CommandPrompt {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            expanded: Default::default(),
+            suggestions: Default::default(),
+        }
+    }
+}
+
 pub fn show_command_prompt(
     state: &State,
     ctx: &egui::Context,
@@ -363,7 +378,7 @@ pub fn show_command_prompt(
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                     ui.colored_label(state.config.theme.primary_ui_color.foreground, "🏄");
 
-                    let input = &mut *state.command_prompt_text.borrow_mut();
+                    let input = &mut *state.sys.command_prompt_text.borrow_mut();
                     let response = ui.add(
                         egui::TextEdit::singleline(input)
                             .desired_width(f32::INFINITY)
@@ -378,7 +393,8 @@ pub fn show_command_prompt(
                         && response.ctx.input(|i| i.key_pressed(egui::Key::Enter))
                     {
                         let command_parsed =
-                            parse_command(&state.command_prompt.expanded, get_parser(state)).ok();
+                            parse_command(&state.sys.command_prompt.expanded, get_parser(state))
+                                .ok();
 
                         if let Some(command_parsed) = command_parsed {
                             msgs.push(Message::ShowCommandPrompt(false));
@@ -394,7 +410,7 @@ pub fn show_command_prompt(
             ui.separator();
 
             // show expanded command below textedit
-            if !state.command_prompt.expanded.is_empty() {
+            if !state.sys.command_prompt.expanded.is_empty() {
                 let mut job = LayoutJob::default();
                 // // indicate that the first row is selected
                 job.append(
@@ -407,7 +423,7 @@ pub fn show_command_prompt(
                     },
                 );
                 job.append(
-                    &state.command_prompt.expanded,
+                    &state.sys.command_prompt.expanded,
                     0.0,
                     TextFormat {
                         font_id: FontId::new(14.0, FontFamily::Monospace),
@@ -419,7 +435,7 @@ pub fn show_command_prompt(
             }
 
             // only show the top 15 suggestions
-            for suggestion in state.command_prompt.suggestions.iter().take(15) {
+            for suggestion in state.sys.command_prompt.suggestions.iter().take(15) {
                 let mut job = LayoutJob::default();
                 job.append(
                     "  ",

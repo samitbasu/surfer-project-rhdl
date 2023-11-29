@@ -16,13 +16,14 @@ use eframe::egui::{self, DroppedFile};
 use fastwave_backend::parse_vcd;
 use futures_util::FutureExt;
 use futures_util::TryFutureExt;
-use log::info;
+use log::{error, info};
 use progress_streams::ProgressReader;
 use rfd::AsyncFileDialog;
+use serde::{Deserialize, Serialize};
 
 use crate::{message::Message, wave_container::WaveContainer, State};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum WaveSource {
     File(Utf8PathBuf),
     Data,
@@ -120,7 +121,7 @@ impl State {
     }
 
     pub fn load_vcd_from_url(&mut self, url: String, keep_signals: bool) {
-        let sender = self.msg_sender.clone();
+        let sender = self.sys.channels.msg_sender.clone();
         let url_ = url.clone();
         let task = async move {
             let bytes = reqwest::get(&url)
@@ -142,7 +143,7 @@ impl State {
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(task);
 
-        self.vcd_progress = Some(LoadProgress::Downloading(url_))
+        self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
     }
 
     pub fn load_vcd(
@@ -162,7 +163,7 @@ impl State {
             })
         };
 
-        let sender = self.msg_sender.clone();
+        let sender = self.sys.channels.msg_sender.clone();
 
         perform_work(move || {
             let result = parse_vcd(reader)
@@ -182,11 +183,11 @@ impl State {
         });
 
         info!("Setting VCD progress");
-        self.vcd_progress = Some(LoadProgress::Loading(total_bytes, progress_bytes));
+        self.sys.vcd_progress = Some(LoadProgress::Loading(total_bytes, progress_bytes));
     }
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
-        let sender = self.msg_sender.clone();
+        let sender = self.sys.channels.msg_sender.clone();
 
         perform_async_work(async move {
             if let Some(file) = AsyncFileDialog::new()
@@ -216,6 +217,28 @@ impl State {
                         .send(Message::LoadVcdFromData(data, keep_signals))
                         .unwrap();
                 }
+            }
+        });
+    }
+
+    pub fn open_state_save_dialog(&mut self) {
+        let Some(encoded) = self.encode_state() else {
+            return;
+        };
+
+        perform_async_work(async move {
+            if let Some(write_dest) = AsyncFileDialog::new()
+                .set_title("Save state")
+                .add_filter("Surfer state files (*.ron)", &["ron"])
+                .add_filter("All files", &["*"])
+                .save_file()
+                .await
+            {
+                write_dest
+                    .write(encoded.as_bytes())
+                    .await
+                    .map_err(|e| error!("Failed to write state. {e:#?}"))
+                    .ok();
             }
         });
     }

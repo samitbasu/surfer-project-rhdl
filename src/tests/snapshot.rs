@@ -215,7 +215,7 @@ macro_rules! snapshot_ui {
 macro_rules! snapshot_empty_state_with_msgs {
     ($name:ident, $msgs:expr) => {
         snapshot_ui! {$name, || {
-            let mut state = State::new(StartupParams::empty()).unwrap();
+            let mut state = State::new().unwrap().with_params(StartupParams::empty());
             for msg in $msgs {
                 state.update(msg);
             }
@@ -247,15 +247,14 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
     ($name:ident, $file:expr, $spade_top:expr, $spade_state:expr, $initial_state_mod:expr, $msgs:expr) => {
         snapshot_ui!($name, || {
             let spade_top = $spade_top;
-            let mut state = State::new(StartupParams {
+            let mut state = State::new().unwrap().with_params(StartupParams {
                 waves: Some(WaveSource::File(
                     get_project_root().unwrap().join($file).try_into().unwrap(),
                 )),
                 spade_top: spade_top.clone(),
                 spade_state: $spade_state,
                 startup_commands: vec![],
-            })
-            .unwrap();
+            });
 
             $initial_state_mod(&mut state);
 
@@ -265,6 +264,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                 state.handle_async_messages();
                 let spade_loaded = if spade_top.is_some() {
                     state
+                        .sys
                         .translators
                         .all_translator_names()
                         .iter()
@@ -294,11 +294,11 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
 }
 
 snapshot_ui! {startup_screen_looks_fine, || {
-    State::new(StartupParams::empty()).unwrap()
+    State::new().unwrap().with_params(StartupParams::empty())
 }}
 
 snapshot_ui!(menu_can_be_hidden, || {
-    let mut state = State::new(StartupParams::empty()).unwrap();
+    let mut state = State::new().unwrap().with_params(StartupParams::empty());
     let msgs = [Message::ToggleMenu];
     for message in msgs.into_iter() {
         state.update(message);
@@ -307,7 +307,7 @@ snapshot_ui!(menu_can_be_hidden, || {
 });
 
 snapshot_ui!(side_panel_can_be_hidden, || {
-    let mut state = State::new(StartupParams::empty()).unwrap();
+    let mut state = State::new().unwrap().with_params(StartupParams::empty());
     let msgs = [Message::ToggleSidePanel];
     for message in msgs.into_iter() {
         state.update(message);
@@ -316,12 +316,12 @@ snapshot_ui!(side_panel_can_be_hidden, || {
 });
 
 snapshot_ui! {example_vcd_renders, || {
-    let mut state = State::new(StartupParams {
+    let mut state = State::new().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
         startup_commands: vec![]
-    }).unwrap();
+    });
 
     loop {
         state.handle_async_messages();
@@ -358,12 +358,12 @@ snapshot_ui_with_file_and_msgs! {top_level_signals_have_no_aliasing, "examples/p
 ]}
 
 snapshot_ui! {resizing_the_canvas_redraws, || {
-    let mut state = State::new(StartupParams {
+    let mut state = State::new().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
         startup_commands: vec![]
-    }).unwrap();
+    });
 
     loop {
         state.handle_async_messages();
@@ -460,7 +460,7 @@ snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",
     state_mods: (|state: &mut State| {
-        state.startup_commands = vec!["module_add tb".to_string()];
+        state.sys.startup_commands = vec!["module_add tb".to_string()];
     }),
     []
 }

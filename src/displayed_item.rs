@@ -1,19 +1,23 @@
 use eframe::egui;
 use log::warn;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     message::Message, signal_name_type::SignalNameType, translation::SignalInfo,
     wave_container::SignalRef,
 };
 
+#[derive(Serialize, Deserialize)]
 pub enum DisplayedItem {
     Signal(DisplayedSignal),
     Divider(DisplayedDivider),
     Cursor(DisplayedCursor),
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DisplayedSignal {
     pub signal_ref: SignalRef,
+    #[serde(skip)]
     pub info: SignalInfo,
     pub color: Option<String>,
     pub background_color: Option<String>,
@@ -21,12 +25,14 @@ pub struct DisplayedSignal {
     pub display_name_type: SignalNameType,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DisplayedDivider {
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub name: String,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DisplayedCursor {
     pub color: Option<String>,
     pub background_color: Option<String>,

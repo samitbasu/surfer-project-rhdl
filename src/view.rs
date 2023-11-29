@@ -102,6 +102,12 @@ impl eframe::App for State {
 
         let mut msgs = self.draw(ctx, window_size);
 
+        if let Some(scale) = self.ui_scale {
+            if ctx.pixels_per_point() != scale {
+                ctx.set_pixels_per_point(scale)
+            }
+        }
+
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::Exit = msg {
@@ -145,7 +151,10 @@ impl State {
             self.draw_log_window(ctx, &mut msgs)
         }
 
-        if self.config.layout.show_menu {
+        if self
+            .show_menu
+            .unwrap_or_else(|| self.config.layout.show_menu())
+        {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
                 self.draw_menu(ui, &mut msgs);
             });
@@ -159,7 +168,7 @@ impl State {
                 .resizable(true)
                 .show(ctx, |ui| {
                     ui.vertical_centered(|ui| {
-                        let url = &mut *self.url.borrow_mut();
+                        let url = &mut *self.sys.url.borrow_mut();
                         let response = ui.text_edit_singleline(url);
                         ui.horizontal(|ui| {
                             if ui.button("Load URL").clicked()
@@ -219,7 +228,10 @@ impl State {
                 });
         }
 
-        if self.config.layout.show_hierarchy {
+        if self
+            .show_hierarchy
+            .unwrap_or_else(|| self.config.layout.show_hierarchy())
+        {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
@@ -256,7 +268,7 @@ impl State {
                             egui::Frame::none()
                                 .inner_margin(Margin::same(5.0))
                                 .show(ui, |ui| {
-                                    let filter = &mut *self.signal_filter.borrow_mut();
+                                    let filter = &mut *self.sys.signal_filter.borrow_mut();
                                     ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                                         ui.heading("Signals");
                                         ui.add_space(3.0);
@@ -277,11 +289,11 @@ impl State {
                 });
         }
 
-        if self.command_prompt.visible {
+        if self.sys.command_prompt.visible {
             show_command_prompt(self, ctx, window_size, &mut msgs);
         }
 
-        if let Some(vcd_progress_data) = &self.vcd_progress {
+        if let Some(vcd_progress_data) = &self.sys.vcd_progress {
             draw_progress_panel(ctx, vcd_progress_data);
         }
 
@@ -332,7 +344,7 @@ impl State {
                         ctx,
                         &mut msgs,
                         idx,
-                        &mut self.item_renaming_string.borrow_mut(),
+                        &mut self.sys.item_renaming_string.borrow_mut(),
                     );
                 }
             }
@@ -562,7 +574,7 @@ impl State {
             };
 
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded.starts_with("signal_focus") {
+                if self.sys.command_prompt.expanded.starts_with("signal_focus") {
                     self.add_alpha_id(vidx, ui);
                 }
 
@@ -654,7 +666,7 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded.starts_with("focus") {
+                if self.sys.command_prompt.expanded.starts_with("focus") {
                     self.add_alpha_id(vidx, ui);
                 }
 
@@ -777,8 +789,8 @@ impl State {
                                 break;
                             }
 
-                            let translator =
-                                waves.signal_translator(&drawing_info.field_ref, &self.translators);
+                            let translator = waves
+                                .signal_translator(&drawing_info.field_ref, &self.sys.translators);
 
                             let signal = &drawing_info.field_ref.root;
                             let meta = waves.inner.signal_meta(signal);
@@ -798,7 +810,7 @@ impl State {
                                             drawing_info.field_ref.root.clone(),
                                         ),
                                         &waves.signal_format,
-                                        &self.translators,
+                                        &self.sys.translators,
                                     )
                                     .as_fields();
 
