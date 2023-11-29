@@ -204,7 +204,7 @@ impl WaveContainer {
     pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
         match self {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
-            WaveContainer::Empty => bail!("Querying signal from emtpy wave container"),
+            WaveContainer::Empty => bail!("Querying signal from empty wave container"),
         }
     }
 

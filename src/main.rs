@@ -1098,16 +1098,21 @@ impl State {
         }
     }
 
-    fn save_state(&self, filename: &Path) {
-        let filename_str = filename.to_string_lossy();
+    fn encode_state(&self) -> Option<String> {
         let opt = ron::Options::default();
         opt.to_string_pretty(self, PrettyConfig::default())
             .context("Failed to encode state")
-            .and_then(|ser| {
-                std::fs::write(filename, ser)
-                    .context(format!("Failed to write state to {filename_str}"))
-            })
-            .map_err(|e| error!("Failed to write state. {e:#?}"))
-            .ok();
+            .map_err(|e| error!("Failed to encode state. {e:#?}"))
+            .ok()
+    }
+
+    fn save_state(&self, filename: &Path) {
+        let filename_str = filename.to_string_lossy();
+        self.encode_state().and_then(|ser| {
+            std::fs::write(filename, ser)
+                .context(format!("Failed to write state to {filename_str}"))
+                .map_err(|e| error!("Failed to write state. {e:#?}"))
+                .ok()
+        });
     }
 }
