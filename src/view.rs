@@ -100,6 +100,8 @@ impl eframe::App for State {
         #[cfg(target_arch = "wasm32")]
         let window_size = None;
 
+        ctx.request_repaint_after(std::time::Duration::from_millis(50));
+
         let mut msgs = self.draw(ctx, window_size);
 
         while let Some(msg) = msgs.pop() {
