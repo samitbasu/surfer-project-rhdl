@@ -1520,6 +1520,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "f128"
+version = "0.2.9"
+dependencies = [
+ "f128_input",
+ "f128_internal",
+ "libc",
+ "num-traits",
+]
+
+[[package]]
+name = "f128_input"
+version = "0.2.1"
+dependencies = [
+ "f128_internal",
+]
+
+[[package]]
+name = "f128_internal"
+version = "0.2.2"
+dependencies = [
+ "cc",
+ "libc",
+ "num-traits",
+]
+
+[[package]]
 name = "fallible_collections"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4311,6 +4337,7 @@ dependencies = [
  "egui_extras",
  "egui_skia",
  "env_logger",
+ "f128",
  "fastwave_backend",
  "fern",
  "futures-core",

@@ -82,7 +82,7 @@ As an indication of the status of the project, here is an incomplete list of sup
   - [x] VHDL nine-valued std_ulogic support
   - [x] ASCII
   - [x] Floating-point
-    - [ ] IEEE 754 binary128 (quad)
+    - [x] IEEE 754 binary128 (quad), use feature `f128`, using [f128](https://docs.rs/f128/) (requires gcc)
     - [x] IEEE 754 binary64 (double)
     - [x] IEEE 754 binary32 (single)
     - [x] IEEE 754 binary16 (half), using [half](https://docs.rs/half/)

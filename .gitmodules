@@ -7,3 +7,6 @@
 [submodule "fzcmd"]
 	path = fzcmd
 	url = https://gitlab.com/TheZoq2/fzcmd.git
+[submodule "f128"]
+	path = f128
+	url = https://github.com/jkarns275/f128.git
