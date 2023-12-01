@@ -750,4 +750,50 @@ mod test {
             "invalid flag: 0111 1111 0111 1111"
         )
     }
+
+    #[test]
+    fn riscv_from_bigunit() {
+        assert_eq!(
+            RiscvTranslator {}
+                .basic_translate(32, &SignalValue::BigUint(0b1000000010000000u32.into()))
+                .0,
+            "UNKNOWN INSN"
+        );
+        assert_eq!(
+            RiscvTranslator {}
+                .basic_translate(
+                    32,
+                    &SignalValue::BigUint(0b100000010011_01010_000_01011_0010011u32.into())
+                )
+                .0,
+            "addi A1, A0, 2067"
+        );
+    }
+    #[test]
+    fn riscv_from_string() {
+        assert_eq!(
+            RiscvTranslator {}
+                .basic_translate(
+                    32,
+                    &SignalValue::String("01001000100010001000100010001000".to_owned())
+                )
+                .0,
+            "UNKNOWN INSN"
+        );
+        assert_eq!(
+            RiscvTranslator {}
+                .basic_translate(
+                    32,
+                    &SignalValue::String("01xzz-hlw0010001000100010001000".to_owned())
+                )
+                .0,
+            "UNDEF"
+        );
+        // assert_eq!(
+        //    RiscvTranslator {}
+        //        .basic_translate(32, &SignalValue::String("10000001001101000000001000010011".to_owned()))
+        //        .0,
+        //    "addi TP, S0, 2067"
+        //);
+    }
 }

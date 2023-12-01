@@ -630,4 +630,85 @@ mod test {
             "0.000000029802322387695313"
         );
     }
+
+    #[test]
+    fn bloat16_translation_from_string() {
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
+                .0,
+            "4.64896e5"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
+                .0,
+            "-0e0"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("1111111111111111".to_string()))
+                .0,
+            "NaN"
+        );
+    }
+
+    #[test]
+    fn bloat16_translation_from_bigunit() {
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(
+                    16,
+                    &SignalValue::BigUint(0b1010101010001000u16.to_biguint())
+                )
+                .0,
+            "-2.4158453e-13"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(
+                    16,
+                    &SignalValue::BigUint(0b1000000000000000u16.to_biguint())
+                )
+                .0,
+            "-0e0"
+        );
+        //assert_eq!(
+        //    BFloat16Translator {}
+        //        .basic_translate(16, &SignalValue::BigUint(0b0000000000000000u16.to_biguint()))
+        //        .0,
+        //    "0e0"
+        //);
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(
+                    16,
+                    &SignalValue::BigUint(0b1111111111111111u16.to_biguint())
+                )
+                .0,
+            "NaN"
+        );
+    }
+
+    #[test]
+    fn half_translation_from_string() {
+        assert_eq!(
+            HalfPrecisionTranslator {}
+                .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
+                .0,
+            "9.7734375e0"
+        );
+        assert_eq!(
+            HalfPrecisionTranslator {}
+                .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
+                .0,
+            "-0e0"
+        );
+        assert_eq!(
+            HalfPrecisionTranslator {}
+                .basic_translate(16, &SignalValue::String("1111111111111111".to_string()))
+                .0,
+            "NaN"
+        );
+    }
 }
