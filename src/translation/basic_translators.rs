@@ -507,6 +507,12 @@ mod test {
                 .0,
             "08"
         );
+        assert_eq!(
+            HexTranslator {}
+                .basic_translate(5, &SignalValue::BigUint(0u32.to_biguint()))
+                .0,
+            "00"
+        );
     }
 
     #[test]
