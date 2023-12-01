@@ -630,4 +630,204 @@ mod test {
             "0.000000029802322387695313"
         );
     }
+
+    #[test]
+    fn bloat16_translation_from_string() {
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
+                .0,
+            "4.64896e5"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
+                .0,
+            "-0e0"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("1111111111111111".to_string()))
+                .0,
+            "NaN"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("01001z0011100011".to_string()))
+                .0,
+            "HIGHIMP"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("01001q0011100011".to_string()))
+                .0,
+            "UNKNOWN VALUES"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("01001-0011100011".to_string()))
+                .0,
+            "DON'T CARE"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("01001w0011100011".to_string()))
+                .0,
+            "UNDEF WEAK"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("01001h0011100011".to_string()))
+                .0,
+            "WEAK"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(16, &SignalValue::String("01001u0011100011".to_string()))
+                .0,
+            "UNDEF"
+        );
+    }
+
+    #[test]
+    fn bloat16_translation_from_bigunit() {
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(
+                    16,
+                    &SignalValue::BigUint(0b1010101010001000u16.to_biguint())
+                )
+                .0,
+            "-2.4158453e-13"
+        );
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(
+                    16,
+                    &SignalValue::BigUint(0b1000000000000000u16.to_biguint())
+                )
+                .0,
+            "-0e0"
+        );
+        //assert_eq!(
+        //    BFloat16Translator {}
+        //        .basic_translate(16, &SignalValue::BigUint(0b0000000000000000u16.to_biguint()))
+        //        .0,
+        //    "0e0"
+        //);
+        assert_eq!(
+            BFloat16Translator {}
+                .basic_translate(
+                    16,
+                    &SignalValue::BigUint(0b1111111111111111u16.to_biguint())
+                )
+                .0,
+            "NaN"
+        );
+    }
+
+    #[test]
+    fn half_translation_from_string() {
+        assert_eq!(
+            HalfPrecisionTranslator {}
+                .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
+                .0,
+            "9.7734375e0"
+        );
+        assert_eq!(
+            HalfPrecisionTranslator {}
+                .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
+                .0,
+            "-0e0"
+        );
+        assert_eq!(
+            HalfPrecisionTranslator {}
+                .basic_translate(16, &SignalValue::String("1111111111111111".to_string()))
+                .0,
+            "NaN"
+        );
+    }
+
+    #[test]
+    fn single_translation_from_bigunit() {
+        assert_eq!(
+            SinglePrecisionTranslator {}
+                .basic_translate(
+                    32,
+                    &SignalValue::BigUint(0b01010101010001001010101010001000u32.to_biguint())
+                )
+                .0,
+            "1.3514794e13"
+        );
+        assert_eq!(
+            SinglePrecisionTranslator {}
+                .basic_translate(
+                    32,
+                    &SignalValue::BigUint(0b10000000000000000000000000000000u32.to_biguint())
+                )
+                .0,
+            "-0e0"
+        );
+        //assert_eq!(
+        //    SinglePrecisionTranslator {}
+        //        .basic_translate(32, &SignalValue::BigUint(0b00000000000000000000000000000000u32.to_biguint()))
+        //        .0,
+        //    "0e0"
+        //);
+        assert_eq!(
+            SinglePrecisionTranslator {}
+                .basic_translate(
+                    32,
+                    &SignalValue::BigUint(0b11111111111111111111111111111111u32.to_biguint())
+                )
+                .0,
+            "NaN"
+        );
+    }
+
+    #[test]
+    fn double_translation_from_bigunit() {
+        assert_eq!(
+            DoublePrecisionTranslator {}
+                .basic_translate(
+                    64,
+                    &SignalValue::BigUint(
+                        0b0101010101000100101010101000100001010101010001001010101010001000u64
+                            .to_biguint()
+                    )
+                )
+                .0,
+            "5.785860578429741e102"
+        );
+        assert_eq!(
+            DoublePrecisionTranslator {}
+                .basic_translate(
+                    64,
+                    &SignalValue::BigUint(
+                        0b1000000000000000000000000000000000000000000000000000000000000000u64
+                            .to_biguint()
+                    )
+                )
+                .0,
+            "-0e0"
+        );
+        //assert_eq!(
+        //    DoublePrecisionTranslator {}
+        //        .basic_translate(64, &SignalValue::BigUint(0b0000000000000000000000000000000000000000000000000000000000000000u64.to_biguint()))
+        //        .0,
+        //    "0e0"
+        //);
+        assert_eq!(
+            DoublePrecisionTranslator {}
+                .basic_translate(
+                    64,
+                    &SignalValue::BigUint(
+                        0b1111111111111111111111111111111111111111111111111111111111111111u64
+                            .to_biguint()
+                    )
+                )
+                .0,
+            "NaN"
+        );
+    }
 }
