@@ -1,8 +1,9 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
-use eframe::egui::{Frame, Sense, TextStyle};
+use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
+use egui_extras::{Column, TableBuilder, TableRow};
 use itertools::Itertools;
 use log::{info, warn};
 use num::BigInt;
@@ -10,7 +11,8 @@ use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
-use crate::help::{draw_about_window, draw_control_help_window};
+use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
+use crate::logs::EGUI_LOGGER;
 use crate::signal_filter::filtered_signals;
 use crate::time::{time_string, timeunit_menu};
 use crate::util::uint_idx_to_alpha_idx;
@@ -98,6 +100,8 @@ impl eframe::App for State {
         #[cfg(target_arch = "wasm32")]
         let window_size = None;
 
+        ctx.request_repaint_after(std::time::Duration::from_millis(50));
+
         let mut msgs = self.draw(ctx, window_size);
 
         while let Some(msg) = msgs.pop() {
@@ -122,11 +126,62 @@ impl State {
         let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
+
+        if self.show_about {
+            draw_about_window(ctx, &mut msgs);
+        }
+
+        if self.show_keys {
+            draw_control_help_window(ctx, max_width, max_height, &mut msgs);
+        }
+
+        if self.show_quick_start {
+            draw_quickstart_help_window(ctx, &mut msgs);
+        }
+
+        if self.show_gestures {
+            self.mouse_gesture_help(ctx, &mut msgs);
+        }
+
+        if self.show_logs {
+            self.draw_log_window(ctx, &mut msgs)
+        }
+
         if self.config.layout.show_menu {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
                 self.draw_menu(ui, &mut msgs);
             });
         }
+
+        if self.show_url_entry {
+            let mut open = true;
+            egui::Window::new("Load URL")
+                .open(&mut open)
+                .collapsible(false)
+                .resizable(true)
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        let url = &mut *self.url.borrow_mut();
+                        let response = ui.text_edit_singleline(url);
+                        ui.horizontal(|ui| {
+                            if ui.button("Load URL").clicked()
+                                || (response.lost_focus()
+                                    && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                            {
+                                msgs.push(Message::LoadVcdFromUrl(url.clone(), false));
+                                msgs.push(Message::SetUrlEntryVisible(false))
+                            }
+                            if ui.button("Cancel").clicked() {
+                                msgs.push(Message::SetUrlEntryVisible(false))
+                            }
+                        });
+                    });
+                });
+            if !open {
+                msgs.push(Message::SetUrlEntryVisible(false))
+            }
+        }
+
         if let Some(waves) = &self.waves {
             egui::TopBottomPanel::bottom("modeline")
                 .frame(egui::containers::Frame {
@@ -309,47 +364,6 @@ impl State {
                         );
                     });
                 });
-        }
-
-        if self.show_about {
-            draw_about_window(ctx, &mut msgs);
-        }
-
-        if self.show_keys {
-            draw_control_help_window(ctx, max_width, max_height, &mut msgs);
-        }
-
-        if self.show_gestures {
-            self.mouse_gesture_help(ctx, &mut msgs);
-        }
-
-        if self.show_url_entry {
-            let mut open = true;
-            egui::Window::new("Load URL")
-                .open(&mut open)
-                .collapsible(false)
-                .resizable(true)
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let url = &mut *self.url.borrow_mut();
-                        let response = ui.text_edit_singleline(url);
-                        ui.horizontal(|ui| {
-                            if ui.button("Load URL").clicked()
-                                || (response.lost_focus()
-                                    && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                            {
-                                msgs.push(Message::LoadVcdFromUrl(url.clone()));
-                                msgs.push(Message::SetUrlEntryVisible(false))
-                            }
-                            if ui.button("Cancel").clicked() {
-                                msgs.push(Message::SetUrlEntryVisible(false))
-                            }
-                        });
-                    });
-                });
-            if !open {
-                msgs.push(Message::SetUrlEntryVisible(false))
-            }
         }
 
         ctx.input(|i| {
@@ -562,8 +576,17 @@ impl State {
                     .context_menu(|ui| {
                         self.item_context_menu(Some(&field), msgs, ui, vidx);
                     });
+
                 if signal_label.clicked() {
-                    msgs.push(Message::FocusItem(vidx))
+                    if self
+                        .waves
+                        .as_ref()
+                        .is_some_and(|w| w.focused_item.is_some_and(|f| f == vidx))
+                    {
+                        msgs.push(Message::UnfocusItem);
+                    } else {
+                        msgs.push(Message::FocusItem(vidx));
+                    }
                 }
                 signal_label
             })
@@ -870,6 +893,68 @@ impl State {
             self.config.theme.canvas_colors.alt_background
         } else {
             Color32::TRANSPARENT
+        }
+    }
+
+    pub fn draw_log_window(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
+        let mut open = true;
+        egui::Window::new("Logs")
+            .open(&mut open)
+            .collapsible(true)
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.style_mut().wrap = Some(false);
+
+                ScrollArea::new([true, false]).show(ui, |ui| {
+                    TableBuilder::new(ui)
+                        .column(Column::auto().resizable(true))
+                        .column(Column::remainder())
+                        .vscroll(true)
+                        .stick_to_bottom(true)
+                        .header(20.0, |mut header| {
+                            header.col(|ui| {
+                                ui.heading("Level");
+                            });
+                            header.col(|ui| {
+                                ui.heading("Message");
+                            });
+                        })
+                        .body(|body| {
+                            let records = EGUI_LOGGER.records();
+                            let heights = records
+                                .iter()
+                                .map(|record| {
+                                    let height = record.msg.lines().count() as f32;
+
+                                    height * 15.
+                                })
+                                .collect::<Vec<_>>();
+
+                            body.heterogeneous_rows(
+                                heights.into_iter(),
+                                |index: usize, mut row: TableRow| {
+                                    let record = &records[index];
+                                    row.col(|ui| {
+                                        let (color, text) = match record.level {
+                                            log::Level::Error => (Color32::RED, "Error"),
+                                            log::Level::Warn => (Color32::YELLOW, "Warn"),
+                                            log::Level::Info => (Color32::GREEN, "Info"),
+                                            log::Level::Debug => (Color32::BLUE, "Debug"),
+                                            log::Level::Trace => (Color32::GRAY, "Trace"),
+                                        };
+
+                                        ui.colored_label(color, text);
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(RichText::new(record.msg.clone()).monospace());
+                                    });
+                                },
+                            );
+                        })
+                })
+            });
+        if !open {
+            msgs.push(Message::SetLogsVisible(false))
         }
     }
 }

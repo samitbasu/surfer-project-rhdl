@@ -73,7 +73,7 @@ impl State {
                         }
                     }
                 } else {
-                    self.draw_gesture_help(response, ctx.painter, Some(start_location));
+                    self.draw_gesture_help(response, ctx.painter, Some(start_location), true);
                 }
             });
 
@@ -239,7 +239,7 @@ impl State {
                     ui.add_space(20.);
                     let (response, painter) =
                         ui.allocate_painter(Vec2 { x: 300.0, y: 300.0 }, Sense::click());
-                    self.draw_gesture_help(&response, &painter, None);
+                    self.draw_gesture_help(&response, &painter, None, false);
                     ui.add_space(10.);
                     ui.separator();
                     if ui.button("Close").clicked() {
@@ -257,6 +257,7 @@ impl State {
         response: &egui::Response,
         painter: &Painter,
         midpoint: Option<Pos2>,
+        draw_bg: bool,
     ) {
         // Compute sizes and coordinates
         let tan225 = 0.41421356237;
@@ -289,6 +290,19 @@ impl State {
         let right = midx + deltax;
         let top = midy - deltay;
         let bottom = midy + deltay;
+        let bg_radius = 1.35 * deltax;
+        // Draw background
+        if draw_bg {
+            painter.circle_filled(
+                to_screen(midx, midy),
+                bg_radius,
+                self.config
+                    .theme
+                    .canvas_colors
+                    .background
+                    .gamma_multiply(0.75),
+            );
+        }
         // Draw lines
         painter.line_segment(
             [

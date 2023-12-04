@@ -205,15 +205,22 @@ impl WaveData {
             self.signal_translator(&FieldRef::without_fields(sig.clone()), translators);
         let info = translator.signal_info(&meta).unwrap();
 
-        self.displayed_items
-            .push(DisplayedItem::Signal(DisplayedSignal {
-                signal_ref: sig.clone(),
-                info,
-                color: None,
-                background_color: None,
-                display_name: sig.name.clone(),
-                display_name_type: self.default_signal_name_type,
-            }));
+        let new_signal = DisplayedItem::Signal(DisplayedSignal {
+            signal_ref: sig.clone(),
+            info,
+            color: None,
+            background_color: None,
+            display_name: sig.name.clone(),
+            display_name_type: self.default_signal_name_type,
+        });
+
+        if let Some(focus_idx) = self.focused_item {
+            let insert_idx = focus_idx + 1;
+            self.displayed_items.insert(insert_idx, new_signal);
+            self.focused_item = Some(insert_idx);
+        } else {
+            self.displayed_items.push(new_signal);
+        }
         self.compute_signal_display_names();
     }
 
@@ -246,12 +253,18 @@ impl WaveData {
     }
 
     pub fn add_divider(&mut self, name: String) {
-        self.displayed_items
-            .push(DisplayedItem::Divider(DisplayedDivider {
-                color: None,
-                background_color: None,
-                name,
-            }))
+        let new_divider = DisplayedItem::Divider(DisplayedDivider {
+            color: None,
+            background_color: None,
+            name,
+        });
+        if let Some(focus_idx) = self.focused_item {
+            let insert_idx = focus_idx + 1;
+            self.displayed_items.insert(insert_idx, new_divider);
+            self.focused_item = Some(insert_idx);
+        } else {
+            self.displayed_items.push(new_divider);
+        }
     }
 
     pub fn go_to_start(&mut self) {
