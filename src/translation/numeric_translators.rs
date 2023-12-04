@@ -12,6 +12,17 @@ use super::{
     NumberParseResult, TranslationPreference, ValueKind,
 };
 
+#[inline]
+fn shortest_float_representation<T: std::fmt::LowerExp + std::fmt::Display>(v: T) -> String {
+    let dec = format!("{v}");
+    let exp = format!("{v:e}");
+    if dec.len() > exp.len() {
+        exp
+    } else {
+        dec
+    }
+}
+
 pub trait NumericTranslator {
     fn name(&self) -> String;
     fn translate_biguint(&self, _: u64, _: BigUint) -> String;
@@ -83,10 +94,7 @@ impl NumericTranslator for SinglePrecisionTranslator {
     }
 
     fn translate_biguint(&self, _: u64, v: num::BigUint) -> String {
-        format!(
-            "{fp:e}",
-            fp = f32::from_bits(v.iter_u32_digits().next().unwrap_or(0))
-        )
+        shortest_float_representation(f32::from_bits(v.iter_u32_digits().next().unwrap_or(0)))
     }
 
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
@@ -101,10 +109,7 @@ impl NumericTranslator for DoublePrecisionTranslator {
         String::from("FP: 64-bit IEEE 754")
     }
     fn translate_biguint(&self, _: u64, v: num::BigUint) -> String {
-        format!(
-            "{fp:e}",
-            fp = f64::from_bits(v.iter_u64_digits().next().unwrap_or(0))
-        )
+        shortest_float_representation(f64::from_bits(v.iter_u64_digits().next().unwrap_or(0)))
     }
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         check_single_wordlength(signal.num_bits, 64)
@@ -142,10 +147,9 @@ impl NumericTranslator for HalfPrecisionTranslator {
         String::from("FP: 16-bit IEEE 754")
     }
     fn translate_biguint(&self, _: u64, v: num::BigUint) -> String {
-        format!(
-            "{fp:e}",
-            fp = f16::from_bits(v.iter_u32_digits().next().unwrap_or(0) as u16)
-        )
+        shortest_float_representation(f16::from_bits(
+            v.iter_u32_digits().next().unwrap_or(0) as u16
+        ))
     }
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         check_single_wordlength(signal.num_bits, 16)
@@ -159,10 +163,9 @@ impl NumericTranslator for BFloat16Translator {
         String::from("FP: bfloat16")
     }
     fn translate_biguint(&self, _: u64, v: num::BigUint) -> String {
-        format!(
-            "{fp:e}",
-            fp = bf16::from_bits(v.iter_u32_digits().next().unwrap_or(0) as u16)
-        )
+        shortest_float_representation(bf16::from_bits(
+            v.iter_u32_digits().next().unwrap_or(0) as u16
+        ))
     }
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         check_single_wordlength(signal.num_bits, 16)
@@ -277,14 +280,18 @@ fn decode_e5m2(v: u8) -> String {
     match (exp, mant) {
         (31, 0) => "∞".to_string(),
         (31, ..) => "NaN".to_string(),
-        (0, 0) => "0.0".to_string(),
-        (0, ..) => format!(
-            "{fp:e}",
-            fp = ((sign * mant as i8) as f32) * 0.0000152587890625f32 // 0.0000152587890625 = 2^-16
+        (0, 0) => {
+            if sign == -1 {
+                "-0".to_string()
+            } else {
+                "0".to_string()
+            }
+        }
+        (0, ..) => shortest_float_representation(
+            ((sign * mant as i8) as f32) * 0.0000152587890625f32, // 0.0000152587890625 = 2^-16
         ),
-        _ => format!(
-            "{fp:e}",
-            fp = ((sign * (4 + mant as i8)) as f32) * 2.0f32.powi(exp as i32 - 17) // 17 = 15 (bias) + 2 (mantissa bits)
+        _ => shortest_float_representation(
+            ((sign * (4 + mant as i8)) as f32) * 2.0f32.powi(exp as i32 - 17), // 17 = 15 (bias) + 2 (mantissa bits)
         ),
     }
 }
@@ -312,11 +319,16 @@ fn decode_e4m3(v: u8) -> String {
     let sign: i8 = 1 - (v >> 6) as i8; // 1 - 2*signbit
     match (exp, mant) {
         (15, 7) => "NaN".to_string(),
-        (0, 0) => "0.0".to_string(),
-        (0, ..) => format!("{fp:e}", fp = ((sign * mant as i8) as f32) * 0.001953125f32), // 0.001953125 = 2^-9
-        _ => format!(
-            "{fp:e}",
-            fp = ((sign * (8 + mant) as i8) as f32) * 2.0f32.powi(exp as i32 - 10) // 10 = 7 (bias) + 3 (mantissa bits)
+        (0, 0) => {
+            if sign == -1 {
+                "-0".to_string()
+            } else {
+                "0".to_string()
+            }
+        }
+        (0, ..) => shortest_float_representation(((sign * mant as i8) as f32) * 0.001953125f32), // 0.001953125 = 2^-9
+        _ => shortest_float_representation(
+            ((sign * (8 + mant) as i8) as f32) * 2.0f32.powi(exp as i32 - 10), // 10 = 7 (bias) + 3 (mantissa bits)
         ),
     }
 }
@@ -429,7 +441,7 @@ mod test {
             E4M3Translator {}
                 .basic_translate(8, &SignalValue::BigUint(0b10001000u8.to_biguint()))
                 .0,
-            "-1.5625e-2"
+            "-0.015625"
         );
     }
 
@@ -445,19 +457,19 @@ mod test {
             E4M3Translator {}
                 .basic_translate(8, &SignalValue::String("00000011".to_string()))
                 .0,
-            "5.859375e-3"
+            "0.005859375"
         );
         assert_eq!(
             E4M3Translator {}
                 .basic_translate(8, &SignalValue::String("10000000".to_string()))
                 .0,
-            "0.0"
+            "-0"
         );
         assert_eq!(
             E4M3Translator {}
                 .basic_translate(8, &SignalValue::String("00000000".to_string()))
                 .0,
-            "0.0"
+            "0"
         );
     }
 
@@ -495,13 +507,13 @@ mod test {
             E5M2Translator {}
                 .basic_translate(8, &SignalValue::String("10000000".to_string()))
                 .0,
-            "0.0"
+            "-0"
         );
         assert_eq!(
             E5M2Translator {}
                 .basic_translate(8, &SignalValue::String("00000000".to_string()))
                 .0,
-            "0.0"
+            "0"
         );
     }
 
@@ -719,13 +731,13 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
                 .0,
-            "4.64896e5"
+            "464896"
         );
         assert_eq!(
             BFloat16Translator {}
                 .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
                 .0,
-            "-0e0"
+            "-0"
         );
         assert_eq!(
             BFloat16Translator {}
@@ -789,7 +801,7 @@ mod test {
                     &SignalValue::BigUint(0b1000000000000000u16.to_biguint())
                 )
                 .0,
-            "-0e0"
+            "-0"
         );
         assert_eq!(
             BFloat16Translator {}
@@ -798,7 +810,7 @@ mod test {
                     &SignalValue::BigUint(0b0000000000000000u16.to_biguint())
                 )
                 .0,
-            "0e0"
+            "0"
         );
         assert_eq!(
             BFloat16Translator {}
@@ -820,7 +832,7 @@ mod test {
                     &SignalValue::BigUint(0b1000000000000000u16.to_biguint())
                 )
                 .0,
-            "-0e0"
+            "-0"
         );
         assert_eq!(
             HalfPrecisionTranslator {}
@@ -829,7 +841,7 @@ mod test {
                     &SignalValue::BigUint(0b0000000000000000u16.to_biguint())
                 )
                 .0,
-            "0e0"
+            "0"
         );
         assert_eq!(
             HalfPrecisionTranslator {}
@@ -848,13 +860,13 @@ mod test {
             HalfPrecisionTranslator {}
                 .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
                 .0,
-            "9.7734375e0"
+            "9.7734375"
         );
         assert_eq!(
             HalfPrecisionTranslator {}
                 .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
                 .0,
-            "-0e0"
+            "-0"
         );
         assert_eq!(
             HalfPrecisionTranslator {}
@@ -882,7 +894,7 @@ mod test {
                     &SignalValue::BigUint(0b10000000000000000000000000000000u32.to_biguint())
                 )
                 .0,
-            "-0e0"
+            "-0"
         );
         assert_eq!(
             SinglePrecisionTranslator {}
@@ -891,7 +903,7 @@ mod test {
                     &SignalValue::BigUint(0b00000000000000000000000000000000u32.to_biguint())
                 )
                 .0,
-            "0e0"
+            "0"
         );
         assert_eq!(
             SinglePrecisionTranslator {}
@@ -928,7 +940,7 @@ mod test {
                     )
                 )
                 .0,
-            "-0e0"
+            "-0"
         );
         assert_eq!(
             DoublePrecisionTranslator {}
@@ -940,7 +952,7 @@ mod test {
                     )
                 )
                 .0,
-            "0e0"
+            "0"
         );
         assert_eq!(
             DoublePrecisionTranslator {}
