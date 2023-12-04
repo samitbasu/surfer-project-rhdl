@@ -25,9 +25,7 @@ clippy:
             codequality: gl-code-quality-report.json
         expire_in: 1 week
     cache:
-        key:
-            files:
-                - Cargo.lock
+        key: test
         paths:
             - target
             - $CARGO_HOME
@@ -40,9 +38,7 @@ test:
     script:
         - cargo test --color=always
     cache:
-        key:
-            files:
-                - Cargo.lock
+        key: test
         paths:
             - target
             - $CARGO_HOME
@@ -124,9 +120,7 @@ linux_build:
             - surfer
         expire_in: 1 week
     cache:
-        key:
-            files:
-                - Cargo.lock
+        key: linux_build
         paths:
             - target
             - $CARGO_HOME
@@ -149,9 +143,7 @@ windows_build:
             - surfer_win.zip
         expire_in: 1 week
     cache:
-        key:
-            files:
-                - Cargo.lock
+        key: windows_build
         paths:
             - target
             - $CARGO_HOME
@@ -163,12 +155,11 @@ windows_build:
 pages_build:
     stage: test
     cache:
-        key:
-            files:
-                - Cargo.lock
+        key: test
         paths:
             - target
             - $CARGO_HOME
+        policy: pull
     before_script:
     script:
         - rustup target add wasm32-unknown-unknown
