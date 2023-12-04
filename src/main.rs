@@ -523,7 +523,7 @@ impl State {
                     MoveDir::Down => {
                         if waves.scroll + count < waves.displayed_items.len() {
                             waves.scroll += count;
-                        } else {
+                        } else if waves.displayed_items.len() > 0 {
                             waves.scroll = waves.displayed_items.len() - 1;
                         }
                     }
