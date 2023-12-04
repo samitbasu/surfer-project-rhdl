@@ -1,9 +1,12 @@
+use std::time::Instant;
+
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
 use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
+use egui_plot::{Legend, Line, Plot, PlotPoints};
 use itertools::Itertools;
 use log::{info, warn};
 use num::BigInt;
@@ -95,12 +98,12 @@ impl ItemDrawingInfo {
 
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // TODO: Don't
+        self.invalidate_draw_commands();
         #[cfg(not(target_arch = "wasm32"))]
         let window_size = Some(frame.info().window_info.size);
         #[cfg(target_arch = "wasm32")]
         let window_size = None;
-
-        ctx.request_repaint_after(std::time::Duration::from_millis(50));
 
         let mut msgs = self.draw(ctx, window_size);
 
@@ -117,6 +120,24 @@ impl eframe::App for State {
         }
 
         self.handle_async_messages();
+
+        // TODO: Undo this
+        // ctx.request_repaint_after(std::time::Duration::from_millis(50));
+        ctx.request_repaint();
+
+        let current_frame_start = Instant::now();
+        let frame_duration = current_frame_start - self.last_frame_start;
+        self.last_frame_start = current_frame_start;
+        self.frame_times.push_back(frame_duration);
+        if self.frame_times.len() > 1000 {
+            self.frame_times.pop_front();
+        }
+        if let Some(prev_cpu) = frame.info().cpu_usage {
+            self.rendering_cpu_times.push_back(prev_cpu);
+            if self.rendering_cpu_times.len() > 1000 {
+                self.rendering_cpu_times.pop_front();
+            }
+        }
     }
 }
 
@@ -144,7 +165,11 @@ impl State {
         }
 
         if self.show_logs {
-            self.draw_log_window(ctx, &mut msgs)
+            self.draw_log_window(ctx, &mut msgs);
+        }
+
+        if self.show_performance {
+            self.draw_performance_graph(ctx, &mut msgs);
         }
 
         if self.config.layout.show_menu {
@@ -955,6 +980,54 @@ impl State {
             });
         if !open {
             msgs.push(Message::SetLogsVisible(false))
+        }
+    }
+
+    pub fn draw_performance_graph(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
+        let mut open = true;
+        egui::Window::new("Frame times")
+            .open(&mut open)
+            .collapsible(true)
+            .resizable(true)
+            .show(ctx, |ui| {
+                let plot = Plot::new("frame time")
+                    .legend(Legend::default())
+                    .show_axes([true, true])
+                    .show_grid([true, true])
+                    .include_x(0)
+                    .include_x(1000);
+
+                plot.show(ui, |plot_ui| {
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_ys_f32(
+                            &self
+                                .frame_times
+                                .iter()
+                                .map(|t| t.as_nanos() as f32 / 1_000_000_000.)
+                                .collect::<Vec<_>>(),
+                        ))
+                        .name("Frame time"),
+                    );
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_ys_f32(
+                            &self.rendering_cpu_times.iter().cloned().collect::<Vec<_>>(),
+                        ))
+                        .name("egui CPU draw time"),
+                    );
+
+                    plot_ui.line(
+                        Line::new(PlotPoints::new(vec![[0., 1. / 60.], [1000., 1. / 60.]]))
+                            .name("60 fps"),
+                    );
+                    plot_ui.line(
+                        Line::new(PlotPoints::new(vec![[0., 1. / 30.], [1000., 1. / 30.]]))
+                            .name("30 fps"),
+                    )
+                })
+                .response
+            });
+        if !open {
+            msgs.push(Message::SetPerformanceVisible(false))
         }
     }
 }

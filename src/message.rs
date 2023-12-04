@@ -89,6 +89,7 @@ pub enum Message {
     SetQuickStartVisible(bool),
     SetUrlEntryVisible(bool),
     SetRenameItemVisible(bool),
+    SetPerformanceVisible(bool),
     SetLogsVisible(bool),
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),

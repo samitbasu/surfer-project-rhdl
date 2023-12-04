@@ -89,7 +89,7 @@ impl TranslatorList {
         self.basic.keys().collect()
     }
 
-    pub fn get_translator(&self, name: &str) -> &dyn Translator {
+    pub fn get_translator(&self, name: &str) -> &(dyn Translator) {
         let full = self.inner.get(name);
         if let Some(full) = full.map(|t| t.as_ref()) {
             full
@@ -371,7 +371,7 @@ pub fn translates_all_bit_types(signal: &SignalMeta) -> Result<TranslationPrefer
     }
 }
 
-pub trait Translator {
+pub trait Translator: Send + Sync {
     fn name(&self) -> String;
 
     fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult>;
@@ -386,7 +386,7 @@ pub trait Translator {
     fn reload(&self, _sender: Sender<Message>) {}
 }
 
-pub trait BasicTranslator {
+pub trait BasicTranslator: Send + Sync {
     fn name(&self) -> String;
     fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {

@@ -140,6 +140,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_controls",
                 "show_mouse_gestures",
                 "show_quick_start",
+                "show_performance",
                 "load_url",
                 "scroll_to_start",
                 "scroll_to_end",
@@ -167,6 +168,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_controls",
                 "show_mouse_gestures",
                 "show_quick_start",
+                "show_performance",
             ]
         }
         .into_iter()
@@ -322,6 +324,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Some(Command::Terminal(Message::SetGestureHelpVisible(true)))
                 }
                 "show_quick_start" => Some(Command::Terminal(Message::SetQuickStartVisible(true))),
+                "show_performance" => Some(Command::Terminal(Message::SetPerformanceVisible(true))),
                 _ => None,
             }
         }),

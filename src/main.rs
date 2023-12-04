@@ -77,8 +77,10 @@ use wave_source::WaveSource;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
+use std::time::Instant;
 
 #[derive(clap::Parser, Default)]
 struct Args {
@@ -316,6 +318,7 @@ pub struct State {
     show_keys: bool,
     show_gestures: bool,
     show_quick_start: bool,
+    show_performance: bool,
     /// Hide the wave source. For now, this is only used in snapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
@@ -343,6 +346,10 @@ pub struct State {
     last_canvas_rect: RefCell<Option<Rect>>,
     signal_filter: RefCell<String>,
     item_renaming_string: RefCell<String>,
+
+    rendering_cpu_times: VecDeque<f32>,
+    frame_times: VecDeque<std::time::Duration>,
+    last_frame_start: std::time::Instant,
 }
 
 impl State {
@@ -385,6 +392,7 @@ impl State {
             show_keys: false,
             show_gestures: false,
             show_logs: false,
+            show_performance: false,
             wanted_timescale: Timescale::Unit,
             gesture_start_location: None,
             show_url_entry: false,
@@ -401,6 +409,10 @@ impl State {
             last_canvas_rect: RefCell::new(None),
             signal_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
+
+            rendering_cpu_times: VecDeque::new(),
+            frame_times: VecDeque::new(),
+            last_frame_start: Instant::now(),
         };
 
         match args.waves {
@@ -860,6 +872,7 @@ impl State {
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
             Message::SetQuickStartVisible(s) => self.show_quick_start = s,
             Message::SetRenameItemVisible(_) => self.rename_target = None,
+            Message::SetPerformanceVisible(s) => self.show_performance = s,
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
             Message::SetFilterFocused(s) => self.signal_filter_focused = s,
             Message::SetSignalFilterType(signal_filter_type) => {

@@ -31,7 +31,7 @@ pub trait NumericTranslator {
     }
 }
 
-impl<T: NumericTranslator> BasicTranslator for T {
+impl<T: NumericTranslator + Send + Sync> BasicTranslator for T {
     fn name(&self) -> String {
         self.name()
     }

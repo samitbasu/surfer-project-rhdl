@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
@@ -7,13 +8,15 @@ use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding
 use log::{error, warn};
 use num::BigRational;
 use num::ToPrimitive;
+use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 
-use crate::benchmark::{TimedRegion, TranslationTimings};
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
-use crate::translation::{SignalInfo, ValueKind};
+use crate::displayed_item::DisplayedSignal;
+use crate::translation::{SignalInfo, TranslatorList, ValueKind};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
-use crate::wave_container::FieldRef;
+use crate::wave_container::{FieldRef, SignalRef};
+use crate::wave_data::WaveData;
 use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
 
 pub struct DrawnRegion {
@@ -51,6 +54,156 @@ impl DrawingCommands {
     }
 }
 
+struct SignalDrawCommands {
+    clock_edges: Vec<f32>,
+    signal_ref: SignalRef,
+    local_commands: HashMap<Vec<String>, DrawingCommands>,
+}
+
+fn signal_draw_commands(
+    displayed_signal: &DisplayedSignal,
+    timestamps: &[(f32, num::BigUint)],
+    waves: &WaveData,
+    translators: &TranslatorList,
+) -> Option<SignalDrawCommands> {
+    let mut clock_edges = vec![];
+
+    let meta = match waves
+        .inner
+        .signal_meta(&displayed_signal.signal_ref)
+        .context("failed to get signal meta")
+    {
+        Ok(meta) => meta,
+        Err(e) => {
+            warn!("{e:#?}");
+            return None;
+        }
+    };
+
+    let translator = waves.signal_translator(
+        &FieldRef {
+            root: displayed_signal.signal_ref.clone(),
+            field: vec![],
+        },
+        &translators,
+    );
+    // we need to get the signal info here to get the correct info for aliases
+    let info = translator.signal_info(&meta).unwrap();
+
+    let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
+
+    let mut prev_values = HashMap::new();
+
+    // In order to insert a final draw command at the end of a trace,
+    // we need to know if this is the last timestamp to draw
+    let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
+    // The first pixel we actually draw is the second pixel in the
+    // list, since we skip one pixel to have a previous value
+    let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
+
+    // Iterate over all the time stamps to draw on
+    for ((_, prev_time), (pixel, time)) in timestamps.iter().zip(timestamps.iter().skip(1)) {
+        let (change_time, val) = match waves.inner.query_signal(&displayed_signal.signal_ref, time)
+        {
+            Ok(Some(val)) => val,
+            Ok(None) => continue,
+            Err(e) => {
+                error!("Signal query error {e:#?}");
+                continue;
+            }
+        };
+
+        let is_last_timestep = pixel == &end_pixel;
+        let is_first_timestep = pixel == &start_pixel;
+
+        // Check if the value remains unchanged between this pixel
+        // and the last
+        if &change_time < prev_time && !is_first_timestep && !is_last_timestep {
+            continue;
+        }
+
+        let translation_result = match translator.translate(&meta, &val) {
+            Ok(result) => result,
+            Err(e) => {
+                error!(
+                    "{translator_name} for {sig_name} failed. Disabling:",
+                    translator_name = translator.name(),
+                    sig_name = displayed_signal.signal_ref.full_path_string()
+                );
+                error!("{e:#}");
+                // msgs.push(Message::ResetSignalFormat(FieldRef {
+                //     root: displayed_signal.signal_ref.clone(),
+                //     field: vec![],
+                // }));
+                // TODO: Disable the translator
+                return None;
+            }
+        };
+
+        let fields = translation_result
+            .flatten(
+                FieldRef {
+                    root: displayed_signal.signal_ref.clone(),
+                    field: vec![],
+                },
+                &waves.signal_format,
+                &translators,
+            )
+            .as_fields();
+
+        for (path, value) in fields {
+            let prev = prev_values.get(&path);
+
+            // If the value changed between this and the previous pixel, we want to
+            // draw a transition even if the translated value didn't change.  We
+            // only want to do this for root signals, because resolving when a
+            // sub-field change is tricky without more information from the
+            // translators
+            let anti_alias = &change_time > prev_time && path.is_empty();
+            let new_value = prev != Some(&value);
+
+            // This is not the value we drew last time
+            if new_value || is_last_timestep || anti_alias {
+                *prev_values.entry(path.clone()).or_insert(value.clone()) = value.clone();
+
+                if let SignalInfo::Clock = info.get_subinfo(&path) {
+                    match value.as_ref().map(|(val, _)| val.as_str()) {
+                        Some("1") => {
+                            if !is_last_timestep && !is_first_timestep {
+                                clock_edges.push(*pixel)
+                            }
+                        }
+                        Some(_) => {}
+                        None => {}
+                    }
+                }
+
+                local_commands
+                    .entry(path.clone())
+                    .or_insert_with(|| {
+                        if let SignalInfo::Bool | SignalInfo::Clock = info.get_subinfo(&path) {
+                            DrawingCommands::new_bool()
+                        } else {
+                            DrawingCommands::new_wide()
+                        }
+                    })
+                    .push((
+                        *pixel,
+                        DrawnRegion {
+                            inner: value,
+                            force_anti_alias: anti_alias && !new_value,
+                        },
+                    ))
+            }
+        }
+    }
+    Some(SignalDrawCommands {
+        clock_edges,
+        signal_ref: displayed_signal.signal_ref.clone(),
+        local_commands,
+    })
+}
+
 impl State {
     pub fn invalidate_draw_commands(&mut self) {
         *self.draw_data.borrow_mut() = None;
@@ -61,12 +214,12 @@ impl State {
         if let Some(waves) = &self.waves {
             let frame_width = width;
             let max_time = BigRational::from_integer(waves.num_timestamps.clone());
-            let mut timings = TranslationTimings::new();
             let mut clock_edges = vec![];
             // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
             // width + transition_width in order to draw initial transitions outside the screen
-            let timestamps = (-cfg.max_transition_width
+            let mut timestamps = (-cfg.max_transition_width
                 ..(frame_width as i32 + cfg.max_transition_width))
+                .par_bridge()
                 .filter_map(|x| {
                     let time = waves.viewport.to_time(x as f64, frame_width);
                     if time < BigRational::from_float(0.).unwrap() || time > max_time {
@@ -76,166 +229,40 @@ impl State {
                     }
                 })
                 .collect::<Vec<_>>();
+            timestamps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
-            waves
+            let translators = &self.translators;
+            let commands = waves
                 .displayed_items
-                .iter()
+                .par_iter()
                 .filter_map(|item| match item {
                     DisplayedItem::Signal(signal_ref) => Some(signal_ref),
                     _ => None,
                 })
                 // Iterate over the signals, generating draw commands for all the
                 // subfields
-                .for_each(|displayed_signal| {
-                    let meta = match waves
-                        .inner
-                        .signal_meta(&displayed_signal.signal_ref)
-                        .context("failed to get signal meta")
-                    {
-                        Ok(meta) => meta,
-                        Err(e) => {
-                            warn!("{e:#?}");
-                            return;
-                        }
-                    };
+                .filter_map(|displayed_signal| {
+                    signal_draw_commands(displayed_signal, &timestamps, waves, &translators)
+                })
+                .collect::<Vec<_>>();
 
-                    let translator = waves.signal_translator(
-                        &FieldRef {
-                            root: displayed_signal.signal_ref.clone(),
-                            field: vec![],
+            for SignalDrawCommands {
+                clock_edges: mut new_clock_edges,
+                signal_ref,
+                local_commands,
+            } in commands
+            {
+                for (path, val) in local_commands {
+                    draw_commands.insert(
+                        FieldRef {
+                            root: signal_ref.clone(),
+                            field: path.clone(),
                         },
-                        &self.translators,
+                        val,
                     );
-                    // we need to get the signal info here to get the correct info for aliases
-                    let info = translator.signal_info(&meta).unwrap();
-
-                    let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
-
-                    let mut prev_values = HashMap::new();
-
-                    // In order to insert a final draw command at the end of a trace,
-                    // we need to know if this is the last timestamp to draw
-                    let end_pixel = timestamps.iter().last().map(|t| t.0).unwrap_or_default();
-                    // The first pixel we actually draw is the second pixel in the
-                    // list, since we skip one pixel to have a previous value
-                    let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
-
-                    // Iterate over all the time stamps to draw on
-                    for ((_, prev_time), (pixel, time)) in
-                        timestamps.iter().zip(timestamps.iter().skip(1))
-                    {
-                        let (change_time, val) =
-                            match waves.inner.query_signal(&displayed_signal.signal_ref, time) {
-                                Ok(Some(val)) => val,
-                                Ok(None) => continue,
-                                Err(e) => {
-                                    error!("Signal query error {e:#?}");
-                                    continue;
-                                }
-                            };
-
-                        let is_last_timestep = pixel == &end_pixel;
-                        let is_first_timestep = pixel == &start_pixel;
-
-                        // Check if the value remains unchanged between this pixel
-                        // and the last
-                        if &change_time < prev_time && !is_first_timestep && !is_last_timestep {
-                            continue;
-                        }
-
-                        // Perform the translation
-                        let mut duration = TimedRegion::started();
-
-                        let translation_result = match translator.translate(&meta, &val) {
-                            Ok(result) => result,
-                            Err(e) => {
-                                error!(
-                                    "{translator_name} for {sig_name} failed. Disabling:",
-                                    translator_name = translator.name(),
-                                    sig_name = displayed_signal.signal_ref.full_path_string()
-                                );
-                                error!("{e:#}");
-                                msgs.push(Message::ResetSignalFormat(FieldRef {
-                                    root: displayed_signal.signal_ref.clone(),
-                                    field: vec![],
-                                }));
-                                return;
-                            }
-                        };
-
-                        duration.stop();
-                        timings.push_timing(&translator.name(), None, duration.secs());
-                        let fields = translation_result
-                            .flatten(
-                                FieldRef {
-                                    root: displayed_signal.signal_ref.clone(),
-                                    field: vec![],
-                                },
-                                &waves.signal_format,
-                                &self.translators,
-                            )
-                            .as_fields();
-
-                        for (path, value) in fields {
-                            let prev = prev_values.get(&path);
-
-                            // If the value changed between this and the previous pixel, we want to
-                            // draw a transition even if the translated value didn't change.  We
-                            // only want to do this for root signals, because resolving when a
-                            // sub-field change is tricky without more information from the
-                            // translators
-                            let anti_alias = &change_time > prev_time && path.is_empty();
-                            let new_value = prev != Some(&value);
-
-                            // This is not the value we drew last time
-                            if new_value || is_last_timestep || anti_alias {
-                                *prev_values.entry(path.clone()).or_insert(value.clone()) =
-                                    value.clone();
-
-                                if let SignalInfo::Clock = info.get_subinfo(&path) {
-                                    match value.as_ref().map(|(val, _)| val.as_str()) {
-                                        Some("1") => {
-                                            if !is_last_timestep && !is_first_timestep {
-                                                clock_edges.push(*pixel)
-                                            }
-                                        }
-                                        Some(_) => {}
-                                        None => {}
-                                    }
-                                }
-
-                                local_commands
-                                    .entry(path.clone())
-                                    .or_insert_with(|| {
-                                        if let SignalInfo::Bool | SignalInfo::Clock =
-                                            info.get_subinfo(&path)
-                                        {
-                                            DrawingCommands::new_bool()
-                                        } else {
-                                            DrawingCommands::new_wide()
-                                        }
-                                    })
-                                    .push((
-                                        *pixel,
-                                        DrawnRegion {
-                                            inner: value,
-                                            force_anti_alias: anti_alias && !new_value,
-                                        },
-                                    ))
-                            }
-                        }
-                    }
-                    // Append the signal index to the fields
-                    local_commands.into_iter().for_each(|(path, val)| {
-                        draw_commands.insert(
-                            FieldRef {
-                                root: displayed_signal.signal_ref.clone(),
-                                field: path.clone(),
-                            },
-                            val,
-                        );
-                    });
-                });
+                }
+                clock_edges.append(&mut new_clock_edges)
+            }
 
             *self.draw_data.borrow_mut() = Some(CachedDrawData {
                 draw_commands,
