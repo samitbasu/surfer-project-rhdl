@@ -159,7 +159,7 @@ impl WaveContainer {
         &self,
         signal: &SignalRef,
         time: &BigUint,
-    ) -> Result<Option<(BigUint, SignalValue)>> {
+    ) -> Result<Option<(BigUint, SignalValue, Option<BigUint>)>> {
         match self {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
         }

@@ -78,7 +78,7 @@ impl FastWaveContainer {
         &self,
         signal: &SignalRef,
         time: &BigUint,
-    ) -> Result<Option<(BigUint, SignalValue)>> {
+    ) -> Result<Option<(BigUint, SignalValue, Option<BigUint>)>> {
         let idx = self.get_signal_idx(signal)?;
         match self
             .inner

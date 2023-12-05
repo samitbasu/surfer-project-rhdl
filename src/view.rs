@@ -821,7 +821,7 @@ impl State {
                                 .query_signal(signal, &num::BigInt::to_biguint(cursor).unwrap())
                                 .ok()
                                 .flatten()
-                                .map(|(_time, value)| {
+                                .map(|(_time, value, _)| {
                                     meta.and_then(|meta| translator.translate(&meta, &value))
                                 });
 

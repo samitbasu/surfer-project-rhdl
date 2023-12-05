@@ -105,15 +105,15 @@ fn signal_draw_commands(
 
     // Iterate over all the time stamps to draw on
     for ((_, prev_time), (pixel, time)) in timestamps.iter().zip(timestamps.iter().skip(1)) {
-        let (change_time, val) = match waves.inner.query_signal(&displayed_signal.signal_ref, time)
-        {
-            Ok(Some(val)) => val,
-            Ok(None) => continue,
-            Err(e) => {
-                error!("Signal query error {e:#?}");
-                continue;
-            }
-        };
+        let (change_time, val, next) =
+            match waves.inner.query_signal(&displayed_signal.signal_ref, time) {
+                Ok(Some(val)) => val,
+                Ok(None) => continue,
+                Err(e) => {
+                    error!("Signal query error {e:#?}");
+                    continue;
+                }
+            };
 
         let is_last_timestep = pixel == &end_pixel;
         let is_first_timestep = pixel == &start_pixel;
