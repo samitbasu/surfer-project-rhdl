@@ -94,6 +94,8 @@ pub enum Message {
     SetFilterFocused(bool),
     SetSignalFilterType(SignalFilterType),
     SetUiScale(f32),
+    SetPerformanceVisible(bool),
+    SetContinuousRedraw(bool),
     ToggleFullscreen,
     AddDivider(String),
     SetCursorPosition(u8),

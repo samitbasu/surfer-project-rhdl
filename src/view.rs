@@ -9,6 +9,7 @@ use log::{info, warn};
 use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
+use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
@@ -95,15 +96,21 @@ impl ItemDrawingInfo {
 
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.timing.borrow_mut().start_frame();
+
+        if self.continuous_redraw {
+            self.invalidate_draw_commands();
+        }
         #[cfg(not(target_arch = "wasm32"))]
         let window_size = Some(frame.info().window_info.size);
         #[cfg(target_arch = "wasm32")]
         let window_size = None;
 
-        ctx.request_repaint_after(std::time::Duration::from_millis(50));
-
+        self.timing.borrow_mut().start("draw");
         let mut msgs = self.draw(ctx, window_size);
+        self.timing.borrow_mut().end("draw");
 
+        self.timing.borrow_mut().start("update");
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::Exit = msg {
@@ -115,8 +122,29 @@ impl eframe::App for State {
             }
             self.update(msg);
         }
+        self.timing.borrow_mut().end("update");
 
+        self.timing.borrow_mut().start("handle_async_messages");
         self.handle_async_messages();
+        self.timing.borrow_mut().end("handle_async_messages");
+
+        // We can save some user battery life by not redrawing unless needed. At the moment,
+        // we only need to continiously redraw to make surfer interactive during loading, otherwise
+        // we'll back off a bit
+        if self.continuous_redraw || self.vcd_progress.is_some() {
+            ctx.request_repaint();
+        } else {
+            ctx.request_repaint_after(std::time::Duration::from_millis(50));
+        }
+
+        if let Some(prev_cpu) = frame.info().cpu_usage {
+            self.rendering_cpu_times.push_back(prev_cpu);
+            if self.rendering_cpu_times.len() > NUM_PERF_SAMPLES {
+                self.rendering_cpu_times.pop_front();
+            }
+        }
+
+        self.timing.borrow_mut().end_frame();
     }
 }
 
@@ -144,7 +172,11 @@ impl State {
         }
 
         if self.show_logs {
-            self.draw_log_window(ctx, &mut msgs)
+            self.draw_log_window(ctx, &mut msgs);
+        }
+
+        if self.show_performance {
+            self.draw_performance_graph(ctx, &mut msgs);
         }
 
         if self.config.layout.show_menu {
@@ -788,6 +820,7 @@ impl State {
                                 .inner
                                 .query_signal(signal, &num::BigInt::to_biguint(cursor).unwrap())
                                 .ok()
+                                .map(|q| q.current)
                                 .flatten()
                                 .map(|(_time, value)| {
                                     meta.and_then(|meta| translator.translate(&meta, &value))

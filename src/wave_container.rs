@@ -4,7 +4,7 @@ use num::BigUint;
 
 use crate::fast_wave_container::FastWaveContainer;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct ModuleRef(Vec<String>);
 
 impl ModuleRef {
@@ -35,7 +35,7 @@ impl std::fmt::Display for ModuleRef {
 }
 
 // FIXME: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` or Rc/Arc would be better
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct SignalRef {
     /// Path in the module hierarchy to where this signal resides
     pub path: ModuleRef,
@@ -96,7 +96,7 @@ impl SignalRef {
 
 /// A reference to a field of a larger signal, such as a field in a struct. The fields
 /// are the recursive path to the fields inside the (translated) root
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct FieldRef {
     pub root: SignalRef,
     pub field: Vec<String>,
@@ -117,6 +117,11 @@ impl FieldRef {
             field: field.into_iter().map(|s| s.to_string()).collect(),
         }
     }
+}
+
+pub struct QueryResult {
+    pub current: Option<(BigUint, SignalValue)>,
+    pub next: Option<BigUint>,
 }
 
 #[derive(Debug)]
@@ -155,11 +160,7 @@ impl WaveContainer {
         }
     }
 
-    pub fn query_signal(
-        &self,
-        signal: &SignalRef,
-        time: &BigUint,
-    ) -> Result<Option<(BigUint, SignalValue)>> {
+    pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
         match self {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
         }

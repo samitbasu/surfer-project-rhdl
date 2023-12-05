@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use color_eyre::{eyre::anyhow, Result};
-use fastwave_backend::{ScopeIdx, Signal, SignalErrors, SignalIdx, SignalValue, VCD};
+use fastwave_backend::{ScopeIdx, Signal, SignalIdx, SignalValue, VCD};
 use log::warn;
 use num::BigUint;
 
-use crate::wave_container::{ModuleRef, SignalRef};
+use crate::wave_container::{ModuleRef, QueryResult, SignalRef};
 
 #[derive(Debug)]
 pub struct FastWaveContainer {
@@ -16,7 +16,7 @@ pub struct FastWaveContainer {
     /// Mapping from signal ref to the signal index. Aliases are already resolved so
     /// the index should be a *real* signal. This means that querying the name on the
     /// FWB signal may be wrong.
-    pub signal_map: HashMap<SignalRef, SignalIdx>,
+    pub signal_map: BTreeMap<SignalRef, SignalIdx>,
     /// (Almost) reverse mapping from signal_map, though here aliases are not resolved.
     pub inv_signal_map: HashMap<SignalIdx, SignalRef>,
 }
@@ -28,7 +28,7 @@ impl FastWaveContainer {
             signals: vec![],
             module_map: HashMap::new(),
             inv_module_map: HashMap::new(),
-            signal_map: HashMap::new(),
+            signal_map: BTreeMap::new(),
             inv_signal_map: HashMap::new(),
         };
         result.initialize_signal_scope_maps();
@@ -74,19 +74,17 @@ impl FastWaveContainer {
             .map(|idx| self.inner.signal_from_signal_idx(idx))
     }
 
-    pub fn query_signal(
-        &self,
-        signal: &SignalRef,
-        time: &BigUint,
-    ) -> Result<Option<(BigUint, SignalValue)>> {
+    pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
         let idx = self.get_signal_idx(signal)?;
         match self
             .inner
             .signal_from_signal_idx(idx)
             .query_val_on_tmln(time, &self.inner)
         {
-            Ok(val) => Ok(Some(val)),
-            Err(SignalErrors::PreTimeline { .. } | SignalErrors::EmptyTimeline) => Ok(None),
+            Ok(val) => Ok(QueryResult {
+                current: val.current,
+                next: val.next,
+            }),
             Err(other) => Err(anyhow!("Fast wave error {other:?}")),
         }
     }
