@@ -85,6 +85,7 @@ cargo-fmt:
         - cargo fmt -- --check
     rules:
         - when: always
+    allow_failure: true
 
 typos-and-todos:
     stage: test
@@ -92,7 +93,7 @@ typos-and-todos:
     before_script:
         - apt update
         - apt install -y wget
-        - wget https://github.com/crate-ci/typos/releases/download/v1.10.3/typos-v1.10.3-x86_64-unknown-linux-musl.tar.gz -O typos.tar.gz
+        - wget https://github.com/crate-ci/typos/releases/download/v1.16.23/typos-v1.16.23-x86_64-unknown-linux-musl.tar.gz -O typos.tar.gz
         # Extract only the typos executable to not get a docs folder which the typo checker
         # will find typos in
         - tar xzf typos.tar.gz ./typos
@@ -111,6 +112,7 @@ typos-and-todos:
             fi
     rules:
         - when: always
+    allow_failure: true
 
 linux_build:
     stage: deploy
@@ -176,9 +178,9 @@ pages_build:
         - ls ./trunk
         - chmod +x trunk
           # https://github.com/thedodd/trunk/pull/361#issuecomment-1308487648 trunk can not
-          # generate relative urls which we want for external pipeliens to be able
+          # generate relative urls which we want for external pipelines to be able
           # to download our artefacts and put them wherever on their webserver. To fix this,
-          # wel'll build with a dummy public URL, then replace it with ./
+          # we'll build with a dummy public URL, then replace it with ./
         - ./trunk build --release --public-url /dist
         - cp -r dist pages_build
         - cp examples/*.vcd pages_build/

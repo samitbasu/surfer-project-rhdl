@@ -316,7 +316,7 @@ pub struct State {
     show_keys: bool,
     show_gestures: bool,
     show_quick_start: bool,
-    /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
+    /// Hide the wave source. For now, this is only used in snapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
     show_logs: bool,
