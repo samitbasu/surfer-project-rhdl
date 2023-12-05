@@ -58,6 +58,7 @@ struct SignalDrawCommands {
     clock_edges: Vec<f32>,
     signal_ref: SignalRef,
     local_commands: HashMap<Vec<String>, DrawingCommands>,
+    local_msgs: Vec<Message>,
 }
 
 fn signal_draw_commands(
@@ -67,6 +68,7 @@ fn signal_draw_commands(
     translators: &TranslatorList,
 ) -> Option<SignalDrawCommands> {
     let mut clock_edges = vec![];
+    let mut local_msgs = vec![];
 
     let meta = match waves
         .inner
@@ -131,11 +133,10 @@ fn signal_draw_commands(
                     sig_name = displayed_signal.signal_ref.full_path_string()
                 );
                 error!("{e:#}");
-                // msgs.push(Message::ResetSignalFormat(FieldRef {
-                //     root: displayed_signal.signal_ref.clone(),
-                //     field: vec![],
-                // }));
-                // TODO: Disable the translator
+                local_msgs.push(Message::ResetSignalFormat(FieldRef {
+                    root: displayed_signal.signal_ref.clone(),
+                    field: vec![],
+                }));
                 return None;
             }
         };
@@ -201,6 +202,7 @@ fn signal_draw_commands(
         clock_edges,
         signal_ref: displayed_signal.signal_ref.clone(),
         local_commands,
+        local_msgs,
     })
 }
 
@@ -251,8 +253,10 @@ impl State {
                 clock_edges: mut new_clock_edges,
                 signal_ref,
                 local_commands,
+                mut local_msgs,
             } in commands
             {
+                msgs.append(&mut local_msgs);
                 for (path, val) in local_commands {
                     draw_commands.insert(
                         FieldRef {

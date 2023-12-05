@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+    collections::{BTreeSet, HashMap, VecDeque},
     time::{Duration, Instant},
 };
 

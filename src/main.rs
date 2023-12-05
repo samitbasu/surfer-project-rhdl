@@ -81,7 +81,6 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
-use std::time::Instant;
 
 #[derive(clap::Parser, Default)]
 struct Args {
