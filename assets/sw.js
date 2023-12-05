@@ -1,25 +1,37 @@
-var cacheName = 'egui-template-pwa';
-var filesToCache = [
-  './',
-  './index.html',
-  './surfer.js',
-  './surfer_bg.wasm',
-];
-
-/* Start the service worker and cache all of the app's content */
-self.addEventListener('install', function (e) {
-  e.waitUntil(
-    caches.open(cacheName).then(function (cache) {
-      return cache.addAll(filesToCache);
-    })
-  );
+self.addEventListener("install", function () {
+  self.skipWaiting();
 });
 
-/* Serve cached content when offline */
-self.addEventListener('fetch', function (e) {
-  e.respondWith(
-    caches.match(e.request).then(function (response) {
-      return response || fetch(e.request);
-    })
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("fetch", function (event) {
+  if (event.request.cache === "only-if-cached" && event.request.mode !== "same-origin") {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then(function (response) {
+        // It seems like we only need to set the headers for index.html
+        // If you want to be on the safe side, comment this out
+        // if (!response.url.includes("index.html")) return response;
+
+        const newHeaders = new Headers(response.headers);
+        newHeaders.set("Cross-Origin-Embedder-Policy", "require-corp");
+        newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
+
+        const moddedResponse = new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: newHeaders,
+        });
+
+        return moddedResponse;
+      })
+      .catch(function (e) {
+        console.error(e);
+      })
   );
 });
