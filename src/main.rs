@@ -774,7 +774,7 @@ impl State {
                 if !new_visibility {
                     *self.command_prompt_text.borrow_mut() = "".to_string();
                     self.command_prompt.suggestions = vec![];
-                    self.command_prompt.selected = 0;
+                    self.command_prompt.selected = self.command_prompt.previous_commands.len();
                 }
                 self.command_prompt.visible = new_visibility;
             }
@@ -857,20 +857,26 @@ impl State {
             Message::CommandPromptClear => {
                 *self.command_prompt_text.borrow_mut() = "".to_string();
                 self.command_prompt.suggestions = vec![];
-                self.command_prompt.selected = self.command_prompt.previous_commands.len();
+                // self.command_prompt.selected = self.command_prompt.previous_commands.len();
+                self.command_prompt.selected = if self.command_prompt_text.borrow().is_empty() {
+                    self.command_prompt.previous_commands.len().clamp(0, 3)
+                } else {
+                    0
+                };
             }
             Message::CommandPromptUpdate { suggestions } => {
                 self.command_prompt.suggestions = suggestions;
-                self.command_prompt.selected = self.command_prompt.previous_commands.len();
+                self.command_prompt.selected = if self.command_prompt_text.borrow().is_empty() {
+                    self.command_prompt.previous_commands.len().clamp(0, 3)
+                } else {
+                    0
+                };
             }
             Message::CommandPromptPushPrevious(cmd) => {
                 let len = cmd.len();
                 self.command_prompt
                     .previous_commands
                     .insert(0, (cmd, vec![false; len]));
-                if self.command_prompt.previous_commands.len() > 5 {
-                    self.command_prompt.previous_commands.remove(len);
-                }
             }
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);

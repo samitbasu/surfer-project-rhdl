@@ -757,9 +757,9 @@ impl State {
         );
         ui.label(
             egui::RichText::new(alpha_id)
-                .background_color(self.config.theme.accent_warn.background)
+                .background_color(self.config.theme.accent_info.background)
                 .monospace()
-                .color(self.config.theme.accent_warn.foreground),
+                .color(self.config.theme.accent_info.foreground),
         );
     }
 
