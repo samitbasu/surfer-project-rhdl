@@ -8,6 +8,8 @@ repos:
     - id: check-merge-conflict
     - id: check-toml
     - id: mixed-line-ending
+    - id: check-json
+    - id: pretty-format-json
   - repo: https://github.com/crate-ci/typos
     rev: v1.16.23
     hooks:
@@ -22,3 +24,10 @@ repos:
     rev: v9.0.0
     hooks:
     - id: oxipng
+  - repo: local
+    hooks:
+      - id: cargo-test
+        name: Run tests
+        entry: cargo test
+        language: system
+        pass_filenames: false
