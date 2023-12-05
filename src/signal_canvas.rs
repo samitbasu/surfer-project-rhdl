@@ -9,13 +9,14 @@ use log::{error, warn};
 use num::BigRational;
 use num::ToPrimitive;
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
+use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
 use crate::displayed_item::DisplayedSignal;
 use crate::translation::{SignalInfo, TranslatorList, ValueKind};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
-use crate::wave_container::{FieldRef, SignalRef};
+use crate::wave_container::{FieldRef, QueryResult, SignalRef};
 use crate::wave_data::WaveData;
 use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
 
@@ -66,6 +67,7 @@ fn signal_draw_commands(
     timestamps: &[(f32, num::BigUint)],
     waves: &WaveData,
     translators: &TranslatorList,
+    view_width: f64,
 ) -> Option<SignalDrawCommands> {
     let mut clock_edges = vec![];
     let mut local_msgs = vec![];
@@ -104,19 +106,41 @@ fn signal_draw_commands(
     let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
 
     // Iterate over all the time stamps to draw on
+    let mut next_change = timestamps.get(0).map(|t| t.0.clone()).unwrap_or_default();
     for ((_, prev_time), (pixel, time)) in timestamps.iter().zip(timestamps.iter().skip(1)) {
-        let (change_time, val, next) =
-            match waves.inner.query_signal(&displayed_signal.signal_ref, time) {
-                Ok(Some(val)) => val,
-                Ok(None) => continue,
-                Err(e) => {
-                    error!("Signal query error {e:#?}");
-                    continue;
-                }
-            };
-
         let is_last_timestep = pixel == &end_pixel;
         let is_first_timestep = pixel == &start_pixel;
+
+        if *pixel < next_change && !is_first_timestep && !is_last_timestep {
+            continue;
+        }
+
+        let query_result = waves.inner.query_signal(&displayed_signal.signal_ref, time);
+        next_change = match query_result {
+            Ok(QueryResult {
+                next: Some(timestamp),
+                ..
+            }) => waves.viewport.from_time(&timestamp.to_bigint(), view_width) as f32,
+            // If we don't have a next timestamp, we don't need to recheck until the last time
+            // step
+            Ok(_) => timestamps.last().map(|t| t.0.clone()).unwrap_or_default(),
+            // If we get an error here, we'll let the next match block handle it, but we'll take
+            // note that we need to recheck every pixel until the end
+            _ => timestamps.first().map(|t| t.0.clone()).unwrap_or_default(),
+        };
+
+        let (change_time, val) = match waves.inner.query_signal(&displayed_signal.signal_ref, time)
+        {
+            Ok(QueryResult {
+                current: Some((change_time, val)),
+                ..
+            }) => (change_time, val),
+            Ok(QueryResult { current: None, .. }) => continue,
+            Err(e) => {
+                error!("Signal query error {e:#?}");
+                continue;
+            }
+        };
 
         // Check if the value remains unchanged between this pixel
         // and the last
@@ -245,7 +269,13 @@ impl State {
                 // Iterate over the signals, generating draw commands for all the
                 // subfields
                 .filter_map(|displayed_signal| {
-                    signal_draw_commands(displayed_signal, &timestamps, waves, &translators)
+                    signal_draw_commands(
+                        displayed_signal,
+                        &timestamps,
+                        waves,
+                        &translators,
+                        frame_width as f64,
+                    )
                 })
                 .collect::<Vec<_>>();
 

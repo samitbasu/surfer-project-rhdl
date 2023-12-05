@@ -820,8 +820,9 @@ impl State {
                                 .inner
                                 .query_signal(signal, &num::BigInt::to_biguint(cursor).unwrap())
                                 .ok()
+                                .map(|q| q.current)
                                 .flatten()
-                                .map(|(_time, value, _)| {
+                                .map(|(_time, value)| {
                                     meta.and_then(|meta| translator.translate(&meta, &value))
                                 });
 

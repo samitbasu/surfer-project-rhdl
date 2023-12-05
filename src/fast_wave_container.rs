@@ -1,11 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
 use color_eyre::{eyre::anyhow, Result};
-use fastwave_backend::{ScopeIdx, Signal, SignalErrors, SignalIdx, SignalValue, VCD};
+use fastwave_backend::{ScopeIdx, Signal, SignalIdx, SignalValue, VCD};
 use log::warn;
 use num::BigUint;
 
-use crate::wave_container::{ModuleRef, SignalRef};
+use crate::wave_container::{ModuleRef, QueryResult, SignalRef};
 
 #[derive(Debug)]
 pub struct FastWaveContainer {
@@ -74,19 +74,17 @@ impl FastWaveContainer {
             .map(|idx| self.inner.signal_from_signal_idx(idx))
     }
 
-    pub fn query_signal(
-        &self,
-        signal: &SignalRef,
-        time: &BigUint,
-    ) -> Result<Option<(BigUint, SignalValue, Option<BigUint>)>> {
+    pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
         let idx = self.get_signal_idx(signal)?;
         match self
             .inner
             .signal_from_signal_idx(idx)
             .query_val_on_tmln(time, &self.inner)
         {
-            Ok(val) => Ok(Some(val)),
-            Err(SignalErrors::PreTimeline { .. } | SignalErrors::EmptyTimeline) => Ok(None),
+            Ok(val) => Ok(QueryResult {
+                current: val.current,
+                next: val.next,
+            }),
             Err(other) => Err(anyhow!("Fast wave error {other:?}")),
         }
     }

@@ -119,6 +119,11 @@ impl FieldRef {
     }
 }
 
+pub struct QueryResult {
+    pub current: Option<(BigUint, SignalValue)>,
+    pub next: Option<BigUint>,
+}
+
 #[derive(Debug)]
 pub enum WaveContainer {
     Fwb(FastWaveContainer),
@@ -155,11 +160,7 @@ impl WaveContainer {
         }
     }
 
-    pub fn query_signal(
-        &self,
-        signal: &SignalRef,
-        time: &BigUint,
-    ) -> Result<Option<(BigUint, SignalValue, Option<BigUint>)>> {
+    pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
         match self {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
         }
