@@ -210,6 +210,7 @@ impl State {
     }
 
     pub fn generate_draw_commands(&self, cfg: &DrawConfig, width: f32, msgs: &mut Vec<Message>) {
+        self.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
             let frame_width = width;
@@ -269,6 +270,7 @@ impl State {
                 clock_edges,
             });
         }
+        self.timing.borrow_mut().end("Generate draw commands");
     }
 
     pub fn draw_signals(
@@ -364,6 +366,7 @@ impl State {
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
 
+        self.timing.borrow_mut().start("Wave drawing");
         if let Some(draw_data) = &*self.draw_data.borrow() {
             let clock_edges = &draw_data.clock_edges;
             let draw_commands = &draw_data.draw_commands;
@@ -420,6 +423,7 @@ impl State {
                 }
             }
         }
+        self.timing.borrow_mut().end("Wave drawing");
 
         waves.draw_cursor(
             &self.config.theme,

@@ -26,6 +26,7 @@ mod wave_container;
 mod wave_data;
 mod wave_source;
 
+use benchmark::Timing;
 use bytes::Buf;
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
@@ -347,9 +348,11 @@ pub struct State {
     signal_filter: RefCell<String>,
     item_renaming_string: RefCell<String>,
 
+    // Benchmarking stuff
+    /// Invalidate draw commands every frame to make performance comparison easier
+    continuous_redraw: bool,
     rendering_cpu_times: VecDeque<f32>,
-    frame_times: VecDeque<std::time::Duration>,
-    last_frame_start: std::time::Instant,
+    timing: RefCell<Timing>,
 }
 
 impl State {
@@ -410,9 +413,9 @@ impl State {
             signal_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
 
+            continuous_redraw: false,
             rendering_cpu_times: VecDeque::new(),
-            frame_times: VecDeque::new(),
-            last_frame_start: Instant::now(),
+            timing: RefCell::new(Timing::new()),
         };
 
         match args.waves {
@@ -872,7 +875,13 @@ impl State {
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
             Message::SetQuickStartVisible(s) => self.show_quick_start = s,
             Message::SetRenameItemVisible(_) => self.rename_target = None,
-            Message::SetPerformanceVisible(s) => self.show_performance = s,
+            Message::SetPerformanceVisible(s) => {
+                if s == false {
+                    self.continuous_redraw = false
+                }
+                self.show_performance = s
+            }
+            Message::SetContinuousRedraw(s) => self.continuous_redraw = s,
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
             Message::SetFilterFocused(s) => self.signal_filter_focused = s,
             Message::SetSignalFilterType(signal_filter_type) => {
