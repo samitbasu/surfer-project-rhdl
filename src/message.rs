@@ -47,6 +47,7 @@ pub enum Message {
     ResetSignalFormat(FieldRef),
     CanvasScroll {
         delta: Vec2,
+        mouse_ptr_timestamp: Option<f64>,
     },
     CanvasZoom {
         mouse_ptr_timestamp: Option<f64>,

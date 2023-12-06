@@ -586,9 +586,9 @@ impl State {
                     }
                 }
             }
-            Message::CanvasScroll { delta } => {
+            Message::CanvasScroll { delta, mouse_ptr_timestamp } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.handle_canvas_scroll(delta);
+                    waves.handle_canvas_scroll(delta, mouse_ptr_timestamp);
                     self.invalidate_draw_commands();
                 }
             }
