@@ -332,21 +332,24 @@ impl State {
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
 
         if ui.ui_contains_pointer() {
+
             let pointer_pos = pointer_pos_global.unwrap();
             let scroll_delta = ui.input(|i| i.scroll_delta);
             let mouse_ptr_pos = to_screen.inverse().transform_pos(pointer_pos);
+
+            let mouse_ptr_timestamp = waves
+                .viewport
+                .to_time(mouse_ptr_pos.x as f64, frame_width)
+                .to_f64();
+
             if scroll_delta != Vec2::ZERO {
                 msgs.push(Message::CanvasScroll {
                     delta: ui.input(|i| i.scroll_delta),
+                    mouse_ptr_timestamp
                 })
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr_timestamp = waves
-                    .viewport
-                    .to_time(mouse_ptr_pos.x as f64, frame_width)
-                    .to_f64();
-
                 msgs.push(Message::CanvasZoom {
                     mouse_ptr_timestamp,
                     delta: ui.input(|i| i.zoom_delta()),

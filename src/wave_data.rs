@@ -299,15 +299,18 @@ impl WaveData {
         &mut self,
         // Canvas relative
         delta: Vec2,
+        mouse_ptr_timestamp: Option<f64>,
     ) {
         // Scroll 5% of the viewport per scroll event.
         // One scroll event yields 50
-        let scroll_step = -(self.viewport.curr_right - self.viewport.curr_left) / (50. * 20.);
+        let scroll_step = -(self.viewport.curr_right - self.viewport.curr_left) / (50. * 10.);
 
-        let target_left = self.viewport.curr_left + scroll_step * delta.y as f64;
-        let target_right = self.viewport.curr_right + scroll_step * delta.y as f64;
+        let target_left = self.viewport.curr_left + scroll_step * delta.x as f64;
+        let target_right = self.viewport.curr_right + scroll_step * delta.x as f64;
 
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
+
+        self.handle_canvas_zoom(mouse_ptr_timestamp, 1. + delta.y as f64 / 50.);
     }
 }
