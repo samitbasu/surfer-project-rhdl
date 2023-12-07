@@ -61,9 +61,10 @@ Note that sometimes Windows Defender has been known to report Surfer [and other 
 
 ## Development Information
 
-Contributions to Surfer is very welcome! There is a
-[list of issues](https://gitlab.com/surfer-project/surfer/-/issues) and some basic
-[development information](https://gitlab.com/surfer-project/surfer/-/wikis/home).
+Contributions to Surfer are very welcome! See the
+[list of issues](https://gitlab.com/surfer-project/surfer/-/issues) if you do not have any
+suggestions on your own. Some basic [development information](https://gitlab.com/surfer-project/surfer/-/wikis/home)
+is available.
 
 ## Project Status
 
