@@ -5,7 +5,7 @@ use num::BigUint;
 use crate::fast_wave_container::FastWaveContainer;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
-pub struct ModuleRef(Vec<String>);
+pub struct ModuleRef(pub Vec<String>);
 
 impl ModuleRef {
     pub fn from_strs(s: &[&str]) -> Self {
