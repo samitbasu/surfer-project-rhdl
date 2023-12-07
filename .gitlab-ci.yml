@@ -85,7 +85,6 @@ cargo-fmt:
         - cargo fmt -- --check
     rules:
         - when: always
-    allow_failure: true
 
 typos-and-todos:
     stage: test
@@ -112,7 +111,6 @@ typos-and-todos:
             fi
     rules:
         - when: always
-    allow_failure: true
 
 linux_build:
     stage: deploy
@@ -200,6 +198,7 @@ pages_build:
 pages:
     stage: deploy
     dependencies: [pages_build]
+    needs: [pages_build]
     script:
         - mkdir -p public
         - cp pages_build/* public
@@ -216,6 +215,7 @@ pages:
 pages_preview:
     stage: deploy
     dependencies: [pages_build]
+    needs: [pages_build]
     script:
         - mkdir -p public
         - cp pages_build/* public
