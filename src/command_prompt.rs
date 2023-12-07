@@ -619,6 +619,7 @@ pub fn show_command_prompt(
         });
 }
 
+// This SuggestionLabel is based on egui's SelectableLabel
 #[must_use = "You should put this widget in an ui with `ui.add(widget);`"]
 pub struct SuggestionLabel {
     text: egui::WidgetText,
