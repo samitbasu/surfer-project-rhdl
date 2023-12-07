@@ -129,7 +129,7 @@ impl eframe::App for State {
         self.timing.borrow_mut().end("handle_async_messages");
 
         // We can save some user battery life by not redrawing unless needed. At the moment,
-        // we only need to continiously redraw to make surfer interactive during loading, otherwise
+        // we only need to continuously redraw to make surfer interactive during loading, otherwise
         // we'll back off a bit
         if self.continuous_redraw || self.vcd_progress.is_some() {
             ctx.request_repaint();
