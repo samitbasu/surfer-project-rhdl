@@ -386,8 +386,9 @@ impl State {
             blacklisted_translators: HashSet::new(),
             command_prompt: command_prompt::CommandPrompt {
                 visible: false,
-                expanded: String::from(""),
                 suggestions: vec![],
+                selected: 0,
+                previous_commands: vec![],
             },
             context: None,
             show_about: false,
@@ -537,8 +538,8 @@ impl State {
                     MoveDir::Down => {
                         if waves.scroll + count < waves.displayed_items.len() {
                             waves.scroll += count;
-                        } else if waves.displayed_items.len() > 0 {
-                            waves.scroll = waves.displayed_items.len() - 1;
+                        } else {
+                            waves.scroll = waves.displayed_items.len().saturating_sub(1);
                         }
                     }
                     MoveDir::Up => {
@@ -773,7 +774,7 @@ impl State {
                 if !new_visibility {
                     *self.command_prompt_text.borrow_mut() = "".to_string();
                     self.command_prompt.suggestions = vec![];
-                    self.command_prompt.expanded = "".to_string();
+                    self.command_prompt.selected = self.command_prompt.previous_commands.len();
                 }
                 self.command_prompt.visible = new_visibility;
             }
@@ -855,15 +856,27 @@ impl State {
             }
             Message::CommandPromptClear => {
                 *self.command_prompt_text.borrow_mut() = "".to_string();
-                self.command_prompt.expanded = "".to_string();
                 self.command_prompt.suggestions = vec![];
+                // self.command_prompt.selected = self.command_prompt.previous_commands.len();
+                self.command_prompt.selected = if self.command_prompt_text.borrow().is_empty() {
+                    self.command_prompt.previous_commands.len().clamp(0, 3)
+                } else {
+                    0
+                };
             }
-            Message::CommandPromptUpdate {
-                expanded,
-                suggestions,
-            } => {
-                self.command_prompt.expanded = expanded;
+            Message::CommandPromptUpdate { suggestions } => {
                 self.command_prompt.suggestions = suggestions;
+                self.command_prompt.selected = if self.command_prompt_text.borrow().is_empty() {
+                    self.command_prompt.previous_commands.len().clamp(0, 3)
+                } else {
+                    0
+                };
+            }
+            Message::CommandPromptPushPrevious(cmd) => {
+                let len = cmd.len();
+                self.command_prompt
+                    .previous_commands
+                    .insert(0, (cmd, vec![false; len]));
             }
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);
@@ -891,6 +904,15 @@ impl State {
                     ctx.set_pixels_per_point(scale)
                 }
                 self.ui_scale = scale
+            }
+            Message::SelectPrevCommand => {
+                self.command_prompt.selected = self.command_prompt.selected.saturating_sub(1);
+            }
+            Message::SelectNextCommand => {
+                self.command_prompt.selected = std::cmp::min(
+                    self.command_prompt.selected + 1,
+                    self.command_prompt.suggestions.len().saturating_sub(1),
+                );
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
