@@ -59,6 +59,12 @@ You can download a pre-built Windows binary
 
 Note that sometimes Windows Defender has been known to report Surfer [and other rust projects](https://github.com/cargo-bins/cargo-binstall/issues/945) as a trojan. If in doubt, please use [Virus total](https://www.virustotal.com/) to check.
 
+## Development information
+
+Contributions to Surfer is very welcome! There is a
+[list of issues](https://gitlab.com/surfer-project/surfer/-/issues) and some basic
+[development information](https://gitlab.com/surfer-project/surfer/-/wikis/home).
+
 ## Project Status
 
 Surfer is still in early development, but it is in a usable state. In fact, if
