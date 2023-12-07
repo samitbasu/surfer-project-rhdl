@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use color_eyre::{eyre::anyhow, Result};
-use fastwave_backend::{ScopeIdx, Signal, SignalIdx, SignalValue, VCD};
+use fastwave_backend::{ScopeIdx, Signal, SignalIdx, VCD};
 use log::warn;
 use num::BigUint;
 

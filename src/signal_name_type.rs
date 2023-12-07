@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use serde::Deserialize;
 
-use crate::{displayed_item::DisplayedItem, wave_data::WaveData};
+use crate::{displayed_item::DisplayedItem, wave_container::SignalRef, wave_data::WaveData};
 
 #[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
 pub enum SignalNameType {
@@ -47,7 +47,7 @@ impl WaveData {
                 DisplayedItem::Signal(signal_ref) => Some(signal_ref),
                 _ => None,
             })
-            .map(|sig| sig.signal_ref.full_path_string())
+            .map(|sig| sig.signal_ref.clone())
             .unique()
             .collect_vec();
 
@@ -62,45 +62,37 @@ impl WaveData {
                             /// This function takes a full signal name and a list of other
                             /// full signal names and returns a minimal unique signal name.
                             /// It takes scopes from the back of the signal until the name is unique.
-                            // FIXME: Rewrite this to take SignalRef which already has done the
-                            // `.` splitting
-                            fn unique(signal: String, signals: &[String]) -> String {
-                                // if the full signal name is very short just return it
-                                if signal.len() < 20 {
-                                    return signal;
-                                }
-
-                                let split_this =
-                                    signal.split('.').map(|p| p.to_string()).collect_vec();
-                                let split_signals = signals
+                            fn unique(signal: &SignalRef, signals: &[SignalRef]) -> String {
+                                let other_signals = signals
                                     .iter()
-                                    .filter(|&s| *s != signal)
-                                    .map(|s| s.split('.').map(|p| p.to_string()).collect_vec())
+                                    .filter(|&s| *s.full_path_string() != signal.full_path_string())
                                     .collect_vec();
 
-                                fn take_front(s: &Vec<String>, l: usize) -> String {
+                                fn take_front(s: &SignalRef, l: usize) -> String {
                                     if l == 0 {
-                                        s.last().unwrap().clone()
-                                    } else if l < s.len() - 1 {
-                                        format!("...{}", s.iter().rev().take(l + 1).rev().join("."))
+                                        s.name.clone()
                                     } else {
-                                        s.join(".")
+                                        format!(
+                                            "{}{}.{}",
+                                            if l < s.path.0.len() { "…" } else { "" },
+                                            s.path.0.iter().rev().take(l).rev().join("."),
+                                            s.name
+                                        )
                                     }
                                 }
 
                                 let mut l = 0;
-                                while split_signals
+                                while other_signals
                                     .iter()
                                     .map(|s| take_front(s, l))
-                                    .contains(&take_front(&split_this, l))
+                                    .contains(&take_front(&signal, l))
                                 {
                                     l += 1;
                                 }
-                                take_front(&split_this, l)
+                                take_front(&signal, l)
                             }
 
-                            let full_name = signal.signal_ref.full_path_string();
-                            unique(full_name, &full_names)
+                            unique(&signal.signal_ref, &full_names)
                         }
                     };
                 }
