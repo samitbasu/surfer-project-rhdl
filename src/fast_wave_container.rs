@@ -5,7 +5,7 @@ use fastwave_backend::{ScopeIdx, Signal, SignalIdx, VCD};
 use log::warn;
 use num::BigUint;
 
-use crate::wave_container::{ModuleRef, QueryResult, SignalRef};
+use crate::wave_container::{ModuleRef, QueryResult, SignalRef, SignalValue};
 
 #[derive(Debug)]
 pub struct FastWaveContainer {
@@ -82,7 +82,7 @@ impl FastWaveContainer {
             .query_val_on_tmln(time, &self.inner)
         {
             Ok(val) => Ok(QueryResult {
-                current: val.current,
+                current: val.current.map(|c| (c.0, SignalValue::from(c.1))),
                 next: val.next,
             }),
             Err(other) => Err(anyhow!("Fast wave error {other:?}")),

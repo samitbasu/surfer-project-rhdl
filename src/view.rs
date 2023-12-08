@@ -578,7 +578,7 @@ impl State {
             let tooltip = if let Some(waves) = &self.waves {
                 if field.field.is_empty() {
                     format!(
-                        "{}\nNum bits: {}",
+                        "{}\nNum bits: {}\nType: {}",
                         field.root.full_path_string(),
                         waves
                             .inner
@@ -586,6 +586,13 @@ impl State {
                             .ok()
                             .and_then(|meta| meta.num_bits)
                             .map(|num_bits| format!("{num_bits}"))
+                            .unwrap_or("unknown".to_string()),
+                        waves
+                            .inner
+                            .signal_meta(&field.root)
+                            .ok()
+                            .and_then(|meta| meta.signal_type)
+                            .map(|signal_type| format!("{signal_type}"))
                             .unwrap_or("unknown".to_string())
                     )
                 } else {
