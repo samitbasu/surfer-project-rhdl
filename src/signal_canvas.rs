@@ -480,7 +480,7 @@ impl State {
             response.rect.size(),
             gap,
             &self.config,
-            self.wanted_timescale,
+            self.wanted_timeunit,
         );
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
