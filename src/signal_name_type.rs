@@ -85,11 +85,11 @@ impl WaveData {
                                 while other_signals
                                     .iter()
                                     .map(|s| take_front(s, l))
-                                    .contains(&take_front(&signal, l))
+                                    .contains(&take_front(signal, l))
                                 {
                                     l += 1;
                                 }
-                                take_front(&signal, l)
+                                take_front(signal, l)
                             }
 
                             unique(&signal.signal_ref, &full_names)
