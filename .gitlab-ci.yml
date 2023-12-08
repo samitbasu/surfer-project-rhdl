@@ -155,11 +155,10 @@ windows_build:
 pages_build:
     stage: test
     cache:
-        key: test
+        key: pages_build
         paths:
             - target
             - $CARGO_HOME
-        policy: pull
     before_script:
     script:
         - rustup target add wasm32-unknown-unknown
