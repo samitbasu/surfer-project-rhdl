@@ -67,7 +67,7 @@ impl Timing {
                 self.active_region.join(".")
             )
         }
-        for (_, reg) in &mut self.regions {
+        for reg in self.regions.values_mut() {
             reg.start = None;
             reg.end = None;
         }
@@ -271,7 +271,7 @@ pub fn draw_timing_region(plot_ui: &mut PlotUi, region: &Vec<String>, timing: &T
     plot_ui.line(Line::new(PlotPoints::from_ys_f32(&times_f32)).name(format!(
         "{}",
         if region.is_empty() {
-            format!("total")
+            "total".to_string()
         } else {
             region.join(".")
         }
