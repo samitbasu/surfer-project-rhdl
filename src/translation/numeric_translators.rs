@@ -1,5 +1,4 @@
 use color_eyre::Result;
-use fastwave_backend::SignalValue;
 use half::{bf16, f16};
 use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
@@ -9,7 +8,7 @@ use crate::wave_container::SignalMeta;
 
 use super::{
     check_single_wordlength, map_vector_signal, translates_all_bit_types, BasicTranslator,
-    NumberParseResult, TranslationPreference, ValueKind,
+    NumberParseResult, SignalValue, TranslationPreference, ValueKind,
 };
 
 #[inline]
