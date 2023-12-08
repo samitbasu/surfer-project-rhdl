@@ -238,10 +238,8 @@ impl WaveData {
                             // if the end of list is selected
                             self.focused_item = Some(idx - 1);
                         }
-                    } else {
-                        if idx < focused {
-                            self.focused_item = Some(focused - 1)
-                        }
+                    } else if idx < focused {
+                        self.focused_item = Some(focused - 1)
                     }
                     if self.displayed_items.is_empty() {
                         self.focused_item = None;

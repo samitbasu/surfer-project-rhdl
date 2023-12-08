@@ -537,7 +537,7 @@ impl State {
                     MoveDir::Down => {
                         if waves.scroll + count < waves.displayed_items.len() {
                             waves.scroll += count;
-                        } else if waves.displayed_items.len() > 0 {
+                        } else if !waves.displayed_items.is_empty() {
                             waves.scroll = waves.displayed_items.len() - 1;
                         }
                     }
@@ -875,7 +875,7 @@ impl State {
             Message::SetQuickStartVisible(s) => self.show_quick_start = s,
             Message::SetRenameItemVisible(_) => self.rename_target = None,
             Message::SetPerformanceVisible(s) => {
-                if s == false {
+                if !s {
                     self.continuous_redraw = false
                 }
                 self.show_performance = s
@@ -971,15 +971,15 @@ impl State {
             .map(|(no, line)| (no + 1, line))
             .map(|(no, line)| (no, line.trim().to_string()))
             // NOTE: Safe unwrap. Split will always return one element
-            .map(|(no, line)| (no, line.split("#").next().unwrap().to_string()))
+            .map(|(no, line)| (no, line.split('#').next().unwrap().to_string()))
             .filter(|(_no, line)| !line.is_empty())
             .flat_map(|(no, line)| {
-                line.split(";")
+                line.split(';')
                     .map(|cmd| (no, cmd.to_string()))
                     .collect::<Vec<_>>()
             })
             .map(|(no, command)| {
-                parse_command(&command, get_parser(&self))
+                parse_command(&command, get_parser(self))
                     .map_err(|e| {
                         error!("Error on startup commands line {no}: {e:#?}");
                         e

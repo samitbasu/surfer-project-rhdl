@@ -211,9 +211,13 @@ impl TranslationResult {
             ValueRepr::Bit(val) => {
                 let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
 
-                let subtranslator = translators.basic.get(subtranslator_name).expect(&format!(
-                    "Did not find a translator named {subtranslator_name}"
-                ));
+                let subtranslator =
+                    translators
+                        .basic
+                        .get(subtranslator_name)
+                        .unwrap_or_else(|| {
+                            panic!("Did not find a translator named {subtranslator_name}")
+                        });
 
                 let result = subtranslator
                     .as_ref()
@@ -224,9 +228,13 @@ impl TranslationResult {
             ValueRepr::Bits(bit_count, bits) => {
                 let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
 
-                let subtranslator = translators.basic.get(subtranslator_name).expect(&format!(
-                    "Did not find a translator named {subtranslator_name}"
-                ));
+                let subtranslator =
+                    translators
+                        .basic
+                        .get(subtranslator_name)
+                        .unwrap_or_else(|| {
+                            panic!("Did not find a translator named {subtranslator_name}")
+                        });
 
                 let result = subtranslator
                     .as_ref()

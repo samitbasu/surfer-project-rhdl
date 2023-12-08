@@ -260,7 +260,7 @@ impl State {
         draw_bg: bool,
     ) {
         // Compute sizes and coordinates
-        let tan225 = 0.41421356237;
+        let tan225 = 0.41421357;
         let rect = response.rect;
         let halfwidth = rect.width() / 2.0;
         let halfheight = rect.height() / 2.0;
@@ -396,7 +396,7 @@ impl State {
 }
 
 fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind> {
-    let tan225 = 0.41421356237;
+    let tan225 = 0.41421357;
     let delta = end_location - start_location;
 
     if delta.x < 0.0 {

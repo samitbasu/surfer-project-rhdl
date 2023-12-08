@@ -89,7 +89,7 @@ fn signal_draw_commands(
             root: displayed_signal.signal_ref.clone(),
             field: vec![],
         },
-        &translators,
+        translators,
     );
     // we need to get the signal info here to get the correct info for aliases
     let info = translator.signal_info(&meta).unwrap();
@@ -106,7 +106,7 @@ fn signal_draw_commands(
     let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
 
     // Iterate over all the time stamps to draw on
-    let mut next_change = timestamps.get(0).map(|t| t.0.clone()).unwrap_or_default();
+    let mut next_change = timestamps.get(0).map(|t| t.0).unwrap_or_default();
     for ((_, prev_time), (pixel, time)) in timestamps.iter().zip(timestamps.iter().skip(1)) {
         let is_last_timestep = pixel == &end_pixel;
         let is_first_timestep = pixel == &start_pixel;
@@ -123,10 +123,10 @@ fn signal_draw_commands(
             }) => waves.viewport.from_time(&timestamp.to_bigint(), view_width) as f32,
             // If we don't have a next timestamp, we don't need to recheck until the last time
             // step
-            Ok(_) => timestamps.last().map(|t| t.0.clone()).unwrap_or_default(),
+            Ok(_) => timestamps.last().map(|t| t.0).unwrap_or_default(),
             // If we get an error here, we'll let the next match block handle it, but we'll take
             // note that we need to recheck every pixel until the end
-            _ => timestamps.first().map(|t| t.0.clone()).unwrap_or_default(),
+            _ => timestamps.first().map(|t| t.0).unwrap_or_default(),
         };
 
         let (change_time, val) = match waves.inner.query_signal(&displayed_signal.signal_ref, time)
@@ -172,7 +172,7 @@ fn signal_draw_commands(
                     field: vec![],
                 },
                 &waves.signal_format,
-                &translators,
+                translators,
             )
             .as_fields();
 
@@ -273,7 +273,7 @@ impl State {
                         displayed_signal,
                         &timestamps,
                         waves,
-                        &translators,
+                        translators,
                         frame_width as f64,
                     )
                 })
