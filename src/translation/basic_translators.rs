@@ -1,8 +1,7 @@
 use super::{check_single_wordlength, BasicTranslator, TranslationPreference, ValueKind};
-use crate::wave_container::SignalMeta;
+use crate::wave_container::{SignalMeta, SignalValue};
 
 use color_eyre::Result;
-use fastwave_backend::SignalValue;
 use itertools::Itertools;
 use num::Zero;
 
