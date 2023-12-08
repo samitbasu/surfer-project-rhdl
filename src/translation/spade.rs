@@ -2,7 +2,6 @@ use std::{collections::HashMap, sync::mpsc::Sender};
 
 use camino::{Utf8Path, Utf8PathBuf};
 use eframe::epaint::Color32;
-use fastwave_backend::SignalValue;
 use num::ToPrimitive;
 use serde::Deserialize;
 use spade::compiler_state::CompilerState;
@@ -21,7 +20,8 @@ use spade_types::{ConcreteType, PrimitiveType};
 use crate::{message::Message, wasm_util::perform_work, wave_container::SignalMeta};
 
 use super::{
-    SignalInfo, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
+    SignalInfo, SignalValue, TranslationPreference, TranslationResult, Translator, ValueKind,
+    ValueRepr,
 };
 
 pub struct SpadeTranslator {

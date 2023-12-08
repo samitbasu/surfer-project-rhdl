@@ -14,6 +14,7 @@ mod mousegestures;
 mod signal_canvas;
 mod signal_filter;
 mod signal_name_type;
+mod signal_type;
 #[cfg(test)]
 mod tests;
 mod time;
