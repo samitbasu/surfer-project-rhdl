@@ -2,7 +2,6 @@ use std::{collections::HashMap, sync::mpsc::Sender};
 
 use color_eyre::Result;
 use eframe::epaint::Color32;
-use fastwave_backend::{SignalType, SignalValue};
 
 mod basic_translators;
 pub mod clock;
@@ -16,7 +15,8 @@ pub use numeric_translators::*;
 
 use crate::{
     message::Message,
-    wave_container::{FieldRef, SignalMeta},
+    signal_type::SignalType,
+    wave_container::{FieldRef, SignalMeta, SignalValue},
 };
 
 pub fn all_translators() -> TranslatorList {
@@ -361,9 +361,9 @@ pub enum TranslationPreference {
 }
 
 pub fn translates_all_bit_types(signal: &SignalMeta) -> Result<TranslationPreference> {
-    if signal.signal_type == Some(SignalType::Str)
+    if signal.signal_type == Some(SignalType::String)
         || signal.signal_type == Some(SignalType::Real)
-        || signal.signal_type == Some(SignalType::RealTime)
+        || signal.signal_type == Some(SignalType::VCDRealTime)
     {
         Ok(TranslationPreference::No)
     } else {
@@ -448,9 +448,9 @@ impl Translator for StringTranslator {
     }
 
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        if signal.signal_type == Some(SignalType::Str)
+        if signal.signal_type == Some(SignalType::String)
             || signal.signal_type == Some(SignalType::Real)
-            || signal.signal_type == Some(SignalType::RealTime)
+            || signal.signal_type == Some(SignalType::VCDRealTime)
         {
             Ok(TranslationPreference::Prefer)
         } else {
