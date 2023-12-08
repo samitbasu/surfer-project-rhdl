@@ -1,15 +1,30 @@
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::Context, Result};
-use fastwave_backend::{SignalValue, VCD};
 use num::BigUint;
 
 use crate::{
     fast_wave_container::FastWaveContainer,
+    signal_type::SignalType,
     time::{TimeScale, TimeUnit},
 };
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct ModuleRef(pub Vec<String>);
+
+#[derive(Debug, PartialEq)]
+pub enum SignalValue {
+    BigUint(BigUint),
+    String(String),
+}
+
+impl From<fastwave_backend::SignalValue> for SignalValue {
+    fn from(val: fastwave_backend::SignalValue) -> Self {
+        match val {
+            fastwave_backend::SignalValue::BigUint(v) => SignalValue::BigUint(v),
+            fastwave_backend::SignalValue::String(s) => SignalValue::String(s),
+        }
+    }
+}
 
 pub struct MetaData {
     pub date: Option<DateTime<Utc>>,
@@ -140,7 +155,7 @@ pub enum WaveContainer {
 }
 
 impl WaveContainer {
-    pub fn new_vcd(vcd: VCD) -> Self {
+    pub fn new_vcd(vcd: fastwave_backend::VCD) -> Self {
         WaveContainer::Fwb(FastWaveContainer::new(vcd))
     }
 
@@ -164,7 +179,10 @@ impl WaveContainer {
                     .map(|signal| SignalMeta {
                         sig: r,
                         num_bits: signal.num_bits(),
-                        signal_type: signal.signal_type().cloned(),
+                        signal_type: signal
+                            .signal_type()
+                            .cloned()
+                            .map(|signaltype| SignalType::from(signaltype)),
                     })
             }
         }
@@ -236,5 +254,5 @@ pub struct SignalMeta<'a> {
     pub sig: &'a SignalRef,
     pub num_bits: Option<u32>,
     // FIXME: Replace with our own abstracted version
-    pub signal_type: Option<fastwave_backend::SignalType>,
+    pub signal_type: Option<SignalType>,
 }
