@@ -630,6 +630,11 @@ impl State {
                         msgs.push(Message::FocusItem(vidx));
                     }
                 }
+
+                if signal_label.double_clicked() {
+                    msgs.push(Message::ToggleExpandSignalBits(Some(vidx)))
+                }
+
                 signal_label
             })
         };

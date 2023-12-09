@@ -904,6 +904,18 @@ impl State {
                     }
                 }
             }
+            Message::ToggleExpandSignalBits(vidx) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    if let Some(idx) = vidx.or(waves.focused_item) {
+                        if let Some(DisplayedItem::Signal(signal)) =
+                            &mut waves.displayed_items.get_mut(idx)
+                        {
+                            signal.expanded = !signal.expanded;
+                            self.invalidate_draw_commands();
+                        }
+                    }
+                }
+            }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
     }

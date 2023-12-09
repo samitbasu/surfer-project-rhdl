@@ -43,6 +43,7 @@ pub enum Message {
     ForceSignalNameTypes(SignalNameType),
     SetClockHighlightType(ClockHighlightType),
     SetExpandSignalBits(Option<usize>, bool),
+    ToggleExpandSignalBits(Option<usize>),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
     ResetSignalFormat(FieldRef),
