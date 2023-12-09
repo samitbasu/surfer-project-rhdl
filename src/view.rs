@@ -596,6 +596,9 @@ impl State {
                     DisplayedItem::Cursor(_) => {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
+                    DisplayedItem::Placeholder(_) => {
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                    }
                     DisplayedItem::TimeLine(_) => {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
@@ -789,7 +792,8 @@ impl State {
                     offset: label.inner.rect.top(),
                 }))
             }
-            DisplayedItem::Signal(_) => {}
+            &DisplayedItem::Signal(_) => {}
+            &DisplayedItem::Placeholder(_) => {}
         }
     }
 

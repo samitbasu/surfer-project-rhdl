@@ -50,14 +50,39 @@ impl WaveData {
             .active_module
             .take()
             .filter(|m| new_waves.module_exists(m));
-        let display_items = self
-            .displayed_items
+        let mut current_items = self.displayed_items.clone();
+        let display_items = current_items
             .drain(..)
-            .filter(|i| match i {
-                DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
-                DisplayedItem::Divider(_) => true,
-                DisplayedItem::Cursor(_) => true,
-                DisplayedItem::TimeLine(_) => true,
+            .map(|i| match i {
+                DisplayedItem::Divider(_)
+                | DisplayedItem::Cursor(_)
+                | DisplayedItem::TimeLine(_) => i,
+                DisplayedItem::Signal(s) => {
+                    if new_waves.signal_exists(&s.signal_ref) {
+                        DisplayedItem::Signal(s)
+                    } else {
+                        DisplayedItem::Placeholder(s.to_placeholder())
+                    }
+                }
+                DisplayedItem::Placeholder(p) => {
+                    if new_waves.signal_exists(&p.signal_ref) {
+                        let Ok(meta) = new_waves
+                            .signal_meta(&p.signal_ref)
+                            .context("When updating")
+                            .map_err(|e| error!("{e:#?}"))
+                        else {
+                            return DisplayedItem::Placeholder(p);
+                        };
+                        let translator = self.signal_translator(
+                            &FieldRef::without_fields(p.signal_ref.clone()),
+                            translators,
+                        );
+                        let info = translator.signal_info(&meta).unwrap();
+                        DisplayedItem::Signal(p.to_signal(info))
+                    } else {
+                        DisplayedItem::Placeholder(p)
+                    }
+                }
             })
             .collect::<Vec<_>>();
         let mut nested_format = self

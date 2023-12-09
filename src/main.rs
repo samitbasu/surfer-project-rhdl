@@ -784,6 +784,7 @@ impl State {
                                 DisplayedItem::Cursor(_) => {}
                                 DisplayedItem::Divider(_) => {}
                                 DisplayedItem::TimeLine(_) => {}
+                                DisplayedItem::Placeholder(_) => {}
                             }
                         }
                     }
