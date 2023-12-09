@@ -209,6 +209,7 @@ impl WaveData {
             signal_ref: sig.clone(),
             info,
             color: None,
+            expanded: false,
             background_color: None,
             display_name: sig.name.clone(),
             display_name_type: self.default_signal_name_type,

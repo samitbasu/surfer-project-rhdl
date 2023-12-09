@@ -49,7 +49,6 @@ pub fn all_translators() -> TranslatorList {
         vec![
             Box::new(clock::ClockTranslator::new()),
             Box::new(StringTranslator {}),
-            Box::new(BitExpandTranslator {}),
         ],
     )
 }
@@ -457,81 +456,6 @@ impl Translator for StringTranslator {
         } else {
             Ok(TranslationPreference::No)
         }
-    }
-}
-
-pub struct BitExpandTranslator {}
-
-impl Translator for BitExpandTranslator {
-    fn name(&self) -> String {
-        "Expand Bits".to_string()
-    }
-
-    fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult> {
-        match value {
-            SignalValue::BigUint(s) => Ok(TranslationResult {
-                val: ValueRepr::NotPresent,
-                color: ValueKind::Normal,
-                subfields: vec![(
-                    format!(
-                        "{}[{}:0]",
-                        signal.sig.name,
-                        signal.num_bits.unwrap_or(0).saturating_sub(1)
-                    ),
-                    TranslationResult {
-                        val: ValueRepr::Bits(
-                            signal.num_bits.unwrap_or(0) as u64,
-                            format!(
-                                "{s:0width$b}",
-                                width = signal.num_bits.unwrap_or(0) as usize
-                            ),
-                        ),
-                        color: ValueKind::Normal,
-                        subfields: vec![],
-                        durations: HashMap::new(),
-                    },
-                )]
-                .into_iter()
-                .chain((0..signal.num_bits.unwrap_or(0)).rev().map(|i| {
-                    (
-                        format!("{}[{}]", signal.sig.name, i),
-                        TranslationResult {
-                            val: ValueRepr::Bit(if s.bit(i as u64) { '1' } else { '0' }),
-                            color: ValueKind::Normal,
-                            subfields: vec![],
-                            durations: HashMap::new(),
-                        },
-                    )
-                }))
-                .collect_vec(),
-                durations: HashMap::new(),
-            }),
-            _ => panic!(),
-        }
-    }
-
-    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo> {
-        let subfields = vec![(
-            format!(
-                "{}[{}:0]",
-                signal.sig.name,
-                signal.num_bits.unwrap_or(0).saturating_sub(1)
-            ),
-            SignalInfo::String,
-        )]
-        .into_iter()
-        .chain(
-            (0..signal.num_bits.unwrap_or(0))
-                .rev()
-                .map(|i| (format!("{}[{}]", signal.sig.name, i), SignalInfo::Bool))
-                .into_iter(),
-        )
-        .collect_vec();
-        Ok(SignalInfo::Compound { subfields })
-    }
-
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        translates_all_bit_types(signal)
     }
 }
 

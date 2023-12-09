@@ -131,6 +131,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "signal_add",
                 "signal_focus",
                 "signal_set_color",
+                "signal_expand_bits",
                 "zoom_fit",
                 "module_add",
                 "module_select",
@@ -255,6 +256,15 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         Some(Command::Terminal(Message::ItemColorChange(
                             None,
                             Some(word.to_string()),
+                        )))
+                    }),
+                ),
+                "signal_expand_bits" => single_word(
+                    vec!["yes".to_string(), "no".to_string()],
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SetExpandSignalBits(
+                            None,
+                            if word == "yes" { true } else { false },
                         )))
                     }),
                 ),
