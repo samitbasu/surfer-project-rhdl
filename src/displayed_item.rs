@@ -16,6 +16,7 @@ pub struct DisplayedSignal {
     pub signal_ref: SignalRef,
     pub info: SignalInfo,
     pub color: Option<String>,
+    pub expanded: bool,
     pub background_color: Option<String>,
     pub display_name: String,
     pub display_name_type: SignalNameType,
@@ -111,6 +112,19 @@ impl DisplayedItem {
             DisplayedItem::Cursor(cursor) => {
                 cursor.background_color = color_name.clone();
             }
+        }
+    }
+
+    pub fn expanded(&self) -> bool {
+        match self {
+            DisplayedItem::Signal(signal) => signal.expanded,
+            _ => false,
+        }
+    }
+
+    pub fn set_expanded(&mut self, state: bool) {
+        if let DisplayedItem::Signal(signal) = self {
+            signal.expanded = state;
         }
     }
 }

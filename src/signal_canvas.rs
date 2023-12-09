@@ -5,6 +5,7 @@ use color_eyre::eyre::WrapErr;
 use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
+use fastwave_backend::SignalValue;
 use log::{error, warn};
 use num::BigRational;
 use num::ToPrimitive;
@@ -200,6 +201,55 @@ fn signal_draw_commands(
                         }
                         Some(_) => {}
                         None => {}
+                    }
+                }
+
+                let mut draw_sub_bit = |bit_index, value| {
+                    local_commands
+                        .entry(vec![format!("{}", bit_index)])
+                        .or_insert(DrawingCommands::new_bool())
+                        .push((
+                            *pixel,
+                            DrawnRegion {
+                                inner: value,
+                                force_anti_alias: anti_alias && !new_value,
+                            },
+                        ));
+                };
+
+                if let Some(num_bits) = meta.num_bits {
+                    if let SignalValue::BigUint(ref s) = val {
+                        for bit_index in 0..num_bits {
+                            draw_sub_bit(
+                                bit_index,
+                                Some((
+                                    if s.bit(bit_index as u64) { "1" } else { "0" }.to_string(),
+                                    ValueKind::Normal,
+                                )),
+                            );
+                        }
+                    }
+
+                    if let SignalValue::String(ref s) = val {
+                        for bit_index in 0..num_bits {
+                            if let Some(v) = s.chars().nth_back(bit_index as usize) {
+                                draw_sub_bit(
+                                    bit_index,
+                                    Some((
+                                        v.to_string(),
+                                        match v {
+                                            'x' | 'u' | 'w' => ValueKind::Undef,
+                                            'z' => ValueKind::HighImp,
+                                            'h' | 'l' => ValueKind::Weak,
+                                            '-' => ValueKind::DontCare,
+                                            _ => ValueKind::Normal,
+                                        },
+                                    )),
+                                );
+                            } else {
+                                draw_sub_bit(bit_index, Some(('x'.to_string(), ValueKind::Undef)));
+                            }
+                        }
                     }
                 }
 
