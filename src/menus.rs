@@ -245,6 +245,16 @@ impl State {
                         });
                 }
             });
+            ui.menu_button("Expand Bits", |ui| {
+                ui.radio(signal.expanded, "Yes").clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SetExpandSignalBits(Some(vidx), true));
+                });
+                ui.radio(!signal.expanded, "No").clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SetExpandSignalBits(Some(vidx), false));
+                });
+            });
         }
 
         if ui.button("Remove").clicked() {

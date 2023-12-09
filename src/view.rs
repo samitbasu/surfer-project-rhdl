@@ -574,6 +574,16 @@ impl State {
         info: &SignalInfo,
         ui: &mut egui::Ui,
     ) {
+        let num_bits = self
+            .waves
+            .as_ref()
+            .unwrap()
+            .inner
+            .signal_meta(&field.root)
+            .ok()
+            .and_then(|meta| meta.num_bits)
+            .unwrap();
+
         let mut draw_label = |ui: &mut egui::Ui| {
             let tooltip = if let Some(waves) = &self.waves {
                 if field.field.is_empty() {
@@ -620,6 +630,11 @@ impl State {
                         msgs.push(Message::FocusItem(vidx));
                     }
                 }
+
+                if signal_label.double_clicked() {
+                    msgs.push(Message::ToggleExpandSignalBits(Some(vidx)))
+                }
+
                 signal_label
             })
         };
@@ -638,6 +653,30 @@ impl State {
                         new_path.field.push(name.clone());
                         self.draw_signal_var(msgs, vidx, name, new_path, item_offsets, info, ui);
                     }
+
+                    if self
+                        .waves
+                        .as_ref()
+                        .unwrap()
+                        .displayed_items
+                        .get(vidx)
+                        .unwrap()
+                        .expanded()
+                    {
+                        for bit_index in (0..num_bits).rev() {
+                            let mut new_path = field.clone();
+                            new_path.field.push(bit_index.to_string());
+                            self.draw_signal_var(
+                                msgs,
+                                vidx,
+                                &format!("{}[{}]", name, bit_index),
+                                new_path,
+                                item_offsets,
+                                &SignalInfo::Bool,
+                                ui,
+                            );
+                        }
+                    }
                 });
 
                 let offset = response.0.rect.top();
@@ -647,11 +686,51 @@ impl State {
                     offset,
                 }));
             }
-            SignalInfo::Bool
-            | SignalInfo::Bits
-            | SignalInfo::Clock
-            | SignalInfo::String
-            | SignalInfo::Real => {
+            SignalInfo::Bits => {
+                let offset = if self
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .displayed_items
+                    .get(vidx)
+                    .unwrap()
+                    .expanded()
+                {
+                    let response =
+                        egui::collapsing_header::CollapsingState::load_with_default_open(
+                            ui.ctx(),
+                            egui::Id::new(&field),
+                            false,
+                        )
+                        .show_header(ui, draw_label)
+                        .body(|ui| {
+                            for bit_index in (0..num_bits).rev() {
+                                let mut new_path = field.clone();
+                                new_path.field.push(bit_index.to_string());
+                                self.draw_signal_var(
+                                    msgs,
+                                    vidx,
+                                    &format!("{}[{}]", name, bit_index),
+                                    new_path,
+                                    item_offsets,
+                                    &SignalInfo::Bool,
+                                    ui,
+                                );
+                            }
+                        });
+                    response.0.rect.top()
+                } else {
+                    let label = draw_label(ui);
+                    label.inner.rect.top()
+                };
+
+                item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
+                    field_ref: field.clone(),
+                    signal_list_idx: vidx,
+                    offset,
+                }));
+            }
+            SignalInfo::Bool | SignalInfo::Clock | SignalInfo::String | SignalInfo::Real => {
                 let label = draw_label(ui);
                 item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
                     field_ref: field.clone(),
