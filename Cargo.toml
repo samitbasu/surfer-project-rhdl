@@ -52,7 +52,7 @@ web-sys = {version = "0.3.66", features = ["Location", "UrlSearchParams"]}
 
 [features]
 default = []
-f128 = ["dep:f128"]
+f128support = ["f128"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
