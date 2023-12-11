@@ -1,7 +1,6 @@
 use color_eyre::eyre::anyhow;
-use fastwave_backend::SignalValue;
 
-use crate::wave_container::SignalMeta;
+use crate::wave_container::{SignalMeta, SignalValue};
 
 use super::{BasicTranslator, BitTranslator, SignalInfo, Translator};
 
