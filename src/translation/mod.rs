@@ -149,16 +149,18 @@ pub enum ValueRepr {
     NotPresent,
 }
 
+type TranslatedValue = Option<(String, ValueKind)>;
+
 pub struct FlatTranslationResult {
     /// The string representation of the translated result
-    pub this: Option<(String, ValueKind)>,
+    pub this: TranslatedValue,
     /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
     /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<(Vec<String>, Option<(String, ValueKind)>)>,
+    pub fields: Vec<(Vec<String>, TranslatedValue)>,
 }
 
 impl FlatTranslationResult {
-    pub fn as_fields(self) -> Vec<(Vec<String>, Option<(String, ValueKind)>)> {
+    pub fn as_fields(self) -> Vec<(Vec<String>, TranslatedValue)> {
         vec![(vec![], self.this)]
             .into_iter()
             .chain(self.fields)
