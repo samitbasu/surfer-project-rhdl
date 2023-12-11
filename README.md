@@ -1,9 +1,9 @@
+# Surfer
+
 ![Pipeline status](https://gitlab.com/surfer-project/surfer/badges/main/pipeline.svg)
 ![License](https://img.shields.io/gitlab/license/surfer-project%2Fsurfer)
 ![Code coverage](https://gitlab.com/surfer-project/surfer/badges/main/coverage.svg)
 ![Contributors](https://img.shields.io/gitlab/contributors/surfer-project%2Fsurfer)
-
-# Surfer
 
 A VCD viewer with a focus on a snappy usable interface, and extensibility
 
@@ -94,7 +94,7 @@ As an indication of the status of the project, here is an incomplete list of sup
   - [x] VHDL nine-valued std_ulogic support
   - [x] ASCII
   - [x] Floating-point
-    - [x] IEEE 754 binary128 (quad), use feature `f128`, using [f128](https://docs.rs/f128/) (requires gcc)
+    - [x] IEEE 754 binary128 (quad), use feature `f128support`, using [f128](https://docs.rs/f128/) (requires gcc)
     - [x] IEEE 754 binary64 (double)
     - [x] IEEE 754 binary32 (single)
     - [x] IEEE 754 binary16 (half), using [half](https://docs.rs/half/)

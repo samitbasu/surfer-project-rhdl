@@ -1,5 +1,5 @@
 # image: "scorpil/rust:nightly"
-image: rust:1.72-bookworm
+image: rust:latest
 
 variables:
     CARGO_HOME: $CI_PROJECT_DIR/cargo
@@ -49,6 +49,25 @@ test:
         when: on_failure
     rules:
         - when: always
+
+test-nightly:
+    image: "scorpil/rust:nightly"
+    stage: test
+    script:
+        - cargo test --color=always
+    cache:
+        key: test-nightly
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+    allow_failure: true
 
 coverage:
     image: xd009642/tarpaulin
