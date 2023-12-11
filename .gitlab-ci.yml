@@ -50,6 +50,25 @@ test:
     rules:
         - when: always
 
+test-nightly:
+    image: "scorpil/rust:nightly"
+    stage: test
+    script:
+        - cargo test --color=always
+    cache:
+        key: test-nightly
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+    allow_failure: true
+
 coverage:
     image: xd009642/tarpaulin
     stage: test
