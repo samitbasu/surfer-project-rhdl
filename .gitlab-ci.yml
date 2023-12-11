@@ -1,5 +1,5 @@
 # image: "scorpil/rust:nightly"
-image: rust:1.72-bookworm
+image: rust:latest
 
 variables:
     CARGO_HOME: $CI_PROJECT_DIR/cargo
