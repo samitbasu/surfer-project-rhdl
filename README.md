@@ -1,9 +1,9 @@
+# Surfer
+
 ![Pipeline status](https://gitlab.com/surfer-project/surfer/badges/main/pipeline.svg)
 ![License](https://img.shields.io/gitlab/license/surfer-project%2Fsurfer)
 ![Code coverage](https://gitlab.com/surfer-project/surfer/badges/main/coverage.svg)
 ![Contributors](https://img.shields.io/gitlab/contributors/surfer-project%2Fsurfer)
-
-# Surfer
 
 A VCD viewer with a focus on a snappy usable interface, and extensibility
 

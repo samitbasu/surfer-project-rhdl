@@ -1,4 +1,3 @@
-# image: "scorpil/rust:nightly"
 image: rust:latest
 
 variables:
@@ -36,6 +35,8 @@ clippy:
 test:
     stage: test
     script:
+        - rustc -V
+        - cargo -V
         - cargo test --color=always
     cache:
         key: test
@@ -49,6 +50,48 @@ test:
         when: on_failure
     rules:
         - when: always
+
+test-beta:
+    image: "instrumentisto/rust:beta"
+    stage: test
+    script:
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always
+    cache:
+        key: test-beta
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+    allow_failure: true
+
+test-nightly:
+    image: "rustlang/rust:nightly"
+    stage: test
+    script:
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always
+    cache:
+        key: test-nightly
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+    allow_failure: true
 
 coverage:
     image: xd009642/tarpaulin
