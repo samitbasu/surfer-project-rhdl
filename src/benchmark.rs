@@ -71,11 +71,15 @@ impl Timing {
             reg.start = None;
             reg.end = None;
         }
-        self.regions.get_mut(&vec![]).map(|r| r.start());
+        if let Some(r) = self.regions.get_mut(&vec![]) {
+            r.start()
+        }
     }
 
     pub fn end_frame(&mut self) {
-        self.regions.get_mut(&vec![]).map(|r| r.stop());
+        if let Some(r) = self.regions.get_mut(&vec![]) {
+            r.stop()
+        }
 
         if !self.active_region.is_empty() {
             warn!(
@@ -268,12 +272,11 @@ pub fn draw_timing_region(plot_ui: &mut PlotUi, region: &Vec<String>, timing: &T
         .map(|t| t.as_nanos() as f32 / 1_000_000_000.)
         .collect::<Vec<_>>();
 
-    plot_ui.line(Line::new(PlotPoints::from_ys_f32(&times_f32)).name(format!(
-        "{}",
-        if region.is_empty() {
+    plot_ui.line(
+        Line::new(PlotPoints::from_ys_f32(&times_f32)).name(if region.is_empty() {
             "total".to_string()
         } else {
             region.join(".")
-        }
-    )));
+        }),
+    );
 }
