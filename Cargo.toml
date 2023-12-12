@@ -74,8 +74,6 @@ test-log = "0.2.13"
 
 [profile.release]
 opt-level = 3 # fast and small wasm
-# TODO: This should be removed before merging
-debug = true
 
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]
