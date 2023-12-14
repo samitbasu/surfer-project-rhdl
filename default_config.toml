@@ -8,7 +8,7 @@ window_width = 1920
 window_height = 1080
 
 [gesture]
-style = { color="35b635", width=2 }
+style = { color="e9da16", width=2 }
 size = 300
 deadzone = 20
 
@@ -30,7 +30,6 @@ signal_highimp = "c9e124"
 signal_dontcare = "4040ff"
 signal_weak = "808080"
 cursor = { color="b63935", width=2 }
-gesture = { color="35b635", width=2 }
 linewidth = 1.5
 alt_frequency = 3
 

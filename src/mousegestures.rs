@@ -3,6 +3,7 @@ use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{FontId, Pos2, Rect, Stroke, Vec2};
 use num::ToPrimitive;
 
+use crate::config::SurferTheme;
 use crate::time::time_string;
 use crate::view::DrawingContext;
 use crate::{wave_data::WaveData, Message, State};
@@ -68,9 +69,13 @@ impl State {
                             true,
                             ctx,
                         ),
-                        _ => {
-                            self.draw_gesture_line(start_location, current_location, "", false, ctx)
-                        }
+                        _ => self.draw_gesture_line(
+                            start_location,
+                            current_location,
+                            "Cancel",
+                            false,
+                            ctx,
+                        ),
                     }
                 } else {
                     self.draw_gesture_help(response, ctx.painter, Some(start_location), true);
@@ -149,12 +154,11 @@ impl State {
             ],
             stroke,
         );
-        ctx.painter.text(
+        draw_gesture_text(
+            ctx,
             (ctx.to_screen)(end.x, end.y),
-            Align2::LEFT_CENTER,
             text.to_string(),
-            FontId::default(),
-            self.config.theme.foreground,
+            &self.config.theme,
         );
     }
 
@@ -198,9 +202,9 @@ impl State {
         } else {
             (startx, endx)
         };
-        ctx.painter.text(
+        draw_gesture_text(
+            ctx,
             (ctx.to_screen)(current_location.x, current_location.y),
-            Align2::LEFT_CENTER,
             format!(
                 "Zoom in: {} to {}",
                 time_string(
@@ -222,8 +226,7 @@ impl State {
                     &(self.wanted_timeunit)
                 ),
             ),
-            FontId::default(),
-            self.config.theme.foreground,
+            &self.config.theme,
         );
     }
 
@@ -434,4 +437,27 @@ fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind>
             None
         }
     }
+}
+
+fn draw_gesture_text(
+    ctx: &mut DrawingContext,
+    pos: Pos2,
+    text: impl ToString,
+    theme: &SurferTheme,
+) {
+    // Translate away from the mouse cursor so the text isn't hidden by it
+    let pos = pos + Vec2::new(10.0, -10.0);
+
+    let galley = ctx
+        .painter
+        .layout_no_wrap(text.to_string(), FontId::default(), theme.foreground);
+
+    ctx.painter.rect(
+        galley.rect.translate(pos.to_vec2()).expand(3.0),
+        2.0,
+        theme.primary_ui_color.background,
+        Stroke::default(),
+    );
+
+    ctx.painter.galley(pos, galley);
 }
