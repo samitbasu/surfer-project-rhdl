@@ -16,9 +16,9 @@ color-eyre = "0.6.2"
 config = "0.13.4"
 derivative = "2.2.0"
 directories = "5.0"
-eframe = "~0.23"
-egui_extras = "~0.23"
-egui_plot = "~0.23"
+eframe = "0.24.1"
+egui_extras = "0.24.1"
+egui_plot = "0.24.1"
 f128 = {path = "f128", optional=true}
 fastwave_backend = {path = "FastWaveBackend"}
 fern = { version = "0.6.2", features = ["colored"] }
@@ -63,13 +63,14 @@ wasm_thread = {version = "0.2.0", features = ["es_modules"]}
 [dev-dependencies]
 base64 = "0.21.4"
 dssim = "3.2.4"
-egui_skia = {version = "0.4.0", features = ["cpu_fix"]}
+# egui_skia = {version = "0.4.0", features = ["cpu_fix"]}
+egui_skia = {git = "https://github.com/TheZoq2/egui_skia.git", features = ["cpu_fix"]}
+skia-safe = "0.69.0"
 env_logger = "0.10.0"
 image = "0.24.7"
 imgref = "1.9.4"
 project-root = "0.2.2"
 rgb = "0.8.37"
-skia-safe = "0.66.3"
 test-log = "0.2.13"
 
 [profile.release]
