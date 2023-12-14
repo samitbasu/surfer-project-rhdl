@@ -34,6 +34,7 @@ use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use command_prompt::get_parser;
+use config::InputMethod;
 use config::SurferConfig;
 use displayed_item::DisplayedItem;
 #[cfg(not(target_arch = "wasm32"))]
@@ -330,6 +331,8 @@ pub struct State {
     signal_filter_type: SignalFilterType,
     rename_target: Option<usize>,
 
+    input_method_override: Option<InputMethod>,
+
     ui_scale: f32,
 
     // List of unparsed commands to run at startup after the first wave has been loaded
@@ -400,6 +403,7 @@ impl State {
             show_url_entry: false,
             show_quick_start: false,
             rename_target: None,
+            input_method_override: None,
             show_wave_source: true,
             signal_filter_focused: false,
             signal_filter_type: SignalFilterType::Fuzzy,
@@ -586,9 +590,17 @@ impl State {
                     }
                 }
             }
-            Message::CanvasScroll { delta, mouse_ptr_timestamp } => {
+            Message::CanvasScroll {
+                delta,
+                mouse_ptr_timestamp,
+            } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.handle_canvas_scroll(delta, mouse_ptr_timestamp);
+                    waves.handle_canvas_scroll(
+                        delta,
+                        mouse_ptr_timestamp,
+                        self.input_method_override
+                            .unwrap_or(self.config.input_method),
+                    );
                     self.invalidate_draw_commands();
                 }
             }
@@ -892,6 +904,7 @@ impl State {
                 }
                 self.ui_scale = scale
             }
+            Message::SetInputMethod(method) => self.input_method_override = Some(method),
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
     }
@@ -995,5 +1008,10 @@ impl State {
             info!("Applying message {message_string}");
             self.update(message)
         }
+    }
+
+    pub fn current_input_method(&self) -> InputMethod {
+        self.input_method_override
+            .unwrap_or(self.config.input_method)
     }
 }

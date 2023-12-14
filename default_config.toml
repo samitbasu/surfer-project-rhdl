@@ -1,6 +1,8 @@
 default_signal_name_type = "Unique"
 default_clock_highlight_type = "Line"
 
+input_method = "Mouse"
+
 [layout]
 show_hierarchy = true
 show_menu = true

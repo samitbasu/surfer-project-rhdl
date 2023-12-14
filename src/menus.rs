@@ -2,9 +2,10 @@ use color_eyre::eyre::WrapErr;
 use eframe::egui::{self, menu};
 
 use crate::{
-    clock_highlighting::clock_highlight_type_menu, displayed_item::DisplayedItem, message::Message,
-    signal_filter::signal_filter_type_menu, signal_name_type::SignalNameType, time::timescale_menu,
-    translation::TranslationPreference, wave_container::FieldRef, wave_source::OpenMode, State,
+    clock_highlighting::clock_highlight_type_menu, config::InputMethod,
+    displayed_item::DisplayedItem, message::Message, signal_filter::signal_filter_type_menu,
+    signal_name_type::SignalNameType, time::timescale_menu, translation::TranslationPreference,
+    wave_container::FieldRef, wave_source::OpenMode, State,
 };
 
 // Button builder. Short name because we use it a ton
@@ -138,6 +139,16 @@ impl State {
                 }
                 ui.menu_button("Signal filter type", |ui| {
                     signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
+                });
+                ui.menu_button("Input method", |ui| {
+                    for method in [InputMethod::Mouse, InputMethod::Touchpad] {
+                        ui.radio(self.current_input_method() == method, format!("{method}"))
+                            .clicked()
+                            .then(|| {
+                                ui.close_menu();
+                                msgs.push(Message::SetInputMethod(method))
+                            });
+                    }
                 });
                 ui.menu_button("UI Scale", |ui| {
                     for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {

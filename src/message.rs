@@ -10,6 +10,7 @@ use num::BigInt;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
+    config::InputMethod,
     signal_name_type::SignalNameType,
     translation::Translator,
     wave_container::{FieldRef, ModuleRef, SignalRef, WaveContainer},
@@ -97,6 +98,7 @@ pub enum Message {
     SetUiScale(f32),
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),
+    SetInputMethod(InputMethod),
     ToggleFullscreen,
     AddDivider(String),
     SetCursorPosition(u8),

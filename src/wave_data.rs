@@ -6,6 +6,7 @@ use log::{error, warn};
 use num::{BigInt, ToPrimitive};
 
 use crate::{
+    config::InputMethod,
     displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal},
     signal_name_type::SignalNameType,
     translation::{TranslationPreference, Translator, TranslatorList},
@@ -300,17 +301,35 @@ impl WaveData {
         // Canvas relative
         delta: Vec2,
         mouse_ptr_timestamp: Option<f64>,
+        input_method: InputMethod,
     ) {
-        // Scroll 5% of the viewport per scroll event.
-        // One scroll event yields 50
-        let scroll_step = -(self.viewport.curr_right - self.viewport.curr_left) / (50. * 10.);
+        match input_method {
+            InputMethod::Mouse => {
+                // Scroll 5% of the viewport per scroll event.
+                // One scroll event yields 50
+                let scroll_step =
+                    -(self.viewport.curr_right - self.viewport.curr_left) / (50. * 20.);
 
-        let target_left = self.viewport.curr_left + scroll_step * delta.x as f64;
-        let target_right = self.viewport.curr_right + scroll_step * delta.x as f64;
+                let target_left = self.viewport.curr_left + scroll_step * delta.y as f64;
+                let target_right = self.viewport.curr_right + scroll_step * delta.y as f64;
 
-        self.viewport.curr_left = target_left;
-        self.viewport.curr_right = target_right;
+                self.viewport.curr_left = target_left;
+                self.viewport.curr_right = target_right;
+            }
+            InputMethod::Touchpad => {
+                // Scroll 5% of the viewport per scroll event.
+                // One scroll event yields 50
+                let scroll_step =
+                    -(self.viewport.curr_right - self.viewport.curr_left) / (50. * 10.);
 
-        self.handle_canvas_zoom(mouse_ptr_timestamp, 1. + delta.y as f64 / 50.);
+                let target_left = self.viewport.curr_left + scroll_step * delta.x as f64;
+                let target_right = self.viewport.curr_right + scroll_step * delta.x as f64;
+
+                self.viewport.curr_left = target_left;
+                self.viewport.curr_right = target_right;
+
+                self.handle_canvas_zoom(mouse_ptr_timestamp, 1. + delta.y as f64 / 50.);
+            }
+        }
     }
 }

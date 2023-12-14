@@ -332,7 +332,6 @@ impl State {
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
 
         if ui.ui_contains_pointer() {
-
             let pointer_pos = pointer_pos_global.unwrap();
             let scroll_delta = ui.input(|i| i.scroll_delta);
             let mouse_ptr_pos = to_screen.inverse().transform_pos(pointer_pos);
@@ -345,7 +344,7 @@ impl State {
             if scroll_delta != Vec2::ZERO {
                 msgs.push(Message::CanvasScroll {
                     delta: ui.input(|i| i.scroll_delta),
-                    mouse_ptr_timestamp
+                    mouse_ptr_timestamp,
                 })
             }
 

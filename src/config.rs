@@ -13,8 +13,25 @@ use std::path::Path;
 
 use crate::{clock_highlighting::ClockHighlightType, signal_name_type::SignalNameType};
 
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+pub enum InputMethod {
+    Mouse,
+    Touchpad,
+}
+
+impl std::fmt::Display for InputMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InputMethod::Mouse => write!(f, "mouse"),
+            InputMethod::Touchpad => write!(f, "touchpad"),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {
+    /// Can be overridden persistently by the corresponding menu option
+    pub input_method: InputMethod,
     pub layout: SurferLayout,
     pub theme: SurferTheme,
     pub gesture: SurferGesture,
