@@ -1,6 +1,6 @@
 use color_eyre::eyre::Context;
 use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
-use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
+use eframe::egui::{Frame, ScrollArea, Sense, TextStyle, ViewportCommand};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
@@ -101,10 +101,13 @@ impl eframe::App for State {
         if self.continuous_redraw {
             self.invalidate_draw_commands();
         }
-        #[cfg(not(target_arch = "wasm32"))]
-        let window_size = Some(frame.info().window_info.size);
-        #[cfg(target_arch = "wasm32")]
-        let window_size = None;
+
+        let (fullscreen, window_size) = ctx.input(|i| {
+            (
+                i.viewport().fullscreen.unwrap_or_default(),
+                Some(i.screen_rect.size()),
+            )
+        });
 
         self.timing.borrow_mut().start("draw");
         let mut msgs = self.draw(ctx, window_size);
@@ -114,11 +117,11 @@ impl eframe::App for State {
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::Exit = msg {
-                frame.close()
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::ToggleFullscreen = msg {
-                frame.set_fullscreen(!frame.info().window_info.fullscreen)
+                ctx.send_viewport_cmd(ViewportCommand::Fullscreen(!fullscreen));
             }
             self.update(msg);
         }
