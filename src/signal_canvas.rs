@@ -454,6 +454,19 @@ impl State {
                     }
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {
+                        let left = waves
+                            .viewport
+                            .to_time(0. as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        let right = waves
+                            .viewport
+                            .to_time(frame_width as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        dbg!(left, right);
+                    }
                 }
             }
         }
