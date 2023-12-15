@@ -46,7 +46,7 @@ impl DisplayedItem {
             DisplayedItem::Signal(signal) => &signal.color,
             DisplayedItem::Divider(divider) => &divider.color,
             DisplayedItem::Cursor(cursor) => &cursor.color,
-            DisplayedItem::TimeLine(time) => &time.color,
+            DisplayedItem::TimeLine(timeline) => &timeline.color,
         };
         color.clone()
     }
@@ -62,21 +62,19 @@ impl DisplayedItem {
             DisplayedItem::Cursor(cursor) => {
                 cursor.color = color_name.clone();
             }
-            DisplayedItem::TimeLine(time) => {
-                time.color = color_name.clone();
+            DisplayedItem::TimeLine(timeline) => {
+                timeline.color = color_name.clone();
             }
         }
     }
 
     pub fn name(&self) -> String {
-        let time = "Time".to_string();
-        let name = match self {
-            DisplayedItem::Signal(signal) => &signal.display_name,
-            DisplayedItem::Divider(divider) => &divider.name,
-            DisplayedItem::Cursor(cursor) => &cursor.name,
-            DisplayedItem::TimeLine(_) => &time,
-        };
-        name.clone()
+        match self {
+            DisplayedItem::Signal(signal) => signal.display_name.clone(),
+            DisplayedItem::Divider(divider) => divider.name.clone(),
+            DisplayedItem::Cursor(cursor) => cursor.name.clone(),
+            DisplayedItem::TimeLine(_) => "Time".to_string(),
+        }
     }
 
     pub fn display_name(&self) -> String {
@@ -112,7 +110,7 @@ impl DisplayedItem {
             DisplayedItem::Signal(signal) => &signal.background_color,
             DisplayedItem::Divider(divider) => &divider.background_color,
             DisplayedItem::Cursor(cursor) => &cursor.background_color,
-            DisplayedItem::TimeLine(time) => &time.background_color,
+            DisplayedItem::TimeLine(timeline) => &timeline.background_color,
         };
         background_color.clone()
     }
@@ -128,8 +126,8 @@ impl DisplayedItem {
             DisplayedItem::Cursor(cursor) => {
                 cursor.background_color = color_name.clone();
             }
-            DisplayedItem::TimeLine(time) => {
-                time.background_color = color_name.clone();
+            DisplayedItem::TimeLine(timeline) => {
+                timeline.background_color = color_name.clone();
             }
         }
     }

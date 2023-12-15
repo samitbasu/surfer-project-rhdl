@@ -379,6 +379,9 @@ impl State {
             theme: &self.config.theme,
         };
 
+        let text_size = ctx.cfg.text_size;
+        let char_width = text_size * (20. / 31.);
+
         let gap = self.get_item_gap(item_offsets, &ctx);
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
             let default_background_color =
@@ -454,7 +457,28 @@ impl State {
                     }
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
-                    ItemDrawingInfo::TimeLine(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {
+                        let left = waves
+                            .viewport
+                            .to_time(0. as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        let right = waves
+                            .viewport
+                            .to_time(frame_width as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        dbg!(left, right);
+                        let time_width = right - left;
+                        let left = left.max(1e-10);
+                        let rightexp = right.log10().round() as i16;
+                        let leftexp = left.log10().round() as i16;
+                        let timeexp = time_width.log10().round() as i16;
+                        dbg!(leftexp, rightexp, timeexp);
+                        let max_labelwidth = (rightexp.max(leftexp) + 3) as f32 * char_width;
+                        let max_labels = (frame_width / max_labelwidth).floor();
+                        dbg!(max_labels);
+                    }
                 }
             }
         }

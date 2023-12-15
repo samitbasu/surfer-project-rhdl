@@ -157,7 +157,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "signal_unset_color",
                 "preference_set_clock_highlight",
                 "goto_cursor",
-                "timeline_add"
+                "timeline_add",
             ]
         } else {
             vec![
