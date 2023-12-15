@@ -71,10 +71,17 @@ pub struct CursorDrawingInfo {
     pub idx: u8,
 }
 
+#[derive(Debug)]
+pub struct TimeLineDrawingInfo {
+    pub signal_list_idx: usize,
+    pub offset: f32,
+}
+
 pub enum ItemDrawingInfo {
     Signal(SignalDrawingInfo),
     Divider(DividerDrawingInfo),
     Cursor(CursorDrawingInfo),
+    TimeLine(TimeLineDrawingInfo),
 }
 
 impl ItemDrawingInfo {
@@ -83,6 +90,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Signal(drawing_info) => drawing_info.offset,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.offset,
             ItemDrawingInfo::Cursor(drawing_info) => drawing_info.offset,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.offset,
         }
     }
     pub fn signal_list_idx(&self) -> usize {
@@ -90,6 +98,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Signal(drawing_info) => drawing_info.signal_list_idx,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.signal_list_idx,
             ItemDrawingInfo::Cursor(drawing_info) => drawing_info.signal_list_idx,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.signal_list_idx,
         }
     }
 }
@@ -560,6 +569,9 @@ impl State {
                     DisplayedItem::Cursor(_) => {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
+                    DisplayedItem::TimeLine(_) => {
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                    }
                 },
             );
         }
@@ -745,7 +757,13 @@ impl State {
                     idx: cursor.idx,
                 }))
             }
-            &DisplayedItem::Signal(_) => {}
+            DisplayedItem::TimeLine(_) => {
+                item_offsets.push(ItemDrawingInfo::TimeLine(TimeLineDrawingInfo {
+                    signal_list_idx: vidx,
+                    offset: label.inner.rect.top(),
+                }))
+            }
+            DisplayedItem::Signal(_) => {}
         }
     }
 
@@ -866,6 +884,7 @@ impl State {
                             }
                         }
                         ItemDrawingInfo::Divider(_) => {}
+                        ItemDrawingInfo::TimeLine(_) => {}
                         ItemDrawingInfo::Cursor(extra_cursor) => {
                             let delta = time_string(
                                 &(waves

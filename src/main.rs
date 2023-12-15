@@ -456,6 +456,11 @@ impl State {
                     waves.add_divider(name);
                 }
             }
+            Message::AddTimeLine => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.add_timeline();
+                }
+            }
             Message::AddModule(module) => {
                 let Some(waves) = self.waves.as_mut() else {
                     warn!("Adding module without waves loaded");
@@ -662,6 +667,7 @@ impl State {
                                 }
                                 DisplayedItem::Cursor(_) => {}
                                 DisplayedItem::Divider(_) => {}
+                                DisplayedItem::TimeLine(_) => {}
                             }
                         }
                     }
