@@ -18,6 +18,7 @@ pub struct SurferConfig {
     pub layout: SurferLayout,
     pub theme: SurferTheme,
     pub gesture: SurferGesture,
+    pub waves: SurferWaves,
 
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
@@ -34,6 +35,14 @@ pub struct SurferLayout {
     pub window_height: usize,
     /// Initial window width
     pub window_width: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SurferWaves {
+    pub wave_height: f32,
+    pub text_height: f32,
+    pub gap: f32,
+    pub max_transition: i32,
 }
 
 #[derive(Debug, Deserialize)]

@@ -112,7 +112,6 @@ impl WaveData {
         item_offsets: &[ItemDrawingInfo],
         to_screen: RectTransform,
         size: Vec2,
-        gap: f32,
         config: &SurferConfig,
         wanted_timeunit: TimeUnit,
     ) {
@@ -159,6 +158,7 @@ impl WaveData {
                 config.theme.foreground,
             );
             // Background rectangle
+            let gap = ctx.cfg.half_gap;
             let min = (ctx.to_screen)(rect.min.x, y_offset - gap);
             let max = (ctx.to_screen)(rect.max.x, y_offset + ctx.cfg.line_height + gap);
             let min = Pos2::new(rect.min.x - gap, min.y);
