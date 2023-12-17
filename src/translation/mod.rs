@@ -94,7 +94,10 @@ impl TranslatorList {
         if let Some(full) = full.map(|t| t.as_ref()) {
             full
         } else {
-            let basic = self.basic.get(name).unwrap();
+            let basic = self
+                .basic
+                .get(name)
+                .unwrap_or_else(|| panic! {"No translator called {name}"});
             basic
         }
     }
