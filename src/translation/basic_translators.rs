@@ -305,9 +305,9 @@ impl BasicTranslator for ASCIITranslator {
                         .map(|substr| {
                             format!(
                                 "{cval}",
-                                cval = u8::from_str_radix(substr, 2).expect(
-                                    format!("Found non-binary digit {substr} in value").as_str()
-                                ) as char
+                                cval = u8::from_str_radix(substr, 2).unwrap_or_else(|_| panic!(
+                                    "Found non-binary digit {substr} in value"
+                                )) as char
                             )
                         })
                         .join(""),
