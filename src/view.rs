@@ -7,7 +7,6 @@ use egui_extras::{Column, TableBuilder, TableRow};
 use itertools::Itertools;
 use log::{info, warn};
 use num::BigInt;
-use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::config::SurferTheme;
@@ -787,7 +786,9 @@ impl State {
         };
 
         let gap = self.get_item_gap(item_offsets, &ctx);
+        let yzero = to_screen.transform_pos(Pos2::ZERO).y;
         if let Some(cursor) = &waves.cursor {
+            let ucursor = cursor.to_biguint();
             ui.allocate_ui_at_rect(response.rect, |ui| {
                 let text_style = TextStyle::Monospace;
                 ui.style_mut().override_text_style = Some(text_style);
@@ -804,7 +805,7 @@ impl State {
                         ui.add_space(drawing_info.offset() - next_y);
                     }
 
-                    let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+                    let y_offset = drawing_info.offset() - yzero;
 
                     self.draw_background(
                         vidx,
@@ -817,7 +818,7 @@ impl State {
                     );
                     match drawing_info {
                         ItemDrawingInfo::Signal(drawing_info) => {
-                            if cursor < &0.to_bigint() {
+                            if ucursor.as_ref().is_none() {
                                 break;
                             }
 
@@ -828,10 +829,9 @@ impl State {
                             let meta = waves.inner.signal_meta(signal);
                             let translation_result = waves
                                 .inner
-                                .query_signal(signal, &num::BigInt::to_biguint(cursor).unwrap())
+                                .query_signal(signal, ucursor.as_ref().unwrap())
                                 .ok()
-                                .map(|q| q.current)
-                                .flatten()
+                                .and_then(|q| q.current)
                                 .map(|(_time, value)| {
                                     meta.and_then(|meta| translator.translate(&meta, &value))
                                 });
@@ -866,11 +866,11 @@ impl State {
                             }
                         }
                         ItemDrawingInfo::Divider(_) => {}
-                        ItemDrawingInfo::Cursor(extra_cursor) => {
+                        ItemDrawingInfo::Cursor(numbered_cursor) => {
                             let delta = time_string(
                                 &(waves
                                     .cursors
-                                    .get(&extra_cursor.idx)
+                                    .get(&numbered_cursor.idx)
                                     .unwrap_or(&BigInt::from(0))
                                     - cursor),
                                 &waves.inner.metadata().timescale,
@@ -886,7 +886,7 @@ impl State {
             });
         } else {
             for (vidx, drawing_info) in item_offsets.iter().enumerate() {
-                let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+                let y_offset = drawing_info.offset() - yzero;
                 self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
             }
         }
