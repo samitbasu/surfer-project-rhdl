@@ -173,11 +173,12 @@ impl State {
         ui: &mut egui::Ui,
         vidx: usize,
     ) {
+        let Some(waves) = &self.waves else { return };
         if let Some(path) = path {
             self.add_format_menu(path, msgs, ui);
         }
 
-        let displayed_item = &self.waves.as_ref().unwrap().displayed_items[vidx];
+        let displayed_item = &waves.displayed_items[vidx];
         ui.menu_button("Color", |ui| {
             let selected_color = &displayed_item
                 .color()
@@ -228,7 +229,7 @@ impl State {
                 });
         });
 
-        if let DisplayedItem::Signal(signal) = &self.waves.as_ref().unwrap().displayed_items[vidx] {
+        if let DisplayedItem::Signal(signal) = displayed_item {
             ui.menu_button("Name", |ui| {
                 let name_types = vec![
                     SignalNameType::Local,
@@ -263,9 +264,7 @@ impl State {
 
     fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
         // Should not call this unless a signal is selected, and, hence, a VCD is loaded
-        let Some(waves) = self.waves.as_ref() else {
-            return;
-        };
+        let Some(waves) = &self.waves else { return };
 
         let mut available_translators = if path.field.is_empty() {
             self.translators
