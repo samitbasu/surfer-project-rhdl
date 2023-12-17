@@ -157,6 +157,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "signal_unset_color",
                 "preference_set_clock_highlight",
                 "goto_cursor",
+                "timeline_add",
             ]
         } else {
             vec![
@@ -311,6 +312,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     vec![],
                     Box::new(|word| Some(Command::Terminal(Message::AddDivider(word.into())))),
                 ),
+                "timeline_add" => Some(Command::Terminal(Message::AddTimeLine)),
                 "goto_cursor" => single_word(
                     cursors.keys().cloned().collect(),
                     Box::new(move |name| {
