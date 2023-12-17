@@ -6,6 +6,7 @@ use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
+use num::BigInt;
 use num::BigRational;
 use num::ToPrimitive;
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
@@ -14,6 +15,7 @@ use spade_common::num_ext::InfallibleToBigInt;
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
 use crate::displayed_item::DisplayedSignal;
+use crate::time::time_string;
 use crate::translation::{SignalInfo, TranslatorList, ValueKind};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::wave_container::{FieldRef, QueryResult, SignalRef};
@@ -379,6 +381,9 @@ impl State {
             theme: &self.config.theme,
         };
 
+        let text_size = ctx.cfg.text_size;
+        let char_width = text_size * (20. / 31.);
+
         let gap = self.get_item_gap(item_offsets, &ctx);
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
             let default_background_color =
@@ -454,6 +459,81 @@ impl State {
                     }
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {
+                        let left_time = waves
+                            .viewport
+                            .to_time(0. as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        let right_time = waves
+                            .viewport
+                            .to_time(frame_width as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        let time_width = right_time - left_time;
+                        let rightexp = right_time.abs().log10().round() as i16;
+                        let leftexp = left_time.abs().log10().round() as i16;
+                        let max_labelwidth = (rightexp.max(leftexp) + 3) as f32 * char_width;
+                        let max_labels = (frame_width / max_labelwidth).floor();
+                        let scale = 10.0f64.powf((time_width / max_labels as f64).log10().floor());
+
+                        let min_label_time = waves
+                            .viewport
+                            .to_time((max_labelwidth / 2.0) as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        let max_label_time = waves
+                            .viewport
+                            .to_time((frame_width - max_labelwidth / 2.0) as f64, frame_width)
+                            .to_f64()
+                            .unwrap();
+                        let steps = &[1., 2., 2.5, 5., 10.];
+                        let mut ticks: Vec<f64> = [0.].to_vec();
+                        for step in steps {
+                            let scaled_step = scale * step;
+                            let rounded_min_label_time =
+                                (min_label_time / scaled_step).ceil() * scaled_step;
+                            let high = ((max_label_time - rounded_min_label_time) / scaled_step)
+                                .ceil() as f32;
+                            if high <= max_labels {
+                                ticks = (0..high as i16)
+                                    .map(|v| v as f64 * scaled_step + rounded_min_label_time)
+                                    .collect::<Vec<f64>>();
+                                break;
+                            }
+                        }
+                        for tick in ticks {
+                            let bigtick = BigInt::from(tick as i64);
+                            let x = waves.viewport.from_time(&bigtick, frame_width as f64) as f32;
+                            let stroke = Stroke {
+                                color: self.config.theme.foreground,
+                                width: self.config.theme.cursor.width,
+                            };
+                            ctx.painter.line_segment(
+                                [
+                                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, y_offset)),
+                                    to_screen
+                                        .transform_pos(Pos2::new(x as f32 + 0.5, y_offset + 1.0)),
+                                ],
+                                stroke,
+                            );
+
+                            // Time string
+                            let time = time_string(
+                                &bigtick,
+                                &waves.inner.metadata().timescale,
+                                &self.wanted_timeunit,
+                            );
+
+                            ctx.painter.text(
+                                (ctx.to_screen)(x, y_offset),
+                                Align2::CENTER_TOP,
+                                time.clone(),
+                                FontId::proportional(text_size),
+                                self.config.theme.foreground,
+                            );
+                        }
+                    }
                 }
             }
         }
