@@ -2,15 +2,17 @@ use std::fmt;
 
 use eframe::egui;
 use num::{BigInt, BigRational, ToPrimitive};
+use serde::{Deserialize, Serialize};
 
 use crate::Message;
 
+#[derive(Serialize, Deserialize)]
 pub struct TimeScale {
     pub unit: TimeUnit,
     pub multiplier: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TimeUnit {
     FemtoSeconds,
     PicoSeconds,

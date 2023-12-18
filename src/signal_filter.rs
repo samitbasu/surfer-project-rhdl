@@ -5,10 +5,11 @@ use eframe::{
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::Itertools;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
 use crate::{message::Message, wave_container::SignalRef, wave_data::WaveData, State};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum SignalFilterType {
     Fuzzy,
     Regex,

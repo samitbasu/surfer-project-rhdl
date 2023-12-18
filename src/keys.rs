@@ -14,7 +14,7 @@ impl State {
                 } => match (
                     key,
                     pressed,
-                    self.command_prompt.visible,
+                    self.sys.command_prompt.visible,
                     self.signal_filter_focused,
                 ) {
                     (Key::Num0, true, false, false) => {

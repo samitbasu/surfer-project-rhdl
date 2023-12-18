@@ -63,6 +63,7 @@ impl State {
                     .add_closing_menu(msgs, ui);
                 b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
                     .add_closing_menu(msgs, ui);
+                b("Save state...", Message::OpenSaveStateDialog).add_closing_menu(msgs, ui);
                 b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
                 #[cfg(not(target_arch = "wasm32"))]
                 b("Exit", Message::Exit).add_closing_menu(msgs, ui);
@@ -116,7 +117,7 @@ impl State {
                     clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
                 });
                 ui.menu_button("Time unit", |ui| {
-                    timeunit_menu(ui, msgs, &self.wanted_timeunit);
+                    timeunit_menu(ui, msgs, &self.wanted_timescale.unit);
                 });
                 if let Some(waves) = &self.waves {
                     let signal_name_type = waves.default_signal_name_type;
@@ -141,7 +142,7 @@ impl State {
                 });
                 ui.menu_button("UI Scale", |ui| {
                     for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {
-                        ui.radio(self.ui_scale == scale, format!("{} %", scale * 100.))
+                        ui.radio(self.ui_scale == Some(scale), format!("{} %", scale * 100.))
                             .clicked()
                             .then(|| {
                                 ui.close_menu();
@@ -267,11 +268,12 @@ impl State {
         let Some(waves) = &self.waves else { return };
 
         let mut available_translators = if path.field.is_empty() {
-            self.translators
+            self.sys
+                .translators
                 .all_translator_names()
                 .into_iter()
                 .filter(|translator_name| {
-                    let t = self.translators.get_translator(translator_name);
+                    let t = self.sys.translators.get_translator(translator_name);
 
                     if self
                         .blacklisted_translators
@@ -303,7 +305,7 @@ impl State {
                 })
                 .collect()
         } else {
-            self.translators.basic_translator_names()
+            self.sys.translators.basic_translator_names()
         };
 
         available_translators.sort_by(|a, b| human_sort::compare(a, b));
