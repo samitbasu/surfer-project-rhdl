@@ -1,6 +1,7 @@
 use num::{BigInt, BigRational, FromPrimitive, ToPrimitive};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Viewport {
     pub curr_left: f64,
     pub curr_right: f64,

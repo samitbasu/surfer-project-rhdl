@@ -4,6 +4,7 @@ use color_eyre::eyre::WrapErr;
 use eframe::epaint::Vec2;
 use log::{error, warn};
 use num::{BigInt, ToPrimitive};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal},
@@ -14,7 +15,9 @@ use crate::{
     wave_source::WaveSource,
 };
 
+#[derive(Serialize, Deserialize)]
 pub struct WaveData {
+    #[serde(skip, default = "WaveContainer::__new_empty")]
     pub inner: WaveContainer,
     pub source: WaveSource,
     pub active_module: Option<ModuleRef>,
