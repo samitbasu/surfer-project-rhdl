@@ -229,7 +229,12 @@ impl State {
                 plot.show(ui, |plot_ui| {
                     plot_ui.line(
                         Line::new(PlotPoints::from_ys_f32(
-                            &self.sys.rendering_cpu_times.iter().cloned().collect::<Vec<_>>(),
+                            &self
+                                .sys
+                                .rendering_cpu_times
+                                .iter()
+                                .cloned()
+                                .collect::<Vec<_>>(),
                         ))
                         .name("egui CPU draw time"),
                     );

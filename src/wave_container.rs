@@ -244,7 +244,7 @@ impl WaveContainer {
                 version: None,
                 timescale: TimeScale {
                     unit: TimeUnit::None,
-                    multiplier: None
+                    multiplier: None,
                 },
             },
         }

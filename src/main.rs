@@ -83,8 +83,8 @@ use wave_source::WaveSource;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::Path;
 use std::collections::VecDeque;
+use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 
 #[derive(clap::Parser, Default)]
@@ -421,7 +421,7 @@ pub struct State {
     show_keys: bool,
     show_gestures: bool,
     show_quick_start: bool,
-    /// Hide the wave source. For now, this is only used in shapshot tests to avoid problems
+    /// Hide the wave source. For now, this is only used in snapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
     show_performance: bool,
@@ -456,7 +456,10 @@ impl State {
             show_gestures: false,
             show_performance: false,
             show_logs: false,
-            wanted_timescale: TimeScale { unit: TimeUnit::None, multiplier: None },
+            wanted_timescale: TimeScale {
+                unit: TimeUnit::None,
+                multiplier: None,
+            },
             show_url_entry: false,
             show_quick_start: false,
             rename_target: None,

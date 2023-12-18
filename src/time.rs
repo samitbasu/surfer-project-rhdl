@@ -2,10 +2,9 @@ use std::fmt;
 
 use eframe::egui;
 use num::{BigInt, BigRational, ToPrimitive};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::Message;
-
 
 #[derive(Serialize, Deserialize)]
 pub struct TimeScale {
