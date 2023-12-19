@@ -101,6 +101,7 @@ pub enum Message {
     SetContinuousRedraw(bool),
     ToggleFullscreen,
     AddDivider(String),
+    AddTimeLine,
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
     SaveState(PathBuf),

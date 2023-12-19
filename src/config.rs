@@ -18,7 +18,8 @@ pub struct SurferConfig {
     pub layout: SurferLayout,
     pub theme: SurferTheme,
     pub gesture: SurferGesture,
-
+    /// Tick information
+    pub ticks: SurferTicks,
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
     pub default_clock_highlight_type: ClockHighlightType,
@@ -60,6 +61,13 @@ pub struct SurferLineStyle {
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub color: Color32,
     pub width: f32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SurferTicks {
+    /// 0 to 1, where 1 means as many ticks that can fit without overlap
+    pub density: f32,
+    pub style: SurferLineStyle,
 }
 
 #[derive(Debug, Deserialize)]

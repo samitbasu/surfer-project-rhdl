@@ -117,7 +117,7 @@ impl State {
                     clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
                 });
                 ui.menu_button("Time unit", |ui| {
-                    timeunit_menu(ui, msgs, &self.wanted_timescale.unit);
+                    timeunit_menu(ui, msgs, &self.wanted_timeunit);
                 });
                 if let Some(waves) = &self.waves {
                     let signal_name_type = waves.default_signal_name_type;
