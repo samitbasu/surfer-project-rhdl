@@ -486,3 +486,11 @@ snapshot_ui_with_file_and_msgs! {timeline_render, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::AddTimeLine
 ]}
+
+snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(-100)),
+    Message::SetCursorPosition(2),
+    Message::CursorSet(BigInt::from(-200)),
+    Message::GoToCursorPosition(2)
+]}
