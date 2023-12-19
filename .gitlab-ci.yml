@@ -131,7 +131,7 @@ typos-and-todos:
     before_script:
         - apt update
         - apt install -y wget
-        - wget https://github.com/crate-ci/typos/releases/download/v1.16.23/typos-v1.16.23-x86_64-unknown-linux-musl.tar.gz -O typos.tar.gz
+        - wget https://github.com/crate-ci/typos/releases/download/v1.16.25/typos-v1.16.25-x86_64-unknown-linux-musl.tar.gz -O typos.tar.gz
         # Extract only the typos executable to not get a docs folder which the typo checker
         # will find typos in
         - tar xzf typos.tar.gz ./typos

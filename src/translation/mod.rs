@@ -413,6 +413,9 @@ pub trait BasicTranslator: Send + Sync {
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         translates_all_bit_types(signal)
     }
+    fn signal_info(&self, _signal: &SignalMeta) -> Result<SignalInfo> {
+        Ok(SignalInfo::Bits)
+    }
 }
 
 impl Translator for Box<dyn BasicTranslator> {
@@ -432,16 +435,12 @@ impl Translator for Box<dyn BasicTranslator> {
         })
     }
 
-    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo> {
-        if signal.num_bits == Some(1) {
-            Ok(SignalInfo::Bool)
-        } else {
-            Ok(SignalInfo::Bits)
-        }
-    }
-
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         self.as_ref().translates(signal)
+    }
+
+    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo> {
+        self.as_ref().signal_info(signal)
     }
 }
 
