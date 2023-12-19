@@ -16,7 +16,7 @@ use crate::logs::EGUI_LOGGER;
 use crate::signal_filter::filtered_signals;
 use crate::time::{time_string, timeunit_menu};
 use crate::util::uint_idx_to_alpha_idx;
-use crate::wave_container::{FieldRef, ModuleRef};
+use crate::wave_container::{FieldRef, ModuleRef, SignalRef};
 use crate::wave_source::draw_progress_panel;
 use crate::{
     command_prompt::show_command_prompt, translation::SignalInfo, wave_data::WaveData, Message,
@@ -538,6 +538,7 @@ impl State {
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
                     ui.add(egui::SelectableLabel::new(false, sig.name.clone()))
+                        .on_hover_text(signal_tooltip_text(wave, &sig))
                         .clicked()
                         .then(|| msgs.push(Message::AddSignal(sig.clone())));
                 },
@@ -603,24 +604,7 @@ impl State {
         let mut draw_label = |ui: &mut egui::Ui| {
             let tooltip = if let Some(waves) = &self.waves {
                 if field.field.is_empty() {
-                    format!(
-                        "{}\nNum bits: {}\nType: {}",
-                        field.root.full_path_string(),
-                        waves
-                            .inner
-                            .signal_meta(&field.root)
-                            .ok()
-                            .and_then(|meta| meta.num_bits)
-                            .map(|num_bits| format!("{num_bits}"))
-                            .unwrap_or("unknown".to_string()),
-                        waves
-                            .inner
-                            .signal_meta(&field.root)
-                            .ok()
-                            .and_then(|meta| meta.signal_type)
-                            .map(|signal_type| format!("{signal_type}"))
-                            .unwrap_or("unknown".to_string())
-                    )
+                    signal_tooltip_text(waves, &field.root)
                 } else {
                     "From translator".to_string()
                 }
@@ -1031,4 +1015,23 @@ impl State {
             msgs.push(Message::SetLogsVisible(false))
         }
     }
+}
+
+fn signal_tooltip_text(wave: &WaveData, sig: &SignalRef) -> String {
+    format!(
+        "{}\nNum bits: {}\nType: {}",
+        sig.full_path_string(),
+        wave.inner
+            .signal_meta(sig)
+            .ok()
+            .and_then(|meta| meta.num_bits)
+            .map(|num_bits| format!("{num_bits}"))
+            .unwrap_or("unknown".to_string()),
+        wave.inner
+            .signal_meta(sig)
+            .ok()
+            .and_then(|meta| meta.signal_type)
+            .map(|signal_type| format!("{signal_type}"))
+            .unwrap_or("unknown".to_string())
+    )
 }
