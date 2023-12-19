@@ -70,10 +70,17 @@ pub struct CursorDrawingInfo {
     pub idx: u8,
 }
 
+#[derive(Debug)]
+pub struct TimeLineDrawingInfo {
+    pub signal_list_idx: usize,
+    pub offset: f32,
+}
+
 pub enum ItemDrawingInfo {
     Signal(SignalDrawingInfo),
     Divider(DividerDrawingInfo),
     Cursor(CursorDrawingInfo),
+    TimeLine(TimeLineDrawingInfo),
 }
 
 impl ItemDrawingInfo {
@@ -82,6 +89,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Signal(drawing_info) => drawing_info.offset,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.offset,
             ItemDrawingInfo::Cursor(drawing_info) => drawing_info.offset,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.offset,
         }
     }
     pub fn signal_list_idx(&self) -> usize {
@@ -89,6 +97,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Signal(drawing_info) => drawing_info.signal_list_idx,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.signal_list_idx,
             ItemDrawingInfo::Cursor(drawing_info) => drawing_info.signal_list_idx,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.signal_list_idx,
         }
     }
 }
@@ -248,10 +257,10 @@ impl State {
                                 ui.label(time_string(
                                     time,
                                     &waves.inner.metadata().timescale,
-                                    &self.wanted_timescale.unit,
+                                    &self.wanted_timeunit,
                                 ))
                                 .context_menu(|ui| {
-                                    timeunit_menu(ui, &mut msgs, &self.wanted_timescale.unit)
+                                    timeunit_menu(ui, &mut msgs, &self.wanted_timeunit)
                                 });
                                 ui.add_space(10.0)
                             }
@@ -571,6 +580,9 @@ impl State {
                     DisplayedItem::Cursor(_) => {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
+                    DisplayedItem::TimeLine(_) => {
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                    }
                 },
             );
         }
@@ -756,7 +768,13 @@ impl State {
                     idx: cursor.idx,
                 }))
             }
-            &DisplayedItem::Signal(_) => {}
+            DisplayedItem::TimeLine(_) => {
+                item_offsets.push(ItemDrawingInfo::TimeLine(TimeLineDrawingInfo {
+                    signal_list_idx: vidx,
+                    offset: label.inner.rect.top(),
+                }))
+            }
+            DisplayedItem::Signal(_) => {}
         }
     }
 
@@ -886,13 +904,14 @@ impl State {
                                     .unwrap_or(&BigInt::from(0))
                                     - cursor),
                                 &waves.inner.metadata().timescale,
-                                &self.wanted_timescale.unit,
+                                &self.wanted_timeunit,
                             );
 
                             ui.label(format!("Δ: {delta}",)).context_menu(|ui| {
                                 self.item_context_menu(None, msgs, ui, vidx);
                             });
                         }
+                        ItemDrawingInfo::TimeLine(_) => {}
                     }
                 }
             });
