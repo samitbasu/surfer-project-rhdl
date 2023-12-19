@@ -1,4 +1,6 @@
-use super::{check_single_wordlength, BasicTranslator, TranslationPreference, ValueKind};
+use super::{
+    check_single_wordlength, BasicTranslator, SignalInfo, TranslationPreference, ValueKind,
+};
 use crate::wave_container::{SignalMeta, SignalValue};
 
 use color_eyre::Result;
@@ -216,6 +218,10 @@ impl BasicTranslator for BitTranslator {
         } else {
             Ok(TranslationPreference::No)
         }
+    }
+
+    fn signal_info(&self, _signal: &SignalMeta) -> Result<SignalInfo> {
+        Ok(SignalInfo::Bool)
     }
 }
 
