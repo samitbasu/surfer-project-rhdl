@@ -77,6 +77,7 @@ pub enum Message {
     ZoomToFit,
     GoToStart,
     GoToEnd,
+    GoToTime(BigInt),
     ToggleMenu,
     SetTimeUnit(TimeUnit),
     CommandPromptClear,

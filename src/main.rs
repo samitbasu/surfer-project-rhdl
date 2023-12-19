@@ -698,6 +698,12 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
+            Message::GoToTime(time) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.go_to_time(&time.clone());
+                    self.invalidate_draw_commands();
+                };
+            }
             Message::SetTimeUnit(timeunit) => {
                 self.invalidate_draw_commands();
                 self.wanted_timeunit = timeunit;
