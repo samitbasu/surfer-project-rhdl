@@ -481,3 +481,8 @@ snapshot_ui_with_file_and_msgs! {dividers_are_appended_without_focus, "examples/
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::AddDivider(String::from("Test"))
 ]}
+
+snapshot_ui_with_file_and_msgs! {timeline_render, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::AddTimeLine
+]}
