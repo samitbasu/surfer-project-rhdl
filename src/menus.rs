@@ -315,12 +315,16 @@ impl State {
             .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
             .collect::<Vec<_>>();
 
+        let selected_translator = waves.signal_translator(path, &self.sys.translators).name();
+
         ui.menu_button("Format", |ui| {
             for (name, msg) in format_menu {
-                ui.button(name).clicked().then(|| {
-                    ui.close_menu();
-                    msgs.push(msg);
-                });
+                ui.radio(selected_translator == *name, name)
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(msg);
+                    });
             }
         });
     }
