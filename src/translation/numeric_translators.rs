@@ -8,7 +8,7 @@ use crate::wave_container::SignalMeta;
 
 use super::{
     check_single_wordlength, map_vector_signal, translates_all_bit_types, BasicTranslator,
-    NumberParseResult, SignalValue, TranslationPreference, ValueKind,
+    NumberParseResult, SignalInfo, SignalValue, TranslationPreference, ValueKind,
 };
 
 #[inline]
@@ -52,6 +52,9 @@ impl<T: NumericTranslator + Send + Sync> BasicTranslator for T {
 
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
         self.translates(signal)
+    }
+    fn signal_info(&self, _signal: &SignalMeta) -> Result<SignalInfo> {
+        Ok(SignalInfo::Bits)
     }
 }
 
