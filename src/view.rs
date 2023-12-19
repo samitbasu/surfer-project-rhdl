@@ -1,6 +1,8 @@
 use color_eyre::eyre::Context;
+#[cfg(not(target_arch = "wasm32"))]
+use eframe::egui::ViewportCommand;
 use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
-use eframe::egui::{Frame, ScrollArea, Sense, TextStyle, ViewportCommand};
+use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
