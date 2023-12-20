@@ -1,7 +1,6 @@
 use eframe::egui::{self, Painter, RichText, Sense};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{FontId, Pos2, Rect, Stroke, Vec2};
-use num::ToPrimitive;
 
 use crate::config::SurferTheme;
 use crate::time::time_string;
@@ -99,16 +98,8 @@ impl State {
                                     (start_location.x, end_location.x)
                                 };
                                 msgs.push(Message::ZoomToRange {
-                                    start: waves
-                                        .viewport
-                                        .to_time(minx as f64, frame_width)
-                                        .to_f64()
-                                        .unwrap(),
-                                    end: waves
-                                        .viewport
-                                        .to_time(maxx as f64, frame_width)
-                                        .to_f64()
-                                        .unwrap(),
+                                    start: waves.viewport.to_time_f64(minx as f64, frame_width),
+                                    end: waves.viewport.to_time_f64(maxx as f64, frame_width),
                                 })
                             }
                             Some(GestureKind::GoToStart) => {
@@ -208,20 +199,12 @@ impl State {
             format!(
                 "Zoom in: {} to {}",
                 time_string(
-                    &(waves
-                        .viewport
-                        .to_time(minx as f64, width)
-                        .round()
-                        .to_integer()),
+                    &(waves.viewport.to_time_bigint(minx as f64, width)),
                     &waves.inner.metadata().timescale,
                     &(self.wanted_timeunit)
                 ),
                 time_string(
-                    &(waves
-                        .viewport
-                        .to_time(maxx as f64, width)
-                        .round()
-                        .to_integer()),
+                    &(waves.viewport.to_time_bigint(maxx as f64, width)),
                     &waves.inner.metadata().timescale,
                     &(self.wanted_timeunit)
                 ),
