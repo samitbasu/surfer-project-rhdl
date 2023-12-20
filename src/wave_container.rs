@@ -1,3 +1,5 @@
+use std::{cell::RefCell, sync::Mutex};
+
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{
     eyre::{bail, Context},
@@ -158,7 +160,7 @@ pub enum WaveContainer {
     /// A wave container that contains nothing. Currently, the only practical use for this is
     /// a placehodler when serializing and deserializing wave state.
     Empty,
-    Cxxrtl(CxxrtlContainer),
+    Cxxrtl(Mutex<CxxrtlContainer>),
 }
 
 impl WaveContainer {
@@ -230,7 +232,7 @@ impl WaveContainer {
             WaveContainer::Fwb(f) => f.modules(),
             WaveContainer::Empty => vec![],
             // TODO: Cxxrtl modules should be queryable
-            WaveContainer::Cxxrtl(_) => vec![],
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().modules(),
         }
     }
 
@@ -280,7 +282,7 @@ impl WaveContainer {
             WaveContainer::Fwb(f) => f.root_modules(),
             WaveContainer::Empty => vec![],
             // TODO: Cxxrtl root modules
-            WaveContainer::Cxxrtl(_) => vec![],
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().root_modules(),
         }
     }
 

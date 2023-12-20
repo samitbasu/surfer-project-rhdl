@@ -4,7 +4,7 @@ use std::{
     io::Read,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 
@@ -166,7 +166,7 @@ impl State {
             match container {
                 Ok(c) => sender.send(Message::WavesLoaded(
                     WaveSource::CxxrtlTcp(url),
-                    Box::new(WaveContainer::Cxxrtl(c)),
+                    Box::new(WaveContainer::Cxxrtl(Mutex::new(c))),
                     keep_signals,
                 )),
                 Err(e) => sender.send(Message::Error(e)),
