@@ -8,7 +8,10 @@ use std::{
     },
 };
 
-use crate::wasm_util::{perform_async_work, perform_work};
+use crate::{
+    cxxrtl_container::CxxrtlContainer,
+    wasm_util::{perform_async_work, perform_work},
+};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
@@ -20,6 +23,7 @@ use log::{error, info};
 use progress_streams::ProgressReader;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
+use tokio::net::TcpStream;
 
 use crate::{message::Message, wave_container::WaveContainer, State};
 
@@ -29,12 +33,18 @@ pub enum WaveSource {
     Data,
     DragAndDrop(Option<Utf8PathBuf>),
     Url(String),
+    CxxrtlTcp(String),
 }
 
 pub fn string_to_wavesource(path: String) -> WaveSource {
     if path.starts_with("https://") || path.starts_with("http://") {
+        info!("Wave source is url");
         WaveSource::Url(path)
+    } else if path.starts_with("cxxrtl+tcp://") {
+        info!("Wave source is cxxrtl");
+        WaveSource::CxxrtlTcp(path.replace("cxxrtl+tcp://", ""))
     } else {
+        info!("Wave source is file");
         WaveSource::File(path.into())
     }
 }
@@ -47,6 +57,7 @@ impl std::fmt::Display for WaveSource {
             WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
             WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
             WaveSource::Url(url) => write!(f, "{url}"),
+            WaveSource::CxxrtlTcp(url) => write!(f, "{url}"),
         }
     }
 }
@@ -137,6 +148,29 @@ impl State {
                 Err(e) => sender.send(Message::Error(e)),
             }
             .unwrap();
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(task);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(task);
+
+        self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
+    }
+
+    pub fn connect_to_cxxrtl(&mut self, url: String, keep_signals: bool) {
+        let sender = self.sys.channels.msg_sender.clone();
+        let url_ = url.clone();
+        let task = async move {
+            let container = CxxrtlContainer::new(&url);
+
+            match container {
+                Ok(c) => sender.send(Message::WavesLoaded(
+                    WaveSource::CxxrtlTcp(url),
+                    Box::new(WaveContainer::Cxxrtl(c)),
+                    keep_signals,
+                )),
+                Err(e) => sender.send(Message::Error(e)),
+            }
         };
         #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(task);

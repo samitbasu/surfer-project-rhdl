@@ -62,7 +62,11 @@ pub enum Message {
     LoadVcd(Utf8PathBuf, bool),
     LoadVcdFromUrl(String, bool),
     LoadVcdFromData(Vec<u8>, bool),
-    WavesLoaded(WaveSource, Box<WaveContainer>, bool),
+    WavesLoaded(
+        WaveSource,
+        #[derivative(Debug = "ignore")] Box<WaveContainer>,
+        bool,
+    ),
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the

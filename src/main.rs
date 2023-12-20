@@ -3,6 +3,7 @@ mod clock_highlighting;
 mod command_prompt;
 mod config;
 mod cursor;
+mod cxxrtl_container;
 mod displayed_item;
 mod fast_wave_container;
 mod help;
@@ -39,6 +40,7 @@ use color_eyre::eyre::Context;
 use color_eyre::Result;
 use command_prompt::get_parser;
 use config::SurferConfig;
+use cxxrtl_container::CxxrtlContainer;
 use displayed_item::DisplayedItem;
 use eframe::egui;
 use eframe::egui::style::Selection;
@@ -79,6 +81,7 @@ use wasm_util::perform_work;
 use wasm_util::UrlArgs;
 use wave_container::FieldRef;
 use wave_container::SignalRef;
+use wave_container::WaveContainer;
 use wave_data::WaveData;
 use wave_source::string_to_wavesource;
 use wave_source::LoadProgress;
@@ -528,6 +531,9 @@ impl State {
             Some(WaveSource::Url(url)) => self.load_vcd_from_url(url, false),
             Some(WaveSource::File(file)) => self.load_vcd_from_file(file, false).unwrap(),
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
+            Some(WaveSource::CxxrtlTcp(url)) => {
+                self.connect_to_cxxrtl(url, false);
+            }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
             }
@@ -839,54 +845,7 @@ impl State {
                     .ok();
             }
             Message::WavesLoaded(filename, new_waves, keep_signals) => {
-                info!("VCD file loaded");
-                let num_timestamps = new_waves
-                    .max_timestamp()
-                    .as_ref()
-                    .map(|t| t.to_bigint().unwrap())
-                    .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
-                let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
-
-                let new_wave = if keep_signals && self.waves.is_some() {
-                    self.waves.take().unwrap().update_with(
-                        new_waves,
-                        filename,
-                        num_timestamps,
-                        viewport,
-                        &self.sys.translators,
-                    )
-                } else if let Some(old) = self.previous_waves.take() {
-                    old.update_with(
-                        new_waves,
-                        filename,
-                        num_timestamps,
-                        viewport,
-                        &self.sys.translators,
-                    )
-                } else {
-                    WaveData {
-                        inner: *new_waves,
-                        source: filename,
-                        active_module: None,
-                        displayed_items: vec![],
-                        viewport,
-                        signal_format: HashMap::new(),
-                        num_timestamps,
-                        cursor: None,
-                        cursors: HashMap::new(),
-                        focused_item: None,
-                        default_signal_name_type: self.config.default_signal_name_type,
-                        scroll: 0,
-                    }
-                };
-                self.invalidate_draw_commands();
-
-                // Set time unit to the file time unit before consuming new_wave
-                self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
-                self.waves = Some(new_wave);
-                self.sys.vcd_progress = None;
-                info!("Done setting up VCD file");
-                self.run_startup_commands();
+                self.on_waves_loaded(filename, new_waves, keep_signals)
             }
             Message::BlacklistTranslator(idx, translator) => {
                 self.blacklisted_translators.insert((idx, translator));
@@ -975,7 +934,8 @@ impl State {
                     WaveSource::File(filename) => {
                         self.load_vcd_from_file(filename.clone(), true).ok();
                     }
-                    WaveSource::Data => {} // can't reload
+                    WaveSource::Data => {}          // can't reload
+                    WaveSource::CxxrtlTcp(..) => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename
                             .clone()
@@ -1097,6 +1057,62 @@ impl State {
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
+    }
+
+    fn on_waves_loaded(
+        &mut self,
+        filename: WaveSource,
+        new_waves: Box<WaveContainer>,
+        keep_signals: bool,
+    ) {
+        info!("VCD file loaded");
+        let num_timestamps = new_waves
+            .max_timestamp()
+            .as_ref()
+            .map(|t| t.to_bigint().unwrap())
+            .unwrap_or(BigInt::from_u32(1).unwrap());
+        let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
+
+        let new_wave = if keep_signals && self.waves.is_some() {
+            self.waves.take().unwrap().update_with(
+                new_waves,
+                filename,
+                num_timestamps,
+                viewport,
+                &self.sys.translators,
+            )
+        } else if let Some(old) = self.previous_waves.take() {
+            old.update_with(
+                new_waves,
+                filename,
+                num_timestamps,
+                viewport,
+                &self.sys.translators,
+            )
+        } else {
+            WaveData {
+                inner: *new_waves,
+                source: filename,
+                active_module: None,
+                displayed_items: vec![],
+                viewport,
+                signal_format: HashMap::new(),
+                num_timestamps,
+                cursor: None,
+                cursors: HashMap::new(),
+                focused_item: None,
+                default_signal_name_type: self.config.default_signal_name_type,
+                scroll: 0,
+            }
+        };
+        self.invalidate_draw_commands();
+
+        // Set time unit to the file time unit before consuming new_wave
+        self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
+        self.waves = Some(new_wave);
+        self.sys.vcd_progress = None;
+        info!("Done setting up VCD file");
+        self.run_startup_commands();
     }
 
     fn handle_async_messages(&mut self) {

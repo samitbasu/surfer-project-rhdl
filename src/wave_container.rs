@@ -7,6 +7,7 @@ use num::BigUint;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    cxxrtl_container::CxxrtlContainer,
     fast_wave_container::FastWaveContainer,
     signal_type::SignalType,
     time::{TimeScale, TimeUnit},
@@ -152,12 +153,12 @@ pub struct QueryResult {
     pub next: Option<BigUint>,
 }
 
-#[derive(Debug)]
 pub enum WaveContainer {
     Fwb(FastWaveContainer),
     /// A wave container that contains nothing. Currently, the only practical use for this is
     /// a placehodler when serializing and deserializing wave state.
     Empty,
+    Cxxrtl(CxxrtlContainer),
 }
 
 impl WaveContainer {
@@ -176,6 +177,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.signals(),
             WaveContainer::Empty => &[],
+            WaveContainer::Cxxrtl(_) => &[], // TODO: List signals
         }
     }
 
@@ -183,6 +185,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.signals_in_module(module),
             WaveContainer::Empty => vec![],
+            WaveContainer::Cxxrtl(c) => vec![], // TODO
         }
     }
 
@@ -198,6 +201,10 @@ impl WaveContainer {
                     })
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
+            // TODO
+            WaveContainer::Cxxrtl(_) => {
+                bail!("Signal meta from cxxrtl is unimplemented implemented")
+            }
         }
     }
 
@@ -205,6 +212,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
             WaveContainer::Empty => bail!("Querying signal from empty wave container"),
+            // TODO
+            WaveContainer::Cxxrtl(_) => bail!("Cxxrtl Signal queries are not currently supported"),
         }
     }
 
@@ -212,6 +221,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.signal_exists(signal),
             WaveContainer::Empty => false,
+            WaveContainer::Cxxrtl(_) => false, // TODO
         }
     }
 
@@ -219,6 +229,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.modules(),
             WaveContainer::Empty => vec![],
+            // TODO: Cxxrtl modules should be queryable
+            WaveContainer::Cxxrtl(_) => vec![],
         }
     }
 
@@ -226,6 +238,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.module_map.contains_key(module),
             WaveContainer::Empty => false,
+            // TODO: Has module
+            WaveContainer::Cxxrtl(_) => false,
         }
     }
 
@@ -247,6 +261,17 @@ impl WaveContainer {
                     multiplier: None,
                 },
             },
+            WaveContainer::Cxxrtl(_) => {
+                MetaData {
+                    date: None,
+                    version: None,
+                    // TODO: We should probably set the timestamp
+                    timescale: TimeScale {
+                        unit: TimeUnit::None,
+                        multiplier: None,
+                    },
+                }
+            }
         }
     }
 
@@ -254,6 +279,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.root_modules(),
             WaveContainer::Empty => vec![],
+            // TODO: Cxxrtl root modules
+            WaveContainer::Cxxrtl(_) => vec![],
         }
     }
 
@@ -261,6 +288,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.child_modules(module),
             WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
+            // TODO: Cxxrtl child modules
+            WaveContainer::Cxxrtl(_) => Ok(vec![]),
         }
     }
 
@@ -268,6 +297,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.inner.max_timestamp().clone(),
             WaveContainer::Empty => None,
+            // TODO: cxxrtl Max timestamp
+            WaveContainer::Cxxrtl(_) => None,
         }
     }
 
@@ -275,6 +306,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.module_exists(module),
             WaveContainer::Empty => false,
+            // TODO: Module exists
+            WaveContainer::Cxxrtl(_) => false,
         }
     }
 }
