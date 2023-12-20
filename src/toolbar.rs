@@ -3,6 +3,7 @@ use eframe::emath::Align;
 use eframe::epaint::Vec2;
 use egui_remixicon::icons;
 
+use crate::wave_container::SimulationStatus;
 use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
@@ -30,6 +31,38 @@ impl State {
         TopBottomPanel::top("toolbar").show(ctx, |ui| {
             self.draw_toolbar(ui, msgs);
         });
+    }
+
+    fn simulation_status_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
+        let Some(waves) = &self.waves else { return };
+        let Some(status) = waves.inner.simulation_status() else {
+            return;
+        };
+
+        ui.separator();
+
+        ui.label("Simulation ");
+        match status {
+            SimulationStatus::Paused => add_toolbar_button(
+                ui,
+                msgs,
+                icons::PLAY_CIRCLE_FILL,
+                "Run simulation",
+                Message::UnpauseSimulation,
+                true,
+            ),
+            SimulationStatus::Running => add_toolbar_button(
+                ui,
+                msgs,
+                icons::PAUSE_CIRCLE_FILL,
+                "Pause simulation",
+                Message::PauseSimulation,
+                true,
+            ),
+            SimulationStatus::Finished => {
+                ui.label("Finished");
+            }
+        }
     }
 
     fn draw_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
@@ -254,6 +287,8 @@ impl State {
                 Message::RemoveViewport,
                 wave_loaded && multiple_viewports,
             );
+
+            self.simulation_status_toolbar(ui, msgs);
         });
     }
 }

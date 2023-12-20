@@ -184,7 +184,8 @@ fn variable_draw_commands(
             // only want to do this for root variables, because resolving when a
             // sub-field change is tricky without more information from the
             // translators
-            let anti_alias = &change_time > prev_time && names.is_empty();
+            let anti_alias =
+                &change_time > prev_time && names.is_empty() && waves.inner.wants_anti_aliasing();
             let new_value = prev != Some(&value);
 
             // This is not the value we drew last time
