@@ -131,10 +131,6 @@ impl WellenContainer {
         Some(new_variable_ref)
     }
 
-    pub fn variable_exists(&self, variable: &VariableRef) -> bool {
-        self.get_var_ref(variable).is_ok()
-    }
-
     pub fn get_var(&self, r: &VariableRef) -> Result<&Var> {
         let h = self.inner.hierarchy();
         self.get_var_ref(r).map(|r| h.get(r))
@@ -154,11 +150,11 @@ impl WellenContainer {
         }
     }
 
-    pub fn load_variable(&mut self, r: &VariableRef) -> Result<&Var> {
+    pub fn load_variable(&mut self, r: &VariableRef) -> Result<()> {
         let var_ref = self.get_var_ref(r)?;
         let signal_ref = self.inner.hierarchy().get(var_ref).signal_ref();
         self.inner.load_signals(&[signal_ref]);
-        Ok(self.inner.hierarchy().get(var_ref))
+        Ok(())
     }
 
     pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
@@ -342,9 +338,9 @@ fn convert_variable_value(value: wellen::SignalValue) -> VariableValue {
     }
 }
 
-pub(crate) fn var_to_meta<'a>(var: &Var, r: &'a VariableRef) -> VariableMeta<'a> {
+pub(crate) fn var_to_meta<'a>(var: &Var, r: &VariableRef) -> VariableMeta {
     VariableMeta {
-        var: r,
+        var: r.clone(),
         num_bits: var.length(),
         variable_type: Some(var.var_type().into()),
         index: var.index().map(index_to_string),

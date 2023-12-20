@@ -71,8 +71,14 @@ pub enum Message {
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    ConnectToCxxrtl(String),
     #[serde(skip)]
-    WavesLoaded(WaveSource, WaveFormat, Box<WaveContainer>, LoadOptions),
+    WavesLoaded(
+        WaveSource,
+        WaveFormat,
+        #[derivative(Debug = "ignore")] Box<WaveContainer>,
+        LoadOptions,
+    ),
     #[serde(skip)]
     Error(color_eyre::eyre::Error),
     #[serde(skip)]
@@ -153,6 +159,14 @@ pub enum Message {
         skip_zero: bool,
     },
     VariableValueToClipbord(Option<usize>),
+    InvalidateDrawCommands,
+
+    /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
+    /// does nothing
+    UnpauseSimulation,
+    /// Pause the simulation if the wave source supports this kind of interactivity. Otherwise
+    /// does nothing
+    PauseSimulation,
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),

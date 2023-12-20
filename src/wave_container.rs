@@ -1,17 +1,28 @@
+use std::sync::Mutex;
+
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
+use num::bigint::ToBigUint;
 use num::BigUint;
 use serde::{Deserialize, Serialize};
 use wellen::{self, VarRef, Waveform};
 
 use crate::wellen::var_to_meta;
 use crate::{
+    cxxrtl_container::CxxrtlContainer,
     time::{TimeScale, TimeUnit},
     variable_type::VariableType,
     wellen::WellenContainer,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
+pub enum SimulationStatus {
+    Paused,
+    Running,
+    Finished,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum VariableValue {
     BigUint(BigUint),
     String(String),
@@ -24,10 +35,10 @@ pub struct MetaData {
 }
 #[derive(Clone, Debug, Eq, Serialize, Deserialize)]
 pub struct ScopeRef {
-    strs: Vec<String>,
+    pub(crate) strs: Vec<String>,
     /// Backend specific numeric ID. Performance optimization.
     #[serde(skip, default = "__wave_container_scope_id_none")]
-    id: WaveContainerScopeId,
+    pub(crate) id: WaveContainerScopeId,
 }
 
 impl std::hash::Hash for ScopeRef {
@@ -46,7 +57,7 @@ impl std::cmp::PartialEq for ScopeRef {
 
 /// A backend-specific, numeric reference for fast access to the associated scope.
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum WaveContainerScopeId {
+pub(crate) enum WaveContainerScopeId {
     None,
     Wellen(wellen::ScopeRef),
 }
@@ -127,7 +138,7 @@ pub struct VariableRef {
     pub name: String,
     /// Backend specific numeric ID. Performance optimization.
     #[serde(skip, default = "__wave_container_var_id_none")]
-    id: WaveContainerVarId,
+    pub(crate) id: WaveContainerVarId,
 }
 
 impl AsRef<VariableRef> for VariableRef {
@@ -153,7 +164,7 @@ impl std::cmp::PartialEq for VariableRef {
 
 /// A backend-specific, numeric reference for fast access to the associated variable.
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum WaveContainerVarId {
+pub(crate) enum WaveContainerVarId {
     None,
     Wellen(wellen::VarRef),
 }
@@ -265,18 +276,18 @@ impl FieldRef {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct QueryResult {
     pub current: Option<(BigUint, VariableValue)>,
     pub next: Option<BigUint>,
 }
 
-#[derive(Debug)]
 pub enum WaveContainer {
     Wellen(WellenContainer),
     /// A wave container that contains nothing. Currently, the only practical use for this is
     /// a placehodler when serializing and deserializing wave state.
     Empty,
+    Cxxrtl(Mutex<CxxrtlContainer>),
 }
 
 impl WaveContainer {
@@ -291,11 +302,21 @@ impl WaveContainer {
         WaveContainer::Empty
     }
 
+    pub fn wants_anti_aliasing(&self) -> bool {
+        match self {
+            WaveContainer::Wellen(_) => true,
+            WaveContainer::Empty => true,
+            WaveContainer::Cxxrtl(_) => false,
+        }
+    }
+
     /// Returns the full names of all variables in the design.
     pub fn variable_names(&self) -> Vec<String> {
         match self {
             WaveContainer::Wellen(f) => f.variable_names(),
             WaveContainer::Empty => vec![],
+            // I don't know if we can do
+            WaveContainer::Cxxrtl(_) => vec![], // TODO: List signals
         }
     }
 
@@ -303,6 +324,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.variables(),
             WaveContainer::Empty => vec![],
+            WaveContainer::Cxxrtl(_) => vec![],
         }
     }
 
@@ -310,14 +332,16 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.variables_in_scope(scope),
             WaveContainer::Empty => vec![],
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().signals_in_module(scope),
         }
     }
 
     /// Loads a variable into memory. Needs to be called before using `query_variable` on the variable.
-    pub fn load_variable<'a>(&mut self, r: &'a VariableRef) -> Result<VariableMeta<'a>> {
+    pub fn load_variable<'a>(&mut self, r: &'a VariableRef) -> Result<()> {
         match self {
-            WaveContainer::Wellen(f) => f.load_variable(r).map(|v| var_to_meta(v, r)),
+            WaveContainer::Wellen(f) => f.load_variable(r),
             WaveContainer::Empty => bail!("Cannot load variable from empty container."),
+            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().load_signal(r)),
         }
     }
 
@@ -329,6 +353,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.load_variables(variables),
             WaveContainer::Empty => bail!("Cannot load variables from empty container."),
+            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().load_signals(variables)),
         }
     }
 
@@ -339,6 +364,7 @@ impl WaveContainer {
                 Ok(var_to_meta(var, r))
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().signal_meta(r),
         }
     }
 
@@ -346,6 +372,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.query_variable(variable, time),
             WaveContainer::Empty => bail!("Querying variable from empty wave container"),
+            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().query_signal(variable, time)),
         }
     }
 
@@ -354,13 +381,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.update_variable_ref(variable),
             WaveContainer::Empty => None,
-        }
-    }
-
-    pub fn variable_exists(&self, variable: &VariableRef) -> bool {
-        match self {
-            WaveContainer::Wellen(f) => f.variable_exists(variable),
-            WaveContainer::Empty => false,
+            WaveContainer::Cxxrtl(_) => None,
         }
     }
 
@@ -369,6 +390,13 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.scope_names(),
             WaveContainer::Empty => vec![],
+            WaveContainer::Cxxrtl(c) => c
+                .lock()
+                .unwrap()
+                .modules()
+                .iter()
+                .map(|m| m.strs().last().cloned().unwrap_or(format!("root")))
+                .collect(),
         }
     }
 
@@ -383,6 +411,17 @@ impl WaveContainer {
                     multiplier: None,
                 },
             },
+            WaveContainer::Cxxrtl(_) => {
+                MetaData {
+                    date: None,
+                    version: None,
+                    timescale: TimeScale {
+                        // Cxxrtl always uses FemtoSeconds
+                        unit: TimeUnit::FemtoSeconds,
+                        multiplier: None,
+                    },
+                }
+            }
         }
     }
 
@@ -390,13 +429,16 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.root_scopes(),
             WaveContainer::Empty => vec![],
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().root_modules(),
         }
     }
 
     pub fn child_scopes(&self, scope: &ScopeRef) -> Result<Vec<ScopeRef>> {
         match self {
             WaveContainer::Wellen(f) => f.child_scopes(scope),
-            WaveContainer::Empty => bail!("Getting child scopes from empty wave container"),
+            WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
+            // TODO: Rename to child_scopes
+            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().child_modules(scope)),
         }
     }
 
@@ -404,6 +446,15 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.max_timestamp(),
             WaveContainer::Empty => None,
+            /*WaveContainer::Cxxrtl(c) => c
+            .lock()
+            .unwrap()
+            .max_timestamp()
+            .map(|t| {
+                println!("max timestamp is {t}");
+                t.into_femtoseconds()
+            })*/
+            WaveContainer::Cxxrtl(_) => Some(BigUint::from(65000000000u64)),
         }
     }
 
@@ -411,6 +462,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.scope_exists(scope),
             WaveContainer::Empty => false,
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().module_exists(scope),
         }
     }
 
@@ -420,12 +472,44 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.get_scope_tooltip_data(scope),
             WaveContainer::Empty => "".to_string(),
+            // TODO: Tooltip
+            WaveContainer::Cxxrtl(_) => "".to_string(),
+        }
+    }
+
+    /// Returns the simulation status for this wave source if it exists. Wave sources which have no
+    /// simulation status should return None here, otherwise buttons for controlling simulation
+    /// will be shown
+    pub fn simulation_status(&self) -> Option<SimulationStatus> {
+        match self {
+            WaveContainer::Wellen(_) => None,
+            WaveContainer::Empty => None,
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().simulation_status(),
+        }
+    }
+
+    /// If [simulation_status] is `Some(SimulationStatus::Paused)`, attempt to unpause the
+    /// simulation otherwise does nothing
+    pub fn unpause_simulation(&self) {
+        match self {
+            WaveContainer::Wellen(_) => {}
+            WaveContainer::Empty => {}
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().unpause(),
+        }
+    }
+
+    /// See [unpause_simulation]
+    pub fn pause_simulation(&self) {
+        match self {
+            WaveContainer::Wellen(_) => {}
+            WaveContainer::Empty => {}
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().pause(),
         }
     }
 }
 
-pub struct VariableMeta<'a> {
-    pub var: &'a VariableRef,
+pub struct VariableMeta {
+    pub var: VariableRef,
     pub num_bits: Option<u32>,
     pub variable_type: Option<VariableType>,
     pub index: Option<String>,
