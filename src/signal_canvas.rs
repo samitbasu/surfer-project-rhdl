@@ -7,7 +7,6 @@ use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
 use num::BigRational;
-use num::ToPrimitive;
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 use spade_common::num_ext::InfallibleToBigInt;
 
@@ -348,10 +347,11 @@ impl State {
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr_timestamp = waves
-                    .viewport
-                    .to_time(mouse_ptr_pos.x as f64, frame_width)
-                    .to_f64();
+                let mouse_ptr_timestamp = Some(
+                    waves
+                        .viewport
+                        .to_time_f64(mouse_ptr_pos.x as f64, frame_width),
+                );
 
                 msgs.push(Message::CanvasZoom {
                     mouse_ptr_timestamp,
@@ -362,8 +362,8 @@ impl State {
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
             let x = pointer_pos_canvas.unwrap().x;
-            let timestamp = waves.viewport.to_time(x as f64, frame_width);
-            msgs.push(Message::CursorSet(timestamp.round().to_integer()));
+            let timestamp = waves.viewport.to_time_bigint(x as f64, frame_width);
+            msgs.push(Message::CursorSet(timestamp));
         });
 
         painter.rect_filled(
