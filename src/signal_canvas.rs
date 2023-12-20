@@ -6,7 +6,7 @@ use eframe::egui::{self, Sense};
 use eframe::emath::{self, Align2};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
-use num::BigRational;
+use num::bigint::ToBigUint;
 use num::ToPrimitive;
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 use spade_common::num_ext::InfallibleToBigInt;
@@ -244,7 +244,7 @@ impl State {
         self.sys.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
-            let max_time = BigRational::from_integer(waves.num_timestamps.clone());
+            let max_time = waves.num_timestamps.clone().to_f64().unwrap_or(f64::MAX);
             let mut clock_edges = vec![];
             // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
             // width + transition_width in order to draw initial transitions outside the screen
@@ -252,11 +252,11 @@ impl State {
                 ..(frame_width as i32 + cfg.max_transition_width))
                 .par_bridge()
                 .filter_map(|x| {
-                    let time = waves.viewport.to_time(x as f64, frame_width);
-                    if time < BigRational::from_float(0.).unwrap() || time > max_time {
+                    let time = waves.viewport.to_time_f64(x as f64, frame_width);
+                    if time < 0. || time > max_time {
                         None
                     } else {
-                        Some((x as f32, time.to_integer().to_biguint().unwrap()))
+                        Some((x as f32, time.to_biguint().unwrap()))
                     }
                 })
                 .collect::<Vec<_>>();
@@ -348,10 +348,11 @@ impl State {
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr_timestamp = waves
-                    .viewport
-                    .to_time(mouse_ptr_pos.x as f64, frame_width)
-                    .to_f64();
+                let mouse_ptr_timestamp = Some(
+                    waves
+                        .viewport
+                        .to_time_f64(mouse_ptr_pos.x as f64, frame_width),
+                );
 
                 msgs.push(Message::CanvasZoom {
                     mouse_ptr_timestamp,
@@ -362,8 +363,8 @@ impl State {
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
             let x = pointer_pos_canvas.unwrap().x;
-            let timestamp = waves.viewport.to_time(x as f64, frame_width);
-            msgs.push(Message::CursorSet(timestamp.round().to_integer()));
+            let timestamp = waves.viewport.to_time_bigint(x as f64, frame_width);
+            msgs.push(Message::CursorSet(timestamp));
         });
 
         painter.rect_filled(
