@@ -116,7 +116,7 @@ fn signal_draw_commands(
         }
 
         let query_result = waves.inner.query_signal(&displayed_signal.signal_ref, time);
-        next_change = match query_result {
+        next_change = match &query_result {
             Ok(QueryResult {
                 next: Some(timestamp),
                 ..
@@ -129,8 +129,7 @@ fn signal_draw_commands(
             _ => timestamps.first().map(|t| t.0).unwrap_or_default(),
         };
 
-        let (change_time, val) = match waves.inner.query_signal(&displayed_signal.signal_ref, time)
-        {
+        let (change_time, val) = match query_result {
             Ok(QueryResult {
                 current: Some((change_time, val)),
                 ..
