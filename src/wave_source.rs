@@ -1,7 +1,10 @@
 use std::fmt::{Display, Formatter};
-use std::sync::{atomic::AtomicU64, Arc};
+use std::sync::{atomic::AtomicU64, Arc, Mutex};
 
-use crate::wasm_util::{perform_async_work, perform_work};
+use crate::{
+    cxxrtl_container::CxxrtlContainer,
+    wasm_util::{perform_async_work, perform_work},
+};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{anyhow, bail, WrapErr};
 use color_eyre::Result;
@@ -20,12 +23,18 @@ pub enum WaveSource {
     Data,
     DragAndDrop(Option<Utf8PathBuf>),
     Url(String),
+    CxxrtlTcp(String),
 }
 
 pub fn string_to_wavesource(path: String) -> WaveSource {
     if path.starts_with("https://") || path.starts_with("http://") {
+        info!("Wave source is url");
         WaveSource::Url(path)
+    } else if path.starts_with("cxxrtl+tcp://") {
+        info!("Wave source is cxxrtl");
+        WaveSource::CxxrtlTcp(path.replace("cxxrtl+tcp://", ""))
     } else {
+        info!("Wave source is file");
         WaveSource::File(path.into())
     }
 }
@@ -38,6 +47,7 @@ impl Display for WaveSource {
             WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
             WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
             WaveSource::Url(url) => write!(f, "{url}"),
+            WaveSource::CxxrtlTcp(url) => write!(f, "{url}"),
         }
     }
 }
@@ -47,6 +57,7 @@ pub enum WaveFormat {
     Vcd,
     Fst,
     Ghw,
+    CxxRtl,
 }
 
 impl Display for WaveFormat {
@@ -55,6 +66,7 @@ impl Display for WaveFormat {
             WaveFormat::Vcd => write!(f, "VCD"),
             WaveFormat::Fst => write!(f, "FST"),
             WaveFormat::Ghw => write!(f, "GHW"),
+            WaveFormat::CxxRtl => write!(f, "Cxxrtl"),
         }
     }
 }
@@ -158,6 +170,14 @@ impl State {
                 WaveFormat::Ghw => wellen::ghw::read(filename.as_str())
                     .map_err(|e| anyhow!("{e:?}"))
                     .with_context(|| format!("Failed to parse GHW file: {source}")),
+                WaveFormat::CxxRtl => {
+                    sender
+                        .send(Message::Error(anyhow!(
+                            "load_wave_from_file called with CxxRtl as the wave format"
+                        )))
+                        .unwrap();
+                    return;
+                }
             };
 
             match result {
@@ -245,6 +265,35 @@ impl State {
         self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
     }
 
+    pub fn connect_to_cxxrtl(&mut self, url: String, keep_variables: bool) {
+        let sender = self.sys.channels.msg_sender.clone();
+        let url_ = url.clone();
+        let msg_sender = self.sys.channels.msg_sender.clone();
+        let task = async move {
+            let container = CxxrtlContainer::new(&url, msg_sender);
+
+            match container {
+                Ok(c) => sender.send(Message::WavesLoaded(
+                    WaveSource::CxxrtlTcp(url),
+                    WaveFormat::CxxRtl,
+                    Box::new(WaveContainer::Cxxrtl(Mutex::new(c))),
+                    LoadOptions {
+                        keep_variables,
+                        keep_unavailable: false,
+                        expect_format: None,
+                    },
+                )),
+                Err(e) => sender.send(Message::Error(e)),
+            }
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(task);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(task);
+
+        self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
+    }
+
     pub fn load_vcd_from_bytes(
         &mut self,
         source: WaveSource,
@@ -279,6 +328,14 @@ impl State {
                 WaveFormat::Ghw => wellen::ghw::read_from_bytes(bytes)
                     .map_err(|e| anyhow!("{e:?}"))
                     .with_context(|| format!("Failed to parse GHW file: {source}")),
+                WaveFormat::CxxRtl => {
+                    sender
+                        .send(Message::Error(anyhow!(
+                            "load_vcd_from_bytes called with CxxRtl as the wave format"
+                        )))
+                        .unwrap();
+                    return;
+                }
             };
 
             match result {

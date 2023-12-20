@@ -3,6 +3,8 @@ mod benchmark;
 mod clock_highlighting;
 mod command_prompt;
 mod config;
+mod cxxrtl;
+mod cxxrtl_container;
 mod displayed_item;
 mod drawing_canvas;
 mod help;
@@ -60,6 +62,7 @@ use egui_remixicon;
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
 use fzcmd::parse_command;
+use lazy_static::lazy_static;
 use log::error;
 use log::info;
 use log::trace;
@@ -85,10 +88,12 @@ use wasm_util::perform_work;
 use wasm_util::UrlArgs;
 use wave_container::FieldRef;
 use wave_container::VariableRef;
+use wave_container::WaveContainer;
 use wave_data::WaveData;
 use wave_source::string_to_wavesource;
 use wave_source::LoadOptions;
 use wave_source::LoadProgress;
+use wave_source::WaveFormat;
 use wave_source::WaveSource;
 
 use std::cell::RefCell;
@@ -98,6 +103,11 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::RwLock;
+
+lazy_static! {
+    pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);
+}
 
 #[derive(clap::Parser, Default)]
 struct Args {
@@ -170,6 +180,7 @@ impl StartupParams {
 fn setup_logging(platform_logger: Dispatch) -> Result<()> {
     let egui_log_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
+        .level_for("surfer", log::LevelFilter::Trace)
         .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
         .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
 
@@ -192,6 +203,7 @@ fn main() -> Result<()> {
 
     let stdout_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
+        .level_for("surfer", log::LevelFilter::Trace)
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{}] {}",
@@ -254,7 +266,9 @@ fn main() -> Result<()> {
         "Surfer",
         options,
         Box::new(|cc| {
-            state.sys.context = Some(Arc::new(cc.egui_ctx.clone()));
+            let ctx_arc = Arc::new(cc.egui_ctx.clone());
+            *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
+            state.sys.context = Some(ctx_arc.clone());
             cc.egui_ctx.set_visuals(state.get_visuals());
             setup_custom_font(&cc.egui_ctx);
             Box::new(state)
@@ -293,7 +307,7 @@ fn main() -> Result<()> {
                 web_options,
                 Box::new(|cc| {
                     let ctx_arc = Arc::new(cc.egui_ctx.clone());
-                    *wasm_api::EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
+                    *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
                     state.sys.context = Some(ctx_arc.clone());
                     cc.egui_ctx.set_visuals(state.get_visuals());
                     setup_custom_font(&cc.egui_ctx);
@@ -554,6 +568,9 @@ impl State {
                 .load_wave_from_file(file, LoadOptions::clean())
                 .unwrap(),
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
+            Some(WaveSource::CxxrtlTcp(url)) => {
+                self.connect_to_cxxrtl(url, false);
+            }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
             }
@@ -918,74 +935,17 @@ impl State {
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_vcd_from_data(data, load_options).ok();
             }
+            Message::ConnectToCxxrtl(url) => {
+                // TODO: Set keep_variables?
+                self.connect_to_cxxrtl(url, false)
+            }
             Message::FileDropped(dropped_file) => {
                 self.load_vcd_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
             Message::WavesLoaded(filename, format, new_waves, load_options) => {
-                info!("{format} file loaded");
-                let num_timestamps = new_waves
-                    .max_timestamp()
-                    .as_ref()
-                    .map(|t| t.to_bigint().unwrap())
-                    .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
-                let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
-                let viewports = [viewport].to_vec();
-
-                let new_wave = if load_options.keep_variables && self.waves.is_some() {
-                    let old_viewport_count = self.waves.as_ref().unwrap().viewports.len();
-                    self.waves.take().unwrap().update_with(
-                        new_waves,
-                        filename,
-                        format,
-                        num_timestamps,
-                        viewports.repeat(old_viewport_count),
-                        &self.sys.translators,
-                        load_options.keep_unavailable,
-                    )
-                } else if let Some(old) = self.previous_waves.take() {
-                    let viewport_count = old.viewports.len();
-                    old.update_with(
-                        new_waves,
-                        filename,
-                        format,
-                        num_timestamps,
-                        viewports.repeat(viewport_count),
-                        &self.sys.translators,
-                        load_options.keep_unavailable,
-                    )
-                } else {
-                    WaveData {
-                        inner: *new_waves,
-                        source: filename,
-                        format,
-                        active_scope: None,
-                        displayed_items_order: vec![],
-                        displayed_items: HashMap::new(),
-                        viewports,
-                        variable_format: HashMap::new(),
-                        num_timestamps,
-                        cursor: None,
-                        right_cursor: None,
-                        markers: HashMap::new(),
-                        focused_item: None,
-                        default_variable_name_type: self.config.default_variable_name_type,
-                        scroll_offset: 0.,
-                        drawing_infos: vec![],
-                        top_item_draw_offset: 0.,
-                        total_height: 0.,
-                        display_item_ref_counter: 0,
-                    }
-                };
-                self.invalidate_draw_commands();
-
-                // Set time unit to the file time unit before consuming new_wave
-                self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
-                self.waves = Some(new_wave);
-                self.sys.vcd_progress = None;
-                info!("Done setting up VCD file");
-                self.run_startup_commands();
+                self.on_waves_loaded(filename, format, new_waves, load_options)
             }
             Message::BlacklistTranslator(idx, translator) => {
                 self.blacklisted_translators.insert((idx, translator));
@@ -1077,7 +1037,7 @@ impl State {
                     SurferConfig::new(false).with_context(|| "Failed to load config file")
                 {
                     self.config = config;
-                    if let Some(ctx) = &self.sys.context {
+                    if let Some(ctx) = &self.sys.context.as_ref() {
                         ctx.set_visuals(self.get_visuals())
                     }
                 }
@@ -1096,7 +1056,8 @@ impl State {
                         )
                         .ok();
                     }
-                    WaveSource::Data => {} // can't reload
+                    WaveSource::Data => {}          // can't reload
+                    WaveSource::CxxrtlTcp(..) => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename.clone().and_then(|filename| {
                             self.load_wave_from_file(
@@ -1230,7 +1191,7 @@ impl State {
                 self.variable_name_filter_type = variable_name_filter_type
             }
             Message::SetUiScale(scale) => {
-                if let Some(ctx) = &mut self.sys.context {
+                if let Some(ctx) = &mut self.sys.context.as_ref() {
                     ctx.set_pixels_per_point(scale)
                 }
                 self.ui_scale = Some(scale)
@@ -1249,6 +1210,17 @@ impl State {
                 );
             }
             Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
+            Message::InvalidateDrawCommands => self.invalidate_draw_commands(),
+            Message::UnpauseSimulation => {
+                if let Some(waves) = &self.waves {
+                    waves.inner.unpause_simulation()
+                }
+            }
+            Message::PauseSimulation => {
+                if let Some(waves) = &self.waves {
+                    waves.inner.pause_simulation()
+                }
+            }
             Message::Batch(messages) => {
                 for message in messages {
                     self.update(message)
@@ -1296,6 +1268,77 @@ impl State {
                 }
             }
         }
+    }
+
+    fn on_waves_loaded(
+        &mut self,
+        filename: WaveSource,
+        format: WaveFormat,
+        new_waves: Box<WaveContainer>,
+        load_options: LoadOptions,
+    ) {
+        info!("{format} file loaded");
+        let num_timestamps = new_waves
+            .max_timestamp()
+            .as_ref()
+            .map(|t| t.to_bigint().unwrap())
+            .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
+        let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
+        let viewports = [viewport].to_vec();
+
+        let new_wave = if load_options.keep_variables && self.waves.is_some() {
+            let old_viewport_count = self.waves.as_ref().unwrap().viewports.len();
+            self.waves.take().unwrap().update_with(
+                new_waves,
+                filename,
+                format,
+                num_timestamps,
+                viewports.repeat(old_viewport_count),
+                &self.sys.translators,
+                load_options.keep_unavailable,
+            )
+        } else if let Some(old) = self.previous_waves.take() {
+            let viewport_count = old.viewports.len();
+            old.update_with(
+                new_waves,
+                filename,
+                format,
+                num_timestamps,
+                viewports.repeat(viewport_count),
+                &self.sys.translators,
+                load_options.keep_unavailable,
+            )
+        } else {
+            WaveData {
+                inner: *new_waves,
+                source: filename,
+                format,
+                active_scope: None,
+                displayed_items_order: vec![],
+                displayed_items: HashMap::new(),
+                viewports,
+                variable_format: HashMap::new(),
+                num_timestamps,
+                cursor: None,
+                right_cursor: None,
+                markers: HashMap::new(),
+                focused_item: None,
+                default_variable_name_type: self.config.default_variable_name_type,
+                scroll_offset: 0.,
+                drawing_infos: vec![],
+                top_item_draw_offset: 0.,
+                total_height: 0.,
+                display_item_ref_counter: 0,
+            }
+        };
+        self.invalidate_draw_commands();
+
+        // Set time unit to the file time unit before consuming new_wave
+        self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
+        self.waves = Some(new_wave);
+        self.sys.vcd_progress = None;
+        info!("Done setting up VCD file");
+        self.run_startup_commands();
     }
 
     fn handle_async_messages(&mut self) {

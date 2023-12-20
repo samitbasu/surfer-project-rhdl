@@ -266,6 +266,7 @@ impl WaveData {
         let Ok(meta) = self
             .inner
             .load_variable(variable)
+            .and_then(|_| self.inner.variable_meta(variable))
             .context("When adding variable")
             .map_err(|e| error!("{e:#?}"))
         else {
