@@ -130,13 +130,9 @@ impl State {
         text_size: f32,
     ) -> Vec<(String, f32)> {
         let char_width = text_size * (20. / 31.);
-        let left_time = waves.viewport.to_time(0., frame_width).to_f64().unwrap();
+        let left_time = waves.viewport.to_time_f64(0., frame_width);
         let frame_width_64 = frame_width as f64;
-        let right_time = waves
-            .viewport
-            .to_time(frame_width_64, frame_width)
-            .to_f64()
-            .unwrap();
+        let right_time = waves.viewport.to_time_f64(frame_width_64, frame_width);
         let time_width = right_time - left_time;
         let rightexp = right_time.abs().log10().round() as i16;
         let leftexp = left_time.abs().log10().round() as i16;
