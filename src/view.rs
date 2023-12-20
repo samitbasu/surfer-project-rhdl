@@ -835,7 +835,7 @@ impl State {
                     match drawing_info {
                         ItemDrawingInfo::Signal(drawing_info) => {
                             if ucursor.as_ref().is_none() {
-                                break;
+                                continue;
                             }
 
                             let translator = waves
