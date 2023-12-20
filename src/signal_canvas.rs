@@ -362,8 +362,8 @@ impl State {
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
             let x = pointer_pos_canvas.unwrap().x;
-            let timestamp = waves.viewport.to_time(x as f64, frame_width);
-            msgs.push(Message::CursorSet(timestamp.round().to_integer()));
+            let timestamp = waves.viewport.to_time_bigint(x as f64, frame_width);
+            msgs.push(Message::CursorSet(timestamp));
         });
 
         painter.rect_filled(
