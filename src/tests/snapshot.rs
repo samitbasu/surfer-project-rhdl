@@ -18,6 +18,7 @@ use test_log::test;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
+    signal_filter::SignalFilterType,
     wave_container::{FieldRef, ModuleRef, SignalRef},
     Message, StartupParams, State, WaveSource,
 };
@@ -510,4 +511,21 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2},
     Message::GoToEnd,
     Message::ZoomToFit
+]}
+
+snapshot_ui!(regex_error_indication, || {
+    let mut state = State::new().unwrap().with_params(StartupParams::empty());
+    let msgs = [
+        Message::ToggleMenu,
+        Message::SetSignalFilterType(SignalFilterType::Regex),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state.sys.signal_filter.borrow_mut().push_str("a(");
+    state
+});
+
+snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
+    Message::ToggleSidePanel, Message::SetActiveScope(ModuleRef::from_strs(&["tb"])), Message::AddSignal(SignalRef::from_hierarchy_string("tb.clk")),
 ]}
