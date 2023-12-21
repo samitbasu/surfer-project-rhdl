@@ -18,6 +18,7 @@ use test_log::test;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
+    signal_filter::SignalFilterType,
     wave_container::{FieldRef, ModuleRef, SignalRef},
     Message, StartupParams, State, WaveSource,
 };
@@ -511,3 +512,167 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::GoToEnd,
     Message::ZoomToFit
 ]}
+
+snapshot_ui!(regex_error_indication, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/counter.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    let msgs = [
+        Message::SetActiveScope(ModuleRef::from_strs(&["tb"])),
+        Message::AddSignal(SignalRef::from_hierarchy_string("tb.clk")),
+        Message::SetSignalFilterType(SignalFilterType::Regex),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state.sys.signal_filter.borrow_mut().push_str("a(");
+    state
+});
+
+snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
+    Message::ToggleSidePanel, Message::SetActiveScope(ModuleRef::from_strs(&["tb"])), Message::AddSignal(SignalRef::from_hierarchy_string("tb.clk")),
+]}
+
+snapshot_ui!(fuzzy_signal_filter_works, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/picorv32.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    let msgs = [
+        Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
+        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
+        Message::SetSignalFilterType(SignalFilterType::Fuzzy),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state.sys.signal_filter.borrow_mut().push_str("at");
+    state
+});
+
+snapshot_ui!(contain_signal_filter_works, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/picorv32.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    let msgs = [
+        Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
+        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
+        Message::SetSignalFilterType(SignalFilterType::Contain),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state.sys.signal_filter.borrow_mut().push_str("at");
+    state
+});
+
+snapshot_ui!(regex_signal_filter_works, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/picorv32.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    let msgs = [
+        Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
+        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
+        Message::SetSignalFilterType(SignalFilterType::Regex),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state.sys.signal_filter.borrow_mut().push_str("a[dx]");
+    state
+});
+
+snapshot_ui!(start_signal_filter_works, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/picorv32.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    let msgs = [
+        Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
+        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
+        Message::SetSignalFilterType(SignalFilterType::Start),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state.sys.signal_filter.borrow_mut().push_str("a");
+    state
+});
