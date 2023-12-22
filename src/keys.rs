@@ -133,7 +133,7 @@ impl State {
 
     pub fn get_count(&self) -> usize {
         if let Some(count) = &self.count {
-            usize::from_str_radix(count, 10).unwrap_or(1)
+            count.parse::<usize>().unwrap_or(1)
         } else {
             1
         }
