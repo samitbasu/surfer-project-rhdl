@@ -218,11 +218,11 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
     let mut state = match &args.state_file {
-        Some(file) => std::fs::read_to_string(&file)
+        Some(file) => std::fs::read_to_string(file)
             .with_context(|| format!("Failed to read state from {file}"))
-            .and_then(|content| {
-                Ok(ron::from_str::<State>(&content)
-                    .with_context(|| format!("Failed to decode state from {file}")))
+            .map(|content| {
+                ron::from_str::<State>(&content)
+                    .with_context(|| format!("Failed to decode state from {file}"))
             })
             .unwrap_or_else(|e| {
                 error!("Failed to read state file. Opening fresh session\n{e:#?}");

@@ -271,6 +271,7 @@ impl NumericTranslator for PositQuire16Translator {
     }
 }
 
+#[allow(clippy::excessive_precision)]
 /// Decode u8 as 8-bit float with five exponent bits and two mantissa bits
 fn decode_e5m2(v: u8) -> String {
     let mant = v & 3;

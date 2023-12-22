@@ -316,7 +316,7 @@ impl TranslationResult {
 }
 
 /// Static information about the structure of a signal.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum SignalInfo {
     Compound {
         subfields: Vec<(String, SignalInfo)>,
@@ -324,6 +324,8 @@ pub enum SignalInfo {
     Bits,
     Bool,
     Clock,
+    // NOTE: only used for state saving where translators will clear this out with the actual value
+    #[default]
     String,
     Real,
 }
@@ -360,13 +362,6 @@ impl SignalInfo {
                 _ => false,
             },
         }
-    }
-}
-
-// NOTE: only used for state saving where translators will clear this out with the actual value
-impl Default for SignalInfo {
-    fn default() -> Self {
-        SignalInfo::String
     }
 }
 
