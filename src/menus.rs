@@ -261,6 +261,7 @@ impl State {
             ui.close_menu();
         }
 
+        #[allow(clippy::collapsible_if)]
         if path.is_none() {
             if ui.button("Rename").clicked() {
                 ui.close_menu();

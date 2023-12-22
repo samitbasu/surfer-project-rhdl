@@ -353,20 +353,11 @@ pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
     })
 }
 
+#[derive(Default)]
 pub struct CommandPrompt {
     pub visible: bool,
     pub expanded: String,
     pub suggestions: Vec<(String, Vec<bool>)>,
-}
-
-impl Default for CommandPrompt {
-    fn default() -> Self {
-        Self {
-            visible: false,
-            expanded: Default::default(),
-            suggestions: Default::default(),
-        }
-    }
 }
 
 pub fn show_command_prompt(
