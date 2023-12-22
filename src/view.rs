@@ -289,6 +289,7 @@ impl State {
                 .show(ctx, |ui| {
                     ui.visuals_mut().override_text_color =
                         Some(self.config.theme.primary_ui_color.foreground);
+
                     ui.with_layout(
                         Layout::top_down(Align::LEFT).with_cross_justify(true),
                         |ui| {
@@ -324,6 +325,7 @@ impl State {
                                     ui.add_space(3.0);
 
                                     egui::ScrollArea::both()
+                                        .max_height(f32::INFINITY)
                                         .id_source("signals")
                                         .show(ui, |ui| {
                                             if let Some(waves) = &self.waves {
@@ -331,8 +333,27 @@ impl State {
                                             }
                                         });
                                 });
+
+                            if self.waves.is_some() {
+                                egui::TopBottomPanel::bottom("add_extra_buttons")
+                                    .frame(egui::containers::Frame {
+                                        fill: self.config.theme.primary_ui_color.background,
+                                        inner_margin: Margin::same(5.0),
+                                        ..Default::default()
+                                    })
+                                    .show_inside(ui, |ui| {
+                                        ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
+                                            ui.button("Add divider").clicked().then(|| {
+                                                msgs.push(Message::AddDivider(String::new()));
+                                            });
+                                            ui.button("Add timeline").clicked().then(|| {
+                                                msgs.push(Message::AddTimeLine);
+                                            });
+                                        })
+                                    });
+                            }
                         },
-                    )
+                    );
                 });
         }
 
