@@ -50,6 +50,17 @@ Then, install [Rust via Rustup](https://rustup.rs) and run
 cargo install --git https://gitlab.com/surfer-project/surfer surfer
 ```
 
+To compile a version in your local repo without installing it anywhere:
+
+```bash
+git clone git@gitlab.com:surfer-project/surfer.git
+git submodule update --init --recursive
+cd surfer
+cargo build
+```
+
+If all goes well, the `surfer` executable can found in `./target/debug/`.
+
 ### Pre-built Linux binary
 
 You can download a pre-built Linux binary
