@@ -60,6 +60,9 @@ cargo build
 ```
 
 If all goes well, the `surfer` executable can found in `./target/debug/`.
+You can run it from there, or you can use `cargo run`.
+
+You can install your own version of surfer with `cargo install --path .`.
 
 ### Pre-built Linux binary
 
