@@ -153,19 +153,24 @@ pub fn draw_rename_window(
         .resizable(true)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.text_edit_singleline(name);
+                let response = ui.text_edit_singleline(name);
+                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
+                    msgs.push(Message::SetRenameItemVisible(false));
+                }
+                response.request_focus();
                 ui.horizontal(|ui| {
                     if ui.button("Rename").clicked() {
                         msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
-                        msgs.push(Message::SetRenameItemVisible(false))
+                        msgs.push(Message::SetRenameItemVisible(false));
                     }
                     if ui.button("Cancel").clicked() {
-                        msgs.push(Message::SetRenameItemVisible(false))
+                        msgs.push(Message::SetRenameItemVisible(false));
                     }
                 });
             });
         });
     if !open {
-        msgs.push(Message::SetRenameItemVisible(false))
+        msgs.push(Message::SetRenameItemVisible(false));
     }
 }
