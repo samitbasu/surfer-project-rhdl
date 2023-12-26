@@ -66,15 +66,19 @@ impl State {
                     (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
                     (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
-                    (Key::S, true, false, false) => msgs.push(Message::GoToStart),
-                    (Key::E, true, false, false) => msgs.push(Message::GoToEnd),
+                    (Key::S, true, false, false) => {
+                        msgs.push(Message::GoToStart { viewport_idx: 0 })
+                    }
+                    (Key::E, true, false, false) => msgs.push(Message::GoToEnd { viewport_idx: 0 }),
                     (Key::Minus, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 2.0,
+                        viewport_idx: 0,
                     }),
                     (Key::PlusEquals, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 0.5,
+                        viewport_idx: 0,
                     }),
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
@@ -146,6 +150,6 @@ fn handle_digit(digit: u8, modifiers: &egui::Modifiers, msgs: &mut Vec<Message>)
     } else if modifiers.ctrl {
         msgs.push(Message::SetCursorPosition(digit))
     } else {
-        msgs.push(Message::GoToCursorPosition(digit))
+        msgs.push(Message::GoToCursorPosition(digit, 0))
     }
 }

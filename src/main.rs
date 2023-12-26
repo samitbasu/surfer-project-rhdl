@@ -665,42 +665,46 @@ impl State {
                     }
                 }
             }
-            Message::CanvasScroll { delta } => {
+            Message::CanvasScroll {
+                delta,
+                viewport_idx,
+            } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.handle_canvas_scroll(delta);
+                    waves.handle_canvas_scroll(delta, viewport_idx);
                     self.invalidate_draw_commands();
                 }
             }
             Message::CanvasZoom {
                 delta,
                 mouse_ptr_timestamp,
+                viewport_idx,
             } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64);
+                    waves.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64, viewport_idx);
                     self.invalidate_draw_commands();
                 }
             }
-            Message::ZoomToFit => {
+            Message::ZoomToFit { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.zoom_to_fit();
+                    waves.zoom_to_fit(viewport_idx);
                     self.invalidate_draw_commands();
                 }
             }
-            Message::GoToEnd => {
+            Message::GoToEnd { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.go_to_end();
+                    waves.go_to_end(viewport_idx);
                     self.invalidate_draw_commands();
                 }
             }
-            Message::GoToStart => {
+            Message::GoToStart { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.go_to_start();
+                    waves.go_to_start(viewport_idx);
                     self.invalidate_draw_commands();
                 }
             }
-            Message::GoToTime(time) => {
+            Message::GoToTime(time, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.go_to_time(&time.clone());
+                    waves.go_to_time(&time.clone(), viewport_idx);
                     self.invalidate_draw_commands();
                 };
             }
@@ -708,10 +712,14 @@ impl State {
                 self.invalidate_draw_commands();
                 self.wanted_timeunit = timeunit;
             }
-            Message::ZoomToRange { start, end } => {
+            Message::ZoomToRange {
+                start,
+                end,
+                viewport_idx,
+            } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewport.curr_left = start;
-                    waves.viewport.curr_right = end;
+                    waves.viewports[viewport_idx].curr_left = start;
+                    waves.viewports[viewport_idx].curr_right = end;
                     self.invalidate_draw_commands();
                 }
             }
@@ -812,21 +820,23 @@ impl State {
                     .map(|t| t.to_bigint().unwrap())
                     .unwrap_or(BigInt::from_u32(1).unwrap());
                 let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
+                let viewports = [viewport].to_vec();
 
                 let new_wave = if keep_signals && self.waves.is_some() {
                     self.waves.take().unwrap().update_with(
                         new_waves,
                         filename,
                         num_timestamps,
-                        viewport,
+                        viewports.repeat(self.waves.as_ref().unwrap().viewports.len()),
                         &self.sys.translators,
                     )
                 } else if let Some(old) = self.previous_waves.take() {
+                    let viewport_count = old.viewports.len();
                     old.update_with(
                         new_waves,
                         filename,
                         num_timestamps,
-                        viewport,
+                        viewports.repeat(viewport_count),
                         &self.sys.translators,
                     )
                 } else {
@@ -835,7 +845,7 @@ impl State {
                         source: filename,
                         active_module: None,
                         displayed_items: vec![],
-                        viewport,
+                        viewports,
                         signal_format: HashMap::new(),
                         num_timestamps,
                         cursor: None,
@@ -942,10 +952,10 @@ impl State {
                     waves.set_cursor_position(idx);
                 };
             }
-            Message::GoToCursorPosition(idx) => {
+            Message::GoToCursorPosition(idx, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.cursors.get(&idx) {
-                        waves.go_to_time(&cursor.clone());
+                        waves.go_to_time(&cursor.clone(), viewport_idx);
                         self.invalidate_draw_commands();
                     }
                 };
@@ -1015,6 +1025,20 @@ impl State {
                 self.save_state(&filename);
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
+            Message::AddTimespan => {
+                if let Some(waves) = &mut self.waves {
+                    let viewport =
+                        Viewport::new(0., waves.num_timestamps.clone().to_f64().unwrap());
+                    waves.viewports.push(viewport)
+                }
+            }
+            Message::RemoveTimespan => {
+                if let Some(waves) = &mut self.waves {
+                    if waves.viewports.len() > 1 {
+                        waves.viewports.pop();
+                    }
+                }
+            }
         }
     }
 
