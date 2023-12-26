@@ -29,7 +29,7 @@ pub struct WaveData {
     pub signal_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
     pub cursors: HashMap<u8, BigInt>,
-    pub focused_item: Option<usize>,
+    pub focused_items: Vec<usize>,
     pub default_signal_name_type: SignalNameType,
     pub scroll: usize,
 }
@@ -90,7 +90,7 @@ impl WaveData {
             num_timestamps,
             cursor: self.cursor.clone(),
             cursors: self.cursors.clone(),
-            focused_item: self.focused_item,
+            focused_items: self.focused_items,
             default_signal_name_type: self.default_signal_name_type,
             scroll: self.scroll,
         };
@@ -218,10 +218,10 @@ impl WaveData {
             display_name_type: self.default_signal_name_type,
         });
 
-        if let Some(focus_idx) = self.focused_item {
-            let insert_idx = focus_idx + 1;
+        if let Some(old_idx) = self.focused_items.last() {
+            let insert_idx = old_idx + 1;
             self.displayed_items.insert(insert_idx, new_signal);
-            self.focused_item = Some(insert_idx);
+            self.focused_items.push(insert_idx);
         } else {
             self.displayed_items.push(new_signal);
         }
@@ -236,17 +236,9 @@ impl WaveData {
             }
             if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
                 self.displayed_items.remove(idx);
-                if let Some(focused) = self.focused_item {
-                    if focused == idx {
-                        if (idx > 0) && (idx == (visible_signals_len - 1)) {
-                            // if the end of list is selected
-                            self.focused_item = Some(idx - 1);
-                        }
-                    } else if idx < focused {
-                        self.focused_item = Some(focused - 1)
-                    }
-                    if self.displayed_items.is_empty() {
-                        self.focused_item = None;
+                if self.focused_items.contains(&idx) {
+                    if let Some(index) = self.focused_items.iter().position(|x| *x == idx) {
+                        self.focused_items.remove(index);
                     }
                 }
             }
@@ -260,10 +252,10 @@ impl WaveData {
             background_color: None,
             name,
         });
-        if let Some(focus_idx) = self.focused_item {
+        if let Some(focus_idx) = self.focused_items.last() {
             let insert_idx = focus_idx + 1;
             self.displayed_items.insert(insert_idx, new_divider);
-            self.focused_item = Some(insert_idx);
+            self.focused_items.push(insert_idx);
         } else {
             self.displayed_items.push(new_divider);
         }

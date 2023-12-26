@@ -632,7 +632,7 @@ impl State {
                     if self
                         .waves
                         .as_ref()
-                        .is_some_and(|w| w.focused_item.is_some_and(|f| f == vidx))
+                        .is_some_and(|w| w.focused_items.contains(&vidx))
                     {
                         msgs.push(Message::UnfocusItem);
                     } else {
@@ -686,9 +686,8 @@ impl State {
             .waves
             .as_ref()
             .expect("Can't draw a signal without a loaded waveform.")
-            .focused_item
-            .map(|focused| focused == vidx)
-            .unwrap_or(false)
+            .focused_items
+            .contains(&vidx)
         {
             self.config.theme.accent_info.background
         } else {
