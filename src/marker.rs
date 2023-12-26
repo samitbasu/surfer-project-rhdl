@@ -213,13 +213,13 @@ impl State {
                                     ui.selectable_label(false, widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToMarkerPosition(*marker_idx))
+                                            msgs.push(Message::GoToMarkerPosition(*marker_idx, 0))
                                         });
                                 } else {
                                     ui.selectable_label(false, widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToTime(waves.cursor.clone()))
+                                            msgs.push(Message::GoToTime(waves.cursor.clone(), 0))
                                         });
                                 }
                             }
@@ -229,13 +229,13 @@ impl State {
                                     ui.selectable_label(false, row_widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToMarkerPosition(*marker_idx))
+                                            msgs.push(Message::GoToMarkerPosition(*marker_idx, 0))
                                         });
                                 } else {
                                     ui.selectable_label(false, row_widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToTime(waves.cursor.clone()))
+                                            msgs.push(Message::GoToTime(waves.cursor.clone(), 0))
                                         });
                                 }
                                 for (_, col_marker_time, _) in &markers {
@@ -267,6 +267,7 @@ impl State {
         item_offsets: &[ItemDrawingInfo],
         view_width: f32,
         gap: f32,
+        viewport: &Viewport,
     ) {
         let text_size = ctx.cfg.text_size;
 
@@ -288,7 +289,7 @@ impl State {
                 .and_then(|color| self.config.theme.colors.get(&color))
                 .unwrap_or(&self.config.theme.cursor.color);
 
-            let x = waves.numbered_marker_location(drawing_info.idx, &waves.viewport, view_width);
+            let x = waves.numbered_marker_location(drawing_info.idx, viewport, view_width);
 
             // Time string
             let time = time_string(
