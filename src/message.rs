@@ -49,14 +49,17 @@ pub enum Message {
     ResetSignalFormat(FieldRef),
     CanvasScroll {
         delta: Vec2,
+        viewport_idx: usize,
     },
     CanvasZoom {
         mouse_ptr_timestamp: Option<f64>,
         delta: f32,
+        viewport_idx: usize,
     },
     ZoomToRange {
         start: f64,
         end: f64,
+        viewport_idx: usize,
     },
     CursorSet(BigInt),
     LoadVcd(Utf8PathBuf, bool),
@@ -74,10 +77,16 @@ pub enum Message {
     FileDownloaded(String, Bytes, bool),
     ReloadConfig,
     ReloadWaveform,
-    ZoomToFit,
-    GoToStart,
-    GoToEnd,
-    GoToTime(BigInt),
+    ZoomToFit {
+        viewport_idx: usize,
+    },
+    GoToStart {
+        viewport_idx: usize,
+    },
+    GoToEnd {
+        viewport_idx: usize,
+    },
+    GoToTime(BigInt, usize),
     ToggleMenu,
     SetTimeUnit(TimeUnit),
     CommandPromptClear,
@@ -112,8 +121,10 @@ pub enum Message {
     ToggleTickLines,
     ToggleSignalTooltip,
     SetCursorPosition(u8),
-    GoToCursorPosition(u8),
+    GoToCursorPosition(u8, usize),
     SaveState(PathBuf),
+    AddTimespan,
+    RemoveTimespan,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,

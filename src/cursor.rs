@@ -19,9 +19,10 @@ impl WaveData {
         ctx: &mut DrawingContext,
         size: Vec2,
         to_screen: RectTransform,
+        viewport_idx: usize,
     ) {
         if let Some(cursor) = &self.cursor {
-            let x = self.viewport.from_time(cursor, size.x as f64);
+            let x = self.viewports[viewport_idx].from_time(cursor, size.x as f64);
 
             let stroke = Stroke {
                 color: theme.cursor.color,
@@ -43,7 +44,9 @@ impl WaveData {
         ctx: &mut DrawingContext,
         size: Vec2,
         to_screen: RectTransform,
+        viewport_idx: usize,
     ) {
+        let viewport = &self.viewports[viewport_idx];
         for (idx, cursor) in &self.cursors {
             let color = self
                 .displayed_items
@@ -65,7 +68,7 @@ impl WaveData {
                 color: *color,
                 width: theme.cursor.width,
             };
-            let x = self.viewport.from_time(cursor, size.x as f64);
+            let x = viewport.from_time(cursor, size.x as f64);
             ctx.painter.line_segment(
                 [
                     to_screen.transform_pos(Pos2::new(x as f32 + 0.5, 0.)),
@@ -115,6 +118,7 @@ impl WaveData {
         gap: f32,
         config: &SurferConfig,
         wanted_timeunit: TimeUnit,
+        viewport_idx: usize,
     ) {
         let text_size = ctx.cfg.text_size;
 
@@ -136,8 +140,7 @@ impl WaveData {
                 .and_then(|color| config.theme.colors.get(&color))
                 .unwrap_or(&config.theme.cursor.color);
 
-            let x = self
-                .viewport
+            let x = self.viewports[viewport_idx]
                 .from_time(self.cursors.get(&drawing_info.idx).unwrap(), size.x as f64)
                 as f32;
 
