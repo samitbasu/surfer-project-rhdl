@@ -140,7 +140,7 @@ impl State {
                 ui.menu_button("Signal filter type", |ui| {
                     signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
                 });
-                ui.menu_button("UI Scale", |ui| {
+                ui.menu_button("UI scale", |ui| {
                     for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {
                         ui.radio(self.ui_scale == Some(scale), format!("{} %", scale * 100.))
                             .clicked()
@@ -150,7 +150,12 @@ impl State {
                             });
                     }
                 });
-                b("Show tick lines", Message::ToggleTickLines).add_closing_menu(msgs, ui);
+                ui.radio(self.config.layout.show_ticks(), "Show tick lines")
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::ToggleTickLines)
+                    });
             });
             ui.menu_button("Help", |ui| {
                 b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);
