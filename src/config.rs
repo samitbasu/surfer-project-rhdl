@@ -203,6 +203,9 @@ pub struct SurferTheme {
     /// Number of lines using standard background before changing to
     /// alternate background and so on, set to zero to disable
     pub alt_frequency: usize,
+
+    /// Viewport separator line
+    pub viewport_separator: SurferLineStyle,
 }
 
 #[derive(Debug, Deserialize)]

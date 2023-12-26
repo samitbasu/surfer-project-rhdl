@@ -36,19 +36,22 @@ impl State {
         };
 
         let viewport_all = waves.viewport_all();
-        let minx = viewport_all.from_time_f64(waves.viewport.curr_left, frame_width);
-        let maxx = viewport_all.from_time_f64(waves.viewport.curr_right, frame_width);
-        let min = (ctx.to_screen)(minx, 0.);
-        let max = (ctx.to_screen)(maxx, container_rect.max.y);
-        ctx.painter.rect_filled(
-            Rect { min, max },
-            Rounding::ZERO,
-            self.config
-                .theme
-                .canvas_colors
-                .foreground
-                .gamma_multiply(0.3),
-        );
+        for vidx in 0..waves.viewports.len() {
+            let minx = viewport_all.from_time_f64(waves.viewports[vidx].curr_left, frame_width);
+            let maxx = viewport_all.from_time_f64(waves.viewports[vidx].curr_right, frame_width);
+            let min = (ctx.to_screen)(minx, 0.);
+            let max = (ctx.to_screen)(maxx, container_rect.max.y);
+            ctx.painter.rect_filled(
+                Rect { min, max },
+                Rounding::ZERO,
+                self.config
+                    .theme
+                    .canvas_colors
+                    .foreground
+                    .gamma_multiply(0.3),
+            );
+        }
+
         waves.draw_cursor(
             &self.config.theme,
             &mut ctx,
@@ -94,7 +97,7 @@ impl State {
                 .map(|p| to_screen.inverse().transform_pos(p))
                 .unwrap();
             let timestamp = viewport_all.to_time_bigint(pos.x, frame_width);
-            msgs.push(Message::GoToTime(Some(timestamp)));
+            msgs.push(Message::GoToTime(Some(timestamp), 0));
         });
     }
 }
