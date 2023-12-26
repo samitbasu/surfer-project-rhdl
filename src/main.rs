@@ -344,7 +344,7 @@ pub struct SystemState {
     // List of unparsed commands to run at startup after the first wave has been loaded
     startup_commands: Vec<String>,
 
-    /// The draw commands for every signal currently selected
+    /// The draw commands for every signal currently visible
     // For performance reasons, these need caching so we have them in a RefCell for interior
     // mutability
     draw_data: RefCell<Option<CachedDrawData>>,
@@ -559,7 +559,7 @@ impl State {
 
                 let visible_signals_len = waves.displayed_items.len();
                 if visible_signals_len > 0 && idx < visible_signals_len {
-                    waves.focused_item = Some(idx);
+                    waves.focused_items.push(idx);
                 } else {
                     error!(
                         "Can not focus signal {idx} because only {visible_signals_len} signals are visible.",
@@ -568,7 +568,7 @@ impl State {
             }
             Message::UnfocusItem => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.focused_item = None;
+                    waves.focused_items.clear();
                 };
             }
             Message::RenameItem(vidx) => {
@@ -585,19 +585,17 @@ impl State {
                 let visible_signals_len = waves.displayed_items.len();
                 if visible_signals_len > 0 {
                     self.count = None;
-                    match direction {
-                        MoveDir::Up => {
-                            waves.focused_item = waves
-                                .focused_item
-                                .map_or(Some(visible_signals_len - 1), |focused| {
-                                    Some(focused - count.clamp(0, focused))
-                                })
-                        }
-                        MoveDir::Down => {
-                            waves.focused_item = waves.focused_item.map_or(
-                                Some(waves.scroll + (count - 1).clamp(0, visible_signals_len - 1)),
-                                |focused| Some((focused + count).clamp(0, visible_signals_len - 1)),
-                            );
+                    if waves.focused_items.len() == 1 {
+                        let focused = waves.focused_items.pop().unwrap();
+                        match direction {
+                            MoveDir::Up => {
+                                waves.focused_items.push(focused - count.clamp(0, focused));
+                            }
+                            MoveDir::Down => {
+                                waves
+                                    .focused_items
+                                    .push((focused + count).clamp(0, visible_signals_len - 1));
+                            }
                         }
                     }
                 }
@@ -640,7 +638,8 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                if let Some(idx) = waves.focused_item {
+                if waves.focused_items.len() == 1 {
+                    let idx = waves.focused_items.pop().unwrap();
                     let visible_signals_len = waves.displayed_items.len();
                     if visible_signals_len > 0 {
                         match direction {
@@ -652,13 +651,13 @@ impl State {
                                     .rev()
                                 {
                                     waves.displayed_items.swap(i, i - 1);
-                                    waves.focused_item = Some(i - 1);
+                                    waves.focused_items.push(i - 1);
                                 }
                             }
                             MoveDir::Down => {
                                 for i in idx..(idx + count).clamp(0, visible_signals_len - 1) {
                                     waves.displayed_items.swap(i, i + 1);
-                                    waves.focused_item = Some(i + 1);
+                                    waves.focused_items.push(i + 1);
                                 }
                             }
                         }
@@ -760,22 +759,35 @@ impl State {
             }
             Message::ItemColorChange(vidx, color_name) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(idx) = vidx.or(waves.focused_item) {
+                    if vidx.is_some() {}
+                    if let Some(idx) = vidx {
                         waves.displayed_items[idx].set_color(color_name);
+                    } else {
+                        for idx in &waves.focused_items {
+                            waves.displayed_items[*idx].set_color(color_name.clone());
+                        }
                     }
                 };
             }
             Message::ItemNameChange(vidx, name) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(idx) = vidx.or(waves.focused_item) {
+                    if let Some(idx) = vidx {
                         waves.displayed_items[idx].set_name(name);
+                    } else {
+                        for idx in &waves.focused_items {
+                            waves.displayed_items[*idx].set_name(name.clone());
+                        }
                     }
                 };
             }
             Message::ItemBackgroundColorChange(vidx, color_name) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(idx) = vidx.or(waves.focused_item) {
+                    if let Some(idx) = vidx {
                         waves.displayed_items[idx].set_background_color(color_name)
+                    } else {
+                        for idx in &waves.focused_items {
+                            waves.displayed_items[*idx].set_background_color(color_name.clone());
+                        }
                     }
                 };
             }
@@ -840,7 +852,7 @@ impl State {
                         num_timestamps,
                         cursor: None,
                         cursors: HashMap::new(),
-                        focused_item: None,
+                        focused_items: vec![],
                         default_signal_name_type: self.config.default_signal_name_type,
                         scroll: 0,
                     }
@@ -955,13 +967,23 @@ impl State {
                     return;
                 };
                 // checks if vidx is Some then use that, else try focused signal
-                if let Some(idx) = vidx.or(waves.focused_item) {
+                if let Some(idx) = vidx {
                     if waves.displayed_items.len() > idx {
                         if let DisplayedItem::Signal(signal) = &mut waves.displayed_items[idx] {
                             signal.display_name_type = name_type;
                             waves.compute_signal_display_names();
                         }
                     }
+                } else {
+                    for idx in &waves.focused_items {
+                        if waves.displayed_items.len() > *idx {
+                            if let DisplayedItem::Signal(signal) = &mut waves.displayed_items[*idx]
+                            {
+                                signal.display_name_type = name_type;
+                            }
+                        }
+                    }
+                    waves.compute_signal_display_names();
                 }
             }
             Message::ForceSignalNameTypes(name_type) => {

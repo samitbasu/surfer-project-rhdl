@@ -118,8 +118,8 @@ impl State {
                     }
                     (Key::Delete, true, false, false) => {
                         if let Some(waves) = &self.waves {
-                            if let Some(idx) = waves.focused_item {
-                                msgs.push(Message::RemoveItem(idx, self.get_count()));
+                            for idx in &waves.focused_items {
+                                msgs.push(Message::RemoveItem(*idx, self.get_count()));
                                 msgs.push(Message::InvalidateCount);
                             }
                         }
