@@ -171,6 +171,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "save_state",
             "timeline_add",
             "show_cursor_window",
+            "viewport_add",
+            "viewport_remove",
             "exit",
         ]
     } else {
@@ -228,17 +230,23 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 )),
                 "config_reload" => Some(Command::Terminal(Message::ReloadConfig)),
-                "scroll_to_start" | "goto_start" => Some(Command::Terminal(Message::GoToStart)),
-                "scroll_to_end" | "goto_end" => Some(Command::Terminal(Message::GoToEnd)),
+                "scroll_to_start" | "goto_start" => {
+                    Some(Command::Terminal(Message::GoToStart { viewport_idx: 0 }))
+                }
+                "scroll_to_end" | "goto_end" => {
+                    Some(Command::Terminal(Message::GoToEnd { viewport_idx: 0 }))
+                }
                 "zoom_in" => Some(Command::Terminal(Message::CanvasZoom {
                     mouse_ptr_timestamp: None,
                     delta: 0.5,
+                    viewport_idx: 0,
                 })),
                 "zoom_out" => Some(Command::Terminal(Message::CanvasZoom {
                     mouse_ptr_timestamp: None,
                     delta: 2.0,
+                    viewport_idx: 0,
                 })),
-                "zoom_fit" => Some(Command::Terminal(Message::ZoomToFit)),
+                "zoom_fit" => Some(Command::Terminal(Message::ZoomToFit { viewport_idx: 0 })),
                 "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
                 "toggle_side_panel" => Some(Command::Terminal(Message::ToggleSidePanel)),
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
@@ -358,7 +366,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(move |name| {
                         cursors
                             .get(name)
-                            .map(|idx| Command::Terminal(Message::GoToCursorPosition(*idx)))
+                            .map(|idx| Command::Terminal(Message::GoToCursorPosition(*idx, 0)))
                     }),
                 ),
                 "show_controls" => Some(Command::Terminal(Message::SetKeyHelpVisible(true))),
@@ -387,6 +395,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     vec![],
                     Box::new(|word| Some(Command::Terminal(Message::SaveState(word.into())))),
                 ),
+                "viewport_add" => Some(Command::Terminal(Message::AddViewport)),
+                "viewport_remove" => Some(Command::Terminal(Message::RemoveViewport)),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
             }
