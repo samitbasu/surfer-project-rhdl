@@ -417,6 +417,25 @@ impl State {
                         )
                     });
 
+                if waves.viewports.len() > 1 {
+                    // Draw additional viewports
+                    let max_width = ctx.available_rect().width();
+                    let default_width = max_width / (waves.viewports.len() as f32);
+                    for viewport_idx in 1..waves.viewports.len() {
+                        egui::SidePanel::right(format! {"view port {viewport_idx}"})
+                            .default_width(default_width)
+                            .width_range(30.0..=max_width)
+                            .frame(Frame {
+                                inner_margin: Margin::same(0.0),
+                                outer_margin: Margin::same(0.0),
+                                ..Default::default()
+                            })
+                            .show(ctx, |ui| {
+                                self.draw_signals(&mut msgs, &item_offsets, ui, viewport_idx)
+                            });
+                    }
+                }
+
                 egui::CentralPanel::default()
                     .frame(Frame {
                         inner_margin: Margin::same(0.0),
@@ -424,7 +443,7 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_signals(&mut msgs, &item_offsets, ui);
+                        self.draw_signals(&mut msgs, &item_offsets, ui, 0);
                     });
             }
         };

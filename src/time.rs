@@ -126,11 +126,13 @@ impl State {
         waves: &WaveData,
         frame_width: f32,
         text_size: f32,
+        viewport_idx: usize,
     ) -> Vec<(String, f32)> {
+        let viewport = &waves.viewports[viewport_idx];
         let char_width = text_size * (20. / 31.);
-        let left_time = waves.viewport.to_time_f64(0., frame_width);
+        let left_time = viewport.to_time_f64(0., frame_width);
         let frame_width_64 = frame_width as f64;
-        let right_time = waves.viewport.to_time_f64(frame_width_64, frame_width);
+        let right_time = viewport.to_time_f64(frame_width_64, frame_width);
         let time_width = right_time - left_time;
         let rightexp = right_time.abs().log10().round() as i16;
         let leftexp = left_time.abs().log10().round() as i16;
@@ -162,7 +164,7 @@ impl State {
                                 &waves.inner.metadata().timescale,
                                 &self.wanted_timeunit,
                             ),
-                            waves.viewport.from_time(&tick, frame_width_64) as f32,
+                            viewport.from_time(&tick, frame_width_64) as f32,
                         )
                     })
                     .collect::<Vec<(String, f32)>>();
