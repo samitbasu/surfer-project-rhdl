@@ -57,6 +57,8 @@ impl State {
             ButtonBuilder::new(text, message)
         }
 
+        let waves_loaded = self.waves.is_some();
+
         menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 b("Open file...", Message::OpenFileDialog(OpenMode::Open))
@@ -69,38 +71,45 @@ impl State {
                 b("Exit", Message::Exit).add_closing_menu(msgs, ui);
             });
             ui.menu_button("View", |ui| {
-                b(
-                    "Zoom in",
-                    Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 0.5,
-                    },
-                )
-                .shortcut("+")
-                .add_leave_menu(msgs, ui);
+                if waves_loaded {
+                    b(
+                        "Zoom in",
+                        Message::CanvasZoom {
+                            mouse_ptr_timestamp: None,
+                            delta: 0.5,
+                            viewport_idx: 0,
+                        },
+                    )
+                    .shortcut("+")
+                    .add_leave_menu(msgs, ui);
 
-                b(
-                    "Zoom out",
-                    Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 2.0,
-                    },
-                )
-                .shortcut("-")
-                .add_leave_menu(msgs, ui);
+                    b(
+                        "Zoom out",
+                        Message::CanvasZoom {
+                            mouse_ptr_timestamp: None,
+                            delta: 2.0,
+                            viewport_idx: 0,
+                        },
+                    )
+                    .shortcut("-")
+                    .add_leave_menu(msgs, ui);
 
-                b("Zoom to fit", Message::ZoomToFit).add_closing_menu(msgs, ui);
+                    b("Zoom to fit", Message::ZoomToFit { viewport_idx: 0 })
+                        .add_closing_menu(msgs, ui);
 
-                ui.separator();
+                    ui.separator();
 
-                b("Go to start", Message::GoToStart)
-                    .shortcut("s")
-                    .add_closing_menu(msgs, ui);
-                b("Go to end", Message::GoToEnd)
-                    .shortcut("e")
-                    .add_closing_menu(msgs, ui);
-
-                ui.separator();
+                    b("Go to start", Message::GoToStart { viewport_idx: 0 })
+                        .shortcut("s")
+                        .add_closing_menu(msgs, ui);
+                    b("Go to end", Message::GoToEnd { viewport_idx: 0 })
+                        .shortcut("e")
+                        .add_closing_menu(msgs, ui);
+                    ui.separator();
+                    b("Add timespan", Message::AddTimespan).add_closing_menu(msgs, ui);
+                    b("Remove timespan", Message::RemoveTimespan).add_closing_menu(msgs, ui);
+                    ui.separator();
+                }
 
                 b("Toggle side panel", Message::ToggleSidePanel)
                     .shortcut("b")

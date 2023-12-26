@@ -24,6 +24,7 @@ impl State {
         response: &egui::Response,
         msgs: &mut Vec<Message>,
         ctx: &mut DrawingContext,
+        viewport_idx: usize,
     ) {
         let frame_width = response.rect.width();
         if let Some(start_location) = self.sys.gesture_start_location {
@@ -45,6 +46,7 @@ impl State {
                             response,
                             ctx,
                             waves,
+                            viewport_idx,
                         ),
 
                         Some(GestureKind::GoToStart) => self.draw_gesture_line(
@@ -89,7 +91,7 @@ impl State {
                     if distance.length_sq() >= self.config.gesture.deadzone {
                         match gesture_type(start_location, end_location) {
                             Some(GestureKind::ZoomToFit) => {
-                                msgs.push(Message::ZoomToFit);
+                                msgs.push(Message::ZoomToFit { viewport_idx });
                             }
                             Some(GestureKind::ZoomIn) => {
                                 let (minx, maxx) = if end_location.x < start_location.x {
@@ -98,20 +100,24 @@ impl State {
                                     (start_location.x, end_location.x)
                                 };
                                 msgs.push(Message::ZoomToRange {
-                                    start: waves.viewport.to_time_f64(minx as f64, frame_width),
-                                    end: waves.viewport.to_time_f64(maxx as f64, frame_width),
+                                    start: waves.viewports[viewport_idx]
+                                        .to_time_f64(minx as f64, frame_width),
+                                    end: waves.viewports[viewport_idx]
+                                        .to_time_f64(maxx as f64, frame_width),
+                                    viewport_idx,
                                 })
                             }
                             Some(GestureKind::GoToStart) => {
-                                msgs.push(Message::GoToStart);
+                                msgs.push(Message::GoToStart { viewport_idx });
                             }
                             Some(GestureKind::GoToEnd) => {
-                                msgs.push(Message::GoToEnd);
+                                msgs.push(Message::GoToEnd { viewport_idx });
                             }
                             Some(GestureKind::ZoomOut) => {
                                 msgs.push(Message::CanvasZoom {
                                     mouse_ptr_timestamp: None,
                                     delta: 2.0,
+                                    viewport_idx,
                                 });
                             }
                             _ => {}
@@ -160,6 +166,7 @@ impl State {
         response: &egui::Response,
         ctx: &mut DrawingContext<'_>,
         waves: &WaveData,
+        viewport_idx: usize,
     ) {
         let stroke = Stroke {
             color: self.config.gesture.style.color,
@@ -199,12 +206,12 @@ impl State {
             format!(
                 "Zoom in: {} to {}",
                 time_string(
-                    &(waves.viewport.to_time_bigint(minx as f64, width)),
+                    &(waves.viewports[viewport_idx].to_time_bigint(minx as f64, width)),
                     &waves.inner.metadata().timescale,
                     &(self.wanted_timeunit)
                 ),
                 time_string(
-                    &(waves.viewport.to_time_bigint(maxx as f64, width)),
+                    &(waves.viewports[viewport_idx].to_time_bigint(maxx as f64, width)),
                     &waves.inner.metadata().timescale,
                     &(self.wanted_timeunit)
                 ),
