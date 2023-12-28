@@ -82,9 +82,11 @@ pub enum Message {
     SetTimeUnit(TimeUnit),
     CommandPromptClear,
     CommandPromptUpdate {
-        expanded: String,
         suggestions: Vec<(String, Vec<bool>)>,
     },
+    CommandPromptPushPrevious(String),
+    SelectPrevCommand,
+    SelectNextCommand,
     OpenFileDialog(OpenMode),
     OpenSaveStateDialog,
     SetAboutVisible(bool),
