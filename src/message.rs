@@ -79,9 +79,9 @@ pub enum Message {
     SetTimeScale(Timescale),
     CommandPromptClear,
     CommandPromptUpdate {
-        expanded: String,
         suggestions: Vec<(String, Vec<bool>)>,
     },
+    CommandPromptPushPrevious(String),
     SelectPrevCommand,
     SelectNextCommand,
     OpenFileDialog(OpenMode),

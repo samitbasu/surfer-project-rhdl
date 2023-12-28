@@ -4,12 +4,14 @@ use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
+use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 use num::BigInt;
 use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::benchmark::NUM_PERF_SAMPLES;
+use crate::command_prompt::get_parser;
 use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
@@ -129,7 +131,7 @@ impl eframe::App for State {
         self.timing.borrow_mut().end("handle_async_messages");
 
         // We can save some user battery life by not redrawing unless needed. At the moment,
-        // we only need to continiously redraw to make surfer interactive during loading, otherwise
+        // we only need to continuously redraw to make surfer interactive during loading, otherwise
         // we'll back off a bit
         if self.continuous_redraw || self.vcd_progress.is_some() {
             ctx.request_repaint();
@@ -595,27 +597,12 @@ impl State {
             };
 
             ui.horizontal_top(|ui| {
-<<<<<<< HEAD
-                if self.command_prompt.expanded.starts_with("signal_focus") {
-                    self.add_alpha_id(vidx, ui);
-=======
-                if self
-                    .command_prompt
-                    .expanded()
-                    .map(|e| e.starts_with("signal_focus"))
-                    .unwrap_or(false)
+                if self.command_prompt.visible
+                    && expand_command(&self.command_prompt_text.borrow(), get_parser(self))
+                        .expanded
+                        .starts_with("signal_focus")
                 {
-                    let alpha_id = uint_idx_to_alpha_idx(
-                        vidx,
-                        self.vcd.as_ref().map_or(0, |vcd| vcd.signals.len()),
-                    );
-                    ui.label(
-                        egui::RichText::new(alpha_id)
-                            .background_color(self.config.theme.accent_warn.background)
-                            .monospace()
-                            .color(self.config.theme.accent_warn.foreground),
-                    );
->>>>>>> f50d8c7 (Allow selection from command menu)
+                    self.add_alpha_id(vidx, ui);
                 }
 
                 self.add_focus_marker(vidx, ui);
@@ -706,7 +693,11 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
-                if self.command_prompt.expanded.starts_with("focus") {
+                if self
+                    .command_prompt_text
+                    .borrow()
+                    .starts_with("signal_focus")
+                {
                     self.add_alpha_id(vidx, ui);
                 }
 
@@ -766,9 +757,9 @@ impl State {
         );
         ui.label(
             egui::RichText::new(alpha_id)
-                .background_color(self.config.theme.accent_warn.background)
+                .background_color(self.config.theme.accent_info.background)
                 .monospace()
-                .color(self.config.theme.accent_warn.foreground),
+                .color(self.config.theme.accent_info.foreground),
         );
     }
 
