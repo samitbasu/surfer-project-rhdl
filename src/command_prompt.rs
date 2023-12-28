@@ -159,6 +159,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "goto_cursor",
                 "save_state",
                 "timeline_add",
+                "exit",
             ]
         } else {
             vec![
@@ -171,6 +172,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_mouse_gestures",
                 "show_quick_start",
                 "show_performance",
+                "exit",
             ]
         }
         .into_iter()
@@ -332,6 +334,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     vec![],
                     Box::new(|word| Some(Command::Terminal(Message::SaveState(word.into())))),
                 ),
+                "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
             }
         }),
