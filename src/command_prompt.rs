@@ -149,7 +149,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "zoom_in",
                 "zoom_out",
                 "toggle_menu",
+                "toggle_side_panel",
                 "toggle_fullscreen",
+                "toggle_tick_lines",
                 "signal_add_from_module",
                 "signal_set_name_type",
                 "signal_force_name_type",
@@ -167,6 +169,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "load_url",
                 "config_reload",
                 "toggle_menu",
+                "toggle_side_panel",
                 "toggle_fullscreen",
                 "show_controls",
                 "show_mouse_gestures",
@@ -211,7 +214,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 })),
                 "zoom_fit" => Some(Command::Terminal(Message::ZoomToFit)),
                 "toggle_menu" => Some(Command::Terminal(Message::ToggleMenu)),
+                "toggle_side_panel" => Some(Command::Terminal(Message::ToggleSidePanel)),
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
+                "toggle_tick_lines" => Some(Command::Terminal(Message::ToggleTickLines)),
                 // Module commands
                 "module_add" => single_word(
                     modules,
