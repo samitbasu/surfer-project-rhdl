@@ -269,6 +269,17 @@ impl State {
                 msgs.push(Message::RenameItem(vidx));
             }
         }
+        ui.separator();
+        ui.menu_button("Insert", |ui| {
+            if ui.button("Divider").clicked() {
+                ui.close_menu();
+                msgs.push(Message::AddDivider(String::new(), Some(vidx)));
+            }
+            if ui.button("Timeline").clicked() {
+                ui.close_menu();
+                msgs.push(Message::AddTimeLine(Some(vidx)));
+            }
+        });
     }
 
     fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {

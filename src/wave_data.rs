@@ -218,13 +218,7 @@ impl WaveData {
             display_name_type: self.default_signal_name_type,
         });
 
-        if let Some(focus_idx) = self.focused_item {
-            let insert_idx = focus_idx + 1;
-            self.displayed_items.insert(insert_idx, new_signal);
-            self.focused_item = Some(insert_idx);
-        } else {
-            self.displayed_items.push(new_signal);
-        }
+        self.insert_item(new_signal, None);
         self.compute_signal_display_names();
     }
 
@@ -254,27 +248,41 @@ impl WaveData {
         self.compute_signal_display_names();
     }
 
-    pub fn add_divider(&mut self, name: String) {
-        let new_divider = DisplayedItem::Divider(DisplayedDivider {
-            color: None,
-            background_color: None,
-            name,
-        });
-        if let Some(focus_idx) = self.focused_item {
-            let insert_idx = focus_idx + 1;
-            self.displayed_items.insert(insert_idx, new_divider);
-            self.focused_item = Some(insert_idx);
-        } else {
-            self.displayed_items.push(new_divider);
-        }
-    }
-
-    pub fn add_timeline(&mut self) {
-        self.displayed_items
-            .push(DisplayedItem::TimeLine(DisplayedTimeLine {
+    pub fn add_divider(&mut self, name: String, vidx: Option<usize>) {
+        self.insert_item(
+            DisplayedItem::Divider(DisplayedDivider {
                 color: None,
                 background_color: None,
-            }))
+                name,
+            }),
+            vidx,
+        );
+    }
+
+    pub fn add_timeline(&mut self, vidx: Option<usize>) {
+        self.insert_item(
+            DisplayedItem::TimeLine(DisplayedTimeLine {
+                color: None,
+                background_color: None,
+            }),
+            vidx,
+        );
+    }
+
+    /// Insert item after item vidx if Some(vidx).
+    /// If None, insert after focused item if there is one, otherwise insert at the end.
+    /// Focus on the inserted item if there was a focues item.
+    fn insert_item(&mut self, new_item: DisplayedItem, vidx: Option<usize>) {
+        if let Some(current_idx) = vidx {
+            let insert_idx = current_idx + 1;
+            self.displayed_items.insert(insert_idx, new_item);
+        } else if let Some(focus_idx) = self.focused_item {
+            let insert_idx = focus_idx + 1;
+            self.displayed_items.insert(insert_idx, new_item);
+            self.focused_item = Some(insert_idx);
+        } else {
+            self.displayed_items.push(new_item);
+        }
     }
 
     pub fn go_to_start(&mut self) {

@@ -330,9 +330,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "signal_unfocus" => Some(Command::Terminal(Message::UnfocusItem)),
                 "divider_add" => optional_single_word(
                     vec![],
-                    Box::new(|word| Some(Command::Terminal(Message::AddDivider(word.into())))),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::AddDivider(word.into(), None)))
+                    }),
                 ),
-                "timeline_add" => Some(Command::Terminal(Message::AddTimeLine)),
+                "timeline_add" => Some(Command::Terminal(Message::AddTimeLine(None))),
                 "goto_cursor" => single_word(
                     cursors.keys().cloned().collect(),
                     Box::new(move |name| {

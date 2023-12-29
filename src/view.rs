@@ -346,10 +346,10 @@ impl State {
                                     .show_inside(ui, |ui| {
                                         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                                             ui.button("Add divider").clicked().then(|| {
-                                                msgs.push(Message::AddDivider(String::new()));
+                                                msgs.push(Message::AddDivider(String::new(), None));
                                             });
                                             ui.button("Add timeline").clicked().then(|| {
-                                                msgs.push(Message::AddTimeLine);
+                                                msgs.push(Message::AddTimeLine(None));
                                             });
                                         })
                                     });
