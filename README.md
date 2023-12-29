@@ -67,14 +67,14 @@ You can install your own version of surfer with `cargo install --path .`.
 ### Pre-built Linux binary
 
 You can download a pre-built Linux binary
-[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=linux_build).
+[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/raw/surfer_linux.zip?job=linux_build).
 It is built on a Debian system with some dynamically linked libs, so it may
 not work on all systems.
 
 ### Pre-built Windows binary
 
 You can download a pre-built Windows binary
-[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=windows_build).
+[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/raw/surfer_win.zip?job=windows_build).
 
 Note that sometimes Windows Defender has been known to report Surfer [and other rust projects](https://github.com/cargo-bins/cargo-binstall/issues/945) as a trojan. If in doubt, please use [Virus total](https://www.virustotal.com/) to check.
 
