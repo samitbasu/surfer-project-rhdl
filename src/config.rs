@@ -31,6 +31,8 @@ pub struct SurferLayout {
     show_hierarchy: bool,
     /// Flag to show/hide the menu
     show_menu: bool,
+    /// Flag to show/hide toolbar
+    show_toolbar: bool,
     /// Flag to show/hide tick lines
     show_ticks: bool,
     /// Flag to show/hide tooltip for signals
@@ -53,6 +55,9 @@ impl SurferLayout {
     }
     pub fn show_signal_tooltip(&self) -> bool {
         self.show_signal_tooltip
+    }
+    pub fn show_toolbar(&self) -> bool {
+        self.show_toolbar
     }
 }
 

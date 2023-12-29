@@ -65,6 +65,7 @@ impl State {
                     (Key::Escape, true, _, true) => msgs.push(Message::SetFilterFocused(false)),
                     (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
+                    (Key::T, true, false, false) => msgs.push(Message::ToggleToolbar),
                     (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
                     (Key::S, true, false, false) => msgs.push(Message::GoToStart),
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd),

@@ -18,6 +18,7 @@ mod signal_type;
 #[cfg(test)]
 mod tests;
 mod time;
+mod toolbar;
 mod translation;
 mod util;
 mod view;
@@ -37,13 +38,15 @@ use color_eyre::Result;
 use command_prompt::get_parser;
 use config::SurferConfig;
 use displayed_item::DisplayedItem;
-#[cfg(not(target_arch = "wasm32"))]
 use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
 use eframe::egui::style::Widgets;
+use eframe::egui::FontData;
+use eframe::egui::FontDefinitions;
 use eframe::egui::Visuals;
 use eframe::emath;
+use eframe::epaint::FontFamily;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
@@ -248,6 +251,7 @@ fn main() -> Result<()> {
         Box::new(|cc| {
             state.sys.context = Some(cc.egui_ctx.clone());
             cc.egui_ctx.set_visuals(state.get_visuals());
+            setup_custom_font(&cc.egui_ctx);
             Box::new(state)
         }),
     )
@@ -285,6 +289,7 @@ fn main() -> Result<()> {
                 Box::new(|cc| {
                     state.sys.context = Some(cc.egui_ctx.clone());
                     cc.egui_ctx.set_visuals(state.get_visuals());
+                    setup_custom_font(&cc.egui_ctx);
                     Box::new(state)
                 }),
             )
@@ -293,6 +298,23 @@ fn main() -> Result<()> {
     });
 
     Ok(())
+}
+
+fn setup_custom_font(ctx: &egui::Context) {
+    let mut fonts = FontDefinitions::default();
+
+    fonts.font_data.insert(
+        "material_design_icons".to_owned(),
+        FontData::from_static(material_icons::FONT),
+    );
+
+    fonts
+        .families
+        .get_mut(&FontFamily::Proportional)
+        .unwrap()
+        .push("material_design_icons".to_owned());
+
+    ctx.set_fonts(fonts);
 }
 
 #[derive(Debug)]
@@ -408,6 +430,7 @@ pub struct State {
     show_hierarchy: Option<bool>,
     show_menu: Option<bool>,
     show_ticks: Option<bool>,
+    show_toolbar: Option<bool>,
     show_signal_tooltip: Option<bool>,
 
     waves: Option<WaveData>,
@@ -470,6 +493,7 @@ impl State {
             show_hierarchy: None,
             show_menu: None,
             show_ticks: None,
+            show_toolbar: None,
             show_signal_tooltip: None,
         };
 
@@ -880,6 +904,13 @@ impl State {
                     None => !self.config.layout.show_menu(),
                 };
                 self.show_menu = Some(new)
+            }
+            Message::ToggleToolbar => {
+                let new = match self.show_toolbar {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_toolbar(),
+                };
+                self.show_toolbar = Some(new)
             }
             Message::ToggleTickLines => {
                 let new = match self.show_ticks {
