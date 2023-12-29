@@ -124,6 +124,18 @@ impl State {
                             }
                         }
                     }
+                    (Key::ArrowUp, true, true, false) => msgs.push(Message::SelectPrevCommand),
+                    (Key::P, true, true, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::SelectPrevCommand);
+                        }
+                    }
+                    (Key::ArrowDown, true, true, false) => msgs.push(Message::SelectNextCommand),
+                    (Key::N, true, true, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::SelectNextCommand);
+                        }
+                    }
                     _ => {}
                 },
                 _ => {}
