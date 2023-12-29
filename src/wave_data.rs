@@ -254,13 +254,17 @@ impl WaveData {
         self.compute_signal_display_names();
     }
 
-    pub fn add_divider(&mut self, name: String) {
+    pub fn add_divider(&mut self, name: String, vidx: Option<usize>) {
         let new_divider = DisplayedItem::Divider(DisplayedDivider {
             color: None,
             background_color: None,
             name,
         });
-        if let Some(focus_idx) = self.focused_item {
+        if let Some(focus_idx) = vidx {
+            let insert_idx = focus_idx + 1;
+            self.displayed_items.insert(insert_idx, new_divider);
+            self.focused_item = Some(insert_idx);
+        } else if let Some(focus_idx) = self.focused_item {
             let insert_idx = focus_idx + 1;
             self.displayed_items.insert(insert_idx, new_divider);
             self.focused_item = Some(insert_idx);
@@ -269,12 +273,22 @@ impl WaveData {
         }
     }
 
-    pub fn add_timeline(&mut self) {
-        self.displayed_items
-            .push(DisplayedItem::TimeLine(DisplayedTimeLine {
-                color: None,
-                background_color: None,
-            }))
+    pub fn add_timeline(&mut self, vidx: Option<usize>) {
+        let new_timeline = DisplayedItem::TimeLine(DisplayedTimeLine {
+            color: None,
+            background_color: None,
+        });
+        if let Some(focus_idx) = vidx {
+            let insert_idx = focus_idx + 1;
+            self.displayed_items.insert(insert_idx, new_timeline);
+            self.focused_item = Some(insert_idx);
+        } else if let Some(focus_idx) = self.focused_item {
+            let insert_idx = focus_idx + 1;
+            self.displayed_items.insert(insert_idx, new_timeline);
+            self.focused_item = Some(insert_idx);
+        } else {
+            self.displayed_items.push(new_timeline);
+        }
     }
 
     pub fn go_to_start(&mut self) {
