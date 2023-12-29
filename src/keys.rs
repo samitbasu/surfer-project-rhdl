@@ -1,6 +1,13 @@
-use eframe::egui::{self, Event, Key};
+use eframe::{
+    egui::{self, Event, Key},
+    epaint::Vec2,
+};
 
-use crate::{message::Message, MoveDir, State};
+use crate::{
+    message::Message,
+    wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
+    MoveDir, State,
+};
 
 impl State {
     pub fn handle_pressed_keys(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
@@ -65,6 +72,7 @@ impl State {
                     (Key::Escape, true, _, true) => msgs.push(Message::SetFilterFocused(false)),
                     (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
+                    (Key::T, true, false, false) => msgs.push(Message::ToggleToolbar),
                     (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
                     (Key::S, true, false, false) => msgs.push(Message::GoToStart),
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd),
@@ -75,6 +83,30 @@ impl State {
                     (Key::PlusEquals, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 0.5,
+                    }),
+                    (Key::PageUp, true, false, false) => msgs.push(Message::CanvasScroll {
+                        delta: Vec2 {
+                            x: 0.,
+                            y: -PER_SCROLL_EVENT * SCROLL_EVENTS_PER_PAGE,
+                        },
+                    }),
+                    (Key::PageDown, true, false, false) => msgs.push(Message::CanvasScroll {
+                        delta: Vec2 {
+                            x: 0.,
+                            y: PER_SCROLL_EVENT * SCROLL_EVENTS_PER_PAGE,
+                        },
+                    }),
+                    (Key::ArrowRight, true, false, false) => msgs.push(Message::CanvasScroll {
+                        delta: Vec2 {
+                            x: 0.,
+                            y: -PER_SCROLL_EVENT,
+                        },
+                    }),
+                    (Key::ArrowLeft, true, false, false) => msgs.push(Message::CanvasScroll {
+                        delta: Vec2 {
+                            x: 0.,
+                            y: PER_SCROLL_EVENT,
+                        },
                     }),
                     (Key::J, true, false, false) => {
                         if modifiers.alt {

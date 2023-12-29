@@ -209,6 +209,15 @@ impl State {
             });
         }
 
+        if self
+            .show_toolbar
+            .unwrap_or_else(|| self.config.layout.show_toolbar())
+        {
+            egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+                self.draw_toolbar(ui, &mut msgs);
+            });
+        }
+
         if self.show_url_entry {
             let mut open = true;
             egui::Window::new("Load URL")
@@ -429,7 +438,7 @@ impl State {
             egui::CentralPanel::default()
                 .frame(egui::Frame::none().fill(self.config.theme.canvas_colors.background))
                 .show(ctx, |ui| {
-                    ui.add_space(max_height * 0.3);
+                    ui.add_space(max_height * 0.1);
                     ui.vertical_centered(|ui| {
                         ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
                         ui.add_space(20.);
