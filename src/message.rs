@@ -106,6 +106,7 @@ pub enum Message {
     AddDivider(String),
     AddTimeLine,
     ToggleTickLines,
+    ToggleSignalTooltip,
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
     SaveState(PathBuf),
