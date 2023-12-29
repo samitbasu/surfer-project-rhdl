@@ -155,7 +155,7 @@ linux_build:
     stage: deploy
     script:
         - apt-get update -y
-        - apt-get install -y openssl libssl-dev
+        - apt-get install -y openssl libssl-dev zip
         - cargo build --release
         - cp target/release/surfer surfer
         - zip surfer_linux.zip surfer
