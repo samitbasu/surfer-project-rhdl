@@ -53,132 +53,138 @@ impl ButtonBuilder {
 
 impl State {
     pub fn draw_menu(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+        menu::bar(ui, |ui| {
+            self.menu_contents(ui, msgs);
+        });
+    }
+
+    pub fn menu_contents(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         fn b(text: impl Into<String>, message: Message) -> ButtonBuilder {
             ButtonBuilder::new(text, message)
         }
 
-        menu::bar(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                b("Open file...", Message::OpenFileDialog(OpenMode::Open))
-                    .add_closing_menu(msgs, ui);
-                b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
-                    .add_closing_menu(msgs, ui);
-                b("Save state...", Message::OpenSaveStateDialog).add_closing_menu(msgs, ui);
-                b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
-                #[cfg(not(target_arch = "wasm32"))]
-                b("Exit", Message::Exit).add_closing_menu(msgs, ui);
+        ui.menu_button("File", |ui| {
+            b("Open file...", Message::OpenFileDialog(OpenMode::Open)).add_closing_menu(msgs, ui);
+            b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
+                .add_closing_menu(msgs, ui);
+            b("Save state...", Message::OpenSaveStateDialog).add_closing_menu(msgs, ui);
+            b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
+            #[cfg(not(target_arch = "wasm32"))]
+            b("Exit", Message::Exit).add_closing_menu(msgs, ui);
+        });
+        ui.menu_button("View", |ui| {
+            b(
+                "Zoom in",
+                Message::CanvasZoom {
+                    mouse_ptr_timestamp: None,
+                    delta: 0.5,
+                },
+            )
+            .shortcut("+")
+            .add_leave_menu(msgs, ui);
+
+            b(
+                "Zoom out",
+                Message::CanvasZoom {
+                    mouse_ptr_timestamp: None,
+                    delta: 2.0,
+                },
+            )
+            .shortcut("-")
+            .add_leave_menu(msgs, ui);
+
+            b("Zoom to fit", Message::ZoomToFit).add_closing_menu(msgs, ui);
+
+            ui.separator();
+
+            b("Go to start", Message::GoToStart)
+                .shortcut("s")
+                .add_closing_menu(msgs, ui);
+            b("Go to end", Message::GoToEnd)
+                .shortcut("e")
+                .add_closing_menu(msgs, ui);
+
+            ui.separator();
+
+            b("Toggle side panel", Message::ToggleSidePanel)
+                .shortcut("b")
+                .add_closing_menu(msgs, ui);
+            b("Toggle menu", Message::ToggleMenu)
+                .shortcut("m")
+                .add_closing_menu(msgs, ui);
+            b("Toggle toolbar", Message::ToggleToolbar)
+                .shortcut("t")
+                .add_closing_menu(msgs, ui);
+            #[cfg(not(target_arch = "wasm32"))]
+            b("Toggle full screen", Message::ToggleFullscreen)
+                .shortcut("F11")
+                .add_closing_menu(msgs, ui);
+        });
+        ui.menu_button("Settings", |ui| {
+            ui.menu_button("Clock highlighting", |ui| {
+                clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
             });
-            ui.menu_button("View", |ui| {
-                b(
-                    "Zoom in",
-                    Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 0.5,
-                    },
-                )
-                .shortcut("+")
-                .add_leave_menu(msgs, ui);
-
-                b(
-                    "Zoom out",
-                    Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 2.0,
-                    },
-                )
-                .shortcut("-")
-                .add_leave_menu(msgs, ui);
-
-                b("Zoom to fit", Message::ZoomToFit).add_closing_menu(msgs, ui);
-
-                ui.separator();
-
-                b("Go to start", Message::GoToStart)
-                    .shortcut("s")
-                    .add_closing_menu(msgs, ui);
-                b("Go to end", Message::GoToEnd)
-                    .shortcut("e")
-                    .add_closing_menu(msgs, ui);
-
-                ui.separator();
-
-                b("Toggle side panel", Message::ToggleSidePanel)
-                    .shortcut("b")
-                    .add_closing_menu(msgs, ui);
-                b("Toggle menu", Message::ToggleMenu)
-                    .shortcut("m")
-                    .add_closing_menu(msgs, ui);
-                #[cfg(not(target_arch = "wasm32"))]
-                b("Toggle full screen", Message::ToggleFullscreen)
-                    .shortcut("F11")
-                    .add_closing_menu(msgs, ui);
+            ui.menu_button("Time unit", |ui| {
+                timeunit_menu(ui, msgs, &self.wanted_timeunit);
             });
-            ui.menu_button("Settings", |ui| {
-                ui.menu_button("Clock highlighting", |ui| {
-                    clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
-                });
-                ui.menu_button("Time unit", |ui| {
-                    timeunit_menu(ui, msgs, &self.wanted_timeunit);
-                });
-                if let Some(waves) = &self.waves {
-                    let signal_name_type = waves.default_signal_name_type;
-                    ui.menu_button("Signal names", |ui| {
-                        for name_type in enum_iterator::all::<SignalNameType>() {
-                            ui.radio(signal_name_type == name_type, name_type.to_string())
-                                .clicked()
-                                .then(|| {
-                                    ui.close_menu();
-                                    msgs.push(Message::ForceSignalNameTypes(name_type));
-                                });
-                        }
-                    });
-                }
-                ui.menu_button("Signal filter type", |ui| {
-                    signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
-                });
-                ui.menu_button("UI scale", |ui| {
-                    for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {
-                        ui.radio(self.ui_scale == Some(scale), format!("{} %", scale * 100.))
+            if let Some(waves) = &self.waves {
+                let signal_name_type = waves.default_signal_name_type;
+                ui.menu_button("Signal names", |ui| {
+                    for name_type in enum_iterator::all::<SignalNameType>() {
+                        ui.radio(signal_name_type == name_type, name_type.to_string())
                             .clicked()
                             .then(|| {
                                 ui.close_menu();
-                                msgs.push(Message::SetUiScale(scale))
+                                msgs.push(Message::ForceSignalNameTypes(name_type));
                             });
                     }
                 });
-                ui.radio(
-                    self.show_ticks.unwrap_or(self.config.layout.show_ticks()),
-                    "Show tick lines",
-                )
-                .clicked()
-                .then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleTickLines)
-                });
-                ui.radio(
-                    self.show_signal_tooltip
-                        .unwrap_or(self.config.layout.show_signal_tooltip()),
-                    "Show signal tooltip",
-                )
-                .clicked()
-                .then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::ToggleSignalTooltip)
-                });
+            }
+            ui.menu_button("Signal filter type", |ui| {
+                signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
             });
-            ui.menu_button("Help", |ui| {
-                b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);
-                b("Control keys", Message::SetKeyHelpVisible(true)).add_closing_menu(msgs, ui);
-                b("Mouse gestures", Message::SetGestureHelpVisible(true))
-                    .add_closing_menu(msgs, ui);
-
-                ui.separator();
-                b("Show logs", Message::SetLogsVisible(true)).add_closing_menu(msgs, ui);
-
-                ui.separator();
-
-                b("About", Message::SetAboutVisible(true)).add_closing_menu(msgs, ui)
+            ui.menu_button("UI scale", |ui| {
+                for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {
+                    ui.radio(self.ui_scale == Some(scale), format!("{} %", scale * 100.))
+                        .clicked()
+                        .then(|| {
+                            ui.close_menu();
+                            msgs.push(Message::SetUiScale(scale))
+                        });
+                }
             });
+
+            ui.radio(
+                self.show_ticks.unwrap_or(self.config.layout.show_ticks()),
+                "Show tick lines",
+            )
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::ToggleTickLines)
+            });
+
+            ui.radio(
+                self.show_signal_tooltip
+                    .unwrap_or(self.config.layout.show_signal_tooltip()),
+                "Show signal tooltip",
+            )
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::ToggleSignalTooltip)
+            });
+        });
+        ui.menu_button("Help", |ui| {
+            b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);
+            b("Control keys", Message::SetKeyHelpVisible(true)).add_closing_menu(msgs, ui);
+            b("Mouse gestures", Message::SetGestureHelpVisible(true)).add_closing_menu(msgs, ui);
+
+            ui.separator();
+            b("Show logs", Message::SetLogsVisible(true)).add_closing_menu(msgs, ui);
+
+            ui.separator();
+            b("About", Message::SetAboutVisible(true)).add_closing_menu(msgs, ui)
         });
     }
 

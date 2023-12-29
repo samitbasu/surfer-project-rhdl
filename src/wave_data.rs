@@ -15,6 +15,9 @@ use crate::{
     wave_source::WaveSource,
 };
 
+pub const PER_SCROLL_EVENT: f32 = 50.0;
+pub const SCROLL_EVENTS_PER_PAGE: f32 = 20.0;
+
 #[derive(Serialize, Deserialize)]
 pub struct WaveData {
     #[serde(skip, default = "WaveContainer::__new_empty")]
@@ -318,9 +321,10 @@ impl WaveData {
         // Canvas relative
         delta: Vec2,
     ) {
-        // Scroll 5% of the viewport per scroll event.
-        // One scroll event yields 50
-        let scroll_step = -(self.viewport.curr_right - self.viewport.curr_left) / (50. * 20.);
+        // Scroll 1/SCROLL_EVENTS_PER_PAGE = 5% of the viewport per scroll event.
+        // One scroll event yields PER_SCROLL_EVENT = 50
+        let scroll_step = -(self.viewport.curr_right - self.viewport.curr_left)
+            / (PER_SCROLL_EVENT * SCROLL_EVENTS_PER_PAGE) as f64;
 
         let target_left = self.viewport.curr_left + scroll_step * delta.y as f64;
         let target_right = self.viewport.curr_right + scroll_step * delta.y as f64;
