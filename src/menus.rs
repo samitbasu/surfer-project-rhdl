@@ -108,6 +108,9 @@ impl State {
                 b("Toggle menu", Message::ToggleMenu)
                     .shortcut("m")
                     .add_closing_menu(msgs, ui);
+                b("Toggle toolbar", Message::ToggleToolbar)
+                    .shortcut("t")
+                    .add_closing_menu(msgs, ui);
                 #[cfg(not(target_arch = "wasm32"))]
                 b("Toggle full screen", Message::ToggleFullscreen)
                     .shortcut("F11")
