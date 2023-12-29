@@ -1409,11 +1409,31 @@ dependencies = [
 
 [[package]]
 name = "enum-iterator"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2953d1df47ac0eb70086ccabf0275aa8da8591a28bd358ee2b52bd9f9e3ff9e9"
+dependencies = [
+ "enum-iterator-derive 0.8.1",
+]
+
+[[package]]
+name = "enum-iterator"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7add3873b5dd076766ee79c8e406ad1a472c385476b9e38849f8eec24f1be689"
 dependencies = [
- "enum-iterator-derive",
+ "enum-iterator-derive 1.2.1",
+]
+
+[[package]]
+name = "enum-iterator-derive"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8958699f9359f0b04e691a13850d48b7de329138023876d07cbd024c2c820598"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -2627,6 +2647,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
 dependencies = [
  "regex-automata 0.1.10",
+]
+
+[[package]]
+name = "material-icons"
+version = "0.2.0"
+source = "git+https://github.com/fschutt/material-icons.git#628de25db1760dda253a13ad6f086c0af285a7f1"
+dependencies = [
+ "enum-iterator 0.8.1",
 ]
 
 [[package]]
@@ -4398,7 +4426,7 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "egui_skia",
- "enum-iterator",
+ "enum-iterator 1.4.1",
  "env_logger",
  "f128",
  "fastwave_backend",
@@ -4413,6 +4441,7 @@ dependencies = [
  "imgref",
  "itertools 0.11.0",
  "log",
+ "material-icons",
  "num",
  "progress-streams",
  "project-root",

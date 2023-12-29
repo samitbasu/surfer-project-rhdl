@@ -185,8 +185,9 @@ fn key_listing(ui: &mut egui::Ui) {
         ("🔎", "Ctrl+Scroll", "Zoom"),
         ("〰", "b", "Show or hide the design hierarchy"),
         ("☰", "m", "Show or hide menu"),
-        ("🔎➕", "+", "Zoom in"),
-        ("🔎➖", "-", "Zoom out"),
+        ("🛠", "t", "Show or hide toolbar"),
+        ("\u{e8ff}", "+", "Zoom in"),
+        ("\u{e900}", "-", "Zoom out"),
         ("", "k/⬆", "Scroll up"),
         ("", "j/⬇", "Scroll down"),
         ("", "Ctrl+k/⬆", "Move focused item up"),
@@ -195,8 +196,12 @@ fn key_listing(ui: &mut egui::Ui) {
         ("", "Alt+j/⬇", "Move focus down"),
         ("", "Ctrl+0-9", "Add numbered cursor"),
         ("", "0-9", "Center view at numbered cursor"),
-        ("🔙", "s", "Scroll to start"),
-        ("🔚", "e", "Scroll to end"),
+        ("⏮", "s", "Go to start"),
+        ("⏭", "e", "Go to end"),
+        ("\u{e01f}", "Page up", "Go one page/screen right"),
+        ("\u{e020}", "Page down", "Go one page/screen left"),
+        ("⏵", "➡", "Go right"),
+        ("⏴", "⬅", "Go left"),
         ("🗙", "Delete", "Delete focused item"),
         #[cfg(not(target_arch = "wasm32"))]
         ("⛶", "F11", "Toggle full screen"),
@@ -227,6 +232,7 @@ fn controls_listing(ui: &mut egui::Ui) {
         ("🔎", "Ctrl+Scroll", "Zoom"),
         ("〰", "b", "Show or hide the design hierarchy"),
         ("☰", "m", "Show or hide menu"),
+        ("🛠", "t", "Show or hide toolbar"),
     ];
 
     Grid::new("controls")
