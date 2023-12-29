@@ -110,6 +110,7 @@ pub enum Message {
     // or last if no focused item
     AddTimeLine(Option<usize>),
     ToggleTickLines,
+    ToggleSignalTooltip,
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
     SaveState(PathBuf),

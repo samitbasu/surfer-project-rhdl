@@ -5,6 +5,7 @@ default_clock_highlight_type = "Line"
 show_hierarchy = true
 show_menu = true
 show_ticks = true
+show_signal_tooltip = true
 window_width = 1920
 window_height = 1080
 

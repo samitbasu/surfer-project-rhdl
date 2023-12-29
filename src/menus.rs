@@ -146,12 +146,25 @@ impl State {
                             });
                     }
                 });
-                ui.radio(self.config.layout.show_ticks(), "Show tick lines")
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(Message::ToggleTickLines)
-                    });
+                ui.radio(
+                    self.show_ticks.unwrap_or(self.config.layout.show_ticks()),
+                    "Show tick lines",
+                )
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleTickLines)
+                });
+                ui.radio(
+                    self.show_signal_tooltip
+                        .unwrap_or(self.config.layout.show_signal_tooltip()),
+                    "Show signal tooltip",
+                )
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleSignalTooltip)
+                });
             });
             ui.menu_button("Help", |ui| {
                 b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);

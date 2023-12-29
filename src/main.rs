@@ -408,6 +408,7 @@ pub struct State {
     show_hierarchy: Option<bool>,
     show_menu: Option<bool>,
     show_ticks: Option<bool>,
+    show_signal_tooltip: Option<bool>,
 
     waves: Option<WaveData>,
 
@@ -469,6 +470,7 @@ impl State {
             show_hierarchy: None,
             show_menu: None,
             show_ticks: None,
+            show_signal_tooltip: None,
         };
 
         Ok(result)
@@ -885,6 +887,13 @@ impl State {
                     None => !self.config.layout.show_ticks(),
                 };
                 self.show_ticks = Some(new)
+            }
+            Message::ToggleSignalTooltip => {
+                let new = match self.show_signal_tooltip {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_signal_tooltip(),
+                };
+                self.show_signal_tooltip = Some(new)
             }
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
