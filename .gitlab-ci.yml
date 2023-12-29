@@ -158,9 +158,10 @@ linux_build:
         - apt-get install -y openssl libssl-dev
         - cargo build --release
         - cp target/release/surfer surfer
+        - zip surfer_linux.zip surfer
     artifacts:
         paths:
-            - surfer
+            - surfer_linux.zip
         expire_in: 1 week
     cache:
         key: linux_build
