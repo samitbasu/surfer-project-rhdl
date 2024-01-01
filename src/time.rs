@@ -4,6 +4,7 @@ use eframe::{
     egui,
     epaint::{Pos2, Stroke},
 };
+use enum_iterator::Sequence;
 use num::{BigInt, BigRational, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +16,7 @@ pub struct TimeScale {
     pub multiplier: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum TimeUnit {
     FemtoSeconds,
     PicoSeconds,
@@ -35,7 +36,7 @@ impl fmt::Display for TimeUnit {
             TimeUnit::MicroSeconds => write!(f, "μs"),
             TimeUnit::MilliSeconds => write!(f, "ms"),
             TimeUnit::Seconds => write!(f, "s"),
-            TimeUnit::None => write!(f, "-"),
+            TimeUnit::None => write!(f, "No unit"),
         }
     }
 }
@@ -69,15 +70,7 @@ impl TimeUnit {
 }
 
 pub fn timeunit_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timeunit: &TimeUnit) {
-    let timeunits = vec![
-        TimeUnit::FemtoSeconds,
-        TimeUnit::PicoSeconds,
-        TimeUnit::NanoSeconds,
-        TimeUnit::MicroSeconds,
-        TimeUnit::MilliSeconds,
-        TimeUnit::Seconds,
-    ];
-    for timeunit in timeunits {
+    for timeunit in enum_iterator::all::<TimeUnit>() {
         ui.radio(*wanted_timeunit == timeunit, timeunit.to_string())
             .clicked()
             .then(|| {
@@ -96,6 +89,9 @@ fn strip_trailing_zeros_and_period(time: String) -> String {
 }
 
 pub fn time_string(time: &BigInt, timescale: &TimeScale, wanted_timeunit: &TimeUnit) -> String {
+    if wanted_timeunit == &TimeUnit::None {
+        return time.to_string();
+    }
     let wanted_exponent = wanted_timeunit.exponent();
     let data_exponent = timescale.unit.exponent();
     let exponent_diff = wanted_exponent - data_exponent;
