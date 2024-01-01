@@ -209,6 +209,15 @@ impl State {
             });
         }
 
+        if self
+            .show_toolbar
+            .unwrap_or_else(|| self.config.layout.show_toolbar())
+        {
+            egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+                self.draw_toolbar(ui, &mut msgs);
+            });
+        }
+
         if self.show_url_entry {
             let mut open = true;
             egui::Window::new("Load URL")

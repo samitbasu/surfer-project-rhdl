@@ -31,6 +31,8 @@ pub struct SurferLayout {
     show_hierarchy: bool,
     /// Flag to show/hide the menu
     show_menu: bool,
+    /// Flag to show/hide toolbar
+    show_toolbar: bool,
     /// Flag to show/hide tick lines
     show_ticks: bool,
     /// Initial window height
@@ -48,6 +50,9 @@ impl SurferLayout {
     }
     pub fn show_ticks(&self) -> bool {
         self.show_ticks
+    }
+    pub fn show_toolbar(&self) -> bool {
+        self.show_toolbar
     }
 }
 
