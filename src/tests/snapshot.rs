@@ -440,7 +440,7 @@ snapshot_ui_with_file_spade_and_msgs! {
 
 snapshot_ui_with_file_and_msgs! {divider_works, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
-    Message::AddDivider("Divider".to_string()),
+    Message::AddDivider("Divider".to_string(), None),
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::ItemBackgroundColorChange(Some(4), Some("Blue".to_string())),
     Message::ItemColorChange(Some(4), Some("Green".to_string()))
@@ -475,17 +475,17 @@ snapshot_ui_with_file_and_msgs! {signals_are_added_at_focus, "examples/counter.v
 snapshot_ui_with_file_and_msgs! {dividers_are_added_at_focus, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::FocusItem(1),
-    Message::AddDivider(String::from("Test"))
+    Message::AddDivider(String::from("Test"), None)
 ]}
 
 snapshot_ui_with_file_and_msgs! {dividers_are_appended_without_focus, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
-    Message::AddDivider(String::from("Test"))
+    Message::AddDivider(String::from("Test"), None)
 ]}
 
 snapshot_ui_with_file_and_msgs! {timeline_render, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
-    Message::AddTimeLine
+    Message::AddTimeLine(None)
 ]}
 
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [

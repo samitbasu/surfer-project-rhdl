@@ -103,8 +103,12 @@ pub enum Message {
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),
     ToggleFullscreen,
-    AddDivider(String),
-    AddTimeLine,
+    // Second argument is position to insert after, None inserts after focused item,
+    // or last if no focused item
+    AddDivider(String, Option<usize>),
+    // Argument is position to insert after, None inserts after focused item,
+    // or last if no focused item
+    AddTimeLine(Option<usize>),
     ToggleTickLines,
     SetCursorPosition(u8),
     GoToCursorPosition(u8),

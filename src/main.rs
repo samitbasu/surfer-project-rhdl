@@ -523,14 +523,14 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
-            Message::AddDivider(name) => {
+            Message::AddDivider(name, vidx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.add_divider(name);
+                    waves.add_divider(name, vidx);
                 }
             }
-            Message::AddTimeLine => {
+            Message::AddTimeLine(vidx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.add_timeline();
+                    waves.add_timeline(vidx);
                 }
             }
             Message::AddModule(module) => {
