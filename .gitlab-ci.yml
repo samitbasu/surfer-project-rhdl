@@ -114,6 +114,8 @@ coverage:
         expire_in: 1 week
     rules:
         - when: always
+        - allow_failure: true # Often runs out of disk space
+
 
 cargo-fmt:
     stage: test
