@@ -75,3 +75,13 @@ impl fmt::Display for SignalType {
         }
     }
 }
+
+/// Types that should default to signed conversion
+pub const INTEGER_TYPES: &[Option<SignalType>] = &[Some(SignalType::VCDInteger)];
+
+/// Types that are strings, so no conversion should be made
+pub const STRING_TYPES: &[Option<SignalType>] = &[
+    Some(SignalType::VCDString),
+    Some(SignalType::VCDReal),
+    Some(SignalType::VCDRealTime),
+];

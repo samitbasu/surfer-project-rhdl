@@ -15,7 +15,7 @@ pub use numeric_translators::*;
 
 use crate::{
     message::Message,
-    signal_type::SignalType,
+    signal_type::STRING_TYPES,
     wave_container::{FieldRef, SignalMeta, SignalValue},
 };
 
@@ -377,10 +377,7 @@ pub enum TranslationPreference {
 }
 
 pub fn translates_all_bit_types(signal: &SignalMeta) -> Result<TranslationPreference> {
-    if signal.signal_type == Some(SignalType::VCDString)
-        || signal.signal_type == Some(SignalType::VCDReal)
-        || signal.signal_type == Some(SignalType::VCDRealTime)
-    {
+    if STRING_TYPES.contains(&signal.signal_type) {
         Ok(TranslationPreference::No)
     } else {
         Ok(TranslationPreference::Yes)
@@ -463,10 +460,7 @@ impl Translator for StringTranslator {
     }
 
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        if signal.signal_type == Some(SignalType::VCDString)
-            || signal.signal_type == Some(SignalType::VCDReal)
-            || signal.signal_type == Some(SignalType::VCDRealTime)
-        {
+        if STRING_TYPES.contains(&signal.signal_type) {
             Ok(TranslationPreference::Prefer)
         } else {
             Ok(TranslationPreference::No)
