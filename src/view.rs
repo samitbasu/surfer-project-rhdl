@@ -561,8 +561,14 @@ impl State {
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    ui.add(egui::SelectableLabel::new(false, sig.name.clone()))
-                        .on_hover_text(signal_tooltip_text(wave, &sig))
+                    let mut response = ui.add(egui::SelectableLabel::new(false, sig.name.clone()));
+                    if self
+                        .show_signal_tooltip
+                        .unwrap_or(self.config.layout.show_signal_tooltip())
+                    {
+                        response = response.on_hover_text(signal_tooltip_text(wave, &sig));
+                    }
+                    response
                         .clicked()
                         .then(|| msgs.push(Message::AddSignal(sig.clone())));
                 },
@@ -626,16 +632,6 @@ impl State {
         ui: &mut egui::Ui,
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
-            let tooltip = if let Some(waves) = &self.waves {
-                if field.field.is_empty() {
-                    signal_tooltip_text(waves, &field.root)
-                } else {
-                    "From translator".to_string()
-                }
-            } else {
-                "No VCD loaded".to_string()
-            };
-
             ui.horizontal_top(|ui| {
                 if self.sys.command_prompt.visible
                     && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
@@ -647,12 +643,27 @@ impl State {
 
                 self.add_focus_marker(vidx, ui);
 
-                let signal_label = ui
+                let mut signal_label = ui
                     .selectable_label(false, egui::RichText::new(name))
-                    .on_hover_text(tooltip)
                     .context_menu(|ui| {
                         self.item_context_menu(Some(&field), msgs, ui, vidx);
                     });
+
+                if self
+                    .show_signal_tooltip
+                    .unwrap_or(self.config.layout.show_signal_tooltip())
+                {
+                    let tooltip = if let Some(waves) = &self.waves {
+                        if field.field.is_empty() {
+                            signal_tooltip_text(waves, &field.root)
+                        } else {
+                            "From translator".to_string()
+                        }
+                    } else {
+                        "No VCD loaded".to_string()
+                    };
+                    signal_label = signal_label.on_hover_text(tooltip);
+                }
 
                 if signal_label.clicked() {
                     if self
