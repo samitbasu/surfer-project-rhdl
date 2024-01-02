@@ -4,7 +4,7 @@ use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
 use spade_common::num_ext::InfallibleToBigUint;
 
-use crate::{signal_type::SignalType, wave_container::SignalMeta};
+use crate::{signal_type::INTEGER_TYPES, wave_container::SignalMeta};
 
 use super::{
     check_single_wordlength, map_vector_signal, translates_all_bit_types, BasicTranslator,
@@ -85,7 +85,7 @@ impl NumericTranslator for SignedTranslator {
     }
 
     fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        if signal.signal_type == Some(SignalType::VCDInteger) {
+        if INTEGER_TYPES.contains(&signal.signal_type) {
             Ok(TranslationPreference::Prefer)
         } else {
             translates_all_bit_types(signal)
