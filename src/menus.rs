@@ -123,12 +123,7 @@ impl State {
                 if let Some(waves) = &self.waves {
                     let signal_name_type = waves.default_signal_name_type;
                     ui.menu_button("Signal names", |ui| {
-                        let name_types = vec![
-                            SignalNameType::Local,
-                            SignalNameType::Global,
-                            SignalNameType::Unique,
-                        ];
-                        for name_type in name_types {
+                        for name_type in enum_iterator::all::<SignalNameType>() {
                             ui.radio(signal_name_type == name_type, name_type.to_string())
                                 .clicked()
                                 .then(|| {
@@ -239,13 +234,8 @@ impl State {
 
         if let DisplayedItem::Signal(signal) = displayed_item {
             ui.menu_button("Name", |ui| {
-                let name_types = vec![
-                    SignalNameType::Local,
-                    SignalNameType::Global,
-                    SignalNameType::Unique,
-                ];
                 let signal_name_type = signal.display_name_type;
-                for name_type in name_types {
+                for name_type in enum_iterator::all::<SignalNameType>() {
                     ui.radio(signal_name_type == name_type, name_type.to_string())
                         .clicked()
                         .then(|| {

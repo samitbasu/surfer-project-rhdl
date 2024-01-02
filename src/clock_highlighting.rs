@@ -4,11 +4,12 @@ use eframe::{
     egui,
     epaint::{Pos2, Rect, Stroke},
 };
+use enum_iterator::Sequence;
 use serde::Deserialize;
 
 use crate::{config::SurferConfig, message::Message, view::DrawingContext};
 
-#[derive(PartialEq, Copy, Clone, Debug, Deserialize)]
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize, Sequence)]
 pub enum ClockHighlightType {
     Line,  // Draw a line at every posedge of the clokcs
     Cycle, // Highlight every other cycle
@@ -91,12 +92,7 @@ pub fn clock_highlight_type_menu(
     msgs: &mut Vec<Message>,
     clock_highlight_type: ClockHighlightType,
 ) {
-    let highlight_types = vec![
-        ClockHighlightType::Line,
-        ClockHighlightType::Cycle,
-        ClockHighlightType::None,
-    ];
-    for highlight_type in highlight_types {
+    for highlight_type in enum_iterator::all::<ClockHighlightType>() {
         ui.radio(
             highlight_type == clock_highlight_type,
             highlight_type.to_string(),

@@ -2,6 +2,7 @@ use eframe::{
     egui::{self, Ui},
     emath::Align,
 };
+use enum_iterator::Sequence;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::Itertools;
 use regex::Regex;
@@ -9,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{message::Message, wave_container::SignalRef, wave_data::WaveData, State};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum SignalFilterType {
     Fuzzy,
     Regex,
@@ -101,13 +102,7 @@ pub fn signal_filter_type_menu(
     msgs: &mut Vec<Message>,
     signal_filter_type: &SignalFilterType,
 ) {
-    let filter_types = vec![
-        SignalFilterType::Fuzzy,
-        SignalFilterType::Regex,
-        SignalFilterType::Start,
-        SignalFilterType::Contain,
-    ];
-    for filter_type in filter_types {
+    for filter_type in enum_iterator::all::<SignalFilterType>() {
         ui.radio(*signal_filter_type == filter_type, filter_type.to_string())
             .clicked()
             .then(|| {
