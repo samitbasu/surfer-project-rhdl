@@ -486,7 +486,7 @@ pub fn show_command_prompt(
                         // move cursor to end of input
                         set_cursor_to_pos(input.chars().count(), ui);
                         // run fuzzy parser since setting the cursor swallows the `changed` flag
-                        run_fuzzy_parser(&input, state, msgs);
+                        run_fuzzy_parser(input, state, msgs);
                     }
                 }
 
@@ -630,7 +630,7 @@ pub fn show_command_prompt(
                             *input = result.0 + " ";
                             set_cursor_to_pos(input.chars().count(), ui);
                             // run fuzzy parser since setting the cursor swallows the `changed` flag
-                            run_fuzzy_parser(&input, state, msgs);
+                            run_fuzzy_parser(input, state, msgs);
                         }
                     }
                 }
@@ -649,7 +649,7 @@ impl SuggestionLabel {
     pub fn new(text: impl Into<egui::WidgetText>, selected: bool) -> Self {
         Self {
             text: text.into(),
-            selected: selected,
+            selected,
         }
     }
 }

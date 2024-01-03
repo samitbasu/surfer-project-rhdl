@@ -17,7 +17,7 @@ pub struct EguiLogger<'a> {
 }
 
 impl EguiLogger<'_> {
-    pub fn records<'a>(&'a self) -> Vec<LogMessage<'a>> {
+    pub fn records(&self) -> Vec<LogMessage<'_>> {
         self.records
             .lock()
             .expect("Failed to lock logger. Thread poisoned?")
