@@ -1,6 +1,11 @@
 default_signal_name_type = "Unique"
 default_clock_highlight_type = "Line"
 
+[default_time_format]
+format = "No"
+show_space = true
+show_unit = true
+
 [layout]
 show_hierarchy = true
 show_menu = true

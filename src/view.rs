@@ -262,6 +262,7 @@ impl State {
                                     time,
                                     &waves.inner.metadata().timescale,
                                     &self.wanted_timeunit,
+                                    &self.config.default_time_format,
                                 ))
                                 .context_menu(|ui| {
                                     timeunit_menu(ui, &mut msgs, &self.wanted_timeunit)
@@ -933,6 +934,7 @@ impl State {
                                     - cursor),
                                 &waves.inner.metadata().timescale,
                                 &self.wanted_timeunit,
+                                &self.config.default_time_format,
                             );
 
                             ui.label(format!("Δ: {delta}",)).context_menu(|ui| {
