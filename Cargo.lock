@@ -3461,6 +3461,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pure-rust-locales"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed02a829e62dc2715ceb8afb4f80e298148e1345749ceb369540fe0eb3368432"
+
+[[package]]
 name = "qoi"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4445,6 +4451,7 @@ dependencies = [
  "num",
  "progress-streams",
  "project-root",
+ "pure-rust-locales",
  "rayon",
  "regex",
  "reqwest",
@@ -4460,6 +4467,7 @@ dependencies = [
  "spade-hir-lowering",
  "spade-mir",
  "spade-types",
+ "sys-locale",
  "test-log",
  "tokio",
  "toml 0.8.8",
@@ -4491,6 +4499,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e801cf239ecd6ccd71f03d270d67dd53d13e90aab208bf4b8fe4ad957ea949b0"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

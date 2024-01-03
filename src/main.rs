@@ -70,6 +70,7 @@ use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
 use signal_filter::SignalFilterType;
+use time::TimeStringFormatting;
 use time::TimeUnit;
 use translation::all_translators;
 use translation::spade::SpadeTranslator;
@@ -457,6 +458,7 @@ pub struct State {
     show_logs: bool,
     show_cursor_window: bool,
     wanted_timeunit: TimeUnit,
+    time_string_format: Option<TimeStringFormatting>,
     show_url_entry: bool,
     signal_filter_focused: bool,
     signal_filter_type: SignalFilterType,
@@ -488,6 +490,7 @@ impl State {
             show_logs: false,
             show_cursor_window: false,
             wanted_timeunit: TimeUnit::None,
+            time_string_format: None,
             show_url_entry: false,
             show_quick_start: false,
             rename_target: None,
@@ -741,6 +744,10 @@ impl State {
             Message::SetTimeUnit(timeunit) => {
                 self.invalidate_draw_commands();
                 self.wanted_timeunit = timeunit;
+            }
+            Message::SetTimeStringFormatting(format) => {
+                self.invalidate_draw_commands();
+                self.time_string_format = format;
             }
             Message::ZoomToRange { start, end } => {
                 if let Some(waves) = &mut self.waves {
