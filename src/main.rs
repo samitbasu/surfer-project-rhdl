@@ -697,7 +697,8 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.handle_canvas_scroll(delta, viewport_idx);
+                    waves.viewports[viewport_idx]
+                        .handle_canvas_scroll(delta.y as f64 + delta.x as f64);
                     self.invalidate_draw_commands();
                 }
             }
@@ -707,31 +708,32 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.handle_canvas_zoom(mouse_ptr_timestamp, delta as f64, viewport_idx);
+                    waves.viewports[viewport_idx]
+                        .handle_canvas_zoom(mouse_ptr_timestamp, delta as f64);
                     self.invalidate_draw_commands();
                 }
             }
             Message::ZoomToFit { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.zoom_to_fit(viewport_idx);
+                    waves.viewports[viewport_idx].zoom_to_fit(&waves.num_timestamps);
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToEnd { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.go_to_end(viewport_idx);
+                    waves.viewports[viewport_idx].go_to_end(&waves.num_timestamps);
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToStart { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.go_to_start(viewport_idx);
+                    waves.viewports[viewport_idx].go_to_start();
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToTime(time, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.go_to_time(&time.clone(), viewport_idx);
+                    waves.viewports[viewport_idx].go_to_time(&time.clone());
                     self.invalidate_draw_commands();
                 };
             }
@@ -745,8 +747,7 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].curr_left = start;
-                    waves.viewports[viewport_idx].curr_right = end;
+                    waves.viewports[viewport_idx].zoom_to_range(start, end);
                     self.invalidate_draw_commands();
                 }
             }
@@ -997,7 +998,7 @@ impl State {
             Message::GoToCursorPosition(idx, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.cursors.get(&idx) {
-                        waves.go_to_time(&cursor.clone(), viewport_idx);
+                        waves.viewports[viewport_idx].go_to_time(&cursor);
                         self.invalidate_draw_commands();
                     }
                 };
