@@ -148,6 +148,7 @@ impl WaveData {
                     .unwrap_or(&BigInt::from(0)),
                 &self.inner.metadata().timescale,
                 &wanted_timeunit,
+                &config.default_time_format,
             );
 
             // Determine size of text
