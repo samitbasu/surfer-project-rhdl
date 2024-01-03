@@ -108,6 +108,9 @@ impl State {
                 b("Toggle menu", Message::ToggleMenu)
                     .shortcut("m")
                     .add_closing_menu(msgs, ui);
+                b("Toggle toolbar", Message::ToggleToolbar)
+                    .shortcut("t")
+                    .add_closing_menu(msgs, ui);
                 #[cfg(not(target_arch = "wasm32"))]
                 b("Toggle full screen", Message::ToggleFullscreen)
                     .shortcut("F11")
@@ -146,6 +149,7 @@ impl State {
                             });
                     }
                 });
+
                 ui.radio(
                     self.show_ticks.unwrap_or(self.config.layout.show_ticks()),
                     "Show tick lines",
@@ -155,6 +159,7 @@ impl State {
                     ui.close_menu();
                     msgs.push(Message::ToggleTickLines)
                 });
+
                 ui.radio(
                     self.show_signal_tooltip
                         .unwrap_or(self.config.layout.show_signal_tooltip()),
@@ -176,7 +181,6 @@ impl State {
                 b("Show logs", Message::SetLogsVisible(true)).add_closing_menu(msgs, ui);
 
                 ui.separator();
-
                 b("About", Message::SetAboutVisible(true)).add_closing_menu(msgs, ui)
             });
         });
