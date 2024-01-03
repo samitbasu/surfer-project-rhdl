@@ -363,7 +363,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 ),
                 "timespan_add" => Some(Command::Terminal(Message::AddTimespan)),
                 "timespan_remove" => Some(Command::Terminal(Message::RemoveTimespan)),
-                 "exit" => Some(Command::Terminal(Message::Exit)),
+                "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
             }
         }),

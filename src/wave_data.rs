@@ -4,7 +4,7 @@ use color_eyre::eyre::WrapErr;
 use eframe::epaint::Vec2;
 use itertools::Itertools;
 use log::{error, warn};
-use num::{BigInt, ToPrimitive};
+use num::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -178,28 +178,7 @@ impl WaveData {
         delta: f64,
         viewport_idx: usize,
     ) {
-        // Zoom or scroll
-        let Viewport {
-            curr_left: left,
-            curr_right: right,
-            ..
-        } = &self.viewports[viewport_idx];
-
-        let (target_left, target_right) = match mouse_ptr_timestamp {
-            Some(mouse_location) => (
-                (left - mouse_location) / delta + mouse_location,
-                (right - mouse_location) / delta + mouse_location,
-            ),
-            None => {
-                let mid_point = (right + left) * 0.5;
-                let offset = (right - left) * delta * 0.5;
-
-                (mid_point - offset, mid_point + offset)
-            }
-        };
-
-        self.viewports[viewport_idx].curr_left = target_left;
-        self.viewports[viewport_idx].curr_right = target_right;
+        self.viewports[viewport_idx].handle_canvas_zoom(mouse_ptr_timestamp, delta);
     }
 
     pub fn add_signal(&mut self, translators: &TranslatorList, sig: &SignalRef) {
@@ -293,34 +272,19 @@ impl WaveData {
     }
 
     pub fn go_to_start(&mut self, viewport_idx: usize) {
-        let width =
-            self.viewports[viewport_idx].curr_right - self.viewports[viewport_idx].curr_left;
-
-        self.viewports[viewport_idx].curr_left = 0.0;
-        self.viewports[viewport_idx].curr_right = width;
+        self.viewports[viewport_idx].go_to_start();
     }
 
     pub fn go_to_end(&mut self, viewport_idx: usize) {
-        let end_point = self.num_timestamps.clone().to_f64().unwrap();
-        let width =
-            self.viewports[viewport_idx].curr_right - self.viewports[viewport_idx].curr_left;
-
-        self.viewports[viewport_idx].curr_left = end_point - width;
-        self.viewports[viewport_idx].curr_right = end_point;
+        self.viewports[viewport_idx].go_to_end(&self.num_timestamps);
     }
 
     pub fn zoom_to_fit(&mut self, viewport_idx: usize) {
-        self.viewports[viewport_idx].curr_left = 0.0;
-        self.viewports[viewport_idx].curr_right = self.num_timestamps.clone().to_f64().unwrap();
+        self.viewports[viewport_idx].zoom_to_fit(&self.num_timestamps);
     }
 
     pub fn go_to_time(&mut self, center: &BigInt, viewport_idx: usize) {
-        let center_point = center.to_f64().unwrap();
-        let half_width =
-            (self.viewports[viewport_idx].curr_right - self.viewports[viewport_idx].curr_left) / 2.;
-
-        self.viewports[viewport_idx].curr_left = center_point - half_width;
-        self.viewports[viewport_idx].curr_right = center_point + half_width;
+        self.viewports[viewport_idx].go_to_time(center);
     }
 
     pub fn handle_canvas_scroll(
@@ -329,16 +293,6 @@ impl WaveData {
         delta: Vec2,
         viewport_idx: usize,
     ) {
-        // Scroll 5% of the viewport per scroll event.
-        // One scroll event yields 50
-        let scroll_step = -(self.viewports[viewport_idx].curr_right
-            - self.viewports[viewport_idx].curr_left)
-            / (50. * 20.);
-
-        let target_left = self.viewports[viewport_idx].curr_left + scroll_step * delta.y as f64;
-        let target_right = self.viewports[viewport_idx].curr_right + scroll_step * delta.y as f64;
-
-        self.viewports[viewport_idx].curr_left = target_left;
-        self.viewports[viewport_idx].curr_right = target_right;
+        self.viewports[viewport_idx].handle_canvas_scroll(delta.y as f64);
     }
 }
