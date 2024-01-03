@@ -501,14 +501,7 @@ impl State {
             &waves.viewport,
         );
 
-        waves.draw_cursor_boxes(
-            &mut ctx,
-            item_offsets,
-            response.rect.size(),
-            gap,
-            &self.config,
-            self.wanted_timeunit,
-        );
+        self.draw_cursor_boxes(waves, &mut ctx, item_offsets, response.rect.size(), gap);
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
     }
