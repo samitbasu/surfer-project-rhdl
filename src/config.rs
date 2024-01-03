@@ -11,6 +11,7 @@ use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
+use crate::time::TimeFormat;
 use crate::{clock_highlighting::ClockHighlightType, signal_name_type::SignalNameType};
 
 #[derive(Debug, Deserialize)]
@@ -20,6 +21,8 @@ pub struct SurferConfig {
     pub gesture: SurferGesture,
     /// Tick information
     pub ticks: SurferTicks,
+    /// Time stamp format
+    pub default_time_format: TimeFormat,
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
     pub default_clock_highlight_type: ClockHighlightType,
