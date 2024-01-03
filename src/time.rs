@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 use eframe::{
     egui,
@@ -6,9 +6,13 @@ use eframe::{
 };
 use enum_iterator::Sequence;
 use num::{BigInt, BigRational, ToPrimitive};
+use pure_rust_locales::{locale_match, Locale};
 use serde::{Deserialize, Serialize};
+use sys_locale::get_locale;
 
-use crate::{view::DrawingContext, wave_data::WaveData, Message, State};
+use crate::{
+    translation::group_n_chars, view::DrawingContext, wave_data::WaveData, Message, State,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct TimeScale {
@@ -80,6 +84,61 @@ pub fn timeunit_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timeunit
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TimeFormat {
+    format: TimeStringFormatting,
+    space: bool,
+    unit: bool,
+}
+
+impl Default for TimeFormat {
+    fn default() -> Self {
+        TimeFormat {
+            format: TimeStringFormatting::No,
+            space: true,
+            unit: true,
+        }
+    }
+}
+
+/// How to format the numeric part of the time string
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Sequence)]
+pub enum TimeStringFormatting {
+    /// No additional formatting
+    No,
+    /// Use the current locale to determine decimal separator, thousands separator, and grouping
+    Locale,
+    /// Use the SI standard: split into groups of three digits, unless there are exactly four
+    /// for both integer and fractional part. Use space as group separator.
+    SI,
+}
+
+impl fmt::Display for TimeStringFormatting {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TimeStringFormatting::No => write!(f, "No"),
+            TimeStringFormatting::Locale => write!(f, "Locale"),
+            TimeStringFormatting::SI => write!(f, "SI"),
+        }
+    }
+}
+
+impl FromStr for TimeStringFormatting {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<TimeStringFormatting, Self::Err> {
+        match input {
+            "No" => Ok(TimeStringFormatting::No),
+            "Locale" => Ok(TimeStringFormatting::Locale),
+            "SI" => Ok(TimeStringFormatting::SI),
+            _ => Err(format!(
+                "'{}' is not a valid TimeFormat (Valid options: No|Locale|SI)",
+                input
+            )),
+        }
+    }
+}
+
 fn strip_trailing_zeros_and_period(time: String) -> String {
     if time.contains('.') {
         time.trim_end_matches('0').trim_end_matches('.').to_string()
@@ -88,32 +147,113 @@ fn strip_trailing_zeros_and_period(time: String) -> String {
     }
 }
 
-pub fn time_string(time: &BigInt, timescale: &TimeScale, wanted_timeunit: &TimeUnit) -> String {
+fn split_and_format_number(time: String, format: &TimeStringFormatting) -> String {
+    match format {
+        TimeStringFormatting::No => time,
+        TimeStringFormatting::Locale => {
+            let locale: Locale = get_locale()
+                .unwrap_or_else(|| String::from("en-US"))
+                .as_str()
+                .try_into()
+                .unwrap_or(Locale::en_US);
+            let grouping = locale_match!(locale => LC_NUMERIC::GROUPING);
+            if grouping[0] > 0 {
+                let thousands_sep = locale_match!(locale => LC_NUMERIC::THOUSANDS_SEP);
+                if time.contains('.') {
+                    let decimal_point = locale_match!(locale => LC_NUMERIC::DECIMAL_POINT);
+                    let mut parts = time.split(".");
+                    let integer_parts = group_n_chars(parts.next().unwrap(), grouping[0] as usize);
+                    let integer_part = integer_parts.join(thousands_sep);
+                    format!(
+                        "{integer_part}{decimal_point}{fractional_part}",
+                        fractional_part = parts.next().unwrap()
+                    )
+                } else {
+                    let integer_parts = group_n_chars(&time, grouping[0] as usize);
+                    integer_parts.join(thousands_sep)
+                }
+            } else {
+                time
+            }
+        }
+        TimeStringFormatting::SI => {
+            if time.contains('.') {
+                let mut parts = time.split(".");
+                let integer_part = parts.next().unwrap();
+                let fractional_part = parts.next().unwrap();
+                let integer_part = if integer_part.len() > 4 {
+                    group_n_chars(&integer_part, 3).join(" ")
+                } else {
+                    integer_part.to_string()
+                };
+                let fractional_part = if fractional_part.len() > 4 {
+                    let reversed = fractional_part.chars().rev().collect::<String>();
+                    let reversed_fractional_part = group_n_chars(&reversed, 3).join(" ");
+                    let ret = reversed_fractional_part.chars().rev().collect::<String>();
+                    ret
+                } else {
+                    fractional_part.to_string()
+                };
+                format!("{integer_part}.{fractional_part}")
+            } else {
+                if time.len() > 4 {
+                    group_n_chars(&time, 3).join(" ")
+                } else {
+                    time
+                }
+            }
+        }
+    }
+}
+
+pub fn time_string(
+    time: &BigInt,
+    timescale: &TimeScale,
+    wanted_timeunit: &TimeUnit,
+    wanted_time_format: &TimeFormat,
+) -> String {
     if wanted_timeunit == &TimeUnit::None {
-        return time.to_string();
+        return split_and_format_number(time.to_string(), &wanted_time_format.format);
     }
     let wanted_exponent = wanted_timeunit.exponent();
     let data_exponent = timescale.unit.exponent();
     let exponent_diff = wanted_exponent - data_exponent;
+    let timeunit = if wanted_time_format.unit {
+        format!("{wanted_timeunit}")
+    } else {
+        String::new()
+    };
+    let space = if wanted_time_format.space {
+        format!(" ")
+    } else {
+        String::new()
+    };
     if exponent_diff >= 0 {
         let precision = exponent_diff as usize;
-        let scaledtime = strip_trailing_zeros_and_period(format!(
-            "{scaledtime:.precision$}",
-            scaledtime = BigRational::new(
-                time * timescale.multiplier.unwrap_or(1),
-                (BigInt::from(10)).pow(exponent_diff as u32)
-            )
-            .to_f64()
-            .unwrap_or(f64::NAN)
-        ));
+        let scaledtime = split_and_format_number(
+            strip_trailing_zeros_and_period(format!(
+                "{scaledtime:.precision$}",
+                scaledtime = BigRational::new(
+                    time * timescale.multiplier.unwrap_or(1),
+                    (BigInt::from(10)).pow(exponent_diff as u32)
+                )
+                .to_f64()
+                .unwrap_or(f64::NAN)
+            )),
+            &wanted_time_format.format,
+        );
 
-        format!("{scaledtime} {wanted_timeunit}")
+        format!("{scaledtime}{space}{timeunit}")
     } else {
         format!(
-            "{scaledtime} {wanted_timeunit}",
-            scaledtime = time
-                * timescale.multiplier.unwrap_or(1)
-                * (BigInt::from(10)).pow(-exponent_diff as u32)
+            "{scaledtime}{space}{timeunit}",
+            scaledtime = split_and_format_number(
+                (time
+                    * timescale.multiplier.unwrap_or(1)
+                    * (BigInt::from(10)).pow(-exponent_diff as u32))
+                .to_string(),
+                &wanted_time_format.format
+            )
         )
     }
 }
@@ -159,6 +299,7 @@ impl State {
                                 &tick,
                                 &waves.inner.metadata().timescale,
                                 &self.wanted_timeunit,
+                                &self.config.default_time_format,
                             ),
                             waves.viewport.from_time(&tick, frame_width_64) as f32,
                         )
@@ -187,7 +328,7 @@ impl State {
 mod test {
     use num::BigInt;
 
-    use crate::time::{time_string, TimeScale, TimeUnit};
+    use crate::time::{time_string, TimeFormat, TimeScale, TimeStringFormatting, TimeUnit};
 
     #[test]
     fn print_time_standard() {
@@ -198,7 +339,8 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::FemtoSeconds
                 },
-                &TimeUnit::FemtoSeconds
+                &TimeUnit::FemtoSeconds,
+                &TimeFormat::default()
             ),
             "103 fs"
         );
@@ -209,7 +351,8 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::MicroSeconds
                 },
-                &TimeUnit::MicroSeconds
+                &TimeUnit::MicroSeconds,
+                &TimeFormat::default()
             ),
             "2200 μs"
         );
@@ -220,7 +363,8 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::MicroSeconds
                 },
-                &TimeUnit::MilliSeconds
+                &TimeUnit::MilliSeconds,
+                &TimeFormat::default()
             ),
             "2.2 ms"
         );
@@ -231,9 +375,90 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::MicroSeconds
                 },
-                &TimeUnit::NanoSeconds
+                &TimeUnit::NanoSeconds,
+                &TimeFormat::default()
             ),
             "2200000 ns"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(2200),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::NanoSeconds
+                },
+                &TimeUnit::PicoSeconds,
+                &TimeFormat {
+                    format: TimeStringFormatting::No,
+                    space: false,
+                    unit: true
+                }
+            ),
+            "2200000ps"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(2200),
+                &TimeScale {
+                    multiplier: Some(10),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::MicroSeconds,
+                &TimeFormat {
+                    format: TimeStringFormatting::No,
+                    space: false,
+                    unit: false
+                }
+            ),
+            "22000"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(123456789010i128),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::Seconds,
+                &TimeFormat {
+                    format: TimeStringFormatting::SI,
+                    space: true,
+                    unit: true
+                }
+            ),
+            "123 456.789 01 s"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(2200),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::MicroSeconds,
+                &TimeFormat {
+                    format: TimeStringFormatting::SI,
+                    space: true,
+                    unit: true
+                }
+            ),
+            "2200 μs"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(22200),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::MicroSeconds,
+                &TimeFormat {
+                    format: TimeStringFormatting::SI,
+                    space: true,
+                    unit: true
+                }
+            ),
+            "22 200 μs"
         );
     }
 }
