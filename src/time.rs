@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 use eframe::{
     egui,
@@ -80,6 +80,56 @@ pub fn timeunit_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timeunit
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TimeFormat {
+    format: TimeStringFormatting,
+    space: bool,
+    unit: bool,
+}
+
+impl Default for TimeFormat {
+    fn default() -> Self {
+        TimeFormat {
+            format: TimeStringFormatting::No,
+            space: true,
+            unit: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Sequence)]
+pub enum TimeStringFormatting {
+    No,
+    Locale,
+    SI,
+}
+
+impl fmt::Display for TimeStringFormatting {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TimeStringFormatting::No => write!(f, "No"),
+            TimeStringFormatting::Locale => write!(f, "Locale"),
+            TimeStringFormatting::SI => write!(f, "SI"),
+        }
+    }
+}
+
+impl FromStr for TimeStringFormatting {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<TimeStringFormatting, Self::Err> {
+        match input {
+            "No" => Ok(TimeStringFormatting::No),
+            "Locale" => Ok(TimeStringFormatting::Locale),
+            "SI" => Ok(TimeStringFormatting::SI),
+            _ => Err(format!(
+                "'{}' is not a valid TimeFormat (Valid options: No|Locale|SI)",
+                input
+            )),
+        }
+    }
+}
+
 fn strip_trailing_zeros_and_period(time: String) -> String {
     if time.contains('.') {
         time.trim_end_matches('0').trim_end_matches('.').to_string()
@@ -88,13 +138,28 @@ fn strip_trailing_zeros_and_period(time: String) -> String {
     }
 }
 
-pub fn time_string(time: &BigInt, timescale: &TimeScale, wanted_timeunit: &TimeUnit) -> String {
+pub fn time_string(
+    time: &BigInt,
+    timescale: &TimeScale,
+    wanted_timeunit: &TimeUnit,
+    wanted_time_format: &TimeFormat,
+) -> String {
     if wanted_timeunit == &TimeUnit::None {
         return time.to_string();
     }
     let wanted_exponent = wanted_timeunit.exponent();
     let data_exponent = timescale.unit.exponent();
     let exponent_diff = wanted_exponent - data_exponent;
+    let timeunit = if wanted_time_format.unit {
+        format!("{wanted_timeunit}")
+    } else {
+        String::new()
+    };
+    let space = if wanted_time_format.space {
+        format!(" ")
+    } else {
+        String::new()
+    };
     if exponent_diff >= 0 {
         let precision = exponent_diff as usize;
         let scaledtime = strip_trailing_zeros_and_period(format!(
@@ -107,10 +172,10 @@ pub fn time_string(time: &BigInt, timescale: &TimeScale, wanted_timeunit: &TimeU
             .unwrap_or(f64::NAN)
         ));
 
-        format!("{scaledtime} {wanted_timeunit}")
+        format!("{scaledtime}{space}{timeunit}")
     } else {
         format!(
-            "{scaledtime} {wanted_timeunit}",
+            "{scaledtime}{space}{timeunit}",
             scaledtime = time
                 * timescale.multiplier.unwrap_or(1)
                 * (BigInt::from(10)).pow(-exponent_diff as u32)
@@ -159,6 +224,7 @@ impl State {
                                 &tick,
                                 &waves.inner.metadata().timescale,
                                 &self.wanted_timeunit,
+                                &self.config.default_time_format,
                             ),
                             waves.viewport.from_time(&tick, frame_width_64) as f32,
                         )
@@ -187,7 +253,7 @@ impl State {
 mod test {
     use num::BigInt;
 
-    use crate::time::{time_string, TimeScale, TimeUnit};
+    use crate::time::{time_string, TimeFormat, TimeScale, TimeStringFormatting, TimeUnit};
 
     #[test]
     fn print_time_standard() {
@@ -198,7 +264,8 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::FemtoSeconds
                 },
-                &TimeUnit::FemtoSeconds
+                &TimeUnit::FemtoSeconds,
+                &TimeFormat::default()
             ),
             "103 fs"
         );
@@ -209,7 +276,8 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::MicroSeconds
                 },
-                &TimeUnit::MicroSeconds
+                &TimeUnit::MicroSeconds,
+                &TimeFormat::default()
             ),
             "2200 μs"
         );
@@ -220,7 +288,8 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::MicroSeconds
                 },
-                &TimeUnit::MilliSeconds
+                &TimeUnit::MilliSeconds,
+                &TimeFormat::default()
             ),
             "2.2 ms"
         );
@@ -231,9 +300,42 @@ mod test {
                     multiplier: Some(1),
                     unit: TimeUnit::MicroSeconds
                 },
-                &TimeUnit::NanoSeconds
+                &TimeUnit::NanoSeconds,
+                &TimeFormat::default()
             ),
             "2200000 ns"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(2200),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::NanoSeconds
+                },
+                &TimeUnit::PicoSeconds,
+                &TimeFormat {
+                    format: TimeStringFormatting::No,
+                    space: false,
+                    unit: true
+                }
+            ),
+            "2200000ps"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(2200),
+                &TimeScale {
+                    multiplier: Some(10),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::MicroSeconds,
+                &TimeFormat {
+                    format: TimeStringFormatting::No,
+                    space: false,
+                    unit: false
+                }
+            ),
+            "22000"
         );
     }
 }
