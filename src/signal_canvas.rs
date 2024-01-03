@@ -106,7 +106,7 @@ fn signal_draw_commands(
     let start_pixel = timestamps.get(1).map(|t| t.0).unwrap_or_default();
 
     // Iterate over all the time stamps to draw on
-    let mut next_change = timestamps.get(0).map(|t| t.0).unwrap_or_default();
+    let mut next_change = timestamps.first().map(|t| t.0).unwrap_or_default();
     for ((_, prev_time), (pixel, time)) in timestamps.iter().zip(timestamps.iter().skip(1)) {
         let is_last_timestep = pixel == &end_pixel;
         let is_first_timestep = pixel == &start_pixel;
