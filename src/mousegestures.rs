@@ -197,14 +197,24 @@ impl State {
             format!(
                 "Zoom in: {} to {}",
                 time_string(
-                    &(waves.viewport.to_time_bigint(minx as f64, width)),
+                    &waves.viewport.to_time_bigint(minx as f64, width),
                     &waves.inner.metadata().timescale,
-                    &(self.wanted_timeunit)
+                    &self.wanted_timeunit,
+                    &self.config.default_time_format.get_with_changes(
+                        self.time_string_format,
+                        None,
+                        None
+                    )
                 ),
                 time_string(
-                    &(waves.viewport.to_time_bigint(maxx as f64, width)),
+                    &waves.viewport.to_time_bigint(maxx as f64, width),
                     &waves.inner.metadata().timescale,
-                    &(self.wanted_timeunit)
+                    &self.wanted_timeunit,
+                    &self.config.default_time_format.get_with_changes(
+                        self.time_string_format,
+                        None,
+                        None
+                    )
                 ),
             ),
             &self.config.theme,
