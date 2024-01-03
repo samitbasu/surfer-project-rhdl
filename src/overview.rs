@@ -78,6 +78,11 @@ impl State {
             &viewport_all,
         );
 
-        waves.draw_cursor_number_boxes(&mut ctx, response.rect.size(), &self.config, &viewport_all);
+        waves.draw_cursor_number_boxes(
+            &mut ctx,
+            response.rect.size(),
+            &self.config.theme,
+            &viewport_all,
+        );
     }
 }
