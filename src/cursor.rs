@@ -12,6 +12,8 @@ use crate::{
     wave_data::WaveData,
 };
 
+pub const DEFAULT_CURSOR_NAME: &str = "Cursor";
+
 impl WaveData {
     pub fn draw_cursor(
         &self,
@@ -98,7 +100,7 @@ impl WaveData {
             let cursor = DisplayedCursor {
                 color: None,
                 background_color: None,
-                name: "Cursor".to_string(),
+                name: None,
                 idx,
             };
             self.displayed_items.push(DisplayedItem::Cursor(cursor));
