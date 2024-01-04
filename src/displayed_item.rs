@@ -1,5 +1,4 @@
 use eframe::egui;
-use log::warn;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -24,6 +23,7 @@ pub struct DisplayedSignal {
     pub background_color: Option<String>,
     pub display_name: String,
     pub display_name_type: SignalNameType,
+    pub manual_name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,6 +45,7 @@ pub struct DisplayedCursor {
 pub struct DisplayedTimeLine {
     pub color: Option<String>,
     pub background_color: Option<String>,
+    pub name: String,
 }
 
 impl DisplayedItem {
@@ -77,37 +78,46 @@ impl DisplayedItem {
 
     pub fn name(&self) -> String {
         match self {
-            DisplayedItem::Signal(signal) => signal.display_name.clone(),
+            DisplayedItem::Signal(signal) => signal
+                .manual_name
+                .as_ref()
+                .unwrap_or(&signal.display_name)
+                .clone(),
             DisplayedItem::Divider(divider) => divider.name.clone(),
             DisplayedItem::Cursor(cursor) => cursor.name.clone(),
-            DisplayedItem::TimeLine(_) => "Time".to_string(),
+            DisplayedItem::TimeLine(timeline) => timeline.name.clone(),
         }
     }
 
+    /// Name displayed in signal list for the wave form, may include additional info compared to name()
     pub fn display_name(&self) -> String {
         match self {
-            DisplayedItem::Signal(signal) => signal.display_name.clone(),
+            DisplayedItem::Signal(signal) => signal
+                .manual_name
+                .as_ref()
+                .unwrap_or(&signal.display_name)
+                .clone(),
             DisplayedItem::Divider(divider) => divider.name.clone(),
             DisplayedItem::Cursor(cursor) => {
                 format!("{idx}: {name}", idx = cursor.idx, name = cursor.name)
             }
-            DisplayedItem::TimeLine(_) => "Time".to_string(),
+            DisplayedItem::TimeLine(timeline) => timeline.name.clone(),
         }
     }
 
-    pub fn set_name(&mut self, name: String) {
+    pub fn set_name(&mut self, name: Option<String>) {
         match self {
-            DisplayedItem::Signal(_) => {
-                warn!("Renaming signal");
+            DisplayedItem::Signal(signal) => {
+                signal.manual_name = name;
             }
             DisplayedItem::Divider(divider) => {
-                divider.name = name.clone();
+                divider.name = name.unwrap_or_default();
             }
             DisplayedItem::Cursor(cursor) => {
-                cursor.name = name.clone();
+                cursor.name = name.unwrap_or("Cursor".to_string());
             }
-            DisplayedItem::TimeLine(_) => {
-                warn!("Renaming time line");
+            DisplayedItem::TimeLine(timeline) => {
+                timeline.name = name.unwrap_or("Time".to_string());
             }
         }
     }
@@ -155,13 +165,17 @@ pub fn draw_rename_window(
             ui.vertical_centered(|ui| {
                 let response = ui.text_edit_singleline(name);
                 if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
+                    msgs.push(Message::ItemNameChange(Some(idx), Some(name.clone())));
                     msgs.push(Message::SetRenameItemVisible(false));
                 }
                 response.request_focus();
                 ui.horizontal(|ui| {
                     if ui.button("Rename").clicked() {
-                        msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
+                        msgs.push(Message::ItemNameChange(Some(idx), Some(name.clone())));
+                        msgs.push(Message::SetRenameItemVisible(false));
+                    }
+                    if ui.button("Default").clicked() {
+                        msgs.push(Message::ItemNameChange(Some(idx), None));
                         msgs.push(Message::SetRenameItemVisible(false));
                     }
                     if ui.button("Cancel").clicked() {

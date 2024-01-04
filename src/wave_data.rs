@@ -219,6 +219,7 @@ impl WaveData {
             background_color: None,
             display_name: sig.name.clone(),
             display_name_type: self.default_signal_name_type,
+            manual_name: None,
         });
 
         self.insert_item(new_signal, None);
@@ -267,6 +268,7 @@ impl WaveData {
             DisplayedItem::TimeLine(DisplayedTimeLine {
                 color: None,
                 background_color: None,
+                name: "Time".to_string(),
             }),
             vidx,
         );
