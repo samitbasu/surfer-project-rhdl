@@ -259,18 +259,15 @@ impl State {
             });
         }
 
+        if ui.button("Rename").clicked() {
+            ui.close_menu();
+            msgs.push(Message::RenameItem(vidx));
+        }
+
         if ui.button("Remove").clicked() {
             msgs.push(Message::RemoveItem(vidx, 1));
             msgs.push(Message::InvalidateCount);
             ui.close_menu();
-        }
-
-        #[allow(clippy::collapsible_if)]
-        if path.is_none() {
-            if ui.button("Rename").clicked() {
-                ui.close_menu();
-                msgs.push(Message::RenameItem(vidx));
-            }
         }
         ui.separator();
         ui.menu_button("Insert", |ui| {
