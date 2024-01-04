@@ -11,10 +11,14 @@ repos:
     - id: check-json
     - id: pretty-format-json
   - repo: https://github.com/crate-ci/typos
-    rev: v1.16.25
+    rev: v1.17.0
     hooks:
     - id: typos
       args: []
+  - repo: https://github.com/DevinR528/cargo-sort
+    rev: v1.0.9
+    hooks:
+      - id: cargo-sort
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
