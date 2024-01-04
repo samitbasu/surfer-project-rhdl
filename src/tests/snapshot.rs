@@ -18,6 +18,7 @@ use test_log::test;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
+    setup_custom_font,
     signal_filter::SignalFilterType,
     wave_container::{FieldRef, ModuleRef, SignalRef},
     Message, StartupParams, State, WaveSource,
@@ -87,7 +88,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
         |ctx| {
             ctx.memory_mut(|mem| mem.options.tessellation_options.feathering = false);
             ctx.set_visuals(state.get_visuals());
-
+            setup_custom_font(ctx);
             state.draw(ctx, Some(size));
         },
         Some(egui_skia::RasterizeOptions {
@@ -284,6 +285,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
             }
             state.update(Message::ToggleMenu);
             state.update(Message::ToggleSidePanel);
+            state.update(Message::ToggleToolbar);
 
             for msg in $msgs {
                 state.update(msg)
@@ -316,6 +318,15 @@ snapshot_ui!(side_panel_can_be_hidden, || {
     state
 });
 
+snapshot_ui!(toolbar_can_be_hidden, || {
+    let mut state = State::new().unwrap().with_params(StartupParams::empty());
+    let msgs = [Message::ToggleToolbar];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    state
+});
+
 snapshot_ui! {example_vcd_renders, || {
     let mut state = State::new().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
@@ -333,6 +344,7 @@ snapshot_ui! {example_vcd_renders, || {
 
     state.update(Message::ToggleMenu);
     state.update(Message::ToggleSidePanel);
+    state.update(Message::ToggleToolbar);
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb", "dut"])));
 
@@ -373,6 +385,8 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
         }
     }
 
+    state.update(Message::ToggleMenu);
+    state.update(Message::ToggleToolbar);
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
     state.update(Message::CursorSet(100u32.to_bigint()));
 
@@ -534,6 +548,8 @@ snapshot_ui!(regex_error_indication, || {
     }
 
     let msgs = [
+        Message::ToggleMenu,
+        Message::ToggleToolbar,
         Message::SetActiveScope(ModuleRef::from_strs(&["tb"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("tb.clk")),
         Message::SetSignalFilterType(SignalFilterType::Regex),
@@ -570,6 +586,8 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
     }
 
     let msgs = [
+        Message::ToggleMenu,
+        Message::ToggleToolbar,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Fuzzy),
@@ -602,6 +620,8 @@ snapshot_ui!(contain_signal_filter_works, || {
     }
 
     let msgs = [
+        Message::ToggleMenu,
+        Message::ToggleToolbar,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Contain),
@@ -634,6 +654,8 @@ snapshot_ui!(regex_signal_filter_works, || {
     }
 
     let msgs = [
+        Message::ToggleMenu,
+        Message::ToggleToolbar,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Regex),
@@ -666,6 +688,8 @@ snapshot_ui!(start_signal_filter_works, || {
     }
 
     let msgs = [
+        Message::ToggleMenu,
+        Message::ToggleToolbar,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Start),
