@@ -45,10 +45,9 @@ impl WaveData {
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Signal(signal_ref) => Some(signal_ref),
+                DisplayedItem::Signal(signal) => Some(signal.signal_ref.clone()),
                 _ => None,
             })
-            .map(|sig| sig.signal_ref.clone())
             .unique()
             .collect_vec();
 

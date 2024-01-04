@@ -2,7 +2,7 @@ use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
 use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
-use eframe::egui::{Frame, ScrollArea, Sense, TextStyle};
+use eframe::egui::{Frame, ScrollArea, Sense, TextStyle, WidgetText};
 use eframe::emath::RectTransform;
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
@@ -200,6 +200,15 @@ impl State {
             self.draw_performance_graph(ctx, &mut msgs);
         }
 
+        if let Some(idx) = self.rename_target {
+            draw_rename_window(
+                ctx,
+                &mut msgs,
+                idx,
+                &mut self.sys.item_renaming_string.borrow_mut(),
+            );
+        }
+
         if self
             .show_menu
             .unwrap_or_else(|| self.config.layout.show_menu())
@@ -355,7 +364,7 @@ impl State {
                                     .show_inside(ui, |ui| {
                                         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                                             ui.button("Add divider").clicked().then(|| {
-                                                msgs.push(Message::AddDivider(String::new(), None));
+                                                msgs.push(Message::AddDivider(None, None));
                                             });
                                             ui.button("Add timeline").clicked().then(|| {
                                                 msgs.push(Message::AddTimeLine(None));
@@ -417,15 +426,6 @@ impl State {
                     .show(ctx, |ui| {
                         self.draw_signals(&mut msgs, &item_offsets, ui);
                     });
-
-                if let Some(idx) = self.rename_target {
-                    draw_rename_window(
-                        ctx,
-                        &mut msgs,
-                        idx,
-                        &mut self.sys.item_renaming_string.borrow_mut(),
-                    );
-                }
             }
         };
 
@@ -604,7 +604,7 @@ impl State {
                         self.draw_signal_var(
                             msgs,
                             vidx,
-                            &displayed_signal.display_name,
+                            displayed_item.widget_text(&self.config.theme.foreground),
                             FieldRef {
                                 root: sig.signal_ref.clone(),
                                 field: vec![],
@@ -634,13 +634,13 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: usize,
-        name: &str,
+        name: WidgetText,
         field: FieldRef,
         item_offsets: &mut Vec<ItemDrawingInfo>,
         info: &SignalInfo,
         ui: &mut egui::Ui,
     ) {
-        let mut draw_label = |ui: &mut egui::Ui| {
+        let draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
                 if self.sys.command_prompt.visible
                     && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
@@ -652,11 +652,9 @@ impl State {
 
                 self.add_focus_marker(vidx, ui);
 
-                let mut signal_label = ui
-                    .selectable_label(false, egui::RichText::new(name))
-                    .context_menu(|ui| {
-                        self.item_context_menu(Some(&field), msgs, ui, vidx);
-                    });
+                let mut signal_label = ui.selectable_label(false, name).context_menu(|ui| {
+                    self.item_context_menu(Some(&field), msgs, ui, vidx);
+                });
 
                 if self
                     .show_signal_tooltip
@@ -701,7 +699,15 @@ impl State {
                     for (name, info) in subfields {
                         let mut new_path = field.clone();
                         new_path.field.push(name.clone());
-                        self.draw_signal_var(msgs, vidx, name, new_path, item_offsets, info, ui);
+                        self.draw_signal_var(
+                            msgs,
+                            vidx,
+                            WidgetText::RichText(RichText::new(name)),
+                            new_path,
+                            item_offsets,
+                            info,
+                            ui,
+                        );
                     }
                 });
 
@@ -775,11 +781,7 @@ impl State {
                 };
 
                 let signal_label = ui
-                    .selectable_label(
-                        false,
-                        egui::RichText::new(displayed_item.display_name().clone())
-                            .color(*text_color),
-                    )
+                    .selectable_label(false, displayed_item.widget_text(text_color))
                     .context_menu(|ui| {
                         self.item_context_menu(None, msgs, ui, vidx);
                     });
