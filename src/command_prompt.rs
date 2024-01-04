@@ -11,6 +11,7 @@ use egui::text::{LayoutJob, TextFormat};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
 use itertools::Itertools;
 
+use crate::cursor::DEFAULT_CURSOR_NAME;
 use crate::{
     clock_highlighting::ClockHighlightType,
     displayed_item::DisplayedItem,
@@ -129,7 +130,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 DisplayedItem::Cursor(tmp_cursor) => Some(tmp_cursor),
                 _ => None,
             })
-            .map(|cursor| (cursor.name.clone(), cursor.idx))
+            .map(|cursor| {
+                (
+                    cursor
+                        .name
+                        .as_ref()
+                        .unwrap_or(&DEFAULT_CURSOR_NAME.to_string())
+                        .clone(),
+                    cursor.idx,
+                )
+            })
             .collect::<BTreeMap<_, _>>()
     } else {
         BTreeMap::new()
@@ -331,7 +341,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "divider_add" => optional_single_word(
                     vec![],
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::AddDivider(word.into(), None)))
+                        Some(Command::Terminal(Message::AddDivider(
+                            Some(word.into()),
+                            None,
+                        )))
                     }),
                 ),
                 "timeline_add" => Some(Command::Terminal(Message::AddTimeLine(None))),

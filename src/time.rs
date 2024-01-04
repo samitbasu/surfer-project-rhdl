@@ -27,6 +27,8 @@ pub enum TimeUnit {
     None,
 }
 
+pub const DEFAULT_TIMELINE_NAME: &str = "Time";
+
 impl fmt::Display for TimeUnit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
