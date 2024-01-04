@@ -40,7 +40,7 @@ pub enum Message {
     SignalFormatChange(FieldRef, String),
     ItemColorChange(Option<usize>, Option<String>),
     ItemBackgroundColorChange(Option<usize>, Option<String>),
-    ItemNameChange(Option<usize>, String),
+    ItemNameChange(Option<usize>, Option<String>),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
     SetClockHighlightType(ClockHighlightType),
