@@ -266,11 +266,9 @@ impl State {
         }
 
         #[allow(clippy::collapsible_if)]
-        if path.is_none() {
-            if ui.button("Rename").clicked() {
-                ui.close_menu();
-                msgs.push(Message::RenameItem(vidx));
-            }
+        if ui.button("Rename").clicked() {
+            ui.close_menu();
+            msgs.push(Message::RenameItem(vidx));
         }
         ui.separator();
         ui.menu_button("Insert", |ui| {
