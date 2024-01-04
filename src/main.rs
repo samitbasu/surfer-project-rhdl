@@ -47,6 +47,7 @@ use eframe::emath;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
+use eframe::epaint::Vec2;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
@@ -670,7 +671,7 @@ impl State {
             }
             Message::CanvasScroll { delta } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.handle_canvas_scroll(delta);
+                    waves.handle_canvas_scroll(Vec2 { x: 0., y: delta });
                     self.invalidate_draw_commands();
                 }
             }
