@@ -342,7 +342,8 @@ impl State {
             let mouse_ptr_pos = to_screen.inverse().transform_pos(pointer_pos);
             if scroll_delta != Vec2::ZERO {
                 msgs.push(Message::CanvasScroll {
-                    delta: ui.input(|i| i.scroll_delta),
+                    // Add x and y scroll to support touch screens better.
+                    delta: scroll_delta.y + scroll_delta.x,
                 })
             }
 

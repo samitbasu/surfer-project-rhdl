@@ -3,10 +3,7 @@ use std::path::PathBuf;
 use bytes::Bytes;
 use camino::Utf8PathBuf;
 use derivative::Derivative;
-use eframe::{
-    egui::DroppedFile,
-    epaint::{Pos2, Vec2},
-};
+use eframe::{egui::DroppedFile, epaint::Pos2};
 use num::BigInt;
 
 use crate::{
@@ -48,7 +45,7 @@ pub enum Message {
     // i.e. those with the signal idx and a shared path are also reset
     ResetSignalFormat(FieldRef),
     CanvasScroll {
-        delta: Vec2,
+        delta: f32,
     },
     CanvasZoom {
         mouse_ptr_timestamp: Option<f64>,
