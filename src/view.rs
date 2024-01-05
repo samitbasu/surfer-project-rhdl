@@ -201,6 +201,12 @@ impl State {
             self.draw_performance_graph(ctx, &mut msgs);
         }
 
+        if self.show_cursor_window {
+            if let Some(waves) = &self.waves {
+                waves.draw_cursor_window(ctx, &mut msgs, &self.config, self.wanted_timeunit);
+            }
+        }
+
         if let Some(idx) = self.rename_target {
             draw_rename_window(
                 ctx,

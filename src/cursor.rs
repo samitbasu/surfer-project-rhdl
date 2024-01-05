@@ -1,10 +1,13 @@
+use eframe::egui::{Context, Grid, RichText, WidgetText, Window};
 use eframe::emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{FontId, Rounding, Stroke};
+use itertools::Itertools;
 use num::BigInt;
 
 use crate::{
     config::{SurferConfig, SurferTheme},
     displayed_item::{DisplayedCursor, DisplayedItem},
+    message::Message,
     time::{time_string, TimeUnit},
     view::{DrawingContext, ItemDrawingInfo},
     wave_data::WaveData,
@@ -175,6 +178,101 @@ impl WaveData {
                 FontId::proportional(text_size),
                 config.theme.foreground,
             );
+        }
+    }
+
+    pub fn draw_cursor_window(
+        &self,
+        ctx: &Context,
+        msgs: &mut Vec<Message>,
+        config: &SurferConfig,
+        wanted_timeunit: TimeUnit,
+    ) {
+        let mut open = true;
+
+        let mut cursors: Vec<(u8, BigInt, WidgetText)> = vec![];
+        if let Some(cursor) = &self.cursor {
+            cursors.push((
+                255,
+                cursor.clone(),
+                WidgetText::RichText(RichText::new("Primary")),
+            ))
+        }
+
+        let mut numbered_cursors = self
+            .displayed_items
+            .iter()
+            .filter_map(|displayed_item| match displayed_item {
+                DisplayedItem::Cursor(cursor) => {
+                    let text_color = displayed_item
+                        .color()
+                        .and_then(|color| config.theme.colors.get(&color))
+                        .unwrap_or(&config.theme.foreground);
+
+                    Some((
+                        cursor.idx,
+                        self.cursors.get(&cursor.idx).unwrap().clone(),
+                        displayed_item.widget_text(text_color),
+                    ))
+                }
+                _ => None,
+            })
+            .sorted_by(|a, b| Ord::cmp(&b.0, &a.0))
+            .collect_vec();
+
+        cursors.append(&mut numbered_cursors);
+        Window::new("Cursors")
+            .collapsible(true)
+            .resizable(true)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    Grid::new("cursors")
+                        .striped(true)
+                        .num_columns(cursors.len() + 1)
+                        .spacing([5., 5.])
+                        .show(ui, |ui| {
+                            ui.label("");
+                            for (cursor_idx, _, widget_text) in &cursors {
+                                if *cursor_idx < 255 {
+                                    ui.selectable_label(false, widget_text.clone())
+                                        .clicked()
+                                        .then(|| {
+                                            msgs.push(Message::GoToCursorPosition(*cursor_idx))
+                                        });
+                                } else {
+                                    ui.label(widget_text.clone());
+                                }
+                            }
+                            ui.end_row();
+                            for (cursor_idx, row_cursor_time, row_widget_text) in &cursors {
+                                if *cursor_idx < 255 {
+                                    ui.selectable_label(false, row_widget_text.clone())
+                                        .clicked()
+                                        .then(|| {
+                                            msgs.push(Message::GoToCursorPosition(*cursor_idx))
+                                        });
+                                } else {
+                                    ui.label(row_widget_text.clone());
+                                }
+                                for (_, col_cursor_time, _) in &cursors {
+                                    ui.label(time_string(
+                                        &(row_cursor_time.clone() - col_cursor_time),
+                                        &self.inner.metadata().timescale,
+                                        &wanted_timeunit,
+                                    ));
+                                }
+                                ui.end_row();
+                            }
+                        });
+                    ui.add_space(15.);
+                    if ui.button("Close").clicked() {
+                        msgs.push(Message::SetCursorWindowVisible(false))
+                    }
+                });
+            });
+        if !open {
+            msgs.push(Message::SetCursorWindowVisible(false))
         }
     }
 }
