@@ -73,6 +73,7 @@ impl State {
             b("Exit", Message::Exit).add_closing_menu(msgs, ui);
         });
         ui.menu_button("View", |ui| {
+            ui.style_mut().wrap = Some(false);
             b(
                 "Zoom in",
                 Message::CanvasZoom {
