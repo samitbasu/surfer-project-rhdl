@@ -153,29 +153,73 @@ pub enum ValueRepr {
     NotPresent,
 }
 
-type TranslatedValue = Option<(String, ValueKind)>;
+#[derive(Clone, PartialEq)]
+pub struct TranslatedValue {
+    pub value: String,
+    pub kind: ValueKind,
+}
+
+impl TranslatedValue {
+    pub fn from_basic_translate(result: (String, ValueKind)) -> Self {
+        TranslatedValue {
+            value: result.0,
+            kind: result.1,
+        }
+    }
+
+    pub fn new(value: impl ToString, kind: ValueKind) -> Self {
+        TranslatedValue {
+            value: value.to_string(),
+            kind,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SubFieldFlatTranslationResult {
+    pub names: Vec<String>,
+    pub value: Option<TranslatedValue>,
+}
 
 pub struct FlatTranslationResult {
     /// The string representation of the translated result
-    pub this: TranslatedValue,
+    pub this: Option<TranslatedValue>,
     /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
     /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<(Vec<String>, TranslatedValue)>,
+    pub fields: Vec<SubFieldFlatTranslationResult>,
 }
 
 impl FlatTranslationResult {
-    pub fn as_fields(self) -> Vec<(Vec<String>, TranslatedValue)> {
-        vec![(vec![], self.this)]
-            .into_iter()
-            .chain(self.fields)
-            .collect()
+    pub fn as_fields(self) -> Vec<SubFieldFlatTranslationResult> {
+        vec![SubFieldFlatTranslationResult {
+            names: vec![],
+            value: self.this,
+        }]
+        .into_iter()
+        .chain(self.fields)
+        .collect()
+    }
+}
+
+#[derive(Clone)]
+pub struct SubFieldTranslationResult {
+    pub name: String,
+    pub result: TranslationResult,
+}
+
+impl SubFieldTranslationResult {
+    pub fn new(name: impl ToString, result: TranslationResult) -> Self {
+        SubFieldTranslationResult {
+            name: name.to_string(),
+            result,
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct TranslationResult {
     pub val: ValueRepr,
-    pub subfields: Vec<(String, TranslationResult)>,
+    pub subfields: Vec<SubFieldTranslationResult>,
     pub color: ValueKind,
     /// Durations of different steps that were performed by the translator.
     /// Used for benchmarks
@@ -193,15 +237,15 @@ impl TranslationResult {
         let subresults = self
             .subfields
             .iter()
-            .map(|(n, v)| {
+            .map(|res| {
                 let sub_path = path_so_far
                     .field
                     .clone()
                     .into_iter()
-                    .chain(vec![n.clone()])
+                    .chain(vec![res.name.clone()])
                     .collect();
 
-                let sub = v.flatten(
+                let sub = res.result.flatten(
                     FieldRef {
                         root: path_so_far.root.clone(),
                         field: sub_path,
@@ -209,7 +253,7 @@ impl TranslationResult {
                     formats,
                     translators,
                 );
-                (n, sub)
+                (&res.name, sub)
             })
             .collect::<Vec<_>>();
 
@@ -225,11 +269,11 @@ impl TranslationResult {
                             panic!("Did not find a translator named {subtranslator_name}")
                         });
 
-                let result = subtranslator
-                    .as_ref()
-                    .basic_translate(1, &SignalValue::String(val.to_string()));
-
-                Some(result)
+                Some(TranslatedValue::from_basic_translate(
+                    subtranslator
+                        .as_ref()
+                        .basic_translate(1, &SignalValue::String(val.to_string())),
+                ))
             }
             ValueRepr::Bits(bit_count, bits) => {
                 let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
@@ -242,59 +286,73 @@ impl TranslationResult {
                             panic!("Did not find a translator named {subtranslator_name}")
                         });
 
-                let result = subtranslator
-                    .as_ref()
-                    .basic_translate(*bit_count, &SignalValue::String(bits.clone()));
-
-                Some(result)
+                Some(TranslatedValue::from_basic_translate(
+                    subtranslator
+                        .as_ref()
+                        .basic_translate(*bit_count, &SignalValue::String(bits.clone())),
+                ))
             }
-            ValueRepr::String(sval) => Some((sval.clone(), self.color)),
-            ValueRepr::Tuple => Some((
-                format!(
+            ValueRepr::String(sval) => Some(TranslatedValue {
+                value: sval.clone(),
+                kind: self.color,
+            }),
+            ValueRepr::Tuple => Some(TranslatedValue {
+                value: format!(
                     "({})",
                     subresults
                         .iter()
-                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-"))
+                        .map(|(_, v)| v
+                            .this
+                            .as_ref()
+                            .map(|t| t.value.as_str())
+                            .unwrap_or_else(|| "-"))
                         .join(", ")
                 ),
-                self.color,
-            )),
-            ValueRepr::Struct => Some((
-                format!(
+                kind: self.color,
+            }),
+            ValueRepr::Struct => Some(TranslatedValue {
+                value: format!(
                     "{{{}}}",
                     subresults
                         .iter()
                         .map(|(n, v)| format!(
                             "{n}: {}",
-                            v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-")
+                            v.this
+                                .as_ref()
+                                .map(|t| t.value.as_str())
+                                .unwrap_or_else(|| "-")
                         ))
                         .join(", ")
                 ),
-                self.color,
-            )),
-            ValueRepr::Array => Some((
-                format!(
+                kind: self.color,
+            }),
+            ValueRepr::Array => Some(TranslatedValue {
+                value: format!(
                     "[{}]",
                     subresults
                         .iter()
-                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-"))
+                        .map(|(_, v)| v
+                            .this
+                            .as_ref()
+                            .map(|t| t.value.as_str())
+                            .unwrap_or_else(|| "-"))
                         .join(", ")
                 ),
-                self.color,
-            )),
+                kind: self.color,
+            }),
             ValueRepr::NotPresent => None,
-            ValueRepr::Enum { idx, name } => Some((
-                format!(
+            ValueRepr::Enum { idx, name } => Some(TranslatedValue {
+                value: format!(
                     "{name}{{{}}}",
                     subresults[*idx]
                         .1
                         .this
                         .as_ref()
-                        .map(|t| t.0.as_str())
+                        .map(|t| t.value.as_str())
                         .unwrap_or_else(|| "-")
                 ),
-                self.color,
-            )),
+                kind: self.color,
+            }),
         };
 
         FlatTranslationResult {
@@ -304,9 +362,9 @@ impl TranslationResult {
                 .flat_map(|(n, sub)| {
                     sub.as_fields()
                         .into_iter()
-                        .map(|(mut path, val)| {
-                            path.insert(0, n.clone());
-                            (path, val)
+                        .map(|mut result| {
+                            result.names.insert(0, n.clone());
+                            result
                         })
                         .collect::<Vec<_>>()
                 })
