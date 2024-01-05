@@ -103,6 +103,7 @@ pub enum Message {
     SetUiScale(f32),
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),
+    SetCursorWindowVisible(bool),
     ToggleFullscreen,
     // Second argument is position to insert after, None inserts after focused item,
     // or last if no focused item
