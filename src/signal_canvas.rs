@@ -14,14 +14,16 @@ use spade_common::num_ext::InfallibleToBigInt;
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
 use crate::displayed_item::DisplayedSignal;
-use crate::translation::{SignalInfo, TranslatorList, ValueKind};
+use crate::translation::{
+    SignalInfo, SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind,
+};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::wave_container::{FieldRef, QueryResult, SignalRef};
 use crate::wave_data::WaveData;
 use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
 
 pub struct DrawnRegion {
-    inner: Option<(String, ValueKind)>,
+    inner: Option<TranslatedValue>,
     /// True if a transition should be drawn even if there is no change in the value
     /// between the previous and next pixels. Only used by the bool drawing logic to
     /// draw draw a vertical line and prevent apparent aliasing
@@ -175,23 +177,23 @@ fn signal_draw_commands(
             )
             .as_fields();
 
-        for (path, value) in fields {
-            let prev = prev_values.get(&path);
+        for SubFieldFlatTranslationResult { names, value } in fields {
+            let prev = prev_values.get(&names);
 
             // If the value changed between this and the previous pixel, we want to
             // draw a transition even if the translated value didn't change.  We
             // only want to do this for root signals, because resolving when a
             // sub-field change is tricky without more information from the
             // translators
-            let anti_alias = &change_time > prev_time && path.is_empty();
+            let anti_alias = &change_time > prev_time && names.is_empty();
             let new_value = prev != Some(&value);
 
             // This is not the value we drew last time
             if new_value || is_last_timestep || anti_alias {
-                *prev_values.entry(path.clone()).or_insert(value.clone()) = value.clone();
+                *prev_values.entry(names.clone()).or_insert(value.clone()) = value.clone();
 
-                if let SignalInfo::Clock = info.get_subinfo(&path) {
-                    match value.as_ref().map(|(val, _)| val.as_str()) {
+                if let SignalInfo::Clock = info.get_subinfo(&names) {
+                    match value.as_ref().map(|result| result.value.as_str()) {
                         Some("1") => {
                             if !is_last_timestep && !is_first_timestep {
                                 clock_edges.push(*pixel)
@@ -203,9 +205,9 @@ fn signal_draw_commands(
                 }
 
                 local_commands
-                    .entry(path.clone())
+                    .entry(names.clone())
                     .or_insert_with(|| {
-                        if let SignalInfo::Bool | SignalInfo::Clock = info.get_subinfo(&path) {
+                        if let SignalInfo::Bool | SignalInfo::Clock = info.get_subinfo(&names) {
                             DrawingCommands::new_bool()
                         } else {
                             DrawingCommands::new_wide()
@@ -524,9 +526,9 @@ impl State {
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        if let Some((prev_value, color)) = &prev_region.inner {
+        if let Some(prev_result) = &prev_region.inner {
             let stroke = Stroke {
-                color: color.color(user_color, ctx.theme),
+                color: prev_result.kind.color(user_color, ctx.theme),
                 width: self.config.theme.linewidth,
             };
 
@@ -555,14 +557,15 @@ impl State {
             let fits_text = num_chars >= 1.;
 
             if fits_text {
-                let content = if prev_value.len() > num_chars as usize {
-                    prev_value
+                let content = if prev_result.value.len() > num_chars as usize {
+                    prev_result
+                        .value
                         .chars()
                         .take(num_chars as usize - 1)
                         .chain(['…'])
                         .collect::<String>()
                 } else {
-                    prev_value.to_string()
+                    prev_result.value.to_string()
                 };
 
                 ctx.painter.text(
@@ -584,15 +587,17 @@ impl State {
         offset: f32,
         ctx: &mut DrawingContext,
     ) {
-        if let (Some((prev_value, prev_kind)), Some((new_value, new_kind))) =
-            (&prev_region.inner, &new_region.inner)
-        {
+        if let (Some(prev_result), Some(new_result)) = (&prev_region.inner, &new_region.inner) {
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
             let (mut old_height, old_color, old_bg) =
-                prev_value.bool_drawing_spec(color, &self.config.theme, *prev_kind);
+                prev_result
+                    .value
+                    .bool_drawing_spec(color, &self.config.theme, prev_result.kind);
             let (mut new_height, _, _) =
-                new_value.bool_drawing_spec(color, &self.config.theme, *new_kind);
+                new_result
+                    .value
+                    .bool_drawing_spec(color, &self.config.theme, new_result.kind);
 
             let stroke = Stroke {
                 color: old_color,
