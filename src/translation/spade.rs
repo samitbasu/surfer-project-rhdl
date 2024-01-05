@@ -17,7 +17,10 @@ use spade_common::{
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
-use crate::{message::Message, wasm_util::perform_work, wave_container::SignalMeta};
+use crate::{
+    message::Message, translation::SubFieldTranslationResult, wasm_util::perform_work,
+    wave_container::SignalMeta,
+};
 
 use super::{
     SignalInfo, SignalValue, TranslationPreference, TranslationResult, Translator, ValueKind,
@@ -146,14 +149,14 @@ fn not_present_value(ty: &ConcreteType) -> TranslationResult {
         ConcreteType::Tuple(inner) => inner
             .iter()
             .enumerate()
-            .map(|(i, t)| (format!("{i}"), not_present_value(t)))
+            .map(|(i, t)| SubFieldTranslationResult::new(i, not_present_value(t)))
             .collect(),
         ConcreteType::Struct { name: _, members } => members
             .iter()
-            .map(|(n, t)| (format!("{n}"), not_present_value(t)))
+            .map(|(n, t)| SubFieldTranslationResult::new(n, not_present_value(t)))
             .collect(),
         ConcreteType::Array { inner, size } => (0..(size.to_u64().unwrap()))
-            .map(|i| (format!("{i}"), not_present_value(inner)))
+            .map(|i| SubFieldTranslationResult::new(i, not_present_value(inner)))
             .collect(),
         ConcreteType::Enum { options } => not_present_enum_options(options),
         ConcreteType::Single { .. } => vec![],
@@ -173,28 +176,26 @@ fn not_present_value(ty: &ConcreteType) -> TranslationResult {
 
 fn not_present_enum_fields(
     fields: &[(Identifier, ConcreteType)],
-) -> Vec<(String, TranslationResult)> {
+) -> Vec<SubFieldTranslationResult> {
     fields
         .iter()
-        .map(|(name, ty)| (name.0.clone(), not_present_value(ty)))
+        .map(|(name, ty)| SubFieldTranslationResult::new(name.0.clone(), not_present_value(ty)))
         .collect()
 }
 
 fn not_present_enum_options(
     options: &[(NameID, Vec<(Identifier, ConcreteType)>)],
-) -> Vec<(String, TranslationResult)> {
+) -> Vec<SubFieldTranslationResult> {
     options
         .iter()
-        .map(|(opt_name, opt_fields)| {
-            (
-                opt_name.1.tail().0.clone(),
-                TranslationResult {
-                    val: ValueRepr::NotPresent,
-                    subfields: not_present_enum_fields(opt_fields),
-                    color: ValueKind::Normal,
-                    durations: HashMap::new(),
-                },
-            )
+        .map(|(opt_name, opt_fields)| SubFieldTranslationResult {
+            name: opt_name.1.tail().0.clone(),
+            result: TranslationResult {
+                val: ValueRepr::NotPresent,
+                subfields: not_present_enum_fields(opt_fields),
+                color: ValueKind::Normal,
+                durations: HashMap::new(),
+            },
         })
         .collect()
 }
@@ -227,7 +228,7 @@ fn translate_concrete(
                         .context(format!("Value is wider than {} bits", usize::MAX))?;
                 let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
                 offset = end;
-                subfields.push((format!("{i}"), new));
+                subfields.push(SubFieldTranslationResult::new(i, new));
                 *problematic |= local_problematic;
             }
 
@@ -251,7 +252,7 @@ fn translate_concrete(
                 let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
                 *problematic |= local_problematic;
                 offset = end;
-                subfields.push((n.0.clone(), new));
+                subfields.push(SubFieldTranslationResult::new(n.0.clone(), new));
             }
 
             TranslationResult {
@@ -278,7 +279,7 @@ fn translate_concrete(
                 let new = translate_concrete(&val[offset..end], inner, &mut local_problematic)?;
                 *problematic |= local_problematic;
                 offset = end;
-                subfields.push((format!("{n}"), new));
+                subfields.push(SubFieldTranslationResult::new(n, new));
             }
 
             TranslationResult {
@@ -350,30 +351,30 @@ fn translate_concrete(
 
                                         *problematic |= local_problematic;
 
-                                        Ok((f_name.0.clone(), new))
+                                        Ok(SubFieldTranslationResult::new(f_name.0.clone(), new))
                                     })
                                     .collect::<Result<_>>()?;
 
                                 let result = if i == tag {
-                                    (
-                                        name.clone(),
-                                        TranslationResult {
+                                    SubFieldTranslationResult {
+                                        name,
+                                        result: TranslationResult {
                                             val: ValueRepr::Struct,
                                             subfields,
                                             color: handle_problematic!(),
                                             durations: HashMap::new(),
                                         },
-                                    )
+                                    }
                                 } else {
-                                    (
-                                        name.clone(),
-                                        TranslationResult {
+                                    SubFieldTranslationResult {
+                                        name,
+                                        result: TranslationResult {
                                             val: ValueRepr::NotPresent,
                                             subfields: not_present_enum_fields(fields),
                                             color: handle_problematic!(),
                                             durations: HashMap::new(),
                                         },
-                                    )
+                                    }
                                 };
                                 Ok(result)
                             })
