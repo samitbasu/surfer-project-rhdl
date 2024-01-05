@@ -219,6 +219,7 @@ impl WaveData {
             background_color: None,
             display_name: sig.name.clone(),
             display_name_type: self.default_signal_name_type,
+            manual_name: None,
         });
 
         self.insert_item(new_signal, None);
@@ -251,7 +252,7 @@ impl WaveData {
         self.compute_signal_display_names();
     }
 
-    pub fn add_divider(&mut self, name: String, vidx: Option<usize>) {
+    pub fn add_divider(&mut self, name: Option<String>, vidx: Option<usize>) {
         self.insert_item(
             DisplayedItem::Divider(DisplayedDivider {
                 color: None,
@@ -267,6 +268,7 @@ impl WaveData {
             DisplayedItem::TimeLine(DisplayedTimeLine {
                 color: None,
                 background_color: None,
+                name: None,
             }),
             vidx,
         );

@@ -40,7 +40,7 @@ pub enum Message {
     SignalFormatChange(FieldRef, String),
     ItemColorChange(Option<usize>, Option<String>),
     ItemBackgroundColorChange(Option<usize>, Option<String>),
-    ItemNameChange(Option<usize>, String),
+    ItemNameChange(Option<usize>, Option<String>),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
     SetClockHighlightType(ClockHighlightType),
@@ -106,7 +106,7 @@ pub enum Message {
     ToggleFullscreen,
     // Second argument is position to insert after, None inserts after focused item,
     // or last if no focused item
-    AddDivider(String, Option<usize>),
+    AddDivider(Option<String>, Option<usize>),
     // Argument is position to insert after, None inserts after focused item,
     // or last if no focused item
     AddTimeLine(Option<usize>),

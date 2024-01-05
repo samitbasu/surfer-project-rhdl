@@ -126,10 +126,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Cursor(tmp_cursor) => Some(tmp_cursor),
+                DisplayedItem::Cursor(cursor) => Some((item.name(), cursor.idx)),
                 _ => None,
             })
-            .map(|cursor| (cursor.name.clone(), cursor.idx))
             .collect::<BTreeMap<_, _>>()
     } else {
         BTreeMap::new()
@@ -331,7 +330,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "divider_add" => optional_single_word(
                     vec![],
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::AddDivider(word.into(), None)))
+                        Some(Command::Terminal(Message::AddDivider(
+                            Some(word.into()),
+                            None,
+                        )))
                     }),
                 ),
                 "timeline_add" => Some(Command::Terminal(Message::AddTimeLine(None))),
