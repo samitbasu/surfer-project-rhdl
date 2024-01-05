@@ -19,6 +19,7 @@ use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_h
 use crate::logs::EGUI_LOGGER;
 use crate::signal_filter::filtered_signals;
 use crate::time::{time_string, timeunit_menu};
+use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
 use crate::wave_container::{FieldRef, ModuleRef, SignalRef};
 use crate::wave_source::draw_progress_panel;
@@ -918,9 +919,13 @@ impl State {
 
                                 let subfield = subfields
                                     .iter()
-                                    .find(|(k, _)| k == &drawing_info.field_ref.field);
+                                    .find(|res| res.names == drawing_info.field_ref.field);
 
-                                if let Some((_, Some((v, _)))) = subfield {
+                                if let Some(SubFieldFlatTranslationResult {
+                                    names: _,
+                                    value: Some(TranslatedValue { value: v, kind: _ }),
+                                }) = subfield
+                                {
                                     ui.label(v).context_menu(|ui| {
                                         self.item_context_menu(
                                             Some(&FieldRef::without_fields(signal.clone())),

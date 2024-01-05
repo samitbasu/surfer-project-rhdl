@@ -17,7 +17,10 @@ use spade_common::{
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
-use crate::{message::Message, wasm_util::perform_work, wave_container::SignalMeta};
+use crate::{
+    message::Message, translation::SubFieldTranslationResult, wasm_util::perform_work,
+    wave_container::SignalMeta,
+};
 
 use super::{
     SignalInfo, SignalValue, TranslationPreference, TranslationResult, Translator, ValueKind,
@@ -146,14 +149,14 @@ fn not_present_value(ty: &ConcreteType) -> TranslationResult {
         ConcreteType::Tuple(inner) => inner
             .iter()
             .enumerate()
-            .map(|(i, t)| (format!("{i}"), not_present_value(t)))
+            .map(|(i, t)| SubFieldTranslationResult::new(i, not_present_value(t)))
             .collect(),
         ConcreteType::Struct { name: _, members } => members
             .iter()
-            .map(|(n, t)| (format!("{n}"), not_present_value(t)))
+            .map(|(n, t)| SubFieldTranslationResult::new(n, not_present_value(t)))
             .collect(),
         ConcreteType::Array { inner, size } => (0..(size.to_u64().unwrap()))
-            .map(|i| (format!("{i}"), not_present_value(inner)))
+            .map(|i| SubFieldTranslationResult::new(i, not_present_value(inner)))
             .collect(),
         ConcreteType::Enum { options } => not_present_enum_options(options),
         ConcreteType::Single { .. } => vec![],
@@ -166,35 +169,33 @@ fn not_present_value(ty: &ConcreteType) -> TranslationResult {
     TranslationResult {
         val: ValueRepr::NotPresent,
         subfields,
-        color: ValueKind::Normal,
+        kind: ValueKind::Normal,
         durations: HashMap::new(),
     }
 }
 
 fn not_present_enum_fields(
     fields: &[(Identifier, ConcreteType)],
-) -> Vec<(String, TranslationResult)> {
+) -> Vec<SubFieldTranslationResult> {
     fields
         .iter()
-        .map(|(name, ty)| (name.0.clone(), not_present_value(ty)))
+        .map(|(name, ty)| SubFieldTranslationResult::new(name.0.clone(), not_present_value(ty)))
         .collect()
 }
 
 fn not_present_enum_options(
     options: &[(NameID, Vec<(Identifier, ConcreteType)>)],
-) -> Vec<(String, TranslationResult)> {
+) -> Vec<SubFieldTranslationResult> {
     options
         .iter()
-        .map(|(opt_name, opt_fields)| {
-            (
-                opt_name.1.tail().0.clone(),
-                TranslationResult {
-                    val: ValueRepr::NotPresent,
-                    subfields: not_present_enum_fields(opt_fields),
-                    color: ValueKind::Normal,
-                    durations: HashMap::new(),
-                },
-            )
+        .map(|(opt_name, opt_fields)| SubFieldTranslationResult {
+            name: opt_name.1.tail().0.clone(),
+            result: TranslationResult {
+                val: ValueRepr::NotPresent,
+                subfields: not_present_enum_fields(opt_fields),
+                kind: ValueKind::Normal,
+                durations: HashMap::new(),
+            },
         })
         .collect()
 }
@@ -227,14 +228,14 @@ fn translate_concrete(
                         .context(format!("Value is wider than {} bits", usize::MAX))?;
                 let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
                 offset = end;
-                subfields.push((format!("{i}"), new));
+                subfields.push(SubFieldTranslationResult::new(i, new));
                 *problematic |= local_problematic;
             }
 
             TranslationResult {
                 val: ValueRepr::Tuple,
                 subfields,
-                color: handle_problematic!(),
+                kind: handle_problematic!(),
                 durations: HashMap::new(),
             }
         }
@@ -251,13 +252,13 @@ fn translate_concrete(
                 let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
                 *problematic |= local_problematic;
                 offset = end;
-                subfields.push((n.0.clone(), new));
+                subfields.push(SubFieldTranslationResult::new(n.0.clone(), new));
             }
 
             TranslationResult {
                 val: ValueRepr::Tuple,
                 subfields,
-                color: handle_problematic!(),
+                kind: handle_problematic!(),
                 durations: HashMap::new(),
             }
         }
@@ -278,13 +279,13 @@ fn translate_concrete(
                 let new = translate_concrete(&val[offset..end], inner, &mut local_problematic)?;
                 *problematic |= local_problematic;
                 offset = end;
-                subfields.push((format!("{n}"), new));
+                subfields.push(SubFieldTranslationResult::new(n, new));
             }
 
             TranslationResult {
                 val: ValueRepr::Array,
                 subfields,
-                color: handle_problematic!(),
+                kind: handle_problematic!(),
                 durations: HashMap::new(),
             }
         }
@@ -296,7 +297,7 @@ fn translate_concrete(
                 TranslationResult {
                     val: ValueRepr::String(format!("xTAG(0b{tag_section})")),
                     subfields: not_present_enum_options(options),
-                    color: ValueKind::Undef,
+                    kind: ValueKind::Undef,
                     durations: HashMap::new(),
                 }
             } else if tag_section.contains('z') {
@@ -304,7 +305,7 @@ fn translate_concrete(
                 TranslationResult {
                     val: ValueRepr::String(format!("zTAG(0b{tag_section})")),
                     subfields: not_present_enum_options(options),
-                    color: ValueKind::HighImp,
+                    kind: ValueKind::HighImp,
                     durations: HashMap::new(),
                 }
             } else {
@@ -316,7 +317,7 @@ fn translate_concrete(
                     TranslationResult {
                         val: ValueRepr::String(format!("?TAG(0b{tag_section})")),
                         subfields: not_present_enum_options(options),
-                        color: ValueKind::Undef,
+                        kind: ValueKind::Undef,
                         durations: HashMap::new(),
                     }
                 } else {
@@ -325,7 +326,7 @@ fn translate_concrete(
                             idx: tag,
                             name: options[tag].0 .1.tail().0.clone(),
                         },
-                        color: ValueKind::Normal,
+                        kind: ValueKind::Normal,
                         subfields: options
                             .iter()
                             .enumerate()
@@ -350,30 +351,30 @@ fn translate_concrete(
 
                                         *problematic |= local_problematic;
 
-                                        Ok((f_name.0.clone(), new))
+                                        Ok(SubFieldTranslationResult::new(f_name.0.clone(), new))
                                     })
                                     .collect::<Result<_>>()?;
 
                                 let result = if i == tag {
-                                    (
-                                        name.clone(),
-                                        TranslationResult {
+                                    SubFieldTranslationResult {
+                                        name,
+                                        result: TranslationResult {
                                             val: ValueRepr::Struct,
                                             subfields,
-                                            color: handle_problematic!(),
+                                            kind: handle_problematic!(),
                                             durations: HashMap::new(),
                                         },
-                                    )
+                                    }
                                 } else {
-                                    (
-                                        name.clone(),
-                                        TranslationResult {
+                                    SubFieldTranslationResult {
+                                        name,
+                                        result: TranslationResult {
                                             val: ValueRepr::NotPresent,
                                             subfields: not_present_enum_fields(fields),
-                                            color: handle_problematic!(),
+                                            kind: handle_problematic!(),
                                             durations: HashMap::new(),
                                         },
-                                    )
+                                    }
                                 };
                                 Ok(result)
                             })
@@ -388,7 +389,7 @@ fn translate_concrete(
             params: _,
         } => TranslationResult {
             val: ValueRepr::Bit(val.chars().next().unwrap()),
-            color: ValueKind::Normal,
+            kind: ValueKind::Normal,
             subfields: vec![],
             durations: HashMap::new(),
         },
@@ -398,14 +399,14 @@ fn translate_concrete(
                     mir_ty.size().to_u64().context("Size did not fit in u64")?,
                     val.to_string(),
                 ),
-                color: ValueKind::Normal,
+                kind: ValueKind::Normal,
                 subfields: vec![],
                 durations: HashMap::new(),
             }
         }
         ConcreteType::Backward(_) => TranslationResult {
             val: ValueRepr::String("*backward*".to_string()),
-            color: ValueKind::Custom(Color32::from_gray(128)),
+            kind: ValueKind::Custom(Color32::from_gray(128)),
             subfields: vec![],
             durations: HashMap::new(),
         },
