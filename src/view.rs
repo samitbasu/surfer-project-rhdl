@@ -417,6 +417,22 @@ impl State {
                         )
                     });
 
+                if waves.viewports.len() > 1 {
+                    for viewport_idx in 1..waves.viewports.len() {
+                        egui::SidePanel::right(format! {"view port {viewport_idx}"})
+                            .default_width(100.)
+                            .width_range(30.0..=max_width)
+                            .frame(Frame {
+                                inner_margin: Margin::same(0.0),
+                                outer_margin: Margin::same(0.0),
+                                ..Default::default()
+                            })
+                            .show(ctx, |ui| {
+                                self.draw_signals(&mut msgs, &item_offsets, ui, viewport_idx)
+                            });
+                    }
+                }
+
                 egui::CentralPanel::default()
                     .frame(Frame {
                         inner_margin: Margin::same(0.0),
@@ -424,7 +440,7 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_signals(&mut msgs, &item_offsets, ui);
+                        self.draw_signals(&mut msgs, &item_offsets, ui, 0);
                     });
             }
         };

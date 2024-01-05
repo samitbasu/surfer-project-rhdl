@@ -84,6 +84,7 @@ impl State {
                 Message::CanvasZoom {
                     mouse_ptr_timestamp: None,
                     delta: 0.5,
+                    viewport_idx: 0,
                 },
                 wave_loaded,
             );
@@ -95,6 +96,7 @@ impl State {
                 Message::CanvasZoom {
                     mouse_ptr_timestamp: None,
                     delta: 2.0,
+                    viewport_idx: 0,
                 },
                 wave_loaded,
             );
@@ -103,7 +105,7 @@ impl State {
                 msgs,
                 Icon::FitScreen,
                 "Zoom to fit",
-                Message::ZoomToFit,
+                Message::ZoomToFit { viewport_idx: 0 },
                 wave_loaded,
             );
             ui.separator();
@@ -114,7 +116,7 @@ impl State {
                 msgs,
                 "⏮".to_string(),
                 "Go to start",
-                Message::GoToStart,
+                Message::GoToStart { viewport_idx: 0 },
                 wave_loaded,
             );
             add_toolbar_button_with_icon(
@@ -127,6 +129,7 @@ impl State {
                         y: PER_SCROLL_EVENT * SCROLL_EVENTS_PER_PAGE,
                         x: 0.,
                     },
+                    viewport_idx: 0,
                 },
                 wave_loaded,
             );
@@ -140,6 +143,7 @@ impl State {
                         y: PER_SCROLL_EVENT,
                         x: 0.,
                     },
+                    viewport_idx: 0,
                 },
                 wave_loaded,
             );
@@ -153,6 +157,7 @@ impl State {
                         y: -PER_SCROLL_EVENT,
                         x: 0.,
                     },
+                    viewport_idx: 0,
                 },
                 wave_loaded,
             );
@@ -166,6 +171,7 @@ impl State {
                         y: -PER_SCROLL_EVENT * SCROLL_EVENTS_PER_PAGE,
                         x: 0.,
                     },
+                    viewport_idx: 0,
                 },
                 wave_loaded,
             );
@@ -174,7 +180,7 @@ impl State {
                 msgs,
                 "⏭".to_string(),
                 "Go to end",
-                Message::GoToEnd,
+                Message::GoToEnd { viewport_idx: 0 },
                 wave_loaded,
             );
             ui.separator();
