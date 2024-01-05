@@ -254,7 +254,7 @@ impl TranslationResult {
                     "({})",
                     subresults
                         .iter()
-                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-"))
+                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or("-"))
                         .join(", ")
                 ),
                 self.color,
@@ -266,7 +266,7 @@ impl TranslationResult {
                         .iter()
                         .map(|(n, v)| format!(
                             "{n}: {}",
-                            v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-")
+                            v.this.as_ref().map(|t| t.0.as_str()).unwrap_or("-")
                         ))
                         .join(", ")
                 ),
@@ -277,7 +277,7 @@ impl TranslationResult {
                     "[{}]",
                     subresults
                         .iter()
-                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or_else(|| "-"))
+                        .map(|(_, v)| v.this.as_ref().map(|t| t.0.as_str()).unwrap_or("-"))
                         .join(", ")
                 ),
                 self.color,
@@ -291,7 +291,7 @@ impl TranslationResult {
                         .this
                         .as_ref()
                         .map(|t| t.0.as_str())
-                        .unwrap_or_else(|| "-")
+                        .unwrap_or("-")
                 ),
                 self.color,
             )),
