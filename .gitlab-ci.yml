@@ -16,7 +16,7 @@ clippy:
         - rustup component add clippy
         - cargo install gitlab_clippy
     script:
-        - cargo clippy -- --allow clippy::useless_format
+        - cargo clippy --color=always -- --allow clippy::useless_format
     after_script:
         - cargo clippy --message-format=json -- --allow clippy::useless_format | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
     artifacts:
