@@ -1,7 +1,7 @@
 use eframe::{
     egui::{self, Grid, RichText},
     emath::Align2,
-    epaint::{Pos2, Vec2},
+    epaint::Pos2,
 };
 
 use crate::{message::Message, State};
@@ -145,12 +145,7 @@ pub fn draw_quickstart_help_window(ctx: &egui::Context, msgs: &mut Vec<Message>)
     }
 }
 
-pub fn draw_control_help_window(
-    ctx: &egui::Context,
-    max_width: f32,
-    max_height: f32,
-    msgs: &mut Vec<Message>,
-) {
+pub fn draw_control_help_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
     let mut open = true;
     egui::Window::new("🖮 Surfer controls")
         .collapsible(true)
@@ -158,15 +153,7 @@ pub fn draw_control_help_window(
         .open(&mut open)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                let layout = egui::Layout::top_down(egui::Align::LEFT);
-                ui.allocate_ui_with_layout(
-                    Vec2 {
-                        x: max_width * 0.35,
-                        y: max_height * 0.5,
-                    },
-                    layout,
-                    key_listing,
-                );
+                key_listing(ui);
                 ui.add_space(10.);
                 if ui.button("Close").clicked() {
                     msgs.push(Message::SetKeyHelpVisible(false))

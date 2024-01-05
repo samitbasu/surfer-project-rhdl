@@ -181,7 +181,7 @@ impl State {
         }
 
         if self.show_keys {
-            draw_control_help_window(ctx, max_width, max_height, &mut msgs);
+            draw_control_help_window(ctx, &mut msgs);
         }
 
         if self.show_quick_start {
