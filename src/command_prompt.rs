@@ -170,6 +170,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "goto_cursor",
                 "save_state",
                 "timeline_add",
+                "show_cursor_window",
                 "exit",
             ]
         } else {
@@ -349,6 +350,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 }
                 "show_quick_start" => Some(Command::Terminal(Message::SetQuickStartVisible(true))),
                 "show_performance" => Some(Command::Terminal(Message::SetPerformanceVisible(true))),
+                "show_cursor_window" => {
+                    Some(Command::Terminal(Message::SetCursorWindowVisible(true)))
+                }
                 "save_state" => single_word(
                     vec![],
                     Box::new(|word| Some(Command::Terminal(Message::SaveState(word.into())))),
