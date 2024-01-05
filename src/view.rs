@@ -200,6 +200,15 @@ impl State {
             self.draw_performance_graph(ctx, &mut msgs);
         }
 
+        if let Some(idx) = self.rename_target {
+            draw_rename_window(
+                ctx,
+                &mut msgs,
+                idx,
+                &mut self.sys.item_renaming_string.borrow_mut(),
+            );
+        }
+
         if self
             .show_menu
             .unwrap_or_else(|| self.config.layout.show_menu())
@@ -417,15 +426,6 @@ impl State {
                     .show(ctx, |ui| {
                         self.draw_signals(&mut msgs, &item_offsets, ui);
                     });
-
-                if let Some(idx) = self.rename_target {
-                    draw_rename_window(
-                        ctx,
-                        &mut msgs,
-                        idx,
-                        &mut self.sys.item_renaming_string.borrow_mut(),
-                    );
-                }
             }
         };
 
@@ -604,7 +604,7 @@ impl State {
                         self.draw_signal_var(
                             msgs,
                             vidx,
-                            &displayed_signal.display_name,
+                            &displayed_item.display_name(),
                             FieldRef {
                                 root: sig.signal_ref.clone(),
                                 field: vec![],
@@ -778,7 +778,8 @@ impl State {
                     .selectable_label(
                         false,
                         egui::RichText::new(displayed_item.display_name().clone())
-                            .color(*text_color),
+                            .color(*text_color)
+                            .italics(),
                     )
                     .context_menu(|ui| {
                         self.item_context_menu(None, msgs, ui, vidx);
