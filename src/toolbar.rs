@@ -185,7 +185,7 @@ impl State {
                 msgs,
                 Icon::SpaceBar,
                 "Add divider",
-                Message::AddDivider(String::new(), None),
+                Message::AddDivider(None, None),
                 wave_loaded,
             );
             add_toolbar_button_with_icon(

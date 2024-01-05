@@ -1,11 +1,12 @@
 use eframe::egui;
-use log::warn;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    message::Message, signal_name_type::SignalNameType, translation::SignalInfo,
-    wave_container::SignalRef,
+    cursor::DEFAULT_CURSOR_NAME, message::Message, signal_name_type::SignalNameType,
+    time::DEFAULT_TIMELINE_NAME, translation::SignalInfo, wave_container::SignalRef,
 };
+
+const DEFAULT_DIVIDER_NAME: &str = "";
 
 #[derive(Serialize, Deserialize)]
 pub enum DisplayedItem {
@@ -24,20 +25,21 @@ pub struct DisplayedSignal {
     pub background_color: Option<String>,
     pub display_name: String,
     pub display_name_type: SignalNameType,
+    pub manual_name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct DisplayedDivider {
     pub color: Option<String>,
     pub background_color: Option<String>,
-    pub name: String,
+    pub name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct DisplayedCursor {
     pub color: Option<String>,
     pub background_color: Option<String>,
-    pub name: String,
+    pub name: Option<String>,
     pub idx: u8,
 }
 
@@ -45,6 +47,7 @@ pub struct DisplayedCursor {
 pub struct DisplayedTimeLine {
     pub color: Option<String>,
     pub background_color: Option<String>,
+    pub name: Option<String>,
 }
 
 impl DisplayedItem {
@@ -77,37 +80,73 @@ impl DisplayedItem {
 
     pub fn name(&self) -> String {
         match self {
-            DisplayedItem::Signal(signal) => signal.display_name.clone(),
-            DisplayedItem::Divider(divider) => divider.name.clone(),
-            DisplayedItem::Cursor(cursor) => cursor.name.clone(),
-            DisplayedItem::TimeLine(_) => "Time".to_string(),
+            DisplayedItem::Signal(signal) => signal
+                .manual_name
+                .as_ref()
+                .unwrap_or(&signal.display_name)
+                .clone(),
+            DisplayedItem::Divider(divider) => divider
+                .name
+                .as_ref()
+                .unwrap_or(&DEFAULT_DIVIDER_NAME.to_string())
+                .clone(),
+            DisplayedItem::Cursor(cursor) => cursor
+                .name
+                .as_ref()
+                .unwrap_or(&DEFAULT_CURSOR_NAME.to_string())
+                .clone(),
+            DisplayedItem::TimeLine(timeline) => timeline
+                .name
+                .as_ref()
+                .unwrap_or(&DEFAULT_TIMELINE_NAME.to_string())
+                .clone(),
         }
     }
 
+    /// Name displayed in signal list for the wave form, may include additional info compared to name()
     pub fn display_name(&self) -> String {
         match self {
-            DisplayedItem::Signal(signal) => signal.display_name.clone(),
-            DisplayedItem::Divider(divider) => divider.name.clone(),
+            DisplayedItem::Signal(signal) => signal
+                .manual_name
+                .as_ref()
+                .unwrap_or(&signal.display_name)
+                .clone(),
+            DisplayedItem::Divider(divider) => divider
+                .name
+                .as_ref()
+                .unwrap_or(&DEFAULT_DIVIDER_NAME.to_string())
+                .clone(),
             DisplayedItem::Cursor(cursor) => {
-                format!("{idx}: {name}", idx = cursor.idx, name = cursor.name)
+                format!(
+                    "{idx}: {name}",
+                    idx = cursor.idx,
+                    name = cursor
+                        .name
+                        .as_ref()
+                        .unwrap_or(&DEFAULT_CURSOR_NAME.to_string())
+                )
             }
-            DisplayedItem::TimeLine(_) => "Time".to_string(),
+            DisplayedItem::TimeLine(timeline) => timeline
+                .name
+                .as_ref()
+                .unwrap_or(&DEFAULT_TIMELINE_NAME.to_string())
+                .clone(),
         }
     }
 
-    pub fn set_name(&mut self, name: String) {
+    pub fn set_name(&mut self, name: Option<String>) {
         match self {
-            DisplayedItem::Signal(_) => {
-                warn!("Renaming signal");
+            DisplayedItem::Signal(signal) => {
+                signal.manual_name = name;
             }
             DisplayedItem::Divider(divider) => {
-                divider.name = name.clone();
+                divider.name = name;
             }
             DisplayedItem::Cursor(cursor) => {
-                cursor.name = name.clone();
+                cursor.name = name;
             }
-            DisplayedItem::TimeLine(_) => {
-                warn!("Renaming time line");
+            DisplayedItem::TimeLine(timeline) => {
+                timeline.name = name;
             }
         }
     }
@@ -155,13 +194,17 @@ pub fn draw_rename_window(
             ui.vertical_centered(|ui| {
                 let response = ui.text_edit_singleline(name);
                 if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
+                    msgs.push(Message::ItemNameChange(Some(idx), Some(name.clone())));
                     msgs.push(Message::SetRenameItemVisible(false));
                 }
                 response.request_focus();
                 ui.horizontal(|ui| {
                     if ui.button("Rename").clicked() {
-                        msgs.push(Message::ItemNameChange(Some(idx), name.clone()));
+                        msgs.push(Message::ItemNameChange(Some(idx), Some(name.clone())));
+                        msgs.push(Message::SetRenameItemVisible(false));
+                    }
+                    if ui.button("Default").clicked() {
+                        msgs.push(Message::ItemNameChange(Some(idx), None));
                         msgs.push(Message::SetRenameItemVisible(false));
                     }
                     if ui.button("Cancel").clicked() {
