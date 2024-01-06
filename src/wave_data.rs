@@ -334,4 +334,11 @@ impl WaveData {
         self.viewport.curr_left = target_left;
         self.viewport.curr_right = target_right;
     }
+
+    pub fn viewport_all(&self) -> Viewport {
+        Viewport {
+            curr_left: 0.,
+            curr_right: self.num_timestamps.to_f64().unwrap_or(1.0),
+        }
+    }
 }
