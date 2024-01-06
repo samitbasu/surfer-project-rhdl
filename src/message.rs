@@ -80,6 +80,7 @@ pub enum Message {
     GoToTime(BigInt),
     ToggleMenu,
     ToggleToolbar,
+    ToggleOverview,
     SetTimeUnit(TimeUnit),
     CommandPromptClear,
     CommandPromptUpdate {

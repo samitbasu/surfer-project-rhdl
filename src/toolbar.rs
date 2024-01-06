@@ -1,8 +1,6 @@
-use eframe::{
-    egui::{self, Layout, RichText},
-    emath::Align,
-    epaint::Vec2,
-};
+use eframe::egui::{Button, Context, Layout, RichText, TopBottomPanel, Ui};
+use eframe::emath::Align;
+use eframe::epaint::Vec2;
 use material_icons::{icon_to_char, Icon};
 
 use crate::{
@@ -13,14 +11,14 @@ use crate::{
 };
 
 fn add_toolbar_button(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     msgs: &mut Vec<Message>,
     icon_string: String,
     hover_text: &str,
     message: Message,
     enabled: bool,
 ) {
-    let button = egui::Button::new(RichText::new(icon_string).heading()).frame(false);
+    let button = Button::new(RichText::new(icon_string).heading()).frame(false);
     ui.add_enabled(enabled, button)
         .on_hover_text(hover_text)
         .clicked()
@@ -28,7 +26,7 @@ fn add_toolbar_button(
 }
 
 fn add_toolbar_button_with_icon(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     msgs: &mut Vec<Message>,
     icon: Icon,
     hover_text: &str,
@@ -46,7 +44,13 @@ fn add_toolbar_button_with_icon(
 }
 
 impl State {
-    pub fn draw_toolbar(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+    pub fn add_toolbar_panel(&self, ctx: &Context, msgs: &mut Vec<Message>) {
+        TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            self.draw_toolbar(ui, msgs);
+        });
+    }
+
+    fn draw_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         let wave_loaded = self.waves.is_some();
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
             if !self.show_menu.unwrap_or(self.config.layout.show_menu()) {

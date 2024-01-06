@@ -18,7 +18,7 @@ use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
 use crate::logs::EGUI_LOGGER;
 use crate::signal_filter::filtered_signals;
-use crate::time::{time_string, timeunit_menu};
+use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
 use crate::wave_container::{FieldRef, ModuleRef, SignalRef};
@@ -220,91 +220,33 @@ impl State {
             .show_menu
             .unwrap_or_else(|| self.config.layout.show_menu())
         {
-            egui::TopBottomPanel::top("menu").show(ctx, |ui| {
-                self.draw_menu(ui, &mut msgs);
-            });
+            self.add_menu_panel(ctx, &mut msgs);
         }
 
         if self
             .show_toolbar
             .unwrap_or_else(|| self.config.layout.show_toolbar())
         {
-            egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-                self.draw_toolbar(ui, &mut msgs);
-            });
+            self.add_toolbar_panel(ctx, &mut msgs);
         }
 
         if self.show_url_entry {
-            let mut open = true;
-            egui::Window::new("Load URL")
-                .open(&mut open)
-                .collapsible(false)
-                .resizable(true)
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let url = &mut *self.sys.url.borrow_mut();
-                        let response = ui.text_edit_singleline(url);
-                        ui.horizontal(|ui| {
-                            if ui.button("Load URL").clicked()
-                                || (response.lost_focus()
-                                    && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                            {
-                                msgs.push(Message::LoadVcdFromUrl(url.clone(), false));
-                                msgs.push(Message::SetUrlEntryVisible(false))
-                            }
-                            if ui.button("Cancel").clicked() {
-                                msgs.push(Message::SetUrlEntryVisible(false))
-                            }
-                        });
-                    });
-                });
-            if !open {
-                msgs.push(Message::SetUrlEntryVisible(false))
-            }
+            self.draw_load_url(ctx, &mut msgs);
         }
 
         if let Some(waves) = &self.waves {
-            egui::TopBottomPanel::bottom("modeline")
-                .frame(egui::Frame {
-                    fill: self.config.theme.primary_ui_color.background,
-                    ..Default::default()
-                })
-                .show(ctx, |ui| {
-                    ui.visuals_mut().override_text_color =
-                        Some(self.config.theme.primary_ui_color.foreground);
-                    ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
-                        ui.add_space(10.0);
-                        if self.show_wave_source {
-                            ui.label(&waves.source.to_string());
-                            if let Some(datetime) = waves.inner.metadata().date {
-                                ui.add_space(10.0);
-                                ui.label(format!("Generated: {datetime}"));
-                            }
-                        }
-                        ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
-                            if let Some(time) = &waves.cursor {
-                                ui.label(time_string(
-                                    time,
-                                    &waves.inner.metadata().timescale,
-                                    &self.wanted_timeunit,
-                                ))
-                                .context_menu(|ui| {
-                                    timeunit_menu(ui, &mut msgs, &self.wanted_timeunit)
-                                });
-                                ui.add_space(10.0)
-                            }
-                            if let Some(count) = &self.count {
-                                ui.label(format!("Count: {}", count));
-                                ui.add_space(20.0);
-                            }
-                        });
-                    });
-                });
+            self.add_statusbar_panel(ctx, waves, &mut msgs);
+            if self
+                .show_overview
+                .unwrap_or(self.config.layout.show_overview())
+            {
+                self.add_overview_panel(ctx, waves)
+            }
         }
 
         if self
             .show_hierarchy
-            .unwrap_or_else(|| self.config.layout.show_hierarchy())
+            .unwrap_or(self.config.layout.show_hierarchy())
         {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
@@ -472,6 +414,35 @@ impl State {
             self.handle_pressed_keys(ctx, &mut msgs);
         }
         msgs
+    }
+
+    fn draw_load_url(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
+        let mut open = true;
+        egui::Window::new("Load URL")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    let url = &mut *self.sys.url.borrow_mut();
+                    let response = ui.text_edit_singleline(url);
+                    ui.horizontal(|ui| {
+                        if ui.button("Load URL").clicked()
+                            || (response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                        {
+                            msgs.push(Message::LoadVcdFromUrl(url.clone(), false));
+                            msgs.push(Message::SetUrlEntryVisible(false))
+                        }
+                        if ui.button("Cancel").clicked() {
+                            msgs.push(Message::SetUrlEntryVisible(false))
+                        }
+                    });
+                });
+            });
+        if !open {
+            msgs.push(Message::SetUrlEntryVisible(false))
+        }
     }
 
     fn handle_pointer_in_ui(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
