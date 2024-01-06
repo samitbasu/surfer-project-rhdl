@@ -286,6 +286,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
             state.update(Message::ToggleMenu);
             state.update(Message::ToggleSidePanel);
             state.update(Message::ToggleToolbar);
+            state.update(Message::ToggleOverview);
 
             for msg in $msgs {
                 state.update(msg)
@@ -345,6 +346,7 @@ snapshot_ui! {example_vcd_renders, || {
     state.update(Message::ToggleMenu);
     state.update(Message::ToggleSidePanel);
     state.update(Message::ToggleToolbar);
+    state.update(Message::ToggleOverview);
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb", "dut"])));
 
@@ -387,6 +389,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 
     state.update(Message::ToggleMenu);
     state.update(Message::ToggleToolbar);
+    state.update(Message::ToggleOverview);
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
     state.update(Message::CursorSet(100u32.to_bigint()));
 
@@ -461,6 +464,7 @@ snapshot_ui_with_file_and_msgs! {divider_works, "examples/counter.vcd", [
 ]}
 
 snapshot_ui_with_file_and_msgs! {cursors_work, "examples/counter.vcd", [
+    Message::ToggleOverview,
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::SetCursorPosition(2),
@@ -550,6 +554,7 @@ snapshot_ui!(regex_error_indication, || {
     let msgs = [
         Message::ToggleMenu,
         Message::ToggleToolbar,
+        Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["tb"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("tb.clk")),
         Message::SetSignalFilterType(SignalFilterType::Regex),
@@ -588,6 +593,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
     let msgs = [
         Message::ToggleMenu,
         Message::ToggleToolbar,
+        Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Fuzzy),
@@ -622,6 +628,7 @@ snapshot_ui!(contain_signal_filter_works, || {
     let msgs = [
         Message::ToggleMenu,
         Message::ToggleToolbar,
+        Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Contain),
@@ -656,6 +663,7 @@ snapshot_ui!(regex_signal_filter_works, || {
     let msgs = [
         Message::ToggleMenu,
         Message::ToggleToolbar,
+        Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Regex),
@@ -690,6 +698,7 @@ snapshot_ui!(start_signal_filter_works, || {
     let msgs = [
         Message::ToggleMenu,
         Message::ToggleToolbar,
+        Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
         Message::SetSignalFilterType(SignalFilterType::Start),
