@@ -432,6 +432,7 @@ pub struct State {
     show_ticks: Option<bool>,
     show_toolbar: Option<bool>,
     show_signal_tooltip: Option<bool>,
+    show_overview: Option<bool>,
 
     waves: Option<WaveData>,
 
@@ -495,6 +496,7 @@ impl State {
             show_ticks: None,
             show_toolbar: None,
             show_signal_tooltip: None,
+            show_overview: None,
         };
 
         Ok(result)
@@ -925,6 +927,13 @@ impl State {
                     None => !self.config.layout.show_signal_tooltip(),
                 };
                 self.show_signal_tooltip = Some(new)
+            }
+            Message::ToggleOverview => {
+                let new = match self.show_overview {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_overview(),
+                };
+                self.show_overview = Some(new)
             }
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {

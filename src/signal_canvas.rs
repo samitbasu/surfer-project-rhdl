@@ -301,7 +301,12 @@ impl State {
                 }
                 clock_edges.append(&mut new_clock_edges)
             }
-            let ticks = self.get_ticks(waves, frame_width, cfg.text_size);
+            let ticks = self.get_ticks(
+                &waves.viewport,
+                &waves.inner.metadata().timescale,
+                frame_width,
+                cfg.text_size,
+            );
 
             *self.sys.draw_data.borrow_mut() = Some(CachedDrawData {
                 draw_commands,
@@ -473,17 +478,7 @@ impl State {
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Cursor(_) => {}
                     ItemDrawingInfo::TimeLine(_) => {
-                        let color = *color.unwrap_or(&self.config.theme.foreground);
-
-                        for (tick_text, x) in ticks {
-                            ctx.painter.text(
-                                (ctx.to_screen)(*x, y_offset),
-                                Align2::CENTER_TOP,
-                                tick_text,
-                                FontId::proportional(ctx.cfg.text_size),
-                                color,
-                            );
-                        }
+                        self.draw_ticks(color, ticks, &ctx, y_offset);
                     }
                 }
             }
@@ -494,20 +489,19 @@ impl State {
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
-            to_screen,
+            &waves.viewport,
         );
 
         waves.draw_cursors(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
-            to_screen,
+            &waves.viewport,
         );
 
         waves.draw_cursor_boxes(
             &mut ctx,
             item_offsets,
-            to_screen,
             response.rect.size(),
             gap,
             &self.config,
