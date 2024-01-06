@@ -1,5 +1,5 @@
 use eframe::{
-    emath::{Align2, RectTransform},
+    emath::Align2,
     epaint::{FontId, Pos2, Rect, Rounding, Stroke, Vec2},
 };
 use num::BigInt;
@@ -9,6 +9,7 @@ use crate::{
     displayed_item::{DisplayedCursor, DisplayedItem},
     time::{time_string, TimeUnit},
     view::{DrawingContext, ItemDrawingInfo},
+    viewport::Viewport,
     wave_data::WaveData,
 };
 
@@ -20,10 +21,10 @@ impl WaveData {
         theme: &SurferTheme,
         ctx: &mut DrawingContext,
         size: Vec2,
-        to_screen: RectTransform,
+        viewport: &Viewport,
     ) {
         if let Some(cursor) = &self.cursor {
-            let x = self.viewport.from_time(cursor, size.x as f64);
+            let x = viewport.from_time(cursor, size.x as f64);
 
             let stroke = Stroke {
                 color: theme.cursor.color,
@@ -31,8 +32,8 @@ impl WaveData {
             };
             ctx.painter.line_segment(
                 [
-                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, 0.)),
-                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, size.y)),
+                    (ctx.to_screen)(x as f32, -0.5),
+                    (ctx.to_screen)(x as f32, size.y),
                 ],
                 stroke,
             )
@@ -44,7 +45,7 @@ impl WaveData {
         theme: &SurferTheme,
         ctx: &mut DrawingContext,
         size: Vec2,
-        to_screen: RectTransform,
+        viewport: &Viewport,
     ) {
         for (idx, cursor) in &self.cursors {
             let color = self
@@ -67,11 +68,11 @@ impl WaveData {
                 color: *color,
                 width: theme.cursor.width,
             };
-            let x = self.viewport.from_time(cursor, size.x as f64);
+            let x = viewport.from_time(cursor, size.x as f64);
             ctx.painter.line_segment(
                 [
-                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, 0.)),
-                    to_screen.transform_pos(Pos2::new(x as f32 + 0.5, size.y)),
+                    (ctx.to_screen)(x as f32, -0.5),
+                    (ctx.to_screen)(x as f32, size.y),
                 ],
                 stroke,
             )
@@ -112,7 +113,6 @@ impl WaveData {
         &self,
         ctx: &mut DrawingContext,
         item_offsets: &[ItemDrawingInfo],
-        to_screen: RectTransform,
         size: Vec2,
         gap: f32,
         config: &SurferConfig,
@@ -131,7 +131,7 @@ impl WaveData {
             // We draw in absolute coords, but the signal offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
-            let y_offset = drawing_info.offset - to_screen.transform_pos(Pos2::ZERO).y;
+            let y_offset = drawing_info.offset - (ctx.to_screen)(0., -0.5).y;
 
             let background_color = item
                 .color()

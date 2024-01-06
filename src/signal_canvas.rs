@@ -494,20 +494,19 @@ impl State {
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
-            to_screen,
+            &waves.viewport,
         );
 
         waves.draw_cursors(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
-            to_screen,
+            &waves.viewport,
         );
 
         waves.draw_cursor_boxes(
             &mut ctx,
             item_offsets,
-            to_screen,
             response.rect.size(),
             gap,
             &self.config,
