@@ -228,32 +228,7 @@ impl State {
         }
 
         if self.show_url_entry {
-            let mut open = true;
-            egui::Window::new("Load URL")
-                .open(&mut open)
-                .collapsible(false)
-                .resizable(true)
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let url = &mut *self.sys.url.borrow_mut();
-                        let response = ui.text_edit_singleline(url);
-                        ui.horizontal(|ui| {
-                            if ui.button("Load URL").clicked()
-                                || (response.lost_focus()
-                                    && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                            {
-                                msgs.push(Message::LoadVcdFromUrl(url.clone(), false));
-                                msgs.push(Message::SetUrlEntryVisible(false))
-                            }
-                            if ui.button("Cancel").clicked() {
-                                msgs.push(Message::SetUrlEntryVisible(false))
-                            }
-                        });
-                    });
-                });
-            if !open {
-                msgs.push(Message::SetUrlEntryVisible(false))
-            }
+            self.draw_load_url(ctx, &mut msgs);
         }
 
         if let Some(waves) = &self.waves {
@@ -263,41 +238,26 @@ impl State {
                     ..Default::default()
                 })
                 .show(ctx, |ui| {
-                    ui.visuals_mut().override_text_color =
-                        Some(self.config.theme.primary_ui_color.foreground);
-                    ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
-                        ui.add_space(10.0);
-                        if self.show_wave_source {
-                            ui.label(&waves.source.to_string());
-                            if let Some(datetime) = waves.inner.metadata().date {
-                                ui.add_space(10.0);
-                                ui.label(format!("Generated: {datetime}"));
-                            }
-                        }
-                        ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
-                            if let Some(time) = &waves.cursor {
-                                ui.label(time_string(
-                                    time,
-                                    &waves.inner.metadata().timescale,
-                                    &self.wanted_timeunit,
-                                ))
-                                .context_menu(|ui| {
-                                    timeunit_menu(ui, &mut msgs, &self.wanted_timeunit)
-                                });
-                                ui.add_space(10.0)
-                            }
-                            if let Some(count) = &self.count {
-                                ui.label(format!("Count: {}", count));
-                                ui.add_space(20.0);
-                            }
-                        });
-                    });
+                    self.draw_modeline(ui, waves, &mut msgs);
                 });
+            if self
+                .show_overview
+                .unwrap_or(self.config.layout.show_hierarchy())
+            {
+                egui::TopBottomPanel::bottom("overview")
+                    .frame(egui::containers::Frame {
+                        fill: self.config.theme.primary_ui_color.background,
+                        ..Default::default()
+                    })
+                    .show(ctx, |ui| {
+                        self.draw_overview(ui, waves);
+                    });
+            }
         }
 
         if self
             .show_hierarchy
-            .unwrap_or_else(|| self.config.layout.show_hierarchy())
+            .unwrap_or(self.config.layout.show_hierarchy())
         {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
@@ -467,6 +427,121 @@ impl State {
             self.handle_pressed_keys(ctx, &mut msgs);
         }
         msgs
+    }
+
+    fn draw_load_url(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
+        let mut open = true;
+        egui::Window::new("Load URL")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    let url = &mut *self.sys.url.borrow_mut();
+                    let response = ui.text_edit_singleline(url);
+                    ui.horizontal(|ui| {
+                        if ui.button("Load URL").clicked()
+                            || (response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                        {
+                            msgs.push(Message::LoadVcdFromUrl(url.clone(), false));
+                            msgs.push(Message::SetUrlEntryVisible(false))
+                        }
+                        if ui.button("Cancel").clicked() {
+                            msgs.push(Message::SetUrlEntryVisible(false))
+                        }
+                    });
+                });
+            });
+        if !open {
+            msgs.push(Message::SetUrlEntryVisible(false))
+        }
+    }
+
+    fn draw_overview(&self, ui: &mut egui::Ui, waves: &WaveData) {
+        let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
+        let cfg = DrawConfig::new(response.rect.size().y);
+        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
+        let to_screen = RectTransform::from_to(container_rect, response.rect);
+
+        let mut ctx = DrawingContext {
+            painter: &mut painter,
+            cfg: &cfg,
+            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
+            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
+            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
+            theme: &self.config.theme,
+        };
+
+        let viewport_all = waves.viewport_all();
+        let minx =
+            viewport_all.from_time_f64(waves.viewport.curr_left, response.rect.size().x as f64);
+        let maxx =
+            viewport_all.from_time_f64(waves.viewport.curr_right, response.rect.size().x as f64);
+        let min = (ctx.to_screen)(minx as f32, 0.);
+        let max = (ctx.to_screen)(maxx as f32, container_rect.max.y);
+        ctx.painter.rect_filled(
+            Rect { min, max },
+            Rounding::ZERO,
+            self.config
+                .theme
+                .canvas_colors
+                .foreground
+                .gamma_multiply(0.3),
+        );
+        waves.draw_cursor(
+            &self.config.theme,
+            &mut ctx,
+            response.rect.size(),
+            &viewport_all,
+        );
+
+        waves.draw_cursors(
+            &self.config.theme,
+            &mut ctx,
+            response.rect.size(),
+            &viewport_all,
+        );
+
+        waves.draw_cursor_number_boxes(&mut ctx, response.rect.size(), &self.config, &viewport_all);
+        let mut ticks = self.get_ticks(
+            &viewport_all,
+            &waves.inner.metadata().timescale,
+            response.rect.size().x,
+            cfg.text_size,
+        );
+        ticks.pop();
+        ticks.remove(0);
+        self.draw_ticks(None, &ticks, &ctx, (cfg.line_height - cfg.text_size) * 0.5);
+    }
+
+    fn draw_modeline(&self, ui: &mut egui::Ui, waves: &WaveData, msgs: &mut Vec<Message>) {
+        ui.visuals_mut().override_text_color = Some(self.config.theme.primary_ui_color.foreground);
+        ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
+            ui.add_space(10.0);
+            if self.show_wave_source {
+                ui.label(&waves.source.to_string());
+                if let Some(datetime) = waves.inner.metadata().date {
+                    ui.add_space(10.0);
+                    ui.label(format!("Generated: {datetime}"));
+                }
+            }
+            ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
+                if let Some(time) = &waves.cursor {
+                    ui.label(time_string(
+                        time,
+                        &waves.inner.metadata().timescale,
+                        &self.wanted_timeunit,
+                    ))
+                    .context_menu(|ui| timeunit_menu(ui, msgs, &self.wanted_timeunit));
+                    ui.add_space(10.0)
+                }
+                if let Some(count) = &self.count {
+                    ui.label(format!("Count: {}", count));
+                    ui.add_space(20.0);
+                }
+            });
+        });
     }
 
     fn handle_pointer_in_ui(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
