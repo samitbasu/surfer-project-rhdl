@@ -5,6 +5,7 @@ use crate::wave_container::{SignalMeta, SignalValue};
 
 use color_eyre::Result;
 use itertools::Itertools;
+use log::error;
 use num::Zero;
 
 // Forms groups of n chars from from a string. If the string size is
@@ -311,9 +312,10 @@ impl BasicTranslator for ASCIITranslator {
                         .map(|substr| {
                             format!(
                                 "{cval}",
-                                cval = u8::from_str_radix(substr, 2).unwrap_or_else(|_| panic!(
-                                    "Found non-binary digit {substr} in value"
-                                )) as char
+                                cval = u8::from_str_radix(substr, 2).unwrap_or_else(|_| {
+                                    error!("Found non-binary digit {substr} in value");
+                                    63
+                                }) as char
                             )
                         })
                         .join(""),
