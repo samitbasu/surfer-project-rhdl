@@ -2,13 +2,14 @@ use std::fmt;
 
 use eframe::{
     egui,
-    epaint::{Pos2, Stroke},
+    emath::Align2,
+    epaint::{Color32, FontId, Pos2, Stroke},
 };
 use enum_iterator::Sequence;
 use num::{BigInt, BigRational, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
-use crate::{view::DrawingContext, wave_data::WaveData, Message, State};
+use crate::{view::DrawingContext, viewport::Viewport, Message, State};
 
 #[derive(Serialize, Deserialize)]
 pub struct TimeScale {
@@ -123,20 +124,21 @@ pub fn time_string(time: &BigInt, timescale: &TimeScale, wanted_timeunit: &TimeU
 impl State {
     pub fn get_ticks(
         &self,
-        waves: &WaveData,
+        viewport: &Viewport,
+        timescale: &TimeScale,
         frame_width: f32,
         text_size: f32,
     ) -> Vec<(String, f32)> {
         let char_width = text_size * (20. / 31.);
-        let left_time = waves.viewport.to_time_f64(0., frame_width);
-        let frame_width_64 = frame_width as f64;
-        let right_time = waves.viewport.to_time_f64(frame_width_64, frame_width);
-        let time_width = right_time - left_time;
-        let rightexp = right_time.abs().log10().round() as i16;
-        let leftexp = left_time.abs().log10().round() as i16;
+        let rightexp = viewport.curr_right.abs().log10().round() as i16;
+        let leftexp = viewport.curr_left.abs().log10().round() as i16;
         let max_labelwidth = (rightexp.max(leftexp) + 3) as f32 * char_width;
         let max_labels = ((frame_width * self.config.ticks.density) / max_labelwidth).floor() + 2.;
-        let scale = 10.0f64.powf((time_width / max_labels as f64).log10().floor());
+        let scale = 10.0f64.powf(
+            ((viewport.curr_right - viewport.curr_left) / max_labels as f64)
+                .log10()
+                .floor(),
+        );
 
         let steps = &[1., 2., 2.5, 5., 10.];
         let mut ticks: Vec<(String, f32)> = [].to_vec();
@@ -147,8 +149,9 @@ impl State {
                 // possible cursor positions
                 continue;
             }
-            let rounded_min_label_time = (left_time / scaled_step).floor() * scaled_step;
-            let high = ((right_time - rounded_min_label_time) / scaled_step).ceil() as f32 + 1.;
+            let rounded_min_label_time = (viewport.curr_left / scaled_step).floor() * scaled_step;
+            let high =
+                ((viewport.curr_right - rounded_min_label_time) / scaled_step).ceil() as f32 + 1.;
             if high <= max_labels {
                 ticks = (0..high as i16)
                     .map(|v| {
@@ -157,12 +160,8 @@ impl State {
                     .map(|tick| {
                         (
                             // Time string
-                            time_string(
-                                &tick,
-                                &waves.inner.metadata().timescale,
-                                &self.wanted_timeunit,
-                            ),
-                            waves.viewport.from_time(&tick, frame_width_64) as f32,
+                            time_string(&tick, timescale, &self.wanted_timeunit),
+                            viewport.from_time(&tick, frame_width as f64) as f32,
                         )
                     })
                     .collect::<Vec<(String, f32)>>();
@@ -182,6 +181,26 @@ impl State {
             (y_start)..=(y_start + ctx.cfg.canvas_height),
             *stroke,
         );
+    }
+
+    pub fn draw_ticks(
+        &self,
+        color: Option<&Color32>,
+        ticks: &Vec<(String, f32)>,
+        ctx: &DrawingContext<'_>,
+        y_offset: f32,
+    ) {
+        let color = *color.unwrap_or(&self.config.theme.foreground);
+
+        for (tick_text, x) in ticks {
+            ctx.painter.text(
+                (ctx.to_screen)(*x, y_offset),
+                Align2::CENTER_TOP,
+                tick_text,
+                FontId::proportional(ctx.cfg.text_size),
+                color,
+            );
+        }
     }
 }
 
