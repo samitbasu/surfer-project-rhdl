@@ -1,5 +1,5 @@
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{menu, Button, Ui};
+use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
 
 use crate::{
     clock_highlighting::clock_highlight_type_menu, displayed_item::DisplayedItem, message::Message,
@@ -52,9 +52,11 @@ impl ButtonBuilder {
 }
 
 impl State {
-    pub fn draw_menu(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
-        menu::bar(ui, |ui| {
-            self.menu_contents(ui, msgs);
+    pub fn add_menu_panel(&self, ctx: &Context, msgs: &mut Vec<Message>) {
+        TopBottomPanel::top("menu").show(ctx, |ui| {
+            menu::bar(ui, |ui| {
+                self.menu_contents(ui, msgs);
+            });
         });
     }
 
@@ -116,6 +118,7 @@ impl State {
             b("Toggle toolbar", Message::ToggleToolbar)
                 .shortcut("t")
                 .add_closing_menu(msgs, ui);
+            b("Toggle overview", Message::ToggleOverview).add_closing_menu(msgs, ui);
             #[cfg(not(target_arch = "wasm32"))]
             b("Toggle full screen", Message::ToggleFullscreen)
                 .shortcut("F11")
