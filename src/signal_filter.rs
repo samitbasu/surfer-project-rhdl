@@ -1,7 +1,5 @@
-use eframe::{
-    egui::{self, Ui},
-    emath::Align,
-};
+use eframe::egui::{self, Ui};
+use eframe::emath::Align;
 use enum_iterator::Sequence;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::Itertools;

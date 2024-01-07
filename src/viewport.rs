@@ -17,19 +17,13 @@ impl Viewport {
 
     pub fn to_time(&self, x: f64, view_width: f32) -> BigRational {
         let time = self.to_time_f64(x, view_width);
-        BigRational::from_f64(time).unwrap_or_else(|| BigRational::from_f32(1.0).unwrap())
+        BigRational::from_f64(time).unwrap_or_else(|| BigRational::from_u8(1).unwrap())
     }
 
     pub fn to_time_f64(&self, x: f64, view_width: f32) -> f64 {
-        let Viewport {
-            curr_left: left,
-            curr_right: right,
-            ..
-        } = &self;
+        let time_spacing = self.width() / view_width as f64;
 
-        let time_spacing = (right - left) / view_width as f64;
-
-        left + time_spacing * x
+        self.curr_left + time_spacing * x
     }
 
     pub fn to_time_bigint(&self, x: f64, view_width: f32) -> BigInt {
@@ -40,36 +34,26 @@ impl Viewport {
         } = &self;
 
         let big_right =
-            BigRational::from_f64(*right).unwrap_or_else(|| BigRational::from_f32(1.0).unwrap());
+            BigRational::from_f64(*right).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
         let big_left =
-            BigRational::from_f64(*left).unwrap_or_else(|| BigRational::from_f32(1.0).unwrap());
-        let big_width = BigRational::from_f32(view_width)
-            .unwrap_or_else(|| BigRational::from_f32(1.0).unwrap());
-        let big_x = BigRational::from_f64(x).unwrap_or_else(|| BigRational::from_f32(1.0).unwrap());
+            BigRational::from_f64(*left).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
+        let big_width =
+            BigRational::from_f32(view_width).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
+        let big_x = BigRational::from_f64(x).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
 
         let time = big_left.clone() + (big_right - big_left) / big_width * big_x;
         time.round().to_integer()
     }
 
     pub fn from_time(&self, time: &BigInt, view_width: f64) -> f64 {
-        let Viewport {
-            curr_left: left,
-            curr_right: right,
-            ..
-        } = &self;
+        let distance_from_left = time.to_f64().unwrap() - self.curr_left;
 
-        let time_float = time.to_f64().unwrap();
-
-        let distance_from_left = time_float - left;
-
-        let width = right - left;
-
-        (distance_from_left / width) * view_width
+        (distance_from_left / self.width()) * view_width
     }
 
     pub fn clip_to(&self, valid: &Viewport) -> Viewport {
-        let curr_range = self.curr_right - self.curr_left;
-        let valid_range = valid.curr_right - valid.curr_left;
+        let curr_range = self.width();
+        let valid_range = valid.width();
 
         // first fix the zoom if less than 10% of the screen are filled
         // do this first so that if the user had the waveform at a side
@@ -101,5 +85,9 @@ impl Viewport {
         } else {
             zoom_fixed
         }
+    }
+
+    fn width(&self) -> f64 {
+        self.curr_right - self.curr_left
     }
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
 use eframe::egui::{self, Sense};
-use eframe::emath::{self, Align2};
+use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
 use num::bigint::ToBigUint;
@@ -331,7 +331,7 @@ impl State {
 
         let Some(waves) = &self.waves else { return };
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
-        let to_screen = emath::RectTransform::from_to(container_rect, response.rect);
+        let to_screen = RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
         let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));

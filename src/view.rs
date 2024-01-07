@@ -1,10 +1,10 @@
 use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
-use eframe::egui::{self, style::Margin, Align, Color32, Layout, Painter, RichText};
-use eframe::egui::{Frame, ScrollArea, Sense, TextStyle, WidgetText};
+use eframe::egui::{self, style::Margin, Align, Layout, Painter, RichText};
+use eframe::egui::{ScrollArea, Sense, TextStyle, WidgetText};
 use eframe::emath::RectTransform;
-use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
+use eframe::epaint::{Color32, Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
 use fzcmd::expand_command;
 use itertools::Itertools;
@@ -135,7 +135,7 @@ impl eframe::App for State {
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::Exit = msg {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                ctx.send_viewport_cmd(ViewportCommand::Close);
             }
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::ToggleFullscreen = msg {
@@ -258,7 +258,7 @@ impl State {
 
         if let Some(waves) = &self.waves {
             egui::TopBottomPanel::bottom("modeline")
-                .frame(egui::containers::Frame {
+                .frame(egui::Frame {
                     fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
@@ -302,7 +302,7 @@ impl State {
             egui::SidePanel::left("signal select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
-                .frame(egui::containers::Frame {
+                .frame(egui::Frame {
                     fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
@@ -323,14 +323,12 @@ impl State {
                                     ui.heading("Modules");
                                     ui.add_space(3.0);
 
-                                    egui::ScrollArea::both()
-                                        .id_source("modules")
-                                        .show(ui, |ui| {
-                                            ui.style_mut().wrap = Some(false);
-                                            if let Some(waves) = &self.waves {
-                                                self.draw_all_scopes(&mut msgs, waves, ui);
-                                            }
-                                        });
+                                    ScrollArea::both().id_source("modules").show(ui, |ui| {
+                                        ui.style_mut().wrap = Some(false);
+                                        if let Some(waves) = &self.waves {
+                                            self.draw_all_scopes(&mut msgs, waves, ui);
+                                        }
+                                    });
                                 });
 
                             egui::Frame::none()
@@ -344,7 +342,7 @@ impl State {
                                     });
                                     ui.add_space(3.0);
 
-                                    egui::ScrollArea::both()
+                                    ScrollArea::both()
                                         .max_height(f32::INFINITY)
                                         .id_source("signals")
                                         .show(ui, |ui| {
@@ -356,7 +354,7 @@ impl State {
 
                             if self.waves.is_some() {
                                 egui::TopBottomPanel::bottom("add_extra_buttons")
-                                    .frame(egui::containers::Frame {
+                                    .frame(egui::Frame {
                                         fill: self.config.theme.primary_ui_color.background,
                                         inner_margin: Margin::same(5.0),
                                         ..Default::default()
@@ -410,7 +408,7 @@ impl State {
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
-                                egui::ScrollArea::horizontal().show(ui, |ui| {
+                                ScrollArea::horizontal().show(ui, |ui| {
                                     self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
                                 })
                             },
@@ -418,7 +416,7 @@ impl State {
                     });
 
                 egui::CentralPanel::default()
-                    .frame(Frame {
+                    .frame(egui::Frame {
                         inner_margin: Margin::same(0.0),
                         outer_margin: Margin::same(0.0),
                         ..Default::default()
@@ -442,7 +440,7 @@ impl State {
                     ui.vertical_centered(|ui| {
                         ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
                         ui.add_space(20.);
-                        let layout = egui::Layout::top_down(egui::Align::LEFT);
+                        let layout = Layout::top_down(egui::Align::LEFT);
                         ui.allocate_ui_with_layout(
                             Vec2 {
                                 x: max_width * 0.35,
@@ -1073,20 +1071,16 @@ impl State {
 }
 
 fn signal_tooltip_text(wave: &WaveData, sig: &SignalRef) -> String {
+    let meta = wave.inner.signal_meta(sig).ok();
     format!(
         "{}\nNum bits: {}\nType: {}",
         sig.full_path_string(),
-        wave.inner
-            .signal_meta(sig)
-            .ok()
+        meta.as_ref()
             .and_then(|meta| meta.num_bits)
             .map(|num_bits| format!("{num_bits}"))
-            .unwrap_or("unknown".to_string()),
-        wave.inner
-            .signal_meta(sig)
-            .ok()
-            .and_then(|meta| meta.signal_type)
+            .unwrap_or_else(|| "unknown".to_string()),
+        meta.and_then(|meta| meta.signal_type)
             .map(|signal_type| format!("{signal_type}"))
-            .unwrap_or("unknown".to_string())
+            .unwrap_or_else(|| "unknown".to_string())
     )
 }

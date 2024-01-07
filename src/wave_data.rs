@@ -143,7 +143,7 @@ impl WaveData {
                 }
             })
             .next()
-            .unwrap_or(translators.default.clone())
+            .unwrap_or_else(|| translators.default.clone())
     }
 
     pub fn signal_translator<'a>(

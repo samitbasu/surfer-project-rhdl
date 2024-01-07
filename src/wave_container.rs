@@ -282,6 +282,5 @@ impl WaveContainer {
 pub struct SignalMeta<'a> {
     pub sig: &'a SignalRef,
     pub num_bits: Option<u32>,
-    // FIXME: Replace with our own abstracted version
     pub signal_type: Option<SignalType>,
 }

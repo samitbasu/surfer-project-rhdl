@@ -837,7 +837,7 @@ impl State {
                     .max_timestamp()
                     .as_ref()
                     .map(|t| t.to_bigint().unwrap())
-                    .unwrap_or(BigInt::from_u32(1).unwrap());
+                    .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
                 let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
 
                 let new_wave = if keep_signals && self.waves.is_some() {
