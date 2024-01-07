@@ -37,6 +37,8 @@ pub struct SurferLayout {
     show_ticks: bool,
     /// Flag to show/hide tooltip for signals
     show_signal_tooltip: bool,
+    /// Flag to show/hide the overview
+    show_overview: bool,
     /// Initial window height
     pub window_height: usize,
     /// Initial window width
@@ -58,6 +60,9 @@ impl SurferLayout {
     }
     pub fn show_toolbar(&self) -> bool {
         self.show_toolbar
+    }
+    pub fn show_overview(&self) -> bool {
+        self.show_overview
     }
 }
 

@@ -51,6 +51,12 @@ impl Viewport {
         (distance_from_left / self.width()) * view_width
     }
 
+    pub fn from_time_f64(&self, time: f64, view_width: f64) -> f64 {
+        let distance_from_left = time - self.curr_left;
+
+        (distance_from_left / self.width()) * view_width
+    }
+
     pub fn clip_to(&self, valid: &Viewport) -> Viewport {
         let curr_range = self.width();
         let valid_range = valid.width();
