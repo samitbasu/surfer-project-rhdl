@@ -2,12 +2,10 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
-use eframe::egui::{self};
-use eframe::egui::{NumExt, RichText};
+use eframe::egui::text::{LayoutJob, TextFormat};
+use eframe::egui::{self, Align, NumExt, RichText};
 use eframe::emath::Align2;
-use eframe::epaint::Vec2;
-use eframe::epaint::{FontFamily, FontId};
-use egui::text::{LayoutJob, TextFormat};
+use eframe::epaint::{FontFamily, FontId, Vec2};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
 use itertools::Itertools;
 
@@ -369,7 +367,7 @@ pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
     } = expand_command(input, get_parser(state));
 
     msgs.push(Message::CommandPromptUpdate {
-        suggestions: suggestions.unwrap_or(vec![]),
+        suggestions: suggestions.unwrap_or_else(|_| vec![]),
     })
 }
 
@@ -515,7 +513,7 @@ pub fn show_command_prompt(
 
                     ui.allocate_ui_with_layout(
                         ui.available_size(),
-                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        egui::Layout::top_down(Align::LEFT).with_cross_justify(true),
                         |ui| {
                             ui.add(SuggestionLabel::new(
                                 RichText::new(expanded.clone())
@@ -601,7 +599,7 @@ pub fn show_command_prompt(
                     // make label full width of the palette
                     let resp = ui.allocate_ui_with_layout(
                         ui.available_size(),
-                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        egui::Layout::top_down(Align::LEFT).with_cross_justify(true),
                         |ui| ui.add(SuggestionLabel::new(job, selected)),
                     );
 

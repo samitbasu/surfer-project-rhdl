@@ -73,6 +73,7 @@ impl State {
             b("Exit", Message::Exit).add_closing_menu(msgs, ui);
         });
         ui.menu_button("View", |ui| {
+            ui.style_mut().wrap = Some(false);
             b(
                 "Zoom in",
                 Message::CanvasZoom {
@@ -205,7 +206,7 @@ impl State {
             let selected_color = &displayed_item
                 .color()
                 .clone()
-                .unwrap_or("__nocolor__".to_string());
+                .unwrap_or_else(|| "__nocolor__".to_string());
             for color_name in self.config.theme.colors.keys() {
                 ui.radio(selected_color == color_name, color_name)
                     .clicked()
@@ -230,7 +231,7 @@ impl State {
             let selected_color = &displayed_item
                 .background_color()
                 .clone()
-                .unwrap_or("__nocolor__".to_string());
+                .unwrap_or_else(|| "__nocolor__".to_string());
             for color_name in self.config.theme.colors.keys() {
                 ui.radio(selected_color == color_name, color_name)
                     .clicked()
