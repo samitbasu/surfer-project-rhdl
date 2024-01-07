@@ -452,6 +452,7 @@ pub struct State {
     show_wave_source: bool,
     show_performance: bool,
     show_logs: bool,
+    show_cursor_window: bool,
     wanted_timeunit: TimeUnit,
     show_url_entry: bool,
     signal_filter_focused: bool,
@@ -482,6 +483,7 @@ impl State {
             show_gestures: false,
             show_performance: false,
             show_logs: false,
+            show_cursor_window: false,
             wanted_timeunit: TimeUnit::None,
             show_url_entry: false,
             show_quick_start: false,
@@ -635,6 +637,7 @@ impl State {
                 }
             }
             Message::SetLogsVisible(visibility) => self.show_logs = visibility,
+            Message::SetCursorWindowVisible(visibility) => self.show_cursor_window = visibility,
             Message::VerticalScroll(direction, count) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
