@@ -826,13 +826,15 @@ impl State {
                 }
             }
             Message::LoadVcd(filename, keep_signals, keep_unavailable) => {
-                self.load_vcd_from_file(filename, keep_signals, keep_unavailable).ok();
+                self.load_vcd_from_file(filename, keep_signals, keep_unavailable)
+                    .ok();
             }
             Message::LoadVcdFromUrl(url, keep_signals, keep_unavailable) => {
                 self.load_vcd_from_url(url, keep_signals, keep_unavailable);
             }
             Message::LoadVcdFromData(data, keep_signals, keep_unavailable) => {
-                self.load_vcd_from_data(data, keep_signals, keep_unavailable).ok();
+                self.load_vcd_from_data(data, keep_signals, keep_unavailable)
+                    .ok();
             }
             Message::FileDropped(dropped_file) => {
                 self.load_vcd_from_dropped(dropped_file)
@@ -977,13 +979,15 @@ impl State {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
                     WaveSource::File(filename) => {
-                        self.load_vcd_from_file(filename.clone(), true, keep_unavailable).ok();
+                        self.load_vcd_from_file(filename.clone(), true, keep_unavailable)
+                            .ok();
                     }
                     WaveSource::Data => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
-                        filename
-                            .clone()
-                            .and_then(|filename| self.load_vcd_from_file(filename, true, keep_unavailable).ok());
+                        filename.clone().and_then(|filename| {
+                            self.load_vcd_from_file(filename, true, keep_unavailable)
+                                .ok()
+                        });
                     }
                     WaveSource::Url(url) => {
                         self.load_vcd_from_url(url.clone(), true, keep_unavailable);

@@ -135,7 +135,11 @@ impl DisplayedItem {
                 .as_ref()
                 .unwrap_or(&DEFAULT_TIMELINE_NAME.to_string())
                 .clone(),
-            DisplayedItem::Placeholder(placeholder) => placeholder.display_name.clone(), // TODO investigate
+            DisplayedItem::Placeholder(placeholder) => placeholder
+                .manual_name
+                .as_ref()
+                .unwrap_or(&placeholder.display_name)
+                .clone(),
         }
     }
 
