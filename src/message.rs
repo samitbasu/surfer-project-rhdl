@@ -74,6 +74,7 @@ pub enum Message {
     FileDownloaded(String, Bytes, bool),
     ReloadConfig,
     ReloadWaveform,
+    RemovePlaceholders,
     ZoomToFit,
     GoToStart,
     GoToEnd,

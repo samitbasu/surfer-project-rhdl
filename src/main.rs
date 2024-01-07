@@ -991,6 +991,11 @@ impl State {
                     translator.reload(self.sys.channels.msg_sender.clone())
                 }
             }
+            Message::RemovePlaceholders => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.remove_placeholders()
+                }
+            }
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type
             }

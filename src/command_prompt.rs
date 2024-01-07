@@ -146,6 +146,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "divider_add",
                 "config_reload",
                 "reload",
+                "remove_unavailable",
                 "show_controls",
                 "show_mouse_gestures",
                 "show_quick_start",
@@ -245,6 +246,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "reload" => Some(Command::Terminal(Message::ReloadWaveform)),
+                "remove_unavailable" => Some(Command::Terminal(Message::RemovePlaceholders)),
                 // Signal commands
                 "signal_add" => single_word(
                     signals.clone(),

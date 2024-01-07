@@ -366,4 +366,11 @@ impl WaveData {
             curr_right: self.num_timestamps.to_f64().unwrap_or(1.0),
         }
     }
+    
+    pub fn remove_placeholders(&mut self) {
+        self.displayed_items.retain(|i| match i {
+            DisplayedItem::Placeholder(_) => false,
+            _ => true,
+        })
+    }
 }
