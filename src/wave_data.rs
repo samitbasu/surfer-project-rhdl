@@ -45,6 +45,7 @@ impl WaveData {
         num_timestamps: BigInt,
         wave_viewport: Viewport,
         translators: &TranslatorList,
+        keep_unavailable: bool,
     ) -> WaveData {
         let active_module = self
             .active_module
@@ -53,15 +54,17 @@ impl WaveData {
         let mut current_items = self.displayed_items.clone();
         let display_items = current_items
             .drain(..)
-            .map(|i| match i {
+            .filter_map(|i| match i {
                 DisplayedItem::Divider(_)
                 | DisplayedItem::Cursor(_)
-                | DisplayedItem::TimeLine(_) => i,
+                | DisplayedItem::TimeLine(_) => Some(i),
                 DisplayedItem::Signal(s) => {
                     if new_waves.signal_exists(&s.signal_ref) {
-                        DisplayedItem::Signal(s)
+                        Some(DisplayedItem::Signal(s))
+                    } else if keep_unavailable {
+                        Some(DisplayedItem::Placeholder(s.to_placeholder()))
                     } else {
-                        DisplayedItem::Placeholder(s.to_placeholder())
+                        None
                     }
                 }
                 DisplayedItem::Placeholder(p) => {
@@ -71,16 +74,18 @@ impl WaveData {
                             .context("When updating")
                             .map_err(|e| error!("{e:#?}"))
                         else {
-                            return DisplayedItem::Placeholder(p);
+                            return Some(DisplayedItem::Placeholder(p));
                         };
                         let translator = self.signal_translator(
                             &FieldRef::without_fields(p.signal_ref.clone()),
                             translators,
                         );
                         let info = translator.signal_info(&meta).unwrap();
-                        DisplayedItem::Signal(p.to_signal(info))
+                        Some(DisplayedItem::Signal(p.to_signal(info)))
+                    } else if keep_unavailable {
+                        Some(DisplayedItem::Placeholder(p))
                     } else {
-                        DisplayedItem::Placeholder(p)
+                        None
                     }
                 }
             })

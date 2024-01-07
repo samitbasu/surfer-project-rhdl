@@ -18,6 +18,7 @@ pub struct SurferConfig {
     pub layout: SurferLayout,
     pub theme: SurferTheme,
     pub gesture: SurferGesture,
+    pub behavior: SurferBehavior,
     /// Tick information
     pub ticks: SurferTicks,
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
@@ -64,6 +65,12 @@ impl SurferLayout {
     pub fn show_overview(&self) -> bool {
         self.show_overview
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SurferBehavior {
+    /// Keep or remove signals if unavailable during reload
+    pub keep_during_reload: bool,
 }
 
 #[derive(Debug, Deserialize)]

@@ -431,7 +431,7 @@ impl State {
                             || (response.lost_focus()
                                 && ui.input(|i| i.key_pressed(egui::Key::Enter)))
                         {
-                            msgs.push(Message::LoadVcdFromUrl(url.clone(), false));
+                            msgs.push(Message::LoadVcdFromUrl(url.clone(), false, false));
                             msgs.push(Message::SetUrlEntryVisible(false))
                         }
                         if ui.button("Cancel").clicked() {

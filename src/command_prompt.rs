@@ -132,6 +132,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
         BTreeMap::new()
     };
 
+    let keep_during_reload = state.config.behavior.keep_during_reload;
+
     Command::NonTerminal(
         ParamGreed::Word,
         if state.waves.is_some() {
@@ -200,7 +202,13 @@ pub fn get_parser(state: &State) -> Command<Message> {
             match query {
                 "load_vcd" => single_word_delayed_suggestions(
                     Box::new(vcd_files),
-                    Box::new(|word| Some(Command::Terminal(Message::LoadVcd(word.into(), false)))),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::LoadVcd(
+                            word.into(),
+                            false,
+                            false,
+                        )))
+                    }),
                 ),
                 "load_url" => Some(Command::NonTerminal(
                     ParamGreed::Rest,
@@ -208,6 +216,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|query, _| {
                         Some(Command::Terminal(Message::LoadVcdFromUrl(
                             query.to_string(),
+                            false,
                             false,
                         )))
                     }),
@@ -245,7 +254,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
-                "reload" => Some(Command::Terminal(Message::ReloadWaveform)),
+                "reload" => Some(Command::Terminal(Message::ReloadWaveform(
+                    keep_during_reload,
+                ))),
                 "remove_unavailable" => Some(Command::Terminal(Message::RemovePlaceholders)),
                 // Signal commands
                 "signal_add" => single_word(

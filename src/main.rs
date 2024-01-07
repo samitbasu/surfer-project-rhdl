@@ -525,8 +525,8 @@ impl State {
         }
 
         match args.waves {
-            Some(WaveSource::Url(url)) => self.load_vcd_from_url(url, false),
-            Some(WaveSource::File(file)) => self.load_vcd_from_file(file, false).unwrap(),
+            Some(WaveSource::Url(url)) => self.load_vcd_from_url(url, false, false),
+            Some(WaveSource::File(file)) => self.load_vcd_from_file(file, false, false).unwrap(),
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
@@ -825,21 +825,21 @@ impl State {
                     waves.cursor = Some(new)
                 }
             }
-            Message::LoadVcd(filename, keep_signals) => {
-                self.load_vcd_from_file(filename, keep_signals).ok();
+            Message::LoadVcd(filename, keep_signals, keep_unavailable) => {
+                self.load_vcd_from_file(filename, keep_signals, keep_unavailable).ok();
             }
-            Message::LoadVcdFromUrl(url, keep_signals) => {
-                self.load_vcd_from_url(url, keep_signals);
+            Message::LoadVcdFromUrl(url, keep_signals, keep_unavailable) => {
+                self.load_vcd_from_url(url, keep_signals, keep_unavailable);
             }
-            Message::LoadVcdFromData(data, keep_signals) => {
-                self.load_vcd_from_data(data, keep_signals).ok();
+            Message::LoadVcdFromData(data, keep_signals, keep_unavailable) => {
+                self.load_vcd_from_data(data, keep_signals, keep_unavailable).ok();
             }
             Message::FileDropped(dropped_file) => {
-                self.load_vcd_from_dropped(dropped_file, false)
+                self.load_vcd_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
-            Message::WavesLoaded(filename, new_waves, keep_signals) => {
+            Message::WavesLoaded(filename, new_waves, keep_signals, keep_unavailable) => {
                 info!("VCD file loaded");
                 let num_timestamps = new_waves
                     .max_timestamp()
@@ -855,6 +855,7 @@ impl State {
                         num_timestamps,
                         viewport,
                         &self.sys.translators,
+                        keep_unavailable,
                     )
                 } else if let Some(old) = self.previous_waves.take() {
                     old.update_with(
@@ -863,6 +864,7 @@ impl State {
                         num_timestamps,
                         viewport,
                         &self.sys.translators,
+                        keep_unavailable,
                     )
                 } else {
                     WaveData {
@@ -950,13 +952,14 @@ impl State {
                 }
                 self.sys.command_prompt.visible = new_visibility;
             }
-            Message::FileDownloaded(url, bytes, keep_signals) => {
+            Message::FileDownloaded(url, bytes, keep_signals, keep_unavailable) => {
                 let size = bytes.len() as u64;
                 self.load_vcd(
                     WaveSource::Url(url),
                     bytes.reader(),
                     Some(size),
                     keep_signals,
+                    keep_unavailable,
                 )
             }
             Message::ReloadConfig => {
@@ -970,20 +973,20 @@ impl State {
                     }
                 }
             }
-            Message::ReloadWaveform => {
+            Message::ReloadWaveform(keep_unavailable) => {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
                     WaveSource::File(filename) => {
-                        self.load_vcd_from_file(filename.clone(), true).ok();
+                        self.load_vcd_from_file(filename.clone(), true, keep_unavailable).ok();
                     }
                     WaveSource::Data => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename
                             .clone()
-                            .and_then(|filename| self.load_vcd_from_file(filename, true).ok());
+                            .and_then(|filename| self.load_vcd_from_file(filename, true, keep_unavailable).ok());
                     }
                     WaveSource::Url(url) => {
-                        self.load_vcd_from_url(url.clone(), true);
+                        self.load_vcd_from_url(url.clone(), true, keep_unavailable);
                     }
                 };
 

@@ -97,8 +97,8 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => divider.color.clone(),
             DisplayedItem::Cursor(cursor) => cursor.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
-            DisplayedItem::Placeholder(_) => Some("grey".to_owned()), // TODO setting?
-        } // TODO, single clone?
+            DisplayedItem::Placeholder(_) => Some("grey".to_owned()),
+        }
     }
 
     pub fn set_color(&mut self, color_name: Option<String>) {

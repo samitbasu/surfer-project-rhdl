@@ -67,6 +67,7 @@ impl State {
         &mut self,
         vcd_filename: Utf8PathBuf,
         keep_signals: bool,
+        keep_unavailable: bool,
     ) -> Result<()> {
         // We'll open the file to check if it exists here to panic the main thread if not.
         // Then we pass the file into the thread for parsing
@@ -84,12 +85,18 @@ impl State {
             file,
             total_bytes,
             keep_signals,
+            keep_unavailable,
         );
 
         Ok(())
     }
 
-    pub fn load_vcd_from_data(&mut self, vcd_data: Vec<u8>, keep_signals: bool) -> Result<()> {
+    pub fn load_vcd_from_data(
+        &mut self,
+        vcd_data: Vec<u8>,
+        keep_signals: bool,
+        keep_unavailable: bool,
+    ) -> Result<()> {
         let total_bytes = vcd_data.len();
 
         self.load_vcd(
@@ -97,11 +104,12 @@ impl State {
             VecDeque::from(vcd_data),
             Some(total_bytes as u64),
             keep_signals,
+            keep_unavailable,
         );
         Ok(())
     }
 
-    pub fn load_vcd_from_dropped(&mut self, file: DroppedFile, keep_signals: bool) -> Result<()> {
+    pub fn load_vcd_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
         info!("Got a dropped file");
 
         let filename = file.path.and_then(|p| Utf8PathBuf::try_from(p).ok());
@@ -115,12 +123,13 @@ impl State {
             WaveSource::DragAndDrop(filename),
             VecDeque::from_iter(bytes.iter().cloned()),
             Some(total_bytes as u64),
-            keep_signals,
+            false,
+            false,
         );
         Ok(())
     }
 
-    pub fn load_vcd_from_url(&mut self, url: String, keep_signals: bool) {
+    pub fn load_vcd_from_url(&mut self, url: String, keep_signals: bool, keep_unavailable: bool) {
         let sender = self.sys.channels.msg_sender.clone();
         let url_ = url.clone();
         let task = async move {
@@ -133,7 +142,12 @@ impl State {
                 .await;
 
             match bytes {
-                Ok(b) => sender.send(Message::FileDownloaded(url, b, keep_signals)),
+                Ok(b) => sender.send(Message::FileDownloaded(
+                    url,
+                    b,
+                    keep_signals,
+                    keep_unavailable,
+                )),
                 Err(e) => sender.send(Message::Error(e)),
             }
             .unwrap();
@@ -152,6 +166,7 @@ impl State {
         reader: impl Read + Send + 'static,
         total_bytes: Option<u64>,
         keep_signals: bool,
+        keep_unavailable: bool,
     ) {
         // Progress tracking in bytes
         let progress_bytes = Arc::new(AtomicU64::new(0));
@@ -176,6 +191,7 @@ impl State {
                         source,
                         Box::new(WaveContainer::new_vcd(waves)),
                         keep_signals,
+                        keep_unavailable,
                     ))
                     .unwrap(),
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -188,6 +204,7 @@ impl State {
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
         let sender = self.sys.channels.msg_sender.clone();
+        let keep_during_reload = self.config.behavior.keep_during_reload;
 
         perform_async_work(async move {
             if let Some(file) = AsyncFileDialog::new()
@@ -207,6 +224,7 @@ impl State {
                     .send(Message::LoadVcd(
                         camino::Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
                         keep_signals,
+                        keep_during_reload,
                     ))
                     .unwrap();
 
@@ -214,7 +232,11 @@ impl State {
                 {
                     let data = file.read().await;
                     sender
-                        .send(Message::LoadVcdFromData(data, keep_signals))
+                        .send(Message::LoadVcdFromData(
+                            data,
+                            keep_signals,
+                            keep_during_reload,
+                        ))
                         .unwrap();
                 }
             }
