@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
-use eframe::egui::text::{LayoutJob, TextFormat};
-use eframe::egui::{self, Align, NumExt, RichText};
+use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
+use eframe::egui::{self, Align, Key, NumExt, RichText, TextEdit};
 use eframe::emath::Align2;
 use eframe::epaint::{FontFamily, FontId, Vec2};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
@@ -395,7 +395,7 @@ pub fn show_command_prompt(
             egui::Frame::none().show(ui, |ui| {
                 let input = &mut *state.sys.command_prompt_text.borrow_mut();
                 let response = ui.add(
-                    egui::TextEdit::singleline(input)
+                    TextEdit::singleline(input)
                         .desired_width(f32::INFINITY)
                         .lock_focus(true),
                 );
@@ -405,15 +405,15 @@ pub fn show_command_prompt(
                 }
 
                 let set_cursor_to_pos = |pos, ui: &mut egui::Ui| {
-                    if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), response.id) {
-                        let ccursor = egui::text::CCursor::new(pos);
-                        state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                    if let Some(mut state) = TextEdit::load_state(ui.ctx(), response.id) {
+                        let ccursor = CCursor::new(pos);
+                        state.set_ccursor_range(Some(CCursorRange::one(ccursor)));
                         state.store(ui.ctx(), response.id);
                         ui.ctx().memory_mut(|m| m.request_focus(response.id));
                     }
                 };
 
-                if response.ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                if response.ctx.input(|i| i.key_pressed(Key::ArrowUp)) {
                     set_cursor_to_pos(input.chars().count(), ui);
                 }
 
@@ -435,8 +435,7 @@ pub fn show_command_prompt(
                     .collect_vec();
 
                 let expanded = expand_command(input, get_parser(state)).expanded;
-                if response.lost_focus() && response.ctx.input(|i| i.key_pressed(egui::Key::Enter))
-                {
+                if response.lost_focus() && response.ctx.input(|i| i.key_pressed(Key::Enter)) {
                     let new_input = if !state.sys.command_prompt.suggestions.is_empty() {
                         // if no suggestions exist we use the last argument in the input (e.g., for divider_add)
                         let default = (

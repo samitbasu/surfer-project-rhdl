@@ -1,7 +1,5 @@
-use eframe::{
-    emath::{Align2, RectTransform},
-    epaint::{FontId, Pos2, Rect, Rounding, Stroke, Vec2},
-};
+use eframe::emath::{Align2, Pos2, Rect, RectTransform, Vec2};
+use eframe::epaint::{FontId, Rounding, Stroke};
 use num::BigInt;
 
 use crate::{

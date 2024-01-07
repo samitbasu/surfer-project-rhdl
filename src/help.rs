@@ -1,13 +1,10 @@
-use eframe::{
-    egui::{self, Grid, RichText},
-    emath::Align2,
-    epaint::Pos2,
-};
+use eframe::egui::{Context, Grid, RichText, Ui, Window};
+use eframe::emath::{Align2, Pos2};
 
 use crate::{message::Message, State};
 
 impl State {
-    pub fn help_message(&self, ui: &mut egui::Ui) {
+    pub fn help_message(&self, ui: &mut Ui) {
         if self.waves.is_none() {
             ui.label(RichText::new("Drag and drop a VCD file here to open it"));
 
@@ -66,9 +63,9 @@ impl State {
     }
 }
 
-pub fn draw_about_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
+pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
     let mut open = true;
-    egui::Window::new("About Surfer")
+    Window::new("About Surfer")
         .open(&mut open)
         .collapsible(false)
         .resizable(true)
@@ -97,9 +94,9 @@ pub fn draw_about_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
     }
 }
 
-pub fn draw_quickstart_help_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
+pub fn draw_quickstart_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
     let mut open = true;
-    egui::Window::new("🏄 Surfer quick start")
+    Window::new("🏄 Surfer quick start")
         .collapsible(true)
         .resizable(true)
         .pivot(Align2::CENTER_CENTER)
@@ -145,9 +142,9 @@ pub fn draw_quickstart_help_window(ctx: &egui::Context, msgs: &mut Vec<Message>)
     }
 }
 
-pub fn draw_control_help_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
+pub fn draw_control_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
     let mut open = true;
-    egui::Window::new("🖮 Surfer controls")
+    Window::new("🖮 Surfer controls")
         .collapsible(true)
         .resizable(true)
         .open(&mut open)
@@ -165,7 +162,7 @@ pub fn draw_control_help_window(ctx: &egui::Context, msgs: &mut Vec<Message>) {
     }
 }
 
-fn key_listing(ui: &mut egui::Ui) {
+fn key_listing(ui: &mut Ui) {
     let keys = vec![
         ("🚀", "Space", "Show command prompt"),
         ("↔", "Scroll", "Pan"),
@@ -209,7 +206,7 @@ fn key_listing(ui: &mut egui::Ui) {
     add_hint_text(ui);
 }
 
-fn controls_listing(ui: &mut egui::Ui) {
+fn controls_listing(ui: &mut Ui) {
     let controls = vec![
         ("🚀", "Space", "Show command prompt"),
         ("↔", "Horizontal Scroll", "Pan"),
@@ -235,7 +232,7 @@ fn controls_listing(ui: &mut egui::Ui) {
     add_hint_text(ui);
 }
 
-fn add_hint_text(ui: &mut egui::Ui) {
+fn add_hint_text(ui: &mut Ui) {
     ui.add_space(20.);
     ui.label(RichText::new("Hint: You can repeat keybinds by typing Alt+0-9 before them. For example, Alt+1 Alt+0 k scrolls 10 steps up."));
 }

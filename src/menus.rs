@@ -1,5 +1,5 @@
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{self, menu};
+use eframe::egui::{menu, Button, Ui};
 
 use crate::{
     clock_highlighting::clock_highlight_type_menu, displayed_item::DisplayedItem, message::Message,
@@ -28,15 +28,15 @@ impl ButtonBuilder {
         self
     }
 
-    pub fn add_leave_menu(self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    pub fn add_leave_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
         self.add_inner(false, msgs, ui)
     }
-    pub fn add_closing_menu(self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    pub fn add_closing_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
         self.add_inner(true, msgs, ui)
     }
 
-    pub fn add_inner(self, close_menu: bool, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
-        let button = egui::Button::new(self.text);
+    pub fn add_inner(self, close_menu: bool, msgs: &mut Vec<Message>, ui: &mut Ui) {
+        let button = Button::new(self.text);
         let button = if let Some(s) = self.shortcut {
             button.shortcut_text(s)
         } else {
@@ -52,13 +52,13 @@ impl ButtonBuilder {
 }
 
 impl State {
-    pub fn draw_menu(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+    pub fn draw_menu(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         menu::bar(ui, |ui| {
             self.menu_contents(ui, msgs);
         });
     }
 
-    pub fn menu_contents(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+    pub fn menu_contents(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         fn b(text: impl Into<String>, message: Message) -> ButtonBuilder {
             ButtonBuilder::new(text, message)
         }
@@ -193,7 +193,7 @@ impl State {
         &self,
         path: Option<&FieldRef>,
         msgs: &mut Vec<Message>,
-        ui: &mut egui::Ui,
+        ui: &mut Ui,
         vidx: usize,
     ) {
         let Some(waves) = &self.waves else { return };
@@ -289,7 +289,7 @@ impl State {
         });
     }
 
-    fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut Ui) {
         // Should not call this unless a signal is selected, and, hence, a VCD is loaded
         let Some(waves) = &self.waves else { return };
 

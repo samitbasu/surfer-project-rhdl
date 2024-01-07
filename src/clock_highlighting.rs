@@ -1,9 +1,7 @@
 use std::str::FromStr;
 
-use eframe::{
-    egui,
-    epaint::{Pos2, Rect, Stroke},
-};
+use eframe::egui::Ui;
+use eframe::epaint::{Pos2, Rect, Stroke};
 use enum_iterator::Sequence;
 use serde::Deserialize;
 
@@ -88,7 +86,7 @@ pub fn draw_clock_edge(
 }
 
 pub fn clock_highlight_type_menu(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     msgs: &mut Vec<Message>,
     clock_highlight_type: ClockHighlightType,
 ) {

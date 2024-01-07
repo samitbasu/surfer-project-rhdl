@@ -1,9 +1,7 @@
 use std::fmt;
 
-use eframe::{
-    egui,
-    epaint::{Pos2, Stroke},
-};
+use eframe::egui::Ui;
+use eframe::epaint::{Pos2, Stroke};
 use enum_iterator::Sequence;
 use num::{BigInt, BigRational, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -71,7 +69,7 @@ impl TimeUnit {
     }
 }
 
-pub fn timeunit_menu(ui: &mut egui::Ui, msgs: &mut Vec<Message>, wanted_timeunit: &TimeUnit) {
+pub fn timeunit_menu(ui: &mut Ui, msgs: &mut Vec<Message>, wanted_timeunit: &TimeUnit) {
     for timeunit in enum_iterator::all::<TimeUnit>() {
         ui.radio(*wanted_timeunit == timeunit, timeunit.to_string())
             .clicked()
