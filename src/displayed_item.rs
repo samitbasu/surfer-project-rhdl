@@ -1,8 +1,6 @@
-use eframe::{
-    egui::{self, FontSelection, RichText, Style, WidgetText},
-    emath::Align,
-    epaint::{text::LayoutJob, Color32},
-};
+use eframe::egui::{Context, FontSelection, Key, RichText, Style, WidgetText, Window};
+use eframe::emath::Align;
+use eframe::epaint::{text::LayoutJob, Color32};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -209,21 +207,16 @@ impl DisplayedItem {
     }
 }
 
-pub fn draw_rename_window(
-    ctx: &egui::Context,
-    msgs: &mut Vec<Message>,
-    idx: usize,
-    name: &mut String,
-) {
+pub fn draw_rename_window(ctx: &Context, msgs: &mut Vec<Message>, idx: usize, name: &mut String) {
     let mut open = true;
-    egui::Window::new("Rename item")
+    Window::new("Rename item")
         .open(&mut open)
         .collapsible(false)
         .resizable(true)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 let response = ui.text_edit_singleline(name);
-                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                if response.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
                     msgs.push(Message::ItemNameChange(Some(idx), Some(name.clone())));
                     msgs.push(Message::SetRenameItemVisible(false));
                 }

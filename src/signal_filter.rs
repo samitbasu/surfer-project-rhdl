@@ -1,4 +1,4 @@
-use eframe::egui::{self, Ui};
+use eframe::egui::{Layout, TextEdit, Ui};
 use eframe::emath::Align;
 use enum_iterator::Sequence;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
@@ -50,11 +50,11 @@ impl SignalFilterType {
 impl State {
     pub fn draw_signal_filter_edit(
         &self,
-        ui: &mut egui::Ui,
+        ui: &mut Ui,
         filter: &mut String,
         msgs: &mut Vec<Message>,
     ) {
-        ui.with_layout(egui::Layout::right_to_left(Align::TOP), |ui| {
+        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.button("➕")
                 .on_hover_text("Add all signals")
                 .clicked()
@@ -82,7 +82,7 @@ impl State {
             }
             // Create text edit
             let response = ui
-                .add(egui::TextEdit::singleline(filter).hint_text("Filter (context menu for type)"))
+                .add(TextEdit::singleline(filter).hint_text("Filter (context menu for type)"))
                 .context_menu(|ui| signal_filter_type_menu(ui, msgs, &self.signal_filter_type));
             // Handle focus
             if response.gained_focus() {

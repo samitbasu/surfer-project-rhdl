@@ -1,4 +1,4 @@
-use eframe::egui::{self, Painter, RichText, Sense};
+use eframe::egui::{Context, Painter, PointerButton, Response, RichText, Sense, Window};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{FontId, Pos2, Rect, Stroke, Vec2};
 
@@ -21,13 +21,13 @@ impl State {
         &self,
         waves: &WaveData,
         pointer_pos_canvas: Option<Pos2>,
-        response: &egui::Response,
+        response: &Response,
         msgs: &mut Vec<Message>,
         ctx: &mut DrawingContext,
     ) {
         let frame_width = response.rect.width();
         if let Some(start_location) = self.sys.gesture_start_location {
-            response.dragged_by(egui::PointerButton::Middle).then(|| {
+            response.dragged_by(PointerButton::Middle).then(|| {
                 let current_location = pointer_pos_canvas.unwrap();
                 let distance = current_location - start_location;
                 if distance.length_sq() >= self.config.gesture.deadzone {
@@ -81,44 +81,42 @@ impl State {
                 }
             });
 
-            response
-                .drag_released_by(egui::PointerButton::Middle)
-                .then(|| {
-                    let end_location = pointer_pos_canvas.unwrap();
-                    let distance = end_location - start_location;
-                    if distance.length_sq() >= self.config.gesture.deadzone {
-                        match gesture_type(start_location, end_location) {
-                            Some(GestureKind::ZoomToFit) => {
-                                msgs.push(Message::ZoomToFit);
-                            }
-                            Some(GestureKind::ZoomIn) => {
-                                let (minx, maxx) = if end_location.x < start_location.x {
-                                    (end_location.x, start_location.x)
-                                } else {
-                                    (start_location.x, end_location.x)
-                                };
-                                msgs.push(Message::ZoomToRange {
-                                    start: waves.viewport.to_time_f64(minx as f64, frame_width),
-                                    end: waves.viewport.to_time_f64(maxx as f64, frame_width),
-                                })
-                            }
-                            Some(GestureKind::GoToStart) => {
-                                msgs.push(Message::GoToStart);
-                            }
-                            Some(GestureKind::GoToEnd) => {
-                                msgs.push(Message::GoToEnd);
-                            }
-                            Some(GestureKind::ZoomOut) => {
-                                msgs.push(Message::CanvasZoom {
-                                    mouse_ptr_timestamp: None,
-                                    delta: 2.0,
-                                });
-                            }
-                            _ => {}
+            response.drag_released_by(PointerButton::Middle).then(|| {
+                let end_location = pointer_pos_canvas.unwrap();
+                let distance = end_location - start_location;
+                if distance.length_sq() >= self.config.gesture.deadzone {
+                    match gesture_type(start_location, end_location) {
+                        Some(GestureKind::ZoomToFit) => {
+                            msgs.push(Message::ZoomToFit);
                         }
+                        Some(GestureKind::ZoomIn) => {
+                            let (minx, maxx) = if end_location.x < start_location.x {
+                                (end_location.x, start_location.x)
+                            } else {
+                                (start_location.x, end_location.x)
+                            };
+                            msgs.push(Message::ZoomToRange {
+                                start: waves.viewport.to_time_f64(minx as f64, frame_width),
+                                end: waves.viewport.to_time_f64(maxx as f64, frame_width),
+                            })
+                        }
+                        Some(GestureKind::GoToStart) => {
+                            msgs.push(Message::GoToStart);
+                        }
+                        Some(GestureKind::GoToEnd) => {
+                            msgs.push(Message::GoToEnd);
+                        }
+                        Some(GestureKind::ZoomOut) => {
+                            msgs.push(Message::CanvasZoom {
+                                mouse_ptr_timestamp: None,
+                                delta: 2.0,
+                            });
+                        }
+                        _ => {}
                     }
-                    msgs.push(Message::SetDragStart(None))
-                });
+                }
+                msgs.push(Message::SetDragStart(None))
+            });
         };
     }
 
@@ -157,7 +155,7 @@ impl State {
         &self,
         start_location: Pos2,
         current_location: Pos2,
-        response: &egui::Response,
+        response: &Response,
         ctx: &mut DrawingContext<'_>,
         waves: &WaveData,
     ) {
@@ -213,9 +211,9 @@ impl State {
         );
     }
 
-    pub fn mouse_gesture_help(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
+    pub fn mouse_gesture_help(&self, ctx: &Context, msgs: &mut Vec<Message>) {
         let mut open = true;
-        egui::Window::new("Mouse gestures")
+        Window::new("Mouse gestures")
             .open(&mut open)
             .collapsible(false)
             .resizable(true)
@@ -240,7 +238,7 @@ impl State {
 
     fn draw_gesture_help(
         &self,
-        response: &egui::Response,
+        response: &Response,
         painter: &Painter,
         midpoint: Option<Pos2>,
         draw_bg: bool,

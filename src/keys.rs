@@ -1,7 +1,5 @@
-use eframe::{
-    egui::{self, Event, Key},
-    epaint::Vec2,
-};
+use eframe::egui::{Context, Event, Key, Modifiers};
+use eframe::emath::Vec2;
 
 use crate::{
     message::Message,
@@ -10,7 +8,7 @@ use crate::{
 };
 
 impl State {
-    pub fn handle_pressed_keys(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
+    pub fn handle_pressed_keys(&self, ctx: &Context, msgs: &mut Vec<Message>) {
         ctx.input(|i| {
             i.events.iter().for_each(|event| match event {
                 Event::Key {
@@ -184,7 +182,7 @@ impl State {
     }
 }
 
-fn handle_digit(digit: u8, modifiers: &egui::Modifiers, msgs: &mut Vec<Message>) {
+fn handle_digit(digit: u8, modifiers: &Modifiers, msgs: &mut Vec<Message>) {
     if modifiers.alt {
         msgs.push(Message::AddCount((digit + 48) as char))
     } else if modifiers.ctrl {
