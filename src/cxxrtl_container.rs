@@ -9,6 +9,7 @@ use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
+use itertools::Itertools;
 use log::info;
 use serde::{Deserialize, Serialize};
 
@@ -36,7 +37,7 @@ struct Features {
 
 #[derive(Deserialize, Debug)]
 struct CxxrtlScope {
-    src: String,
+    src: Option<String>,
     // TODO: More stuff
 }
 
@@ -66,7 +67,7 @@ pub struct CxxrtlContainer {
     stream: TcpStream,
     read_buf: VecDeque<u8>,
 
-    scopes_cache: Option<HashMap<String, CxxrtlScope>>,
+    scopes_cache: Option<HashMap<ModuleRef, CxxrtlScope>>,
 }
 
 impl CxxrtlContainer {
@@ -158,14 +159,34 @@ impl CxxrtlContainer {
         }
     }
 
-    fn scopes(&mut self) -> Option<&HashMap<String, CxxrtlScope>> {
+    fn scopes(&mut self) -> Option<&HashMap<ModuleRef, CxxrtlScope>> {
         if self.scopes_cache.is_none() {
             self.scopes_cache = self
                 .fetch_scopes()
                 .map_err(|e| info!("Failed to get modules: {e:#?}"))
-                .ok();
+                .ok()
+                .map(|scopes| {
+                    scopes
+                        .into_iter()
+                        .map(|(name, s)| {
+                            (
+                                ModuleRef(name.split(" ").map(|s| s.to_string()).collect()),
+                                s,
+                            )
+                        })
+                        .collect()
+                });
 
             info!("fetched scopes, cache is now {:?}", self.scopes_cache);
+            info!(
+                "scopes: {}",
+                self.scopes_cache
+                    .as_ref()
+                    .unwrap()
+                    .keys()
+                    .map(|k| format!("'{k}'"))
+                    .join("\n")
+            )
         }
 
         self.scopes_cache.as_ref()
@@ -173,24 +194,45 @@ impl CxxrtlContainer {
 
     pub fn modules(&mut self) -> Vec<ModuleRef> {
         if let Some(scopes) = &self.scopes() {
-            scopes
-                .iter()
-                .map(|(k, _)| ModuleRef(k.split(" ").map(|s| s.to_string()).collect::<Vec<_>>()))
-                .collect()
+            scopes.iter().map(|(k, _)| k.clone()).collect()
         } else {
             vec![]
         }
     }
 
     pub fn root_modules(&mut self) -> Vec<ModuleRef> {
-        if let Some(scopes) = &self.scopes() {
-            scopes
-                .iter()
-                .filter(|(k, _)| k.is_empty())
-                .map(|(k, _)| ModuleRef(k.split(" ").map(|s| s.to_string()).collect::<Vec<_>>()))
-                .collect()
+        // In the CXXRtl protocol, the root scope is always ""
+        if let Some(_) = &self.scopes() {
+            vec![ModuleRef(vec![])]
         } else {
             vec![]
         }
+    }
+
+    pub fn module_exists(&mut self, module: &ModuleRef) -> bool {
+        self.scopes()
+            .map(|s| s.contains_key(module))
+            .unwrap_or(false)
+    }
+
+    pub fn child_modules(&mut self, parent: &ModuleRef) -> Vec<ModuleRef> {
+        self.scopes()
+            .map(|scopes| {
+                scopes
+                    .keys()
+                    .filter_map(|scope| {
+                        if scope.0.len() == parent.0.len() + 1 {
+                            if scope.0[0..parent.0.len()] == parent.0[0..parent.0.len()] {
+                                Some(scope.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }

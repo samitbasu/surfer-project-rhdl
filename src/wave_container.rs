@@ -281,7 +281,6 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.root_modules(),
             WaveContainer::Empty => vec![],
-            // TODO: Cxxrtl root modules
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().root_modules(),
         }
     }
@@ -290,8 +289,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.child_modules(module),
             WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
-            // TODO: Cxxrtl child modules
-            WaveContainer::Cxxrtl(_) => Ok(vec![]),
+            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().child_modules(module)),
         }
     }
 
@@ -309,7 +307,7 @@ impl WaveContainer {
             WaveContainer::Fwb(f) => f.module_exists(module),
             WaveContainer::Empty => false,
             // TODO: Module exists
-            WaveContainer::Cxxrtl(_) => false,
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().module_exists(module),
         }
     }
 }
