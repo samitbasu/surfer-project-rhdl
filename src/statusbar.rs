@@ -33,6 +33,7 @@ impl State {
                         time,
                         &waves.inner.metadata().timescale,
                         &self.wanted_timeunit,
+                        &self.config.default_time_format,
                     ))
                     .context_menu(|ui| timeunit_menu(ui, msgs, &self.wanted_timeunit));
                     ui.add_space(10.0)

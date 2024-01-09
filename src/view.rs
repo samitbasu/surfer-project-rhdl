@@ -203,7 +203,13 @@ impl State {
 
         if self.show_cursor_window {
             if let Some(waves) = &self.waves {
-                waves.draw_cursor_window(ctx, &mut msgs, &self.config, self.wanted_timeunit);
+                waves.draw_cursor_window(
+                    ctx,
+                    &mut msgs,
+                    &self.config,
+                    self.wanted_timeunit,
+                    &self.config.default_time_format,
+                );
             }
         }
 
@@ -924,6 +930,7 @@ impl State {
                                     - cursor),
                                 &waves.inner.metadata().timescale,
                                 &self.wanted_timeunit,
+                                &self.config.default_time_format,
                             );
 
                             ui.label(format!("Δ: {delta}",)).context_menu(|ui| {

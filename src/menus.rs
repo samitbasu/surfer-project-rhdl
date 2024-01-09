@@ -2,9 +2,16 @@ use color_eyre::eyre::WrapErr;
 use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
 
 use crate::{
-    clock_highlighting::clock_highlight_type_menu, displayed_item::DisplayedItem, message::Message,
-    signal_filter::signal_filter_type_menu, signal_name_type::SignalNameType, time::timeunit_menu,
-    translation::TranslationPreference, wave_container::FieldRef, wave_source::OpenMode, State,
+    clock_highlighting::clock_highlight_type_menu,
+    displayed_item::DisplayedItem,
+    message::Message,
+    signal_filter::signal_filter_type_menu,
+    signal_name_type::SignalNameType,
+    time::{timeformat_menu, timeunit_menu},
+    translation::TranslationPreference,
+    wave_container::FieldRef,
+    wave_source::OpenMode,
+    State,
 };
 
 // Button builder. Short name because we use it a ton
@@ -130,6 +137,17 @@ impl State {
             });
             ui.menu_button("Time unit", |ui| {
                 timeunit_menu(ui, msgs, &self.wanted_timeunit);
+            });
+            ui.menu_button("Time format", |ui| {
+                timeformat_menu(
+                    ui,
+                    msgs,
+                    &self.config.default_time_format.get_with_changes(
+                        self.time_string_format,
+                        None,
+                        None,
+                    ),
+                );
             });
             if let Some(waves) = &self.waves {
                 let signal_name_type = waves.default_signal_name_type;
