@@ -15,7 +15,7 @@ use crate::{
     time::TimeUnit,
     translation::Translator,
     wave_container::{FieldRef, ModuleRef, SignalRef, WaveContainer},
-    wave_source::OpenMode,
+    wave_source::{LoadOptions, OpenMode},
     MoveDir, SignalFilterType, WaveSource,
 };
 
@@ -59,10 +59,10 @@ pub enum Message {
         end: f64,
     },
     CursorSet(BigInt),
-    LoadVcd(Utf8PathBuf, bool, bool),
-    LoadVcdFromUrl(String, bool, bool),
-    LoadVcdFromData(Vec<u8>, bool, bool),
-    WavesLoaded(WaveSource, Box<WaveContainer>, bool, bool),
+    LoadVcd(Utf8PathBuf, LoadOptions),
+    LoadVcdFromUrl(String, LoadOptions),
+    LoadVcdFromData(Vec<u8>, LoadOptions),
+    WavesLoaded(WaveSource, Box<WaveContainer>, LoadOptions),
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
@@ -71,7 +71,7 @@ pub enum Message {
     ToggleSidePanel,
     ShowCommandPrompt(bool),
     FileDropped(DroppedFile),
-    FileDownloaded(String, Bytes, bool, bool),
+    FileDownloaded(String, Bytes, LoadOptions),
     ReloadConfig,
     ReloadWaveform(bool),
     RemovePlaceholders,
