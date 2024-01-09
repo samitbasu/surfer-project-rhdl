@@ -4,6 +4,7 @@ use eframe::epaint::{FontId, Rounding, Stroke};
 use itertools::Itertools;
 use num::BigInt;
 
+use crate::time::TimeFormat;
 use crate::{
     config::{SurferConfig, SurferTheme},
     displayed_item::{DisplayedCursor, DisplayedItem},
@@ -117,7 +118,8 @@ impl WaveData {
         size: Vec2,
         gap: f32,
         config: &SurferConfig,
-        wanted_timeunit: TimeUnit,
+        wanted_timeunit: &TimeUnit,
+        wanted_timeformat: &TimeFormat,
     ) {
         let text_size = ctx.cfg.text_size;
 
@@ -150,7 +152,8 @@ impl WaveData {
                     .get(&drawing_info.idx)
                     .unwrap_or(&BigInt::from(0)),
                 &self.inner.metadata().timescale,
-                &wanted_timeunit,
+                wanted_timeunit,
+                wanted_timeformat,
             );
 
             // Determine size of text
@@ -186,7 +189,8 @@ impl WaveData {
         ctx: &Context,
         msgs: &mut Vec<Message>,
         config: &SurferConfig,
-        wanted_timeunit: TimeUnit,
+        wanted_timeunit: &TimeUnit,
+        wanted_timeformat: &TimeFormat,
     ) {
         let mut open = true;
 
@@ -241,7 +245,13 @@ impl WaveData {
                                             msgs.push(Message::GoToCursorPosition(*cursor_idx))
                                         });
                                 } else {
-                                    ui.label(widget_text.clone());
+                                    ui.selectable_label(false, widget_text.clone())
+                                        .clicked()
+                                        .then(|| {
+                                            msgs.push(Message::GoToTime(
+                                                self.cursor.clone().unwrap(),
+                                            ))
+                                        });
                                 }
                             }
                             ui.end_row();
@@ -253,13 +263,20 @@ impl WaveData {
                                             msgs.push(Message::GoToCursorPosition(*cursor_idx))
                                         });
                                 } else {
-                                    ui.label(row_widget_text.clone());
+                                    ui.selectable_label(false, row_widget_text.clone())
+                                        .clicked()
+                                        .then(|| {
+                                            msgs.push(Message::GoToTime(
+                                                self.cursor.clone().unwrap(),
+                                            ))
+                                        });
                                 }
                                 for (_, col_cursor_time, _) in &cursors {
                                     ui.label(time_string(
                                         &(row_cursor_time.clone() - col_cursor_time),
                                         &self.inner.metadata().timescale,
-                                        &wanted_timeunit,
+                                        wanted_timeunit,
+                                        wanted_timeformat,
                                     ));
                                 }
                                 ui.end_row();

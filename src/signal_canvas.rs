@@ -507,7 +507,11 @@ impl State {
             response.rect.size(),
             gap,
             &self.config,
-            self.wanted_timeunit,
+            &self.wanted_timeunit,
+            &self
+                .config
+                .default_time_format
+                .get_with_changes(self.time_string_format, None, None),
         );
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
