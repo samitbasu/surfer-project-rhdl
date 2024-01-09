@@ -97,7 +97,7 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => divider.color.clone(),
             DisplayedItem::Cursor(cursor) => cursor.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
-            DisplayedItem::Placeholder(_) => Some("grey".to_owned()),
+            DisplayedItem::Placeholder(_) => None,
         }
     }
 
@@ -235,7 +235,7 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => &divider.background_color,
             DisplayedItem::Cursor(cursor) => &cursor.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
-            DisplayedItem::Placeholder(placeholder) => &placeholder.background_color,
+            DisplayedItem::Placeholder(_) => &None,
         };
         background_color.clone()
     }
