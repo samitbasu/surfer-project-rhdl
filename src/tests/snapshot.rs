@@ -21,6 +21,7 @@ use crate::{
     setup_custom_font,
     signal_filter::SignalFilterType,
     wave_container::{FieldRef, ModuleRef, SignalRef},
+    wave_source::LoadOptions,
     Message, StartupParams, State, WaveSource,
 };
 
@@ -707,5 +708,133 @@ snapshot_ui!(start_signal_filter_works, || {
         state.update(message);
     }
     state.sys.signal_filter.borrow_mut().push_str("a");
+    state
+});
+
+snapshot_ui!(load_keep_all_works, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples")
+                .join("xx_1.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    let msgs = [
+        Message::ToggleMenu,
+        Message::ToggleToolbar,
+        Message::ToggleOverview,
+        Message::ToggleSidePanel,
+        Message::AddModule(ModuleRef::from_strs(&["TOP"])),
+        Message::AddModule(ModuleRef::from_strs(&["TOP", "Foobar"])),
+        Message::LoadVcd(
+            get_project_root()
+                .unwrap()
+                .join("examples")
+                .join("xx_2.vcd")
+                .try_into()
+                .unwrap(),
+            LoadOptions {
+                keep_signals: true,
+                keep_unavailable: true,
+            },
+        ),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    loop {
+        state.handle_async_messages();
+        if let Some(waves) = &state.waves {
+            if waves.source
+                == WaveSource::File(
+                    get_project_root()
+                        .unwrap()
+                        .join("examples")
+                        .join("xx_2.vcd")
+                        .try_into()
+                        .unwrap(),
+                )
+            {
+                break;
+            }
+        }
+    }
+    state
+});
+
+snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples")
+                .join("xx_1.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    let msgs = [
+        Message::ToggleMenu,
+        Message::ToggleToolbar,
+        Message::ToggleOverview,
+        Message::ToggleSidePanel,
+        Message::AddModule(ModuleRef::from_strs(&["TOP"])),
+        Message::AddModule(ModuleRef::from_strs(&["TOP", "Foobar"])),
+        Message::LoadVcd(
+            get_project_root()
+                .unwrap()
+                .join("examples")
+                .join("xx_2.vcd")
+                .try_into()
+                .unwrap(),
+            LoadOptions {
+                keep_signals: true,
+                keep_unavailable: false,
+            },
+        ),
+    ];
+    for message in msgs.into_iter() {
+        state.update(message);
+    }
+    loop {
+        state.handle_async_messages();
+        if let Some(waves) = &state.waves {
+            if waves.source
+                == WaveSource::File(
+                    get_project_root()
+                        .unwrap()
+                        .join("examples")
+                        .join("xx_2.vcd")
+                        .try_into()
+                        .unwrap(),
+                )
+            {
+                break;
+            }
+        }
+    }
     state
 });
