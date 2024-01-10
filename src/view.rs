@@ -339,15 +339,25 @@ impl State {
 
         if let Some(waves) = &self.waves {
             if !waves.displayed_items.is_empty() {
-                let item_offsets = egui::SidePanel::left("signal list")
+                let mut item_offsets: Vec<ItemDrawingInfo> = vec![];
+                egui::SidePanel::left("signal list")
                     .default_width(200.)
-                    .width_range(100.0..=max_width)
+                    .width_range(20.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| self.draw_item_list(&mut msgs, waves, ui),
+                            |ui| {
+                                let response = ScrollArea::both()
+                                    .vertical_scroll_offset(self.scroll_offset)
+                                    .show(ui, |ui| {
+                                        item_offsets = self.draw_item_list(&mut msgs, waves, ui);
+                                    });
+                                if (self.scroll_offset - response.state.offset.y).abs() > 5. {
+                                    msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                                }
+                            },
                         )
                         .inner
                     })
@@ -355,16 +365,21 @@ impl State {
 
                 egui::SidePanel::left("signal values")
                     .default_width(100.)
-                    .width_range(30.0..=max_width)
+                    .width_range(20.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
-                                ScrollArea::horizontal().show(ui, |ui| {
-                                    self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
-                                })
+                                let response = ScrollArea::both()
+                                    .vertical_scroll_offset(self.scroll_offset)
+                                    .show(ui, |ui| {
+                                        self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
+                                    });
+                                if (self.scroll_offset - response.state.offset.y).abs() > 5. {
+                                    msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                                }
                             },
                         )
                     });
@@ -376,7 +391,14 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_signals(&mut msgs, &item_offsets, ui);
+                        let response = ScrollArea::vertical()
+                            .vertical_scroll_offset(self.scroll_offset)
+                            .show(ui, |ui| {
+                                self.draw_signals(&mut msgs, &item_offsets, ui);
+                            });
+                        if (self.scroll_offset - response.state.offset.y).abs() > 5. {
+                            msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                        }
                     });
             }
         };
