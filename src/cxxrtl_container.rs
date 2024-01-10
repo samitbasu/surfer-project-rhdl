@@ -10,16 +10,23 @@ use color_eyre::{
     Result,
 };
 use itertools::Itertools;
-use log::info;
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 
-use crate::wave_container::ModuleRef;
+use crate::wave_container::{ModuleRef, SignalRef};
+
+impl ModuleRef {
+    fn cxxrtl_repr(&self) -> String {
+        self.0.iter().join(" ")
+    }
+}
 
 #[derive(Serialize)]
 #[serde(tag = "command")]
 #[allow(non_camel_case_types)]
 enum CxxrtlCommand {
     list_scopes,
+    list_items { scope: Option<String> },
 }
 
 #[derive(Serialize)]
@@ -42,11 +49,19 @@ struct CxxrtlScope {
 }
 
 #[derive(Deserialize, Debug)]
+struct CxxrtlItem {
+    src: Option<String>, // TODO: More stuff
+}
+
+#[derive(Deserialize, Debug)]
 #[serde(tag = "command")]
 #[allow(non_camel_case_types)]
 enum CommandResponse {
     list_scopes {
         scopes: HashMap<String, CxxrtlScope>,
+    },
+    list_items {
+        items: HashMap<String, CxxrtlItem>,
     },
 }
 
@@ -68,6 +83,7 @@ pub struct CxxrtlContainer {
     read_buf: VecDeque<u8>,
 
     scopes_cache: Option<HashMap<ModuleRef, CxxrtlScope>>,
+    module_item_cache: HashMap<ModuleRef, HashMap<SignalRef, CxxrtlItem>>,
 }
 
 impl CxxrtlContainer {
@@ -90,6 +106,7 @@ impl CxxrtlContainer {
             stream,
             read_buf: VecDeque::new(),
             scopes_cache: None,
+            module_item_cache: HashMap::new(),
         };
 
         result
@@ -159,11 +176,27 @@ impl CxxrtlContainer {
         }
     }
 
+    fn fetch_items_in_module(&mut self, module: &ModuleRef) -> Result<HashMap<String, CxxrtlItem>> {
+        self.send_message(CSMessage::command(CxxrtlCommand::list_items {
+            scope: Some(module.cxxrtl_repr()),
+        }))?;
+
+        let response = self
+            .read_one_message()
+            .context("failed to read scope response")?;
+
+        if let SCMessage::response(CommandResponse::list_items { items }) = response {
+            Ok(items)
+        } else {
+            bail!("Did not get a scope response from cxxrtl. Got {response:?} instead")
+        }
+    }
+
     fn scopes(&mut self) -> Option<&HashMap<ModuleRef, CxxrtlScope>> {
         if self.scopes_cache.is_none() {
             self.scopes_cache = self
                 .fetch_scopes()
-                .map_err(|e| info!("Failed to get modules: {e:#?}"))
+                .map_err(|e| error!("Failed to get modules: {e:#?}"))
                 .ok()
                 .map(|scopes| {
                     scopes
@@ -176,17 +209,6 @@ impl CxxrtlContainer {
                         })
                         .collect()
                 });
-
-            info!("fetched scopes, cache is now {:?}", self.scopes_cache);
-            info!(
-                "scopes: {}",
-                self.scopes_cache
-                    .as_ref()
-                    .unwrap()
-                    .keys()
-                    .map(|k| format!("'{k}'"))
-                    .join("\n")
-            )
         }
 
         self.scopes_cache.as_ref()
@@ -233,6 +255,44 @@ impl CxxrtlContainer {
                     })
                     .collect()
             })
+            .unwrap_or_default()
+    }
+
+    pub fn signals_in_module(&mut self, module: &ModuleRef) -> Vec<SignalRef> {
+        if !self.module_item_cache.contains_key(module) {
+            if let Some(items) = self
+                .fetch_items_in_module(module)
+                .map_err(|e| info!("Failed to get items {e:#?}"))
+                .ok()
+            {
+                self.module_item_cache.insert(
+                    module.clone(),
+                    items
+                        .into_iter()
+                        .filter_map(|(k, v)| {
+                            let sp = k.split(" ").collect::<Vec<_>>();
+
+                            if sp.is_empty() {
+                                error!("Found an empty signal name and scope");
+                                None
+                            } else {
+                                Some((
+                                    SignalRef {
+                                        path: module.clone(),
+                                        name: sp.last().unwrap().to_string(),
+                                    },
+                                    v,
+                                ))
+                            }
+                        })
+                        .collect(),
+                );
+            }
+        }
+
+        self.module_item_cache
+            .get(module)
+            .map(|items| items.iter().map(|(k, _)| k.clone()).collect())
             .unwrap_or_default()
     }
 }

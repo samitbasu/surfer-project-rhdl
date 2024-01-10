@@ -179,6 +179,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.signals(),
             WaveContainer::Empty => &[],
+            // I don't know if we can do
             WaveContainer::Cxxrtl(_) => &[], // TODO: List signals
         }
     }
@@ -187,7 +188,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.signals_in_module(module),
             WaveContainer::Empty => vec![],
-            WaveContainer::Cxxrtl(c) => vec![], // TODO
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().signals_in_module(module),
         }
     }
 
@@ -231,7 +232,6 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.modules(),
             WaveContainer::Empty => vec![],
-            // TODO: Cxxrtl modules should be queryable
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().modules(),
         }
     }
@@ -240,8 +240,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.module_map.contains_key(module),
             WaveContainer::Empty => false,
-            // TODO: Has module
-            WaveContainer::Cxxrtl(_) => false,
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().module_exists(module),
         }
     }
 
@@ -306,7 +305,6 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.module_exists(module),
             WaveContainer::Empty => false,
-            // TODO: Module exists
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().module_exists(module),
         }
     }
