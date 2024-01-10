@@ -328,6 +328,62 @@ snapshot_ui!(toolbar_can_be_hidden, || {
     state
 });
 
+snapshot_ui!(overview_can_be_hidden, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/counter.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+    state.update(Message::AddSignal(SignalRef::from_hierarchy_string(
+        "tb.dut.counter",
+    )));
+    state.update(Message::CursorSet(BigInt::from(10)));
+    state.update(Message::ToggleOverview);
+    state
+});
+
+snapshot_ui!(statusbar_can_be_hidden, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/counter.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+    state.update(Message::AddSignal(SignalRef::from_hierarchy_string(
+        "tb.dut.counter",
+    )));
+    state.update(Message::CursorSet(BigInt::from(10)));
+    state.update(Message::ToggleStatusbar);
+    state
+});
+
 snapshot_ui! {example_vcd_renders, || {
     let mut state = State::new().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
