@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{message::Message, wave_container::WaveContainer, State};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum WaveSource {
     File(Utf8PathBuf),
     Data,
