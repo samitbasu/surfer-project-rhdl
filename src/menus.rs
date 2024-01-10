@@ -69,6 +69,11 @@ impl State {
             b("Open file...", Message::OpenFileDialog(OpenMode::Open)).add_closing_menu(msgs, ui);
             b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
                 .add_closing_menu(msgs, ui);
+            b(
+                "Reload",
+                Message::ReloadWaveform(self.config.behavior.keep_during_reload),
+            )
+            .add_closing_menu(msgs, ui);
             b("Save state...", Message::OpenSaveStateDialog).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
             #[cfg(not(target_arch = "wasm32"))]
@@ -119,6 +124,7 @@ impl State {
                 .shortcut("t")
                 .add_closing_menu(msgs, ui);
             b("Toggle overview", Message::ToggleOverview).add_closing_menu(msgs, ui);
+            b("Toggle statusbar", Message::ToggleStatusbar).add_closing_menu(msgs, ui);
             #[cfg(not(target_arch = "wasm32"))]
             b("Toggle full screen", Message::ToggleFullscreen)
                 .shortcut("F11")
