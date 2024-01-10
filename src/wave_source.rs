@@ -284,7 +284,7 @@ pub fn draw_progress_panel(ctx: &egui::Context, vcd_progress_data: &LoadProgress
                 let num_bytes = bytes_done.load(std::sync::atomic::Ordering::Relaxed);
 
                 if let Some(total) = total_bytes {
-                    ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
+                    ui.monospace(format!("Loading. {num_bytes}/{total} bytes loaded"));
                     let progress = num_bytes as f32 / *total as f32;
                     let progress_bar = egui::ProgressBar::new(progress)
                         .show_percentage()
