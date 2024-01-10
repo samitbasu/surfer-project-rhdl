@@ -452,7 +452,8 @@ impl BasicTranslator for LebTranslator {
 
 #[cfg(test)]
 mod test {
-    use spade_common::num_ext::InfallibleToBigUint;
+
+    use num::BigUint;
 
     use super::*;
 
@@ -502,19 +503,19 @@ mod test {
     fn hexadecimal_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b10000u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10000u32)))
                 .0,
             "10"
         );
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b01000u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b1000u32)))
                 .0,
             "08"
         );
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0u32)))
                 .0,
             "00"
         );
@@ -546,13 +547,13 @@ mod test {
     fn octal_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b10000u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10000u32)))
                 .0,
             "20"
         );
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b00100u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b00100u32)))
                 .0,
             "04"
         );
@@ -590,7 +591,7 @@ mod test {
     fn grouping_binary_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(7, &SignalValue::BigUint(0b100000u32.to_biguint()))
+                .basic_translate(7, &SignalValue::BigUint(BigUint::from(0b100000u32)))
                 .0,
             "010 0000"
         )
@@ -628,7 +629,7 @@ mod test {
     fn binary_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(7, &SignalValue::BigUint(0b100000u32.to_biguint()))
+                .basic_translate(7, &SignalValue::BigUint(BigUint::from(0b100000u32)))
                 .0,
             "0100000"
         )
@@ -638,13 +639,16 @@ mod test {
     fn ascii_translation_from_biguint() {
         assert_eq!(
             ASCIITranslator {}
-                .basic_translate(15, &SignalValue::BigUint(0b100111101001011u32.to_biguint()))
+                .basic_translate(
+                    15,
+                    &SignalValue::BigUint(BigUint::from(0b100111101001011u32))
+                )
                 .0,
             "OK"
         );
         assert_eq!(
             ASCIITranslator {}
-                .basic_translate(72, &SignalValue::BigUint(0b010011000110111101101110011001110010000001110100011001010111001101110100u128.to_biguint()))
+                .basic_translate(72, &SignalValue::BigUint(BigUint::from(0b010011000110111101101110011001110010000001110100011001010111001101110100u128)))
                 .0,
             "Long test"
         );
@@ -682,13 +686,13 @@ mod test {
     fn bit_translation_from_biguint() {
         assert_eq!(
             BitTranslator {}
-                .basic_translate(1, &SignalValue::BigUint(0b1u8.to_biguint()))
+                .basic_translate(1, &SignalValue::BigUint(BigUint::from(0b1u8)))
                 .0,
             "1"
         );
         assert_eq!(
             BitTranslator {}
-                .basic_translate(1, &SignalValue::BigUint(0b0u8.to_biguint()))
+                .basic_translate(1, &SignalValue::BigUint(BigUint::from(0b0u8)))
                 .0,
             "0"
         );
