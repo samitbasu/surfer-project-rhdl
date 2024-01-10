@@ -8,6 +8,7 @@ show_toolbar = true
 show_ticks = true
 show_signal_tooltip = true
 show_overview = true
+show_statusbar = true
 window_width = 1920
 window_height = 1080
 

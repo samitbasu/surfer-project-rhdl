@@ -77,6 +77,14 @@ impl State {
                 Message::SetUrlEntryVisible(true),
                 true,
             );
+            add_toolbar_button(
+                ui,
+                msgs,
+                "⟳".to_string(),
+                "Reload",
+                Message::ReloadWaveform(self.config.behavior.keep_during_reload),
+                wave_loaded,
+            );
             ui.separator();
 
             // Zoom
