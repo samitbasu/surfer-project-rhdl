@@ -235,7 +235,12 @@ impl State {
         }
 
         if let Some(waves) = &self.waves {
-            self.add_statusbar_panel(ctx, waves, &mut msgs);
+            if self
+                .show_statusbar
+                .unwrap_or(self.config.layout.show_statusbar())
+            {
+                self.add_statusbar_panel(ctx, waves, &mut msgs);
+            }
             if self
                 .show_overview
                 .unwrap_or(self.config.layout.show_overview())
