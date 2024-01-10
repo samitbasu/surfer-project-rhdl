@@ -72,6 +72,7 @@ use serde::Serialize;
 use signal_filter::SignalFilterType;
 use time::TimeUnit;
 use translation::all_translators;
+#[cfg(feature = "spade")]
 use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use viewport::Viewport;
@@ -517,12 +518,20 @@ impl State {
 
         // Long running translators which we load in a thread
         {
+            #[cfg(feature = "spade")]
             let sender = self.sys.channels.msg_sender.clone();
+            #[cfg(not(feature = "spade"))]
+            let _ = self.sys.channels.msg_sender.clone();
             perform_work(move || {
+                #[cfg(feature = "spade")]
                 if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
                     SpadeTranslator::load(&top, &state, sender);
                 } else {
                     info!("spade-top and spade-state not set, not loading spade translator");
+                }
+                #[cfg(not(feature = "spade"))]
+                if let (Some(_), Some(_)) = (args.spade_top, args.spade_state) {
+                    info!("Surfer is not compiled with spade support, ignoring spade_top and spade_state");
                 }
             });
         }
