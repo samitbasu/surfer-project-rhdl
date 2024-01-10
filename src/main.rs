@@ -436,6 +436,7 @@ pub struct State {
     show_toolbar: Option<bool>,
     show_signal_tooltip: Option<bool>,
     show_overview: Option<bool>,
+    show_statusbar: Option<bool>,
 
     waves: Option<WaveData>,
 
@@ -502,6 +503,7 @@ impl State {
             show_toolbar: None,
             show_signal_tooltip: None,
             show_overview: None,
+            show_statusbar: None,
         };
 
         Ok(result)
@@ -924,6 +926,13 @@ impl State {
                     None => !self.config.layout.show_toolbar(),
                 };
                 self.show_toolbar = Some(new)
+            }
+            Message::ToggleStatusbar => {
+                let new = match self.show_statusbar {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_statusbar(),
+                };
+                self.show_statusbar = Some(new)
             }
             Message::ToggleTickLines => {
                 let new = match self.show_ticks {
