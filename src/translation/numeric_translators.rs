@@ -2,7 +2,6 @@ use color_eyre::Result;
 use half::{bf16, f16};
 use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
-use spade_common::num_ext::InfallibleToBigUint;
 
 use crate::{signal_type::INTEGER_TYPES, wave_container::SignalMeta};
 
@@ -75,7 +74,7 @@ impl NumericTranslator for SignedTranslator {
     }
 
     fn translate_biguint(&self, num_bits: u64, v: num::BigUint) -> String {
-        let signweight = 1u32.to_biguint() << (num_bits - 1);
+        let signweight = BigUint::from(1 as u8) << (num_bits - 1);
         if v < signweight {
             format!("{v}")
         } else {
@@ -359,7 +358,6 @@ impl NumericTranslator for E4M3Translator {
 
 #[cfg(test)]
 mod test {
-    use spade_common::num_ext::InfallibleToBigUint;
 
     use super::*;
 
@@ -384,20 +382,20 @@ mod test {
     fn signed_translation_from_biguint() {
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b10011u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10011u32)))
                 .0,
             "-13"
         );
 
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b01000u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b01000u32)))
                 .0,
             "8"
         );
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(2, &SignalValue::BigUint(0u32.to_biguint()))
+                .basic_translate(2, &SignalValue::BigUint(BigUint::from(0u32)))
                 .0,
             "0"
         );
@@ -424,20 +422,20 @@ mod test {
     fn unsigned_translation_from_biguint() {
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b10011u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10011u32)))
                 .0,
             "19"
         );
 
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(0b01000u32.to_biguint()))
+                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b01000u32)))
                 .0,
             "8"
         );
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(2, &SignalValue::BigUint(0u32.to_biguint()))
+                .basic_translate(2, &SignalValue::BigUint(BigUint::from(0u32)))
                 .0,
             "0"
         );
@@ -447,7 +445,7 @@ mod test {
     fn e4m3_translation_from_biguint() {
         assert_eq!(
             E4M3Translator {}
-                .basic_translate(8, &SignalValue::BigUint(0b10001000u8.to_biguint()))
+                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b10001000u8)))
                 .0,
             "-0.015625"
         );
@@ -485,13 +483,13 @@ mod test {
     fn e5m2_translation_from_biguint() {
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::BigUint(0b10000100u8.to_biguint()))
+                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b10000100u8)))
                 .0,
             "-6.1035156e-5"
         );
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::BigUint(0b11111100u8.to_biguint()))
+                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b11111100u8)))
                 .0,
             "∞"
         );
@@ -529,13 +527,13 @@ mod test {
     fn posit8_translation_from_biguint() {
         assert_eq!(
             Posit8Translator {}
-                .basic_translate(8, &SignalValue::BigUint(0b10001000u8.to_biguint()))
+                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b10001000u8)))
                 .0,
             "-8"
         );
         assert_eq!(
             Posit8Translator {}
-                .basic_translate(8, &SignalValue::BigUint(0u8.to_biguint()))
+                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0u8)))
                 .0,
             "0"
         );
@@ -569,14 +567,14 @@ mod test {
             Posit16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b1010101010001000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "-2.68359375"
         );
         assert_eq!(
             Posit16Translator {}
-                .basic_translate(16, &SignalValue::BigUint(0u16.to_biguint()))
+                .basic_translate(16, &SignalValue::BigUint(BigUint::from(0u16)))
                 .0,
             "0"
         );
@@ -610,14 +608,14 @@ mod test {
             Posit32Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(0b1010101010001000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "0.0000000000000000023056236824262055"
         );
         assert_eq!(
             Posit32Translator {}
-                .basic_translate(32, &SignalValue::BigUint(0u32.to_biguint()))
+                .basic_translate(32, &SignalValue::BigUint(BigUint::from(0u32)))
                 .0,
             "0"
         );
@@ -651,14 +649,14 @@ mod test {
             PositQuire8Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(0b1010101010001000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "10"
         );
         assert_eq!(
             PositQuire8Translator {}
-                .basic_translate(32, &SignalValue::BigUint(0u16.to_biguint()))
+                .basic_translate(32, &SignalValue::BigUint(BigUint::from(0u16)))
                 .0,
             "0"
         );
@@ -690,19 +688,19 @@ mod test {
     fn quire16_translation_from_biguint() {
         assert_eq!(
             PositQuire16Translator {}
-                .basic_translate(128, &SignalValue::BigUint(0b10101010100010001010101010001000101010101000100010101010100010001010101010001000101010101000100010101010100010001010101010001000u128.to_biguint()))
+                .basic_translate(128, &SignalValue::BigUint(BigUint::from(0b10101010100010001010101010001000101010101000100010101010100010001010101010001000101010101000100010101010100010001010101010001000u128)))
                 .0,
             "-268435456"
         );
         assert_eq!(
             PositQuire16Translator {}
-                .basic_translate(128, &SignalValue::BigUint(7u8.to_biguint()))
+                .basic_translate(128, &SignalValue::BigUint(BigUint::from(7u8)))
                 .0,
             "0.000000003725290298461914"
         );
         assert_eq!(
             PositQuire16Translator {}
-                .basic_translate(128, &SignalValue::BigUint(0u8.to_biguint()))
+                .basic_translate(128, &SignalValue::BigUint(BigUint::from(0u8)))
                 .0,
             "0"
         );
@@ -797,7 +795,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b1010101010001000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "-2.4158453e-13"
@@ -806,7 +804,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b1000000000000000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1000000000000000u16))
                 )
                 .0,
             "-0"
@@ -815,7 +813,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b0000000000000000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b0000000000000000u16))
                 )
                 .0,
             "0"
@@ -824,7 +822,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b1111111111111111u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1111111111111111u16))
                 )
                 .0,
             "NaN"
@@ -837,7 +835,7 @@ mod test {
             HalfPrecisionTranslator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b1000000000000000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1000000000000000u16))
                 )
                 .0,
             "-0"
@@ -846,7 +844,7 @@ mod test {
             HalfPrecisionTranslator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b0000000000000000u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b0000000000000000u16))
                 )
                 .0,
             "0"
@@ -855,7 +853,7 @@ mod test {
             HalfPrecisionTranslator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(0b1111111111111111u16.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b1111111111111111u16))
                 )
                 .0,
             "NaN"
@@ -890,7 +888,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(0b01010101010001001010101010001000u32.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b01010101010001001010101010001000u32))
                 )
                 .0,
             "1.3514794e13"
@@ -899,7 +897,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(0b10000000000000000000000000000000u32.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b10000000000000000000000000000000u32))
                 )
                 .0,
             "-0"
@@ -908,7 +906,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(0b00000000000000000000000000000000u32.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b00000000000000000000000000000000u32))
                 )
                 .0,
             "0"
@@ -917,7 +915,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(0b11111111111111111111111111111111u32.to_biguint())
+                    &SignalValue::BigUint(BigUint::from(0b11111111111111111111111111111111u32))
                 )
                 .0,
             "NaN"
@@ -930,10 +928,9 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(
+                    &SignalValue::BigUint(BigUint::from(
                         0b0101010101000100101010101000100001010101010001001010101010001000u64
-                            .to_biguint()
-                    )
+                    ))
                 )
                 .0,
             "5.785860578429741e102"
@@ -942,10 +939,9 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(
+                    &SignalValue::BigUint(BigUint::from(
                         0b1000000000000000000000000000000000000000000000000000000000000000u64
-                            .to_biguint()
-                    )
+                    ))
                 )
                 .0,
             "-0"
@@ -954,10 +950,9 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(
+                    &SignalValue::BigUint(BigUint::from(
                         0b0000000000000000000000000000000000000000000000000000000000000000u64
-                            .to_biguint()
-                    )
+                    ))
                 )
                 .0,
             "0"
@@ -966,10 +961,9 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(
+                    &SignalValue::BigUint(BigUint::from(
                         0b1111111111111111111111111111111111111111111111111111111111111111u64
-                            .to_biguint()
-                    )
+                    ))
                 )
                 .0,
             "NaN"

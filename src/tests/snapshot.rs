@@ -13,7 +13,6 @@ use log::info;
 use num::BigInt;
 use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
-use spade_common::num_ext::InfallibleToBigInt;
 use test_log::test;
 
 use crate::{
@@ -447,7 +446,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleOverview);
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
-    state.update(Message::CursorSet(100u32.to_bigint()));
+    state.update(Message::CursorSet(BigInt::from(100)));
 
     // Render the UI once with the sidebar shown
     let size = Vec2::new(1280., 720.);
