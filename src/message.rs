@@ -82,6 +82,7 @@ pub enum Message {
     ToggleMenu,
     ToggleToolbar,
     ToggleOverview,
+    ToggleStatusbar,
     SetTimeUnit(TimeUnit),
     CommandPromptClear,
     CommandPromptUpdate {
