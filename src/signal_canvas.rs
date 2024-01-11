@@ -6,10 +6,9 @@ use eframe::egui::{self, Sense};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
-use num::bigint::ToBigUint;
+use num::bigint::{ToBigInt, ToBigUint};
 use num::ToPrimitive;
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
-use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
@@ -122,7 +121,9 @@ fn signal_draw_commands(
             Ok(QueryResult {
                 next: Some(timestamp),
                 ..
-            }) => waves.viewport.from_time(&timestamp.to_bigint(), view_width) as f32,
+            }) => waves
+                .viewport
+                .from_time(&timestamp.to_bigint().unwrap(), view_width) as f32,
             // If we don't have a next timestamp, we don't need to recheck until the last time
             // step
             Ok(_) => timestamps.last().map(|t| t.0).unwrap_or_default(),

@@ -22,7 +22,7 @@ use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
 use crate::wave_container::{FieldRef, ModuleRef, SignalRef};
-use crate::wave_source::draw_progress_panel;
+use crate::wave_source::{draw_progress_panel, LoadOptions};
 use crate::{
     command_prompt::show_command_prompt, translation::SignalInfo, wave_data::WaveData, Message,
     MoveDir, State,
@@ -235,7 +235,12 @@ impl State {
         }
 
         if let Some(waves) = &self.waves {
-            self.add_statusbar_panel(ctx, waves, &mut msgs);
+            if self
+                .show_statusbar
+                .unwrap_or(self.config.layout.show_statusbar())
+            {
+                self.add_statusbar_panel(ctx, waves, &mut msgs);
+            }
             if self
                 .show_overview
                 .unwrap_or(self.config.layout.show_overview())
@@ -431,7 +436,7 @@ impl State {
                             || (response.lost_focus()
                                 && ui.input(|i| i.key_pressed(egui::Key::Enter)))
                         {
-                            msgs.push(Message::LoadVcdFromUrl(url.clone(), false));
+                            msgs.push(Message::LoadVcdFromUrl(url.clone(), LoadOptions::clean()));
                             msgs.push(Message::SetUrlEntryVisible(false))
                         }
                         if ui.button("Cancel").clicked() {
@@ -594,6 +599,9 @@ impl State {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
                     DisplayedItem::Cursor(_) => {
+                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                    }
+                    DisplayedItem::Placeholder(_) => {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
                     DisplayedItem::TimeLine(_) => {
@@ -789,7 +797,8 @@ impl State {
                     offset: label.inner.rect.top(),
                 }))
             }
-            DisplayedItem::Signal(_) => {}
+            &DisplayedItem::Signal(_) => {}
+            &DisplayedItem::Placeholder(_) => {}
         }
     }
 

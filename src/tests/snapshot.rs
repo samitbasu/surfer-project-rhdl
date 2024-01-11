@@ -13,7 +13,6 @@ use log::info;
 use num::BigInt;
 use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
-use spade_common::num_ext::InfallibleToBigInt;
 use test_log::test;
 
 use crate::{
@@ -328,6 +327,62 @@ snapshot_ui!(toolbar_can_be_hidden, || {
     state
 });
 
+snapshot_ui!(overview_can_be_hidden, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/counter.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+    state.update(Message::AddSignal(SignalRef::from_hierarchy_string(
+        "tb.dut.counter",
+    )));
+    state.update(Message::CursorSet(BigInt::from(10)));
+    state.update(Message::ToggleOverview);
+    state
+});
+
+snapshot_ui!(statusbar_can_be_hidden, || {
+    let mut state = State::new().unwrap().with_params(StartupParams {
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/counter.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        spade_top: None,
+        spade_state: None,
+        startup_commands: vec![],
+    });
+
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+    state.update(Message::AddSignal(SignalRef::from_hierarchy_string(
+        "tb.dut.counter",
+    )));
+    state.update(Message::CursorSet(BigInt::from(10)));
+    state.update(Message::ToggleStatusbar);
+    state
+});
+
 snapshot_ui! {example_vcd_renders, || {
     let mut state = State::new().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
@@ -391,7 +446,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleOverview);
     state.update(Message::AddModule(ModuleRef::from_strs(&["tb"])));
-    state.update(Message::CursorSet(100u32.to_bigint()));
+    state.update(Message::CursorSet(BigInt::from(100)));
 
     // Render the UI once with the sidebar shown
     let size = Vec2::new(1280., 720.);

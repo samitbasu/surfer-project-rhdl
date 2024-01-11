@@ -45,19 +45,49 @@ impl WaveData {
         num_timestamps: BigInt,
         wave_viewport: Viewport,
         translators: &TranslatorList,
+        keep_unavailable: bool,
     ) -> WaveData {
         let active_module = self
             .active_module
             .take()
             .filter(|m| new_waves.module_exists(m));
-        let display_items = self
-            .displayed_items
+        let mut current_items = self.displayed_items.clone();
+        let display_items = current_items
             .drain(..)
-            .filter(|i| match i {
-                DisplayedItem::Signal(s) => new_waves.signal_exists(&s.signal_ref),
-                DisplayedItem::Divider(_) => true,
-                DisplayedItem::Cursor(_) => true,
-                DisplayedItem::TimeLine(_) => true,
+            .filter_map(|i| match i {
+                DisplayedItem::Divider(_)
+                | DisplayedItem::Cursor(_)
+                | DisplayedItem::TimeLine(_) => Some(i),
+                DisplayedItem::Signal(s) => {
+                    if new_waves.signal_exists(&s.signal_ref) {
+                        Some(DisplayedItem::Signal(s))
+                    } else if keep_unavailable {
+                        Some(DisplayedItem::Placeholder(s.to_placeholder()))
+                    } else {
+                        None
+                    }
+                }
+                DisplayedItem::Placeholder(p) => {
+                    if new_waves.signal_exists(&p.signal_ref) {
+                        let Ok(meta) = new_waves
+                            .signal_meta(&p.signal_ref)
+                            .context("When updating")
+                            .map_err(|e| error!("{e:#?}"))
+                        else {
+                            return Some(DisplayedItem::Placeholder(p));
+                        };
+                        let translator = self.signal_translator(
+                            &FieldRef::without_fields(p.signal_ref.clone()),
+                            translators,
+                        );
+                        let info = translator.signal_info(&meta).unwrap();
+                        Some(DisplayedItem::Signal(p.to_signal(info)))
+                    } else if keep_unavailable {
+                        Some(DisplayedItem::Placeholder(p))
+                    } else {
+                        None
+                    }
+                }
             })
             .collect::<Vec<_>>();
         let mut nested_format = self
@@ -340,5 +370,12 @@ impl WaveData {
             curr_left: 0.,
             curr_right: self.num_timestamps.to_f64().unwrap_or(1.0),
         }
+    }
+
+    pub fn remove_placeholders(&mut self) {
+        self.displayed_items.retain(|i| match i {
+            DisplayedItem::Placeholder(_) => false,
+            _ => true,
+        })
     }
 }

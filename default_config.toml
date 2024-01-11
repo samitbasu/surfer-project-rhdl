@@ -13,6 +13,7 @@ show_toolbar = true
 show_ticks = true
 show_signal_tooltip = true
 show_overview = true
+show_statusbar = true
 window_width = 1920
 window_height = 1080
 
@@ -20,6 +21,9 @@ window_height = 1080
 style = { color="e9da16", width=2 }
 size = 300
 deadzone = 20
+
+[behavior]
+keep_during_reload = true
 
 [ticks]
 style = { color="222222", width=2 }

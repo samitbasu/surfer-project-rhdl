@@ -52,6 +52,21 @@ impl std::fmt::Display for WaveSource {
 }
 
 #[derive(Debug)]
+pub struct LoadOptions {
+    pub keep_signals: bool,
+    pub keep_unavailable: bool,
+}
+
+impl LoadOptions {
+    pub fn clean() -> LoadOptions {
+        LoadOptions {
+            keep_signals: false,
+            keep_unavailable: false,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum OpenMode {
     Open,
     Switch,
@@ -66,7 +81,7 @@ impl State {
     pub fn load_vcd_from_file(
         &mut self,
         vcd_filename: Utf8PathBuf,
-        keep_signals: bool,
+        load_options: LoadOptions,
     ) -> Result<()> {
         // We'll open the file to check if it exists here to panic the main thread if not.
         // Then we pass the file into the thread for parsing
@@ -83,25 +98,29 @@ impl State {
             WaveSource::File(vcd_filename),
             file,
             total_bytes,
-            keep_signals,
+            load_options,
         );
 
         Ok(())
     }
 
-    pub fn load_vcd_from_data(&mut self, vcd_data: Vec<u8>, keep_signals: bool) -> Result<()> {
+    pub fn load_vcd_from_data(
+        &mut self,
+        vcd_data: Vec<u8>,
+        load_options: LoadOptions,
+    ) -> Result<()> {
         let total_bytes = vcd_data.len();
 
         self.load_vcd(
             WaveSource::Data,
             VecDeque::from(vcd_data),
             Some(total_bytes as u64),
-            keep_signals,
+            load_options,
         );
         Ok(())
     }
 
-    pub fn load_vcd_from_dropped(&mut self, file: DroppedFile, keep_signals: bool) -> Result<()> {
+    pub fn load_vcd_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
         info!("Got a dropped file");
 
         let filename = file.path.and_then(|p| Utf8PathBuf::try_from(p).ok());
@@ -115,12 +134,12 @@ impl State {
             WaveSource::DragAndDrop(filename),
             VecDeque::from_iter(bytes.iter().cloned()),
             Some(total_bytes as u64),
-            keep_signals,
+            LoadOptions::clean(),
         );
         Ok(())
     }
 
-    pub fn load_vcd_from_url(&mut self, url: String, keep_signals: bool) {
+    pub fn load_vcd_from_url(&mut self, url: String, load_options: LoadOptions) {
         let sender = self.sys.channels.msg_sender.clone();
         let url_ = url.clone();
         let task = async move {
@@ -133,7 +152,7 @@ impl State {
                 .await;
 
             match bytes {
-                Ok(b) => sender.send(Message::FileDownloaded(url, b, keep_signals)),
+                Ok(b) => sender.send(Message::FileDownloaded(url, b, load_options)),
                 Err(e) => sender.send(Message::Error(e)),
             }
             .unwrap();
@@ -151,7 +170,7 @@ impl State {
         source: WaveSource,
         reader: impl Read + Send + 'static,
         total_bytes: Option<u64>,
-        keep_signals: bool,
+        load_options: LoadOptions,
     ) {
         // Progress tracking in bytes
         let progress_bytes = Arc::new(AtomicU64::new(0));
@@ -175,7 +194,7 @@ impl State {
                     .send(Message::WavesLoaded(
                         source,
                         Box::new(WaveContainer::new_vcd(waves)),
-                        keep_signals,
+                        load_options,
                     ))
                     .unwrap(),
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -188,6 +207,7 @@ impl State {
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
         let sender = self.sys.channels.msg_sender.clone();
+        let keep_unavailable = self.config.behavior.keep_during_reload;
 
         perform_async_work(async move {
             if let Some(file) = AsyncFileDialog::new()
@@ -206,7 +226,10 @@ impl State {
                 sender
                     .send(Message::LoadVcd(
                         camino::Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
-                        keep_signals,
+                        LoadOptions {
+                            keep_signals,
+                            keep_unavailable,
+                        },
                     ))
                     .unwrap();
 
@@ -214,7 +237,13 @@ impl State {
                 {
                     let data = file.read().await;
                     sender
-                        .send(Message::LoadVcdFromData(data, keep_signals))
+                        .send(Message::LoadVcdFromData(
+                            data,
+                            LoadOptions {
+                                keep_signals,
+                                keep_unavailable,
+                            },
+                        ))
                         .unwrap();
                 }
             }
@@ -255,7 +284,7 @@ pub fn draw_progress_panel(ctx: &egui::Context, vcd_progress_data: &LoadProgress
                 let num_bytes = bytes_done.load(std::sync::atomic::Ordering::Relaxed);
 
                 if let Some(total) = total_bytes {
-                    ui.monospace(format!("Loading. {num_bytes}/{total} kb loaded"));
+                    ui.monospace(format!("Loading. {num_bytes}/{total} bytes loaded"));
                     let progress = num_bytes as f32 / *total as f32;
                     let progress_bar = egui::ProgressBar::new(progress)
                         .show_percentage()

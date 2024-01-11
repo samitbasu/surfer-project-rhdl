@@ -19,6 +19,7 @@ pub struct SurferConfig {
     pub layout: SurferLayout,
     pub theme: SurferTheme,
     pub gesture: SurferGesture,
+    pub behavior: SurferBehavior,
     /// Tick information
     pub ticks: SurferTicks,
     /// Time stamp format
@@ -42,6 +43,8 @@ pub struct SurferLayout {
     show_signal_tooltip: bool,
     /// Flag to show/hide the overview
     show_overview: bool,
+    /// Flag to show/hide the statusbar
+    show_statusbar: bool,
     /// Initial window height
     pub window_height: usize,
     /// Initial window width
@@ -67,6 +70,15 @@ impl SurferLayout {
     pub fn show_overview(&self) -> bool {
         self.show_overview
     }
+    pub fn show_statusbar(&self) -> bool {
+        self.show_statusbar
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SurferBehavior {
+    /// Keep or remove signals if unavailable during reload
+    pub keep_during_reload: bool,
 }
 
 #[derive(Debug, Deserialize)]

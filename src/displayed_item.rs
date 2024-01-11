@@ -10,15 +10,16 @@ use crate::{
 
 const DEFAULT_DIVIDER_NAME: &str = "";
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum DisplayedItem {
     Signal(DisplayedSignal),
     Divider(DisplayedDivider),
     Cursor(DisplayedCursor),
     TimeLine(DisplayedTimeLine),
+    Placeholder(DisplayedPlaceholder),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedSignal {
     pub signal_ref: SignalRef,
     #[serde(skip)]
@@ -30,14 +31,27 @@ pub struct DisplayedSignal {
     pub manual_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+impl DisplayedSignal {
+    pub fn to_placeholder(self) -> DisplayedPlaceholder {
+        DisplayedPlaceholder {
+            signal_ref: self.signal_ref,
+            color: self.color,
+            background_color: self.background_color,
+            display_name: self.display_name,
+            display_name_type: self.display_name_type,
+            manual_name: self.manual_name,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedDivider {
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedCursor {
     pub color: Option<String>,
     pub background_color: Option<String>,
@@ -45,38 +59,57 @@ pub struct DisplayedCursor {
     pub idx: u8,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedTimeLine {
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub name: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DisplayedPlaceholder {
+    pub signal_ref: SignalRef,
+    pub color: Option<String>,
+    pub background_color: Option<String>,
+    pub display_name: String,
+    pub display_name_type: SignalNameType,
+    pub manual_name: Option<String>,
+}
+
+impl DisplayedPlaceholder {
+    pub fn to_signal(self, signal_info: SignalInfo) -> DisplayedSignal {
+        DisplayedSignal {
+            signal_ref: self.signal_ref,
+            info: signal_info,
+            color: self.color,
+            background_color: self.background_color,
+            display_name: self.display_name,
+            display_name_type: self.display_name_type,
+            manual_name: self.manual_name,
+        }
+    }
+}
+
 impl DisplayedItem {
     pub fn color(&self) -> Option<String> {
-        let color = match self {
-            DisplayedItem::Signal(signal) => &signal.color,
-            DisplayedItem::Divider(divider) => &divider.color,
-            DisplayedItem::Cursor(cursor) => &cursor.color,
-            DisplayedItem::TimeLine(timeline) => &timeline.color,
-        };
-        color.clone()
+        match self {
+            DisplayedItem::Signal(signal) => signal.color.clone(),
+            DisplayedItem::Divider(divider) => divider.color.clone(),
+            DisplayedItem::Cursor(cursor) => cursor.color.clone(),
+            DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
+            DisplayedItem::Placeholder(_) => None,
+        }
     }
 
     pub fn set_color(&mut self, color_name: Option<String>) {
         match self {
-            DisplayedItem::Signal(signal) => {
-                signal.color = color_name.clone();
-            }
-            DisplayedItem::Divider(divider) => {
-                divider.color = color_name.clone();
-            }
-            DisplayedItem::Cursor(cursor) => {
-                cursor.color = color_name.clone();
-            }
+            DisplayedItem::Signal(signal) => signal.color = color_name.clone(),
+            DisplayedItem::Divider(divider) => divider.color = color_name.clone(),
+            DisplayedItem::Cursor(cursor) => cursor.color = color_name.clone(),
             DisplayedItem::TimeLine(timeline) => {
                 timeline.color = color_name.clone();
             }
+            DisplayedItem::Placeholder(placeholder) => placeholder.color = color_name.clone(),
         }
     }
 
@@ -101,6 +134,11 @@ impl DisplayedItem {
                 .name
                 .as_ref()
                 .unwrap_or(&DEFAULT_TIMELINE_NAME.to_string())
+                .clone(),
+            DisplayedItem::Placeholder(placeholder) => placeholder
+                .manual_name
+                .as_ref()
+                .unwrap_or(&placeholder.display_name)
                 .clone(),
         }
     }
@@ -159,6 +197,15 @@ impl DisplayedItem {
                 .color(*color)
                 .italics(),
             ),
+            DisplayedItem::Placeholder(placeholder) => {
+                let s = placeholder
+                    .manual_name
+                    .as_ref()
+                    .unwrap_or(&placeholder.display_name);
+                WidgetText::RichText(RichText::new("Not available: ".to_owned() + s))
+                    .color(*color)
+                    .italics()
+            }
         }
     }
 
@@ -176,6 +223,9 @@ impl DisplayedItem {
             DisplayedItem::TimeLine(timeline) => {
                 timeline.name = name;
             }
+            DisplayedItem::Placeholder(placeholder) => {
+                placeholder.manual_name = name;
+            }
         }
     }
 
@@ -185,6 +235,7 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => &divider.background_color,
             DisplayedItem::Cursor(cursor) => &cursor.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
+            DisplayedItem::Placeholder(_) => &None,
         };
         background_color.clone()
     }
@@ -202,6 +253,9 @@ impl DisplayedItem {
             }
             DisplayedItem::TimeLine(timeline) => {
                 timeline.background_color = color_name.clone();
+            }
+            DisplayedItem::Placeholder(placeholder) => {
+                placeholder.background_color = color_name.clone();
             }
         }
     }

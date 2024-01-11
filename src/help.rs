@@ -1,6 +1,7 @@
 use eframe::egui::{Context, Grid, RichText, Ui, Window};
 use eframe::emath::{Align2, Pos2};
 
+use crate::wave_source::LoadOptions;
 use crate::{message::Message, State};
 
 impl State {
@@ -28,7 +29,7 @@ impl State {
                         .msg_sender
                         .send(Message::LoadVcdFromUrl(
                             "https://app.surfer-project.org/picorv32.vcd".to_string(),
-                            false,
+                            LoadOptions::clean(),
                         ))
                         .ok();
                 }

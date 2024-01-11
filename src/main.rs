@@ -73,6 +73,7 @@ use signal_filter::SignalFilterType;
 use time::TimeStringFormatting;
 use time::TimeUnit;
 use translation::all_translators;
+#[cfg(feature = "spade")]
 use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use viewport::Viewport;
@@ -82,6 +83,7 @@ use wave_container::FieldRef;
 use wave_container::SignalRef;
 use wave_data::WaveData;
 use wave_source::string_to_wavesource;
+use wave_source::LoadOptions;
 use wave_source::LoadProgress;
 use wave_source::WaveSource;
 
@@ -436,6 +438,7 @@ pub struct State {
     show_toolbar: Option<bool>,
     show_signal_tooltip: Option<bool>,
     show_overview: Option<bool>,
+    show_statusbar: Option<bool>,
 
     waves: Option<WaveData>,
 
@@ -504,6 +507,7 @@ impl State {
             show_toolbar: None,
             show_signal_tooltip: None,
             show_overview: None,
+            show_statusbar: None,
         };
 
         Ok(result)
@@ -517,19 +521,29 @@ impl State {
 
         // Long running translators which we load in a thread
         {
+            #[cfg(feature = "spade")]
             let sender = self.sys.channels.msg_sender.clone();
+            #[cfg(not(feature = "spade"))]
+            let _ = self.sys.channels.msg_sender.clone();
             perform_work(move || {
+                #[cfg(feature = "spade")]
                 if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
                     SpadeTranslator::load(&top, &state, sender);
                 } else {
                     info!("spade-top and spade-state not set, not loading spade translator");
                 }
+                #[cfg(not(feature = "spade"))]
+                if let (Some(_), Some(_)) = (args.spade_top, args.spade_state) {
+                    info!("Surfer is not compiled with spade support, ignoring spade_top and spade_state");
+                }
             });
         }
 
         match args.waves {
-            Some(WaveSource::Url(url)) => self.load_vcd_from_url(url, false),
-            Some(WaveSource::File(file)) => self.load_vcd_from_file(file, false).unwrap(),
+            Some(WaveSource::Url(url)) => self.load_vcd_from_url(url, LoadOptions::clean()),
+            Some(WaveSource::File(file)) => {
+                self.load_vcd_from_file(file, LoadOptions::clean()).unwrap()
+            }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
@@ -791,6 +805,7 @@ impl State {
                                 DisplayedItem::Cursor(_) => {}
                                 DisplayedItem::Divider(_) => {}
                                 DisplayedItem::TimeLine(_) => {}
+                                DisplayedItem::Placeholder(_) => {}
                             }
                         }
                     }
@@ -831,21 +846,21 @@ impl State {
                     waves.cursor = Some(new)
                 }
             }
-            Message::LoadVcd(filename, keep_signals) => {
-                self.load_vcd_from_file(filename, keep_signals).ok();
+            Message::LoadVcd(filename, load_options) => {
+                self.load_vcd_from_file(filename, load_options).ok();
             }
-            Message::LoadVcdFromUrl(url, keep_signals) => {
-                self.load_vcd_from_url(url, keep_signals);
+            Message::LoadVcdFromUrl(url, load_options) => {
+                self.load_vcd_from_url(url, load_options);
             }
-            Message::LoadVcdFromData(data, keep_signals) => {
-                self.load_vcd_from_data(data, keep_signals).ok();
+            Message::LoadVcdFromData(data, load_options) => {
+                self.load_vcd_from_data(data, load_options).ok();
             }
             Message::FileDropped(dropped_file) => {
-                self.load_vcd_from_dropped(dropped_file, false)
+                self.load_vcd_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
-            Message::WavesLoaded(filename, new_waves, keep_signals) => {
+            Message::WavesLoaded(filename, new_waves, load_options) => {
                 info!("VCD file loaded");
                 let num_timestamps = new_waves
                     .max_timestamp()
@@ -854,13 +869,14 @@ impl State {
                     .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
                 let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
 
-                let new_wave = if keep_signals && self.waves.is_some() {
+                let new_wave = if load_options.keep_signals && self.waves.is_some() {
                     self.waves.take().unwrap().update_with(
                         new_waves,
                         filename,
                         num_timestamps,
                         viewport,
                         &self.sys.translators,
+                        load_options.keep_unavailable,
                     )
                 } else if let Some(old) = self.previous_waves.take() {
                     old.update_with(
@@ -869,6 +885,7 @@ impl State {
                         num_timestamps,
                         viewport,
                         &self.sys.translators,
+                        load_options.keep_unavailable,
                     )
                 } else {
                     WaveData {
@@ -926,6 +943,13 @@ impl State {
                 };
                 self.show_toolbar = Some(new)
             }
+            Message::ToggleStatusbar => {
+                let new = match self.show_statusbar {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_statusbar(),
+                };
+                self.show_statusbar = Some(new)
+            }
             Message::ToggleTickLines => {
                 let new = match self.show_ticks {
                     Some(prev) => !prev,
@@ -956,13 +980,13 @@ impl State {
                 }
                 self.sys.command_prompt.visible = new_visibility;
             }
-            Message::FileDownloaded(url, bytes, keep_signals) => {
+            Message::FileDownloaded(url, bytes, load_options) => {
                 let size = bytes.len() as u64;
                 self.load_vcd(
                     WaveSource::Url(url),
                     bytes.reader(),
                     Some(size),
-                    keep_signals,
+                    load_options,
                 )
             }
             Message::ReloadConfig => {
@@ -976,25 +1000,50 @@ impl State {
                     }
                 }
             }
-            Message::ReloadWaveform => {
+            Message::ReloadWaveform(keep_unavailable) => {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
                     WaveSource::File(filename) => {
-                        self.load_vcd_from_file(filename.clone(), true).ok();
+                        self.load_vcd_from_file(
+                            filename.clone(),
+                            LoadOptions {
+                                keep_signals: true,
+                                keep_unavailable,
+                            },
+                        )
+                        .ok();
                     }
                     WaveSource::Data => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
-                        filename
-                            .clone()
-                            .and_then(|filename| self.load_vcd_from_file(filename, true).ok());
+                        filename.clone().and_then(|filename| {
+                            self.load_vcd_from_file(
+                                filename,
+                                LoadOptions {
+                                    keep_signals: true,
+                                    keep_unavailable,
+                                },
+                            )
+                            .ok()
+                        });
                     }
                     WaveSource::Url(url) => {
-                        self.load_vcd_from_url(url.clone(), true);
+                        self.load_vcd_from_url(
+                            url.clone(),
+                            LoadOptions {
+                                keep_signals: true,
+                                keep_unavailable,
+                            },
+                        );
                     }
                 };
 
                 for translator in self.sys.translators.all_translators() {
                     translator.reload(self.sys.channels.msg_sender.clone())
+                }
+            }
+            Message::RemovePlaceholders => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.remove_placeholders()
                 }
             }
             Message::SetClockHighlightType(new_type) => {
