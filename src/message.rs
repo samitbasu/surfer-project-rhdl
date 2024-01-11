@@ -12,7 +12,7 @@ use num::BigInt;
 use crate::{
     clock_highlighting::ClockHighlightType,
     signal_name_type::SignalNameType,
-    time::TimeUnit,
+    time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     wave_container::{FieldRef, ModuleRef, SignalRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
@@ -84,6 +84,7 @@ pub enum Message {
     ToggleOverview,
     ToggleStatusbar,
     SetTimeUnit(TimeUnit),
+    SetTimeStringFormatting(Option<TimeStringFormatting>),
     CommandPromptClear,
     CommandPromptUpdate {
         suggestions: Vec<(String, Vec<bool>)>,
