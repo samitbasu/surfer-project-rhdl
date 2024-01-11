@@ -477,8 +477,17 @@ pub struct State {
 
 impl State {
     fn new() -> Result<State> {
-        // load config
-        let config = config::SurferConfig::new().with_context(|| "Failed to load config file")?;
+        Self::new_inner(false)
+    }
+
+    #[cfg(test)]
+    fn new_default_config() -> Result<State> {
+        Self::new_inner(true)
+    }
+
+    fn new_inner(force_default_config: bool) -> Result<State> {
+        let config = config::SurferConfig::new(force_default_config)
+            .with_context(|| "Failed to load config file")?;
         let result = State {
             sys: SystemState::new(),
             config,
@@ -992,7 +1001,7 @@ impl State {
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
                 if let Ok(config) =
-                    SurferConfig::new().with_context(|| "Failed to load config file")
+                    SurferConfig::new(false).with_context(|| "Failed to load config file")
                 {
                     self.config = config;
                     if let Some(ctx) = &self.sys.context {
