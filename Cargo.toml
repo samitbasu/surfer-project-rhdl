@@ -3,7 +3,6 @@ name = "surfer"
 version = "0.1.0"
 edition = "2021"
 license-file = "LICENSE-EUPL-1.2.txt"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -81,6 +80,7 @@ opt-level = 3 # fast and small wasm
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
 
 [build-dependencies]
 vergen = { version = "8.2.6", features = ["build", "git", "gitcl"] }
