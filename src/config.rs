@@ -205,13 +205,13 @@ fn default_colors() -> HashMap<String, Color32> {
 
 impl SurferConfig {
     #[cfg(target_arch = "wasm32")]
-    pub fn new() -> Result<Self> {
+    pub fn new(_force_default_config: bool) -> Result<Self> {
         let default_config = String::from(include_str!("../default_config.toml"));
         Ok(toml::from_str(&default_config)?)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new() -> color_eyre::Result<Self> {
+    pub fn new(force_default_config: bool) -> color_eyre::Result<Self> {
         use color_eyre::eyre::anyhow;
 
         let default_config = String::from(include_str!("../default_config.toml"));
@@ -220,15 +220,19 @@ impl SurferConfig {
             &default_config,
             config::FileFormat::Toml,
         ));
+        let c = if !force_default_config {
+            if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
+                let config_file = proj_dirs.config_dir().join("config.toml");
+                c = c.add_source(File::from(config_file).required(false));
+            }
 
-        if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
-            let config_file = proj_dirs.config_dir().join("config.toml");
-            c = c.add_source(File::from(config_file).required(false));
-        }
+            c.add_source(File::from(Path::new("surfer.toml")).required(false))
+                .add_source(Environment::with_prefix("surfer"))
+        } else {
+            c
+        };
 
-        c.add_source(File::from(Path::new("surfer.toml")).required(false))
-            .add_source(Environment::with_prefix("surfer"))
-            .build()?
+        c.build()?
             .try_deserialize()
             .map_err(|e| anyhow!("Failed to parse config {e}"))
     }
@@ -236,7 +240,7 @@ impl SurferConfig {
 
 impl Default for SurferConfig {
     fn default() -> Self {
-        Self::new().expect("Failed to load default config")
+        Self::new(false).expect("Failed to load default config")
     }
 }
 
