@@ -154,7 +154,7 @@ impl State {
                 signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
             });
             ui.menu_button("UI scale", |ui| {
-                for scale in [0.5, 0.75, 1.0, 1.5, 2.0] {
+                for scale in [0.5, 0.75, 1.0, 1.5, 2.0, 2.5] {
                     ui.radio(self.ui_scale == Some(scale), format!("{} %", scale * 100.))
                         .clicked()
                         .then(|| {
