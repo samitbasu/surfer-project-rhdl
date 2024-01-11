@@ -207,12 +207,15 @@ fn translate_concrete(
     problematic: &mut bool,
 ) -> Result<TranslationResult> {
     macro_rules! handle_problematic {
-        () => {
+        ($kind:expr) => {
             if *problematic {
                 ValueKind::Warn
             } else {
-                ValueKind::Normal
+                $kind
             }
+        };
+        () => {
+            handle_problematic!(ValueKind::Normal)
         };
     }
     let mir_ty = ty.to_mir_type();
@@ -322,64 +325,76 @@ fn translate_concrete(
                         durations: HashMap::new(),
                     }
                 } else {
+                    let mut kind = ValueKind::Normal;
+                    let subfields = options
+                        .iter()
+                        .enumerate()
+                        .map(|(i, (name, fields))| {
+                            let name = name.1.tail().0;
+                            let mut offset = tag_size;
+
+                            let subfields = fields
+                                .iter()
+                                .map(|(f_name, f_ty)| {
+                                    let mut local_problematic = false;
+                                    let end = offset
+                                        + f_ty.to_mir_type().size().to_usize().context(format!(
+                                            "Value is wider than {} bits",
+                                            usize::MAX
+                                        ))?;
+                                    let new = translate_concrete(
+                                        &val[offset..end],
+                                        f_ty,
+                                        &mut local_problematic,
+                                    )?;
+                                    offset = end;
+
+                                    *problematic |= local_problematic;
+
+                                    Ok(SubFieldTranslationResult::new(f_name.0.clone(), new))
+                                })
+                                .collect::<Result<_>>()?;
+
+                            let result = if i == tag {
+                                if name == "None" {
+                                    kind = ValueKind::Custom(Color32::DARK_GRAY)
+                                }
+
+                                SubFieldTranslationResult {
+                                    name,
+                                    result: TranslationResult {
+                                        val: if fields.len() == 1 {
+                                            ValueRepr::Tuple
+                                        } else {
+                                            ValueRepr::Struct
+                                        },
+                                        subfields,
+                                        kind: handle_problematic!(),
+                                        durations: HashMap::new(),
+                                    },
+                                }
+                            } else {
+                                SubFieldTranslationResult {
+                                    name,
+                                    result: TranslationResult {
+                                        val: ValueRepr::NotPresent,
+                                        subfields: not_present_enum_fields(fields),
+                                        kind: handle_problematic!(),
+                                        durations: HashMap::new(),
+                                    },
+                                }
+                            };
+                            Ok(result)
+                        })
+                        .collect::<Result<_>>()?;
+
                     TranslationResult {
                         val: ValueRepr::Enum {
                             idx: tag,
                             name: options[tag].0 .1.tail().0.clone(),
                         },
-                        kind: ValueKind::Normal,
-                        subfields: options
-                            .iter()
-                            .enumerate()
-                            .map(|(i, (name, fields))| {
-                                let name = name.1.tail().0;
-                                let mut offset = tag_size;
-
-                                let subfields = fields
-                                    .iter()
-                                    .map(|(f_name, f_ty)| {
-                                        let mut local_problematic = false;
-                                        let end = offset
-                                            + f_ty.to_mir_type().size().to_usize().context(
-                                                format!("Value is wider than {} bits", usize::MAX),
-                                            )?;
-                                        let new = translate_concrete(
-                                            &val[offset..end],
-                                            f_ty,
-                                            &mut local_problematic,
-                                        )?;
-                                        offset = end;
-
-                                        *problematic |= local_problematic;
-
-                                        Ok(SubFieldTranslationResult::new(f_name.0.clone(), new))
-                                    })
-                                    .collect::<Result<_>>()?;
-
-                                let result = if i == tag {
-                                    SubFieldTranslationResult {
-                                        name,
-                                        result: TranslationResult {
-                                            val: ValueRepr::Struct,
-                                            subfields,
-                                            kind: handle_problematic!(),
-                                            durations: HashMap::new(),
-                                        },
-                                    }
-                                } else {
-                                    SubFieldTranslationResult {
-                                        name,
-                                        result: TranslationResult {
-                                            val: ValueRepr::NotPresent,
-                                            subfields: not_present_enum_fields(fields),
-                                            kind: handle_problematic!(),
-                                            durations: HashMap::new(),
-                                        },
-                                    }
-                                };
-                                Ok(result)
-                            })
-                            .collect::<Result<_>>()?,
+                        kind,
+                        subfields,
                         durations: HashMap::new(),
                     }
                 }
