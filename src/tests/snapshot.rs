@@ -216,7 +216,7 @@ macro_rules! snapshot_ui {
 macro_rules! snapshot_empty_state_with_msgs {
     ($name:ident, $msgs:expr) => {
         snapshot_ui! {$name, || {
-            let mut state = State::new().unwrap().with_params(StartupParams::empty());
+            let mut state = State::new_default_config().unwrap().with_params(StartupParams::empty());
             for msg in $msgs {
                 state.update(msg);
             }
@@ -248,14 +248,16 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
     ($name:ident, $file:expr, $spade_top:expr, $spade_state:expr, $initial_state_mod:expr, $msgs:expr) => {
         snapshot_ui!($name, || {
             let spade_top = $spade_top;
-            let mut state = State::new().unwrap().with_params(StartupParams {
-                waves: Some(WaveSource::File(
-                    get_project_root().unwrap().join($file).try_into().unwrap(),
-                )),
-                spade_top: spade_top.clone(),
-                spade_state: $spade_state,
-                startup_commands: vec![],
-            });
+            let mut state = State::new_default_config()
+                .unwrap()
+                .with_params(StartupParams {
+                    waves: Some(WaveSource::File(
+                        get_project_root().unwrap().join($file).try_into().unwrap(),
+                    )),
+                    spade_top: spade_top.clone(),
+                    spade_state: $spade_state,
+                    startup_commands: vec![],
+                });
 
             $initial_state_mod(&mut state);
 
@@ -297,11 +299,13 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
 }
 
 snapshot_ui! {startup_screen_looks_fine, || {
-    State::new().unwrap().with_params(StartupParams::empty())
+    State::new_default_config().unwrap().with_params(StartupParams::empty())
 }}
 
 snapshot_ui!(menu_can_be_hidden, || {
-    let mut state = State::new().unwrap().with_params(StartupParams::empty());
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams::empty());
     let msgs = [Message::ToggleMenu];
     for message in msgs.into_iter() {
         state.update(message);
@@ -310,7 +314,9 @@ snapshot_ui!(menu_can_be_hidden, || {
 });
 
 snapshot_ui!(side_panel_can_be_hidden, || {
-    let mut state = State::new().unwrap().with_params(StartupParams::empty());
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams::empty());
     let msgs = [Message::ToggleSidePanel];
     for message in msgs.into_iter() {
         state.update(message);
@@ -319,7 +325,9 @@ snapshot_ui!(side_panel_can_be_hidden, || {
 });
 
 snapshot_ui!(toolbar_can_be_hidden, || {
-    let mut state = State::new().unwrap().with_params(StartupParams::empty());
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams::empty());
     let msgs = [Message::ToggleToolbar];
     for message in msgs.into_iter() {
         state.update(message);
@@ -328,18 +336,20 @@ snapshot_ui!(toolbar_can_be_hidden, || {
 });
 
 snapshot_ui!(overview_can_be_hidden, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples/counter.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/counter.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
 
     loop {
         state.handle_async_messages();
@@ -356,18 +366,20 @@ snapshot_ui!(overview_can_be_hidden, || {
 });
 
 snapshot_ui!(statusbar_can_be_hidden, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples/counter.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/counter.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
 
     loop {
         state.handle_async_messages();
@@ -384,7 +396,7 @@ snapshot_ui!(statusbar_can_be_hidden, || {
 });
 
 snapshot_ui! {example_vcd_renders, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
+    let mut state = State::new_default_config().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
@@ -428,7 +440,7 @@ snapshot_ui_with_file_and_msgs! {top_level_signals_have_no_aliasing, "examples/p
 ]}
 
 snapshot_ui! {resizing_the_canvas_redraws, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
+    let mut state = State::new_default_config().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         spade_top: None,
         spade_state: None,
@@ -587,18 +599,20 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
 ]}
 
 snapshot_ui!(regex_error_indication, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples/counter.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/counter.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
     loop {
         state.handle_async_messages();
         if state.waves.is_some() {
@@ -626,18 +640,20 @@ snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
 ]}
 
 snapshot_ui!(fuzzy_signal_filter_works, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples/picorv32.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/picorv32.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
     loop {
         state.handle_async_messages();
         if state.waves.is_some() {
@@ -661,18 +677,20 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
 });
 
 snapshot_ui!(contain_signal_filter_works, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples/picorv32.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/picorv32.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
     loop {
         state.handle_async_messages();
         if state.waves.is_some() {
@@ -696,18 +714,20 @@ snapshot_ui!(contain_signal_filter_works, || {
 });
 
 snapshot_ui!(regex_signal_filter_works, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples/picorv32.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/picorv32.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
     loop {
         state.handle_async_messages();
         if state.waves.is_some() {
@@ -731,18 +751,20 @@ snapshot_ui!(regex_signal_filter_works, || {
 });
 
 snapshot_ui!(start_signal_filter_works, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples/picorv32.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/picorv32.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
     loop {
         state.handle_async_messages();
         if state.waves.is_some() {
