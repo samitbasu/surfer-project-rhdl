@@ -467,6 +467,8 @@ pub struct State {
     signal_filter_type: SignalFilterType,
     rename_target: Option<usize>,
 
+    scroll_offset: f32,
+
     /// UI Scale if set by the user
     ui_scale: Option<f32>,
 
@@ -508,6 +510,7 @@ impl State {
             show_signal_tooltip: None,
             show_overview: None,
             show_statusbar: None,
+            scroll_offset: 0.,
         };
 
         Ok(result)
@@ -656,6 +659,9 @@ impl State {
                 if let Some(waves) = &mut self.waves {
                     waves.scroll = position.clamp(0, waves.displayed_items.len() - 1);
                 }
+            }
+            Message::SetScrollOffset(offset) => {
+                self.scroll_offset = offset;
             }
             Message::SetLogsVisible(visibility) => self.show_logs = visibility,
             Message::SetCursorWindowVisible(visibility) => self.show_cursor_window = visibility,
