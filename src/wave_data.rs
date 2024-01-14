@@ -10,6 +10,7 @@ use crate::{
     displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal, DisplayedTimeLine},
     signal_name_type::SignalNameType,
     translation::{TranslationPreference, Translator, TranslatorList},
+    view::ItemDrawingInfo,
     viewport::Viewport,
     wave_container::{FieldRef, ModuleRef, SignalMeta, SignalRef, WaveContainer},
     wave_source::WaveSource,
@@ -35,6 +36,12 @@ pub struct WaveData {
     pub focused_item: Option<usize>,
     pub default_signal_name_type: SignalNameType,
     pub scroll_offset: f32,
+    #[serde(skip)]
+    pub item_offsets: Vec<ItemDrawingInfo>,
+    #[serde(skip)]
+    pub top_item_draw_offset: f32,
+    #[serde(skip)]
+    pub total_height: f32,
 }
 
 impl WaveData {
@@ -126,6 +133,9 @@ impl WaveData {
             focused_item: self.focused_item,
             default_signal_name_type: self.default_signal_name_type,
             scroll_offset: self.scroll_offset,
+            item_offsets: vec![],
+            top_item_draw_offset: 0.,
+            total_height: 0.,
         };
         nested_format.retain(|nested, _| {
             let Some(signal_ref) = new_wave.displayed_items.iter().find_map(|di| match di {
@@ -377,5 +387,41 @@ impl WaveData {
             DisplayedItem::Placeholder(_) => false,
             _ => true,
         })
+    }
+
+    pub fn any_displayed(&self) -> bool {
+        !self.displayed_items.is_empty()
+    }
+
+    pub fn get_top_item(&self) -> usize {
+        let default = if self.item_offsets.is_empty() {
+            0
+        } else {
+            self.item_offsets.len() - 1
+        };
+        self.item_offsets
+            .iter()
+            .enumerate()
+            .find(|(_, di)| di.offset() >= self.top_item_draw_offset)
+            .map(|(idx, _)| idx)
+            .unwrap_or(default)
+    }
+
+    pub fn scroll_to_item(&mut self, idx: usize) {
+        if self.item_offsets.is_empty() {
+            return;
+        }
+        if idx <= 0 {
+            self.scroll_offset = 0.0;
+        } else {
+            // Set scroll_offset to different between requested element and first element
+            let first_element_y = self.item_offsets.first().unwrap().offset();
+            let item_y = self
+                .item_offsets
+                .get(idx)
+                .unwrap_or_else(|| self.item_offsets.last().unwrap())
+                .offset();
+            self.scroll_offset = item_y - first_element_y;
+        }
     }
 }
