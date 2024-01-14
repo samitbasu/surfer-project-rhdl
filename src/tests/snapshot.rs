@@ -531,6 +531,19 @@ snapshot_ui_with_file_and_msgs! {cursors_work, "examples/counter.vcd", [
     Message::CursorSet(BigInt::from(500)),
 ]}
 
+snapshot_ui_with_file_and_msgs! {cursors_dialog_work, "examples/counter.vcd", [
+    Message::ToggleOverview,
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(600)),
+    Message::SetCursorPosition(2),
+    Message::ItemColorChange(Some(4), Some("Blue".to_string())),
+    Message::CursorSet(BigInt::from(200)),
+    Message::SetCursorPosition(1),
+    Message::ItemColorChange(Some(5), Some("Green".to_string())),
+    Message::CursorSet(BigInt::from(500)),
+    Message::SetCursorWindowVisible(true)
+]}
+
 snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",
