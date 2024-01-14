@@ -439,6 +439,7 @@ pub struct State {
     show_signal_tooltip: Option<bool>,
     show_overview: Option<bool>,
     show_statusbar: Option<bool>,
+    align_names_right: Option<bool>,
 
     waves: Option<WaveData>,
 
@@ -508,6 +509,7 @@ impl State {
             show_signal_tooltip: None,
             show_overview: None,
             show_statusbar: None,
+            align_names_right: None,
         };
 
         Ok(result)
@@ -602,6 +604,9 @@ impl State {
                 }
             }
             Message::InvalidateCount => self.count = None,
+            Message::SetNameAlignRight(align_right) => {
+                self.align_names_right = Some(align_right);
+            }
             Message::FocusItem(idx) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
@@ -644,8 +649,10 @@ impl State {
                                 })
                         }
                         MoveDir::Down => {
+                            // 16. comes from DrawConfig.line_height
+                            // FIXME: This should be replaced with better code by someone that understands how this is supposed to work.
                             waves.focused_item = waves.focused_item.map_or(
-                                Some(waves.scroll + (count - 1).clamp(0, visible_signals_len - 1)),
+                                Some((count - 1).clamp(0, visible_signals_len - 1)),
                                 |focused| Some((focused + count).clamp(0, visible_signals_len - 1)),
                             );
                         }
@@ -653,8 +660,13 @@ impl State {
                 }
             }
             Message::SetVerticalScroll(position) => {
-                if let Some(waves) = &mut self.waves {
-                    waves.scroll = position.clamp(0, waves.displayed_items.len() - 1);
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.scroll_to_item(position);
+                }
+            }
+            Message::SetScrollOffset(offset) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.scroll_offset = offset;
                 }
             }
             Message::SetLogsVisible(visibility) => self.show_logs = visibility,
@@ -663,19 +675,16 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
+                let current_item = waves.get_top_item();
                 match direction {
                     MoveDir::Down => {
-                        if waves.scroll + count < waves.displayed_items.len() {
-                            waves.scroll += count;
-                        } else {
-                            waves.scroll = waves.displayed_items.len().saturating_sub(1);
-                        }
+                        waves.scroll_to_item(current_item + count);
                     }
                     MoveDir::Up => {
-                        if waves.scroll > count {
-                            waves.scroll -= count;
+                        if current_item > count {
+                            waves.scroll_to_item(current_item - count);
                         } else {
-                            waves.scroll = 0;
+                            waves.scroll_to_item(0);
                         }
                     }
                 }
@@ -900,7 +909,10 @@ impl State {
                         cursors: HashMap::new(),
                         focused_item: None,
                         default_signal_name_type: self.config.default_signal_name_type,
-                        scroll: 0,
+                        scroll_offset: 0.,
+                        item_offsets: vec![],
+                        top_item_draw_offset: 0.,
+                        total_height: 0.,
                     }
                 };
                 self.invalidate_draw_commands();
