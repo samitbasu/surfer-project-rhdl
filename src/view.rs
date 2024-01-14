@@ -365,7 +365,7 @@ impl State {
 
                 egui::SidePanel::left("signal values")
                     .default_width(100.)
-                    .width_range(20.0..=max_width)
+                    .width_range(10.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
@@ -589,10 +589,17 @@ impl State {
     ) -> Vec<ItemDrawingInfo> {
         let mut item_offsets = Vec::new();
 
+        let alignment = if self
+            .align_names_right
+            .unwrap_or_else(|| self.config.layout.align_names_right())
+        {
+            Align::RIGHT
+        } else {
+            Align::LEFT
+        };
         for (vidx, displayed_item) in waves.displayed_items.iter().enumerate() {
-            ui.with_layout(
-                Layout::top_down(Align::LEFT).with_cross_justify(true),
-                |ui| match displayed_item {
+            ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
+                match displayed_item {
                     DisplayedItem::Signal(displayed_signal) => {
                         let sig = displayed_signal;
                         let info = &displayed_signal.info;
@@ -622,8 +629,8 @@ impl State {
                     DisplayedItem::TimeLine(_) => {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
-                },
-            );
+                }
+            });
         }
 
         item_offsets

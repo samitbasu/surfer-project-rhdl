@@ -49,6 +49,8 @@ pub struct SurferLayout {
     pub window_height: usize,
     /// Initial window width
     pub window_width: usize,
+    /// Align signal names right
+    align_names_right: bool,
 }
 
 impl SurferLayout {
@@ -72,6 +74,9 @@ impl SurferLayout {
     }
     pub fn show_statusbar(&self) -> bool {
         self.show_statusbar
+    }
+    pub fn align_names_right(&self) -> bool {
+        self.align_names_right
     }
 }
 
