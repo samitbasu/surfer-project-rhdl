@@ -146,20 +146,12 @@ impl DisplayedItem {
     /// Widget displayed in signal list for the wave form, may include additional info compared to name()
     pub fn widget_text(&self, color: &Color32) -> WidgetText {
         match self {
-            DisplayedItem::Signal(signal) => WidgetText::RichText(
-                RichText::new(signal.manual_name.as_ref().unwrap_or(&signal.display_name))
-                    .color(*color),
-            ),
-            DisplayedItem::Divider(divider) => WidgetText::RichText(
-                RichText::new(
-                    divider
-                        .name
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_DIVIDER_NAME.to_string()),
-                )
-                .color(*color)
-                .italics(),
-            ),
+            DisplayedItem::Signal(_) => {
+                WidgetText::RichText(RichText::new(self.name()).color(*color))
+            }
+            DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
+                WidgetText::RichText(RichText::new(self.name()).color(*color).italics())
+            }
             DisplayedItem::Cursor(cursor) => {
                 let style = Style::default();
                 let mut layout_job = LayoutJob::default();
@@ -171,32 +163,17 @@ impl DisplayedItem {
                         FontSelection::Default,
                         Align::Center,
                     );
-                RichText::new(
-                    cursor
-                        .name
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_CURSOR_NAME.to_string()),
-                )
-                .color(*color)
-                .italics()
-                .append_to(
-                    &mut layout_job,
-                    &style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
+                RichText::new(self.name())
+                    .color(*color)
+                    .italics()
+                    .append_to(
+                        &mut layout_job,
+                        &style,
+                        FontSelection::Default,
+                        Align::Center,
+                    );
                 WidgetText::LayoutJob(layout_job)
             }
-            DisplayedItem::TimeLine(timeline) => WidgetText::RichText(
-                RichText::new(
-                    timeline
-                        .name
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_TIMELINE_NAME.to_string()),
-                )
-                .color(*color)
-                .italics(),
-            ),
             DisplayedItem::Placeholder(placeholder) => {
                 let s = placeholder
                     .manual_name
