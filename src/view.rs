@@ -346,23 +346,17 @@ impl State {
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
-                        ui.with_layout(
-                            Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| {
-                                let response = ScrollArea::both()
-                                    .vertical_scroll_offset(scroll_offset)
-                                    .show(ui, |ui| {
-                                        self.draw_item_list(&mut msgs, ui);
-                                    });
-                                self.waves.as_mut().unwrap().top_item_draw_offset =
-                                    response.inner_rect.min.y;
-                                self.waves.as_mut().unwrap().total_height =
-                                    response.inner_rect.height();
-                                if (scroll_offset - response.state.offset.y).abs() > 5. {
-                                    msgs.push(Message::SetScrollOffset(response.state.offset.y));
-                                }
-                            },
-                        )
+                        let response = ScrollArea::both()
+                            .vertical_scroll_offset(scroll_offset)
+                            .show(ui, |ui| {
+                                self.draw_item_list(&mut msgs, ui);
+                            });
+                        self.waves.as_mut().unwrap().top_item_draw_offset =
+                            response.inner_rect.min.y;
+                        self.waves.as_mut().unwrap().total_height = response.inner_rect.height();
+                        if (scroll_offset - response.state.offset.y).abs() > 5. {
+                            msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                        }
                     });
 
                 egui::SidePanel::left("signal values")
@@ -562,10 +556,10 @@ impl State {
         ui: &mut egui::Ui,
         filter: &str,
     ) {
-        for sig in filtered_signals(wave, filter, &self.signal_filter_type) {
-            ui.with_layout(
-                Layout::top_down(Align::LEFT).with_cross_justify(true),
-                |ui| {
+        ui.with_layout(
+            Layout::top_down(Align::LEFT).with_cross_justify(true),
+            |ui| {
+                for sig in filtered_signals(wave, filter, &self.signal_filter_type) {
                     let mut response = ui.add(egui::SelectableLabel::new(false, sig.name.clone()));
                     if self
                         .show_signal_tooltip
@@ -576,9 +570,9 @@ impl State {
                     response
                         .clicked()
                         .then(|| msgs.push(Message::AddSignal(sig.clone())));
-                },
-            );
-        }
+                }
+            },
+        );
     }
 
     fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
