@@ -34,7 +34,6 @@ pub struct WaveData {
     pub cursors: HashMap<u8, BigInt>,
     pub focused_item: Option<usize>,
     pub default_signal_name_type: SignalNameType,
-    pub scroll: usize,
 }
 
 impl WaveData {
@@ -125,7 +124,6 @@ impl WaveData {
             cursors: self.cursors.clone(),
             focused_item: self.focused_item,
             default_signal_name_type: self.default_signal_name_type,
-            scroll: self.scroll,
         };
         nested_format.retain(|nested, _| {
             let Some(signal_ref) = new_wave.displayed_items.iter().find_map(|di| match di {

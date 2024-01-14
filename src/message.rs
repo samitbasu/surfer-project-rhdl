@@ -37,6 +37,7 @@ pub enum Message {
     MoveFocusedItem(MoveDir, CommandCount),
     VerticalScroll(MoveDir, CommandCount),
     SetVerticalScroll(usize),
+    SetScrollOffset(f32),
     SignalFormatChange(FieldRef, String),
     ItemColorChange(Option<usize>, Option<String>),
     ItemBackgroundColorChange(Option<usize>, Option<String>),
