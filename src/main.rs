@@ -652,10 +652,7 @@ impl State {
                             // 16. comes from DrawConfig.line_height
                             // FIXME: This should be replaced with better code by someone that understands how this is supposed to work.
                             waves.focused_item = waves.focused_item.map_or(
-                                Some(
-                                    (waves.scroll_offset / 16.).round() as usize
-                                        + (count - 1).clamp(0, visible_signals_len - 1),
-                                ),
+                                Some((count - 1).clamp(0, visible_signals_len - 1)),
                                 |focused| Some((focused + count).clamp(0, visible_signals_len - 1)),
                             );
                         }
@@ -663,11 +660,8 @@ impl State {
                 }
             }
             Message::SetVerticalScroll(position) => {
-                // 18. comes from DrawConfig.line_height plus estimated gap
-                // Once this is specified in config, replace to that value
-                // Even better if this can be obtained from the actual offsets
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.scroll_offset = position as f32 * 18.;
+                    waves.scroll_to_item(position);
                 }
             }
             Message::SetScrollOffset(offset) => {
@@ -681,15 +675,17 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
+                let current_item = waves.get_top_item();
                 match direction {
-                    // 18. comes from DrawConfig.line_height plus estimated gap
-                    // Once this is specified in config, replace to that value
-                    // Even better if this can be obtained from the actual offsets
                     MoveDir::Down => {
-                        waves.scroll_offset += 18. * count as f32;
+                        waves.scroll_to_item(current_item + count);
                     }
                     MoveDir::Up => {
-                        waves.scroll_offset = (waves.scroll_offset - 18. * count as f32).max(0.);
+                        if current_item > count {
+                            waves.scroll_to_item(current_item - count);
+                        } else {
+                            waves.scroll_to_item(0);
+                        }
                     }
                 }
             }
@@ -914,6 +910,9 @@ impl State {
                         focused_item: None,
                         default_signal_name_type: self.config.default_signal_name_type,
                         scroll_offset: 0.,
+                        item_offsets: vec![],
+                        top_item_draw_offset: 0.,
+                        total_height: 0.,
                     }
                 };
                 self.invalidate_draw_commands();
