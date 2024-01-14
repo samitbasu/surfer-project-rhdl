@@ -44,6 +44,7 @@ pub enum Message {
     ItemNameChange(Option<usize>, Option<String>),
     ChangeSignalNameType(Option<usize>, SignalNameType),
     ForceSignalNameTypes(SignalNameType),
+    SetNameAlignRight(bool),
     SetClockHighlightType(ClockHighlightType),
     // Reset the translator for this signal back to default. Sub-signals,
     // i.e. those with the signal idx and a shared path are also reset
