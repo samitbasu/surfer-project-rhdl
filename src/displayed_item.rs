@@ -59,6 +59,31 @@ pub struct DisplayedCursor {
     pub idx: u8,
 }
 
+impl DisplayedCursor {
+    pub fn cursor_text(&self, color: &Color32) -> WidgetText {
+        let style = Style::default();
+        let mut layout_job = LayoutJob::default();
+        self.rich_text(color, &style, &mut layout_job);
+        WidgetText::LayoutJob(layout_job)
+    }
+    fn rich_text(&self, color: &Color32, style: &Style, layout_job: &mut LayoutJob) {
+        RichText::new(format!("{idx}: ", idx = self.idx))
+            .color(*color)
+            .append_to(layout_job, style, FontSelection::Default, Align::Center);
+        RichText::new(self.cursor_name())
+            .color(*color)
+            .italics()
+            .append_to(layout_job, style, FontSelection::Default, Align::Center);
+    }
+
+    fn cursor_name(&self) -> String {
+        self.name
+            .as_ref()
+            .unwrap_or(&DEFAULT_CURSOR_NAME.to_string())
+            .clone()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedTimeLine {
     pub color: Option<String>,
@@ -125,11 +150,7 @@ impl DisplayedItem {
                 .as_ref()
                 .unwrap_or(&DEFAULT_DIVIDER_NAME.to_string())
                 .clone(),
-            DisplayedItem::Cursor(cursor) => cursor
-                .name
-                .as_ref()
-                .unwrap_or(&DEFAULT_CURSOR_NAME.to_string())
-                .clone(),
+            DisplayedItem::Cursor(cursor) => cursor.cursor_name(),
             DisplayedItem::TimeLine(timeline) => timeline
                 .name
                 .as_ref()
@@ -145,68 +166,48 @@ impl DisplayedItem {
 
     /// Widget displayed in signal list for the wave form, may include additional info compared to name()
     pub fn widget_text(&self, color: &Color32) -> WidgetText {
+        let style = Style::default();
+        let mut layout_job = LayoutJob::default();
         match self {
-            DisplayedItem::Signal(signal) => WidgetText::RichText(
-                RichText::new(signal.manual_name.as_ref().unwrap_or(&signal.display_name))
-                    .color(*color),
-            ),
-            DisplayedItem::Divider(divider) => WidgetText::RichText(
-                RichText::new(
-                    divider
-                        .name
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_DIVIDER_NAME.to_string()),
-                )
-                .color(*color)
-                .italics(),
-            ),
-            DisplayedItem::Cursor(cursor) => {
-                let style = Style::default();
-                let mut layout_job = LayoutJob::default();
-                RichText::new(format!("{idx}: ", idx = cursor.idx))
+            DisplayedItem::Signal(_) => {
+                RichText::new(self.name()).color(*color).append_to(
+                    &mut layout_job,
+                    &style,
+                    FontSelection::Default,
+                    Align::Center,
+                );
+            }
+            DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
+                RichText::new(self.name())
                     .color(*color)
+                    .italics()
                     .append_to(
                         &mut layout_job,
                         &style,
                         FontSelection::Default,
                         Align::Center,
                     );
-                RichText::new(
-                    cursor
-                        .name
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_CURSOR_NAME.to_string()),
-                )
-                .color(*color)
-                .italics()
-                .append_to(
-                    &mut layout_job,
-                    &style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
-                WidgetText::LayoutJob(layout_job)
             }
-            DisplayedItem::TimeLine(timeline) => WidgetText::RichText(
-                RichText::new(
-                    timeline
-                        .name
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_TIMELINE_NAME.to_string()),
-                )
-                .color(*color)
-                .italics(),
-            ),
+            DisplayedItem::Cursor(cursor) => {
+                cursor.rich_text(color, &style, &mut layout_job);
+            }
             DisplayedItem::Placeholder(placeholder) => {
                 let s = placeholder
                     .manual_name
                     .as_ref()
                     .unwrap_or(&placeholder.display_name);
-                WidgetText::RichText(RichText::new("Not available: ".to_owned() + s))
+                RichText::new("Not available: ".to_owned() + s)
                     .color(*color)
                     .italics()
+                    .append_to(
+                        &mut layout_job,
+                        &style,
+                        FontSelection::Default,
+                        Align::Center,
+                    )
             }
         }
+        WidgetText::LayoutJob(layout_job)
     }
 
     pub fn set_name(&mut self, name: Option<String>) {

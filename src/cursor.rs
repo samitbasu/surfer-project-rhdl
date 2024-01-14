@@ -192,12 +192,12 @@ impl State {
                     Some((
                         cursor.idx,
                         waves.cursors.get(&cursor.idx).unwrap().clone(),
-                        displayed_item.widget_text(text_color),
+                        cursor.cursor_text(text_color),
                     ))
                 }
                 _ => None,
             })
-            .sorted_by(|a, b| Ord::cmp(&b.0, &a.0))
+            .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
             .collect_vec();
 
         cursors.append(&mut numbered_cursors);
