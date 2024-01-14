@@ -16,6 +16,7 @@ show_overview = true
 show_statusbar = true
 window_width = 1920
 window_height = 1080
+align_names_right = false
 
 [gesture]
 style = { color="e9da16", width=2 }

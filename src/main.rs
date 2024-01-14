@@ -439,6 +439,7 @@ pub struct State {
     show_signal_tooltip: Option<bool>,
     show_overview: Option<bool>,
     show_statusbar: Option<bool>,
+    align_names_right: Option<bool>,
 
     waves: Option<WaveData>,
 
@@ -517,6 +518,7 @@ impl State {
             show_signal_tooltip: None,
             show_overview: None,
             show_statusbar: None,
+            align_names_right: None,
         };
 
         Ok(result)
@@ -611,6 +613,9 @@ impl State {
                 }
             }
             Message::InvalidateCount => self.count = None,
+            Message::SetNameAlignRight(align_right) => {
+                self.align_names_right = Some(align_right);
+            }
             Message::FocusItem(idx) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
