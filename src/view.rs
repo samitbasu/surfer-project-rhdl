@@ -339,15 +339,25 @@ impl State {
 
         if let Some(waves) = &self.waves {
             if !waves.displayed_items.is_empty() {
-                let item_offsets = egui::SidePanel::left("signal list")
+                let mut item_offsets: Vec<ItemDrawingInfo> = vec![];
+                egui::SidePanel::left("signal list")
                     .default_width(200.)
-                    .width_range(100.0..=max_width)
+                    .width_range(20.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| self.draw_item_list(&mut msgs, waves, ui),
+                            |ui| {
+                                let response = ScrollArea::both()
+                                    .vertical_scroll_offset(waves.scroll_offset)
+                                    .show(ui, |ui| {
+                                        item_offsets = self.draw_item_list(&mut msgs, waves, ui);
+                                    });
+                                if (waves.scroll_offset - response.state.offset.y).abs() > 5. {
+                                    msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                                }
+                            },
                         )
                         .inner
                     })
@@ -355,16 +365,21 @@ impl State {
 
                 egui::SidePanel::left("signal values")
                     .default_width(100.)
-                    .width_range(30.0..=max_width)
+                    .width_range(10.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
-                                ScrollArea::horizontal().show(ui, |ui| {
-                                    self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
-                                })
+                                let response = ScrollArea::both()
+                                    .vertical_scroll_offset(waves.scroll_offset)
+                                    .show(ui, |ui| {
+                                        self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
+                                    });
+                                if (waves.scroll_offset - response.state.offset.y).abs() > 5. {
+                                    msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                                }
                             },
                         )
                     });
@@ -574,10 +589,17 @@ impl State {
     ) -> Vec<ItemDrawingInfo> {
         let mut item_offsets = Vec::new();
 
-        for (vidx, displayed_item) in waves.displayed_items.iter().enumerate().skip(waves.scroll) {
-            ui.with_layout(
-                Layout::top_down(Align::LEFT).with_cross_justify(true),
-                |ui| match displayed_item {
+        let alignment = if self
+            .align_names_right
+            .unwrap_or_else(|| self.config.layout.align_names_right())
+        {
+            Align::RIGHT
+        } else {
+            Align::LEFT
+        };
+        for (vidx, displayed_item) in waves.displayed_items.iter().enumerate() {
+            ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
+                match displayed_item {
                     DisplayedItem::Signal(displayed_signal) => {
                         let sig = displayed_signal;
                         let info = &displayed_signal.info;
@@ -607,8 +629,8 @@ impl State {
                     DisplayedItem::TimeLine(_) => {
                         self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
                     }
-                },
-            );
+                }
+            });
         }
 
         item_offsets
@@ -841,90 +863,80 @@ impl State {
 
         let gap = self.get_item_gap(item_offsets, &ctx);
         let yzero = to_screen.transform_pos(Pos2::ZERO).y;
-        if let Some(cursor) = &waves.cursor {
-            let ucursor = cursor.to_biguint();
-            ui.allocate_ui_at_rect(response.rect, |ui| {
-                let text_style = TextStyle::Monospace;
-                ui.style_mut().override_text_style = Some(text_style);
-                for (vidx, drawing_info) in item_offsets
-                    .iter()
-                    .sorted_by_key(|o| o.offset() as i32)
-                    .enumerate()
-                {
-                    let next_y = ui.cursor().top();
-                    // In order to align the text in this view with the variable tree,
-                    // we need to keep track of how far away from the expected offset we are,
-                    // and compensate for it
-                    if next_y < drawing_info.offset() {
-                        ui.add_space(drawing_info.offset() - next_y);
-                    }
+        let ucursor = waves.cursor.as_ref().and_then(|u| u.to_biguint());
+        ui.allocate_ui_at_rect(response.rect, |ui| {
+            let text_style = TextStyle::Monospace;
+            ui.style_mut().override_text_style = Some(text_style);
+            for (vidx, drawing_info) in item_offsets
+                .iter()
+                .sorted_by_key(|o| o.offset() as i32)
+                .enumerate()
+            {
+                let next_y = ui.cursor().top();
+                // In order to align the text in this view with the variable tree,
+                // we need to keep track of how far away from the expected offset we are,
+                // and compensate for it
+                if next_y < drawing_info.offset() {
+                    ui.add_space(drawing_info.offset() - next_y);
+                }
 
-                    let y_offset = drawing_info.offset() - yzero;
+                let y_offset = drawing_info.offset() - yzero;
 
-                    self.draw_background(
-                        vidx,
-                        waves,
-                        drawing_info,
-                        y_offset,
-                        &ctx,
-                        gap,
-                        frame_width,
-                    );
-                    match drawing_info {
-                        ItemDrawingInfo::Signal(drawing_info) => {
-                            if ucursor.as_ref().is_none() {
-                                continue;
-                            }
+                self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
+                match drawing_info {
+                    ItemDrawingInfo::Signal(drawing_info) => {
+                        if ucursor.as_ref().is_none() {
+                            continue;
+                        }
 
-                            let translator = waves
-                                .signal_translator(&drawing_info.field_ref, &self.sys.translators);
+                        let translator =
+                            waves.signal_translator(&drawing_info.field_ref, &self.sys.translators);
 
-                            let signal = &drawing_info.field_ref.root;
-                            let meta = waves.inner.signal_meta(signal);
-                            let translation_result = waves
-                                .inner
-                                .query_signal(signal, ucursor.as_ref().unwrap())
-                                .ok()
-                                .and_then(|q| q.current)
-                                .map(|(_time, value)| {
-                                    meta.and_then(|meta| translator.translate(&meta, &value))
+                        let signal = &drawing_info.field_ref.root;
+                        let meta = waves.inner.signal_meta(signal);
+                        let translation_result = waves
+                            .inner
+                            .query_signal(signal, ucursor.as_ref().unwrap())
+                            .ok()
+                            .and_then(|q| q.current)
+                            .map(|(_time, value)| {
+                                meta.and_then(|meta| translator.translate(&meta, &value))
+                            });
+
+                        if let Some(Ok(s)) = translation_result {
+                            let subfields = s
+                                .flatten(
+                                    FieldRef::without_fields(drawing_info.field_ref.root.clone()),
+                                    &waves.signal_format,
+                                    &self.sys.translators,
+                                )
+                                .as_fields();
+
+                            let subfield = subfields
+                                .iter()
+                                .find(|res| res.names == drawing_info.field_ref.field);
+
+                            if let Some(SubFieldFlatTranslationResult {
+                                names: _,
+                                value: Some(TranslatedValue { value: v, kind: _ }),
+                            }) = subfield
+                            {
+                                ui.label(v).context_menu(|ui| {
+                                    self.item_context_menu(
+                                        Some(&FieldRef::without_fields(signal.clone())),
+                                        msgs,
+                                        ui,
+                                        vidx,
+                                    );
                                 });
-
-                            if let Some(Ok(s)) = translation_result {
-                                let subfields = s
-                                    .flatten(
-                                        FieldRef::without_fields(
-                                            drawing_info.field_ref.root.clone(),
-                                        ),
-                                        &waves.signal_format,
-                                        &self.sys.translators,
-                                    )
-                                    .as_fields();
-
-                                let subfield = subfields
-                                    .iter()
-                                    .find(|res| res.names == drawing_info.field_ref.field);
-
-                                if let Some(SubFieldFlatTranslationResult {
-                                    names: _,
-                                    value: Some(TranslatedValue { value: v, kind: _ }),
-                                }) = subfield
-                                {
-                                    ui.label(v).context_menu(|ui| {
-                                        self.item_context_menu(
-                                            Some(&FieldRef::without_fields(signal.clone())),
-                                            msgs,
-                                            ui,
-                                            vidx,
-                                        );
-                                    });
-                                } else {
-                                    ui.label("-");
-                                }
+                            } else {
+                                ui.label("-");
                             }
                         }
-                        ItemDrawingInfo::Divider(_) => {}
-                        ItemDrawingInfo::Cursor(numbered_cursor) => {
+                    }
+                    ItemDrawingInfo::Divider(_) => {}
+                    ItemDrawingInfo::Cursor(numbered_cursor) => {
+                        if let Some(cursor) = &waves.cursor {
                             let delta = time_string(
                                 &(waves
                                     .cursors
@@ -940,16 +952,11 @@ impl State {
                                 self.item_context_menu(None, msgs, ui, vidx);
                             });
                         }
-                        ItemDrawingInfo::TimeLine(_) => {}
                     }
+                    ItemDrawingInfo::TimeLine(_) => {}
                 }
-            });
-        } else {
-            for (vidx, drawing_info) in item_offsets.iter().enumerate() {
-                let y_offset = drawing_info.offset() - yzero;
-                self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
             }
-        }
+        });
     }
 
     pub fn get_item_gap(&self, item_offsets: &[ItemDrawingInfo], ctx: &DrawingContext<'_>) -> f32 {
@@ -974,8 +981,7 @@ impl State {
         gap: f32,
         frame_width: f32,
     ) {
-        let default_background_color =
-            self.get_default_alternating_background_color(vidx + waves.scroll);
+        let default_background_color = self.get_default_alternating_background_color(vidx);
         let background_color = *waves
             .displayed_items
             .get(drawing_info.signal_list_idx())

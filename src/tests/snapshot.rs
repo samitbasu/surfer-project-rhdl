@@ -893,3 +893,9 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
     }
     state
 });
+
+snapshot_ui_with_file_and_msgs! {alignment_right_works, "examples/counter.vcd", [
+    Message::ToggleOverview,
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::SetNameAlignRight(true)
+]}
