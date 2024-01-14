@@ -320,12 +320,7 @@ impl State {
         self.sys.timing.borrow_mut().end("Generate draw commands");
     }
 
-    pub fn draw_signals(
-        &self,
-        msgs: &mut Vec<Message>,
-        item_offsets: &Vec<ItemDrawingInfo>,
-        ui: &mut egui::Ui,
-    ) {
+    pub fn draw_signals(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
         let cfg = DrawConfig::new(response.rect.size().y);
@@ -405,6 +400,7 @@ impl State {
             theme: &self.config.theme,
         };
 
+        let item_offsets = &waves.item_offsets;
         let gap = self.get_item_gap(item_offsets, &ctx);
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
             let default_background_color = self.get_default_alternating_background_color(idx);
