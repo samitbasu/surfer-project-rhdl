@@ -171,7 +171,7 @@ impl eframe::App for State {
 }
 
 impl State {
-    pub(crate) fn draw(&self, ctx: &egui::Context, window_size: Option<Vec2>) -> Vec<Message> {
+    pub(crate) fn draw(&mut self, ctx: &egui::Context, window_size: Option<Vec2>) -> Vec<Message> {
         let max_width = ctx.available_rect().width();
         let max_height = ctx.available_rect().height();
 
@@ -337,9 +337,9 @@ impl State {
             draw_progress_panel(ctx, vcd_progress_data);
         }
 
-        if let Some(waves) = &self.waves {
-            if !waves.displayed_items.is_empty() {
-                let mut item_offsets: Vec<ItemDrawingInfo> = vec![];
+        if self.waves.is_some() {
+            let scroll_offset = self.waves.as_ref().unwrap().scroll_offset;
+            if self.waves.as_ref().unwrap().any_displayed() {
                 egui::SidePanel::left("signal list")
                     .default_width(200.)
                     .width_range(20.0..=max_width)
@@ -350,11 +350,15 @@ impl State {
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
                                 let response = ScrollArea::both()
-                                    .vertical_scroll_offset(waves.scroll_offset)
+                                    .vertical_scroll_offset(scroll_offset)
                                     .show(ui, |ui| {
-                                        item_offsets = self.draw_item_list(&mut msgs, waves, ui);
+                                        self.draw_item_list(&mut msgs, ui);
                                     });
-                                if (waves.scroll_offset - response.state.offset.y).abs() > 5. {
+                                self.waves.as_mut().unwrap().top_item_draw_offset =
+                                    response.inner_rect.min.y;
+                                self.waves.as_mut().unwrap().total_height =
+                                    response.inner_rect.height();
+                                if (scroll_offset - response.state.offset.y).abs() > 5. {
                                     msgs.push(Message::SetScrollOffset(response.state.offset.y));
                                 }
                             },
@@ -371,11 +375,9 @@ impl State {
                             Layout::top_down(Align::LEFT).with_cross_justify(true),
                             |ui| {
                                 let response = ScrollArea::both()
-                                    .vertical_scroll_offset(waves.scroll_offset)
-                                    .show(ui, |ui| {
-                                        self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
-                                    });
-                                if (waves.scroll_offset - response.state.offset.y).abs() > 5. {
+                                    .vertical_scroll_offset(scroll_offset)
+                                    .show(ui, |ui| self.draw_var_values(ui, &mut msgs));
+                                if (scroll_offset - response.state.offset.y).abs() > 5. {
                                     msgs.push(Message::SetScrollOffset(response.state.offset.y));
                                 }
                             },
@@ -389,7 +391,7 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_signals(&mut msgs, &item_offsets, ui);
+                        self.draw_signals(&mut msgs, ui);
                     });
             }
         };
@@ -579,16 +581,18 @@ impl State {
         }
     }
 
-    fn draw_item_list(
-        &self,
-        msgs: &mut Vec<Message>,
-        waves: &WaveData,
-        ui: &mut egui::Ui,
-    ) -> Vec<ItemDrawingInfo> {
+    fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
         let mut item_offsets = Vec::new();
 
         let alignment = self.get_name_alignment();
-        for (vidx, displayed_item) in waves.displayed_items.iter().enumerate() {
+        for (vidx, displayed_item) in self
+            .waves
+            .as_ref()
+            .unwrap()
+            .displayed_items
+            .iter()
+            .enumerate()
+        {
             ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
                 match displayed_item {
                     DisplayedItem::Signal(displayed_signal) => {
@@ -624,7 +628,7 @@ impl State {
             });
         }
 
-        item_offsets
+        self.waves.as_mut().unwrap().item_offsets = item_offsets;
     }
 
     fn get_name_alignment(&self) -> Align {
@@ -841,13 +845,8 @@ impl State {
         );
     }
 
-    fn draw_var_values(
-        &self,
-        item_offsets: &[ItemDrawingInfo],
-        waves: &WaveData,
-        ui: &mut egui::Ui,
-        msgs: &mut Vec<Message>,
-    ) {
+    fn draw_var_values(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+        let Some(waves) = &self.waves else { return };
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = RectTransform::from_to(container_rect, response.rect);
@@ -863,13 +862,14 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = self.get_item_gap(item_offsets, &ctx);
+        let gap = self.get_item_gap(&waves.item_offsets, &ctx);
         let yzero = to_screen.transform_pos(Pos2::ZERO).y;
         let ucursor = waves.cursor.as_ref().and_then(|u| u.to_biguint());
         ui.allocate_ui_at_rect(response.rect, |ui| {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
-            for (vidx, drawing_info) in item_offsets
+            for (vidx, drawing_info) in waves
+                .item_offsets
                 .iter()
                 .sorted_by_key(|o| o.offset() as i32)
                 .enumerate()
@@ -961,7 +961,11 @@ impl State {
         });
     }
 
-    pub fn get_item_gap(&self, item_offsets: &[ItemDrawingInfo], ctx: &DrawingContext<'_>) -> f32 {
+    pub fn get_item_gap(
+        &self,
+        item_offsets: &Vec<ItemDrawingInfo>,
+        ctx: &DrawingContext<'_>,
+    ) -> f32 {
         if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
             // Assume that first signal has standard height (for now)
             (item_offsets.get(1).unwrap().offset()
