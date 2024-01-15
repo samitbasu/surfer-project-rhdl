@@ -368,6 +368,18 @@ impl State {
             }
         }
 
+        ui.input(|i| {
+            // If we have a single touch, we'll interpret that as a pan
+            if i.any_touches() && i.multi_touch().is_none() {
+                msgs.push(Message::CanvasScroll {
+                    delta: Vec2 {
+                        x: i.pointer.delta().y,
+                        y: i.pointer.delta().x,
+                    },
+                })
+            }
+        });
+
         response.dragged_by(egui::PointerButton::Primary).then(|| {
             let x = pointer_pos_canvas.unwrap().x;
             let timestamp = waves.viewport.to_time_bigint(x as f64, frame_width);
