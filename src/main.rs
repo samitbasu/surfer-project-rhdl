@@ -439,6 +439,7 @@ pub struct State {
     show_signal_tooltip: Option<bool>,
     show_overview: Option<bool>,
     show_statusbar: Option<bool>,
+    show_signal_indices: Option<bool>,
 
     waves: Option<WaveData>,
 
@@ -517,6 +518,7 @@ impl State {
             show_signal_tooltip: None,
             show_overview: None,
             show_statusbar: None,
+            show_signal_indices: None,
         };
 
         Ok(result)
@@ -979,6 +981,13 @@ impl State {
                     None => !self.config.layout.show_overview(),
                 };
                 self.show_overview = Some(new)
+            }
+            Message::ToggleIndices => {
+                let new = match self.show_signal_indices {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_signal_indices(),
+                };
+                self.show_signal_indices = Some(new)
             }
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {

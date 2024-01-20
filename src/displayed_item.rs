@@ -165,17 +165,19 @@ impl DisplayedItem {
     }
 
     /// Widget displayed in signal list for the wave form, may include additional info compared to name()
-    pub fn widget_text(&self, color: &Color32) -> WidgetText {
+    pub fn widget_text(&self, color: &Color32, index: Option<String>) -> WidgetText {
         let style = Style::default();
         let mut layout_job = LayoutJob::default();
         match self {
             DisplayedItem::Signal(_) => {
-                RichText::new(self.name()).color(*color).append_to(
-                    &mut layout_job,
-                    &style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
+                RichText::new(format!("{}{}", self.name(), index.unwrap_or(String::new())))
+                    .color(*color)
+                    .append_to(
+                        &mut layout_job,
+                        &style,
+                        FontSelection::Default,
+                        Align::Center,
+                    );
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
                 RichText::new(self.name())

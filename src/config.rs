@@ -45,6 +45,8 @@ pub struct SurferLayout {
     show_overview: bool,
     /// Flag to show/hide the statusbar
     show_statusbar: bool,
+    /// Flag to show/hide the indices of signals in the signal list
+    show_signal_indices: bool,
     /// Initial window height
     pub window_height: usize,
     /// Initial window width
@@ -72,6 +74,9 @@ impl SurferLayout {
     }
     pub fn show_statusbar(&self) -> bool {
         self.show_statusbar
+    }
+    pub fn show_signal_indices(&self) -> bool {
+        self.show_signal_indices
     }
 }
 
