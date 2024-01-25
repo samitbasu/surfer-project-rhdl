@@ -61,15 +61,18 @@ impl State {
             response.rect.size().x,
             cfg.text_size,
         );
-        ticks.pop();
-        ticks.remove(0);
-        self.draw_ticks(
-            None,
-            &ticks,
-            &ctx,
-            response.rect.height() * 0.5,
-            Align2::CENTER_CENTER,
-        );
+
+        if ticks.len() >= 2 {
+            ticks.pop();
+            ticks.remove(0);
+            self.draw_ticks(
+                None,
+                &ticks,
+                &ctx,
+                response.rect.height() * 0.5,
+                Align2::CENTER_CENTER,
+            );
+        }
 
         waves.draw_cursors(
             &self.config.theme,
