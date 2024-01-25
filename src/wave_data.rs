@@ -159,6 +159,20 @@ impl WaveData {
                 .unwrap_or(false)
         });
         new_wave.signal_format.extend(nested_format);
+
+        // load signals that need to be displayed
+        let signals = new_wave
+            .displayed_items
+            .iter()
+            .filter_map(|item| match item {
+                DisplayedItem::Signal(r) => Some(&r.signal_ref),
+                _ => None,
+            });
+        new_wave
+            .inner
+            .load_signals(signals)
+            .expect("internal error: failed to load signals");
+
         new_wave
     }
 
@@ -242,7 +256,7 @@ impl WaveData {
     pub fn add_signal(&mut self, translators: &TranslatorList, sig: &SignalRef) {
         let Ok(meta) = self
             .inner
-            .signal_meta(sig)
+            .load_signal(sig)
             .context("When adding signal")
             .map_err(|e| error!("{e:#?}"))
         else {

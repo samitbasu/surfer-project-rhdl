@@ -1,30 +1,20 @@
 use chrono::prelude::{DateTime, Utc};
-use color_eyre::{
-    eyre::{bail, Context},
-    Result,
-};
+use color_eyre::{eyre::bail, Result};
 use num::BigUint;
 use serde::{Deserialize, Serialize};
+use wellen::Waveform;
 
+use crate::wellen::var_to_meta;
 use crate::{
-    fast_wave_container::FastWaveContainer,
     signal_type::SignalType,
     time::{TimeScale, TimeUnit},
+    wellen::WellenContainer,
 };
 
 #[derive(Debug, PartialEq)]
 pub enum SignalValue {
     BigUint(BigUint),
     String(String),
-}
-
-impl From<fastwave_backend::SignalValue> for SignalValue {
-    fn from(val: fastwave_backend::SignalValue) -> Self {
-        match val {
-            fastwave_backend::SignalValue::BigUint(v) => SignalValue::BigUint(v),
-            fastwave_backend::SignalValue::String(s) => SignalValue::String(s),
-        }
-    }
 }
 
 pub struct MetaData {
@@ -69,6 +59,12 @@ pub struct SignalRef {
     pub path: ModuleRef,
     /// Name of the signal in its hierarchy
     pub name: String,
+}
+
+impl AsRef<SignalRef> for SignalRef {
+    fn as_ref(&self) -> &SignalRef {
+        self
+    }
 }
 
 impl SignalRef {
@@ -147,6 +143,7 @@ impl FieldRef {
     }
 }
 
+#[derive(Debug)]
 pub struct QueryResult {
     pub current: Option<(BigUint, SignalValue)>,
     pub next: Option<BigUint>,
@@ -154,15 +151,15 @@ pub struct QueryResult {
 
 #[derive(Debug)]
 pub enum WaveContainer {
-    Fwb(FastWaveContainer),
+    Wellen(WellenContainer),
     /// A wave container that contains nothing. Currently, the only practical use for this is
     /// a placehodler when serializing and deserializing wave state.
     Empty,
 }
 
 impl WaveContainer {
-    pub fn new_vcd(vcd: fastwave_backend::VCD) -> Self {
-        WaveContainer::Fwb(FastWaveContainer::new(vcd))
+    pub fn new_waveform(waveform: Waveform) -> Self {
+        WaveContainer::Wellen(WellenContainer::new(waveform))
     }
 
     /// Creates a new empty wave container. Should only be used as a default for serde. If
@@ -172,31 +169,44 @@ impl WaveContainer {
         WaveContainer::Empty
     }
 
-    pub fn signals(&self) -> &[SignalRef] {
+    pub fn signals(&self) -> Vec<SignalRef> {
         match self {
-            WaveContainer::Fwb(f) => f.signals(),
-            WaveContainer::Empty => &[],
+            WaveContainer::Wellen(f) => f.signals(),
+            WaveContainer::Empty => vec![],
         }
     }
 
     pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
         match self {
-            WaveContainer::Fwb(f) => f.signals_in_module(module),
+            WaveContainer::Wellen(f) => f.signals_in_module(module),
             WaveContainer::Empty => vec![],
+        }
+    }
+
+    /// Loads a signal into memory. Needs to be called before using `query_signal` on the signal.
+    pub fn load_signal<'a>(&mut self, r: &'a SignalRef) -> Result<SignalMeta<'a>> {
+        match self {
+            WaveContainer::Wellen(f) => f.load_signal(r).map(|v| var_to_meta(v, r)),
+            WaveContainer::Empty => bail!("Cannot load signal from empty container."),
+        }
+    }
+
+    /// Loads multiple signals at once. This is useful when we want to add multiple signals in one go.
+    pub fn load_signals<S: AsRef<SignalRef>, T: Iterator<Item = S>>(
+        &mut self,
+        signals: T,
+    ) -> Result<()> {
+        match self {
+            WaveContainer::Wellen(f) => f.load_signals(signals),
+            WaveContainer::Empty => bail!("Cannot load signal from empty container."),
         }
     }
 
     pub fn signal_meta<'a>(&'a self, r: &'a SignalRef) -> Result<SignalMeta> {
         match self {
-            WaveContainer::Fwb(f) => {
-                f.fwb_signal(r)
-                    .context("When getting signal metadata")
-                    .map(|signal| SignalMeta {
-                        sig: r,
-                        num_bits: signal.num_bits(),
-                        signal_type: signal.signal_type().cloned().map(SignalType::from),
-                        index: signal.index(),
-                    })
+            WaveContainer::Wellen(f) => {
+                let var = f.get_var(r)?;
+                Ok(var_to_meta(var, r))
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
         }
@@ -204,42 +214,36 @@ impl WaveContainer {
 
     pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
         match self {
-            WaveContainer::Fwb(f) => f.query_signal(signal, time),
+            WaveContainer::Wellen(f) => f.query_signal(signal, time),
             WaveContainer::Empty => bail!("Querying signal from empty wave container"),
         }
     }
 
     pub fn signal_exists(&self, signal: &SignalRef) -> bool {
         match self {
-            WaveContainer::Fwb(f) => f.signal_exists(signal),
+            WaveContainer::Wellen(f) => f.signal_exists(signal),
             WaveContainer::Empty => false,
         }
     }
 
     pub fn modules(&self) -> Vec<ModuleRef> {
         match self {
-            WaveContainer::Fwb(f) => f.modules(),
+            WaveContainer::Wellen(f) => f.modules(),
             WaveContainer::Empty => vec![],
         }
     }
 
+    // FIXME: this seems to alias the module_exists function. Remove?
     pub fn has_module(&self, module: &ModuleRef) -> bool {
         match self {
-            WaveContainer::Fwb(f) => f.module_map.contains_key(module),
+            WaveContainer::Wellen(f) => f.module_exists(module),
             WaveContainer::Empty => false,
         }
     }
 
     pub fn metadata(&self) -> MetaData {
         match self {
-            WaveContainer::Fwb(f) => MetaData {
-                date: f.inner.metadata.date,
-                version: f.inner.metadata.version.as_ref().map(|m| m.0.clone()),
-                timescale: TimeScale {
-                    unit: TimeUnit::from(f.inner.metadata.timescale.1),
-                    multiplier: f.inner.metadata.timescale.0,
-                },
-            },
+            WaveContainer::Wellen(f) => f.metadata(),
             WaveContainer::Empty => MetaData {
                 date: None,
                 version: None,
@@ -253,28 +257,28 @@ impl WaveContainer {
 
     pub fn root_modules(&self) -> Vec<ModuleRef> {
         match self {
-            WaveContainer::Fwb(f) => f.root_modules(),
+            WaveContainer::Wellen(f) => f.root_modules(),
             WaveContainer::Empty => vec![],
         }
     }
 
     pub fn child_modules(&self, module: &ModuleRef) -> Result<Vec<ModuleRef>> {
         match self {
-            WaveContainer::Fwb(f) => f.child_modules(module),
+            WaveContainer::Wellen(f) => f.child_modules(module),
             WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
         }
     }
 
     pub fn max_timestamp(&self) -> Option<BigUint> {
         match self {
-            WaveContainer::Fwb(f) => f.inner.max_timestamp().clone(),
+            WaveContainer::Wellen(f) => f.max_timestamp(),
             WaveContainer::Empty => None,
         }
     }
 
     pub fn module_exists(&self, module: &ModuleRef) -> bool {
         match self {
-            WaveContainer::Fwb(f) => f.module_exists(module),
+            WaveContainer::Wellen(f) => f.module_exists(module),
             WaveContainer::Empty => false,
         }
     }

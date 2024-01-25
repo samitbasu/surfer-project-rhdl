@@ -4,7 +4,6 @@ mod command_prompt;
 mod config;
 mod cursor;
 mod displayed_item;
-mod fast_wave_container;
 mod help;
 mod keys;
 mod logs;
@@ -29,9 +28,9 @@ mod wasm_util;
 mod wave_container;
 mod wave_data;
 mod wave_source;
+mod wellen;
 
 use benchmark::Timing;
-use bytes::Buf;
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
@@ -1015,9 +1014,9 @@ impl State {
             }
             Message::FileDownloaded(url, bytes, load_options) => {
                 let size = bytes.len() as u64;
-                self.load_vcd(
+                self.load_vcd_from_bytes(
                     WaveSource::Url(url),
-                    bytes.reader(),
+                    bytes.to_vec(),
                     Some(size),
                     load_options,
                 )

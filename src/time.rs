@@ -46,16 +46,16 @@ impl fmt::Display for TimeUnit {
     }
 }
 
-impl From<fastwave_backend::Timescale> for TimeUnit {
-    fn from(timescale: fastwave_backend::Timescale) -> Self {
+impl From<wellen::TimescaleUnit> for TimeUnit {
+    fn from(timescale: wellen::TimescaleUnit) -> Self {
         match timescale {
-            fastwave_backend::Timescale::Fs => TimeUnit::FemtoSeconds,
-            fastwave_backend::Timescale::Ps => TimeUnit::PicoSeconds,
-            fastwave_backend::Timescale::Ns => TimeUnit::NanoSeconds,
-            fastwave_backend::Timescale::Us => TimeUnit::MicroSeconds,
-            fastwave_backend::Timescale::Ms => TimeUnit::MilliSeconds,
-            fastwave_backend::Timescale::S => TimeUnit::Seconds,
-            fastwave_backend::Timescale::Unit => TimeUnit::None,
+            wellen::TimescaleUnit::FemtoSeconds => TimeUnit::FemtoSeconds,
+            wellen::TimescaleUnit::PicoSeconds => TimeUnit::PicoSeconds,
+            wellen::TimescaleUnit::NanoSeconds => TimeUnit::NanoSeconds,
+            wellen::TimescaleUnit::MicroSeconds => TimeUnit::MicroSeconds,
+            wellen::TimescaleUnit::MilliSeconds => TimeUnit::MilliSeconds,
+            wellen::TimescaleUnit::Seconds => TimeUnit::Seconds,
+            wellen::TimescaleUnit::Unknown => TimeUnit::None,
         }
     }
 }

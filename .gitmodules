@@ -10,3 +10,6 @@
 [submodule "material-icons"]
 	path = material-icons
 	url = https://github.com/fschutt/material-icons
+[submodule "waveform"]
+	path = wellen
+	url = https://github.com/ekiwi/waveform-rust.git
