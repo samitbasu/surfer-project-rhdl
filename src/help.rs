@@ -183,6 +183,7 @@ fn key_listing(ui: &mut Ui) {
         ("", "0-9", "Center view at numbered cursor"),
         ("⏮", "s", "Go to start"),
         ("⏭", "e", "Go to end"),
+        ("\u{e5d5}", "r", "Reload waveform"),
         ("\u{e01f}", "Page up", "Go one page/screen right"),
         ("\u{e020}", "Page down", "Go one page/screen left"),
         ("⏵", "➡", "Go right"),

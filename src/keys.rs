@@ -74,6 +74,9 @@ impl State {
                     (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
                     (Key::S, true, false, false) => msgs.push(Message::GoToStart),
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd),
+                    (Key::R, true, false, false) => msgs.push(Message::ReloadWaveform(
+                        self.config.behavior.keep_during_reload,
+                    )),
                     (Key::Minus, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 2.0,
