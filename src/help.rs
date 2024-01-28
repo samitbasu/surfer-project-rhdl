@@ -188,7 +188,7 @@ fn key_listing(ui: &mut Ui) {
         ("\u{e020}", "Page down", "Go one page/screen left"),
         ("⏵", "➡", "Go right"),
         ("⏴", "⬅", "Go left"),
-        ("🗙", "Delete", "Delete focused item"),
+        ("🗙", "x/Delete", "Delete focused item"),
         #[cfg(not(target_arch = "wasm32"))]
         ("⛶", "F11", "Toggle full screen"),
     ];
