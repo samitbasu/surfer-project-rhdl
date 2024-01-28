@@ -338,11 +338,12 @@ impl BasicTranslator for RiscvTranslator {
                 Some(v) => return v,
                 None => s.parse().ok(),
             },
-        };
+        }
+        .unwrap_or(0);
 
-        match asm_riscv::I::try_from(u32_value.unwrap_or(0)) {
+        match asm_riscv::I::try_from(u32_value) {
             Ok(insn) => (riscv_to_string(&insn).to_string(), ValueKind::Normal),
-            Err(_) => ("UNKNOWN INSN".to_string(), ValueKind::Warn),
+            Err(_) => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
         }
     }
 
@@ -770,9 +771,15 @@ mod test {
     fn riscv_from_bigunit() {
         assert_eq!(
             RiscvTranslator {}
+                .basic_translate(32, &SignalValue::BigUint(0u32.into()))
+                .0,
+            "UNKNOWN INSN (0x0)"
+        );
+        assert_eq!(
+            RiscvTranslator {}
                 .basic_translate(32, &SignalValue::BigUint(0b1000000010000000u32.into()))
                 .0,
-            "UNKNOWN INSN"
+            "UNKNOWN INSN (0x8080)"
         );
         assert_eq!(
             RiscvTranslator {}
@@ -788,12 +795,18 @@ mod test {
     fn riscv_from_string() {
         assert_eq!(
             RiscvTranslator {}
+                .basic_translate(32, &SignalValue::String("0".to_owned()))
+                .0,
+            "UNKNOWN INSN (0x0)"
+        );
+        assert_eq!(
+            RiscvTranslator {}
                 .basic_translate(
                     32,
                     &SignalValue::String("01001000100010001000100010001000".to_owned())
                 )
                 .0,
-            "UNKNOWN INSN"
+            "UNKNOWN INSN (0x0)" // Should be 0x48888888 -- see issue #114
         );
         assert_eq!(
             RiscvTranslator {}
