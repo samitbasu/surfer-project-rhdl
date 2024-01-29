@@ -882,6 +882,7 @@ impl State {
                 match drawing_info {
                     ItemDrawingInfo::Signal(drawing_info) => {
                         if ucursor.as_ref().is_none() {
+                            ui.label("");
                             continue;
                         }
 
@@ -930,7 +931,9 @@ impl State {
                             }
                         }
                     }
-                    ItemDrawingInfo::Divider(_) => {}
+                    ItemDrawingInfo::Divider(_) => {
+                        ui.label("");
+                    }
                     ItemDrawingInfo::Cursor(numbered_cursor) => {
                         if let Some(cursor) = &waves.cursor {
                             let delta = time_string(
@@ -947,9 +950,13 @@ impl State {
                             ui.label(format!("Δ: {delta}",)).context_menu(|ui| {
                                 self.item_context_menu(None, msgs, ui, vidx);
                             });
+                        } else {
+                            ui.label("");
                         }
                     }
-                    ItemDrawingInfo::TimeLine(_) => {}
+                    ItemDrawingInfo::TimeLine(_) => {
+                        ui.label("");
+                    }
                 }
             }
         });
