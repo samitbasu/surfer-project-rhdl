@@ -160,6 +160,19 @@ impl State {
                     }
                 });
             }
+            ui.menu_button("Signal name alignment", |ui| {
+                let align_right = self
+                    .align_names_right
+                    .unwrap_or_else(|| self.config.layout.align_names_right());
+                ui.radio(!align_right, "Left").clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SetNameAlignRight(false));
+                });
+                ui.radio(align_right, "Right").clicked().then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SetNameAlignRight(true));
+                });
+            });
             ui.menu_button("Signal filter type", |ui| {
                 signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
             });
