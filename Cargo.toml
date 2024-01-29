@@ -15,10 +15,10 @@ color-eyre = "0.6.2"
 config = "0.13.4"
 derivative = "2.2.0"
 directories = "5.0"
-eframe = "0.24.1"
-egui_extras = "0.24.2"
-egui_plot = "0.24.2"
-enum-iterator = "1.4.1"
+eframe = "0.25.0"
+egui_extras = "0.25.0"
+egui_plot = "0.25.0"
+enum-iterator = "1.5.0"
 f128 = { path = "f128", optional = true }
 fern = { version = "0.6.2", features = ["colored"] }
 futures-core = "0.3.29"
@@ -51,7 +51,7 @@ tokio = { version = "1.35.1", features = ["rt", "time"] }
 toml = "0.8.8"
 vcd-translate = { path = "spade/vcd-translate" }
 web-sys = { version = "0.3.66", features = ["Location", "UrlSearchParams"] }
-wellen = {path = "wellen"}
+wellen = { path = "wellen" }
 
 [features]
 default = ["spade"]
@@ -86,4 +86,4 @@ opt-level = 3
 debug = false
 
 [build-dependencies]
-vergen = { version = "8.2.6", features = ["build", "git", "gitcl"] }
+vergen = { version = "8.3.1", features = ["build", "git", "gitcl"] }
