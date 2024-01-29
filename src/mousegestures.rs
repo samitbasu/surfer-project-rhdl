@@ -442,5 +442,6 @@ fn draw_gesture_text(
         Stroke::default(),
     );
 
-    ctx.painter.galley(pos, galley);
+    ctx.painter
+        .galley(pos, galley, theme.primary_ui_color.foreground);
 }
