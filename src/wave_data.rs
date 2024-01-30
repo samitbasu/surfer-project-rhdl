@@ -284,7 +284,7 @@ impl WaveData {
                     } else if idx < focused {
                         self.focused_item = Some(focused - 1)
                     }
-                    if self.displayed_items.is_empty() {
+                    if !self.any_displayed() {
                         self.focused_item = None;
                     }
                 }
@@ -339,7 +339,7 @@ impl WaveData {
     }
 
     pub fn go_to_end(&mut self) {
-        let end_point = self.num_timestamps.clone().to_f64().unwrap();
+        let end_point = self.num_timestamps.to_f64().unwrap();
         let width = self.viewport.curr_right - self.viewport.curr_left;
 
         self.viewport.curr_left = end_point - width;
@@ -348,7 +348,7 @@ impl WaveData {
 
     pub fn zoom_to_fit(&mut self) {
         self.viewport.curr_left = 0.0;
-        self.viewport.curr_right = self.num_timestamps.clone().to_f64().unwrap();
+        self.viewport.curr_right = self.num_timestamps.to_f64().unwrap();
     }
 
     pub fn go_to_time(&mut self, center: &BigInt) {
@@ -400,6 +400,7 @@ impl WaveData {
         })
     }
 
+    #[inline]
     pub fn any_displayed(&self) -> bool {
         !self.displayed_items.is_empty()
     }
