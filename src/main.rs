@@ -638,8 +638,11 @@ impl State {
             Message::RenameItem(vidx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     self.rename_target = Some(vidx);
-                    *self.sys.item_renaming_string.borrow_mut() =
-                        waves.displayed_items.get(vidx).unwrap().name();
+                    *self.sys.item_renaming_string.borrow_mut() = waves
+                        .displayed_items
+                        .get(vidx)
+                        .map(|item| item.name())
+                        .unwrap_or_default();
                 }
             }
             Message::MoveFocus(direction, count) => {
@@ -658,8 +661,6 @@ impl State {
                                 })
                         }
                         MoveDir::Down => {
-                            // 16. comes from DrawConfig.line_height
-                            // FIXME: This should be replaced with better code by someone that understands how this is supposed to work.
                             waves.focused_item = waves.focused_item.map_or(
                                 Some((count - 1).clamp(0, visible_signals_len - 1)),
                                 |focused| Some((focused + count).clamp(0, visible_signals_len - 1)),
@@ -668,7 +669,7 @@ impl State {
                     }
                 }
             }
-            Message::SetVerticalScroll(position) => {
+            Message::ScrollToItem(position) => {
                 if let Some(waves) = self.waves.as_mut() {
                     waves.scroll_to_item(position);
                 }
