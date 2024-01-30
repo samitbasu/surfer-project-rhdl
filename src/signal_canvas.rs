@@ -258,7 +258,7 @@ impl State {
                     if time < 0. || time > max_time {
                         None
                     } else {
-                        Some((x as f32, time.to_biguint().unwrap()))
+                        Some((x as f32, time.to_biguint().unwrap_or_default()))
                     }
                 })
                 .collect::<Vec<_>>();
