@@ -589,7 +589,7 @@ snapshot_ui_with_file_and_msgs! {timeline_render, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
-    Message::GoToTime(BigInt::from(-50)),
+    Message::GoToTime(Some(BigInt::from(-50))),
     Message::CursorSet(BigInt::from(-100)),
 ]}
 
