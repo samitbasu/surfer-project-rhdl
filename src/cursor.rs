@@ -26,17 +26,14 @@ impl WaveData {
         viewport: &Viewport,
     ) {
         if let Some(cursor) = &self.cursor {
-            let x = viewport.from_time(cursor, size.x as f64);
+            let x = viewport.from_time(cursor, size.x);
 
             let stroke = Stroke {
                 color: theme.cursor.color,
                 width: theme.cursor.width,
             };
             ctx.painter.line_segment(
-                [
-                    (ctx.to_screen)(x as f32, -0.5),
-                    (ctx.to_screen)(x as f32, size.y),
-                ],
+                [(ctx.to_screen)(x, -0.5), (ctx.to_screen)(x, size.y)],
                 stroke,
             )
         }
@@ -70,12 +67,9 @@ impl WaveData {
                 color: *color,
                 width: theme.cursor.width,
             };
-            let x = viewport.from_time(cursor, size.x as f64);
+            let x = viewport.from_time(cursor, size.x);
             ctx.painter.line_segment(
-                [
-                    (ctx.to_screen)(x as f32, -0.5),
-                    (ctx.to_screen)(x as f32, size.y),
-                ],
+                [(ctx.to_screen)(x, -0.5), (ctx.to_screen)(x, size.y)],
                 stroke,
             )
         }
@@ -130,10 +124,7 @@ impl WaveData {
                 .and_then(|color| theme.colors.get(color))
                 .unwrap_or(&theme.cursor.color);
 
-            let x = viewport.from_time(
-                self.cursors.get(&displayed_item.idx).unwrap(),
-                size.x as f64,
-            ) as f32;
+            let x = self.numbered_cursor_location(displayed_item.idx, viewport, size.x);
 
             let idx_string = displayed_item.idx.to_string();
             // Determine size of text
@@ -170,13 +161,9 @@ impl State {
     pub fn draw_cursor_window(&self, waves: &WaveData, ctx: &Context, msgs: &mut Vec<Message>) {
         let mut open = true;
 
-        let mut cursors: Vec<(u8, BigInt, WidgetText)> = vec![];
+        let mut cursors: Vec<(u8, &BigInt, WidgetText)> = vec![];
         if let Some(cursor) = &waves.cursor {
-            cursors.push((
-                255,
-                cursor.clone(),
-                WidgetText::RichText(RichText::new("Primary")),
-            ))
+            cursors.push((255, cursor, WidgetText::RichText(RichText::new("Primary"))))
         }
 
         let mut numbered_cursors = waves
@@ -191,7 +178,7 @@ impl State {
 
                     Some((
                         cursor.idx,
-                        waves.cursors.get(&cursor.idx).unwrap().clone(),
+                        waves.numbered_cursor_time(cursor.idx),
                         cursor.cursor_text(text_color),
                     ))
                 }
@@ -224,9 +211,7 @@ impl State {
                                     ui.selectable_label(false, widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToTime(
-                                                waves.cursor.clone().unwrap(),
-                                            ))
+                                            msgs.push(Message::GoToTime(waves.cursor.clone()))
                                         });
                                 }
                             }
@@ -242,14 +227,12 @@ impl State {
                                     ui.selectable_label(false, row_widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToTime(
-                                                waves.cursor.clone().unwrap(),
-                                            ))
+                                            msgs.push(Message::GoToTime(waves.cursor.clone()))
                                         });
                                 }
                                 for (_, col_cursor_time, _) in &cursors {
                                     ui.label(time_string(
-                                        &(row_cursor_time.clone() - col_cursor_time),
+                                        &(*row_cursor_time - *col_cursor_time),
                                         &waves.inner.metadata().timescale,
                                         &self.wanted_timeunit,
                                         &self.get_time_format(),
@@ -274,7 +257,7 @@ impl State {
         waves: &WaveData,
         ctx: &mut DrawingContext,
         item_offsets: &[ItemDrawingInfo],
-        size: Vec2,
+        view_width: f32,
         gap: f32,
     ) {
         let text_size = ctx.cfg.text_size;
@@ -297,10 +280,7 @@ impl State {
                 .and_then(|color| self.config.theme.colors.get(&color))
                 .unwrap_or(&self.config.theme.cursor.color);
 
-            let x = waves
-                .viewport
-                .from_time(waves.cursors.get(&drawing_info.idx).unwrap(), size.x as f64)
-                as f32;
+            let x = waves.numbered_cursor_location(drawing_info.idx, &waves.viewport, view_width);
 
             // Time string
             let time = time_string(

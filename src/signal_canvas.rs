@@ -68,7 +68,7 @@ fn signal_draw_commands(
     timestamps: &[(f32, num::BigUint)],
     waves: &WaveData,
     translators: &TranslatorList,
-    view_width: f64,
+    view_width: f32,
 ) -> Option<SignalDrawCommands> {
     let mut clock_edges = vec![];
     let mut local_msgs = vec![];
@@ -123,7 +123,7 @@ fn signal_draw_commands(
                 ..
             }) => waves
                 .viewport
-                .from_time(&timestamp.to_bigint().unwrap(), view_width) as f32,
+                .from_time(&timestamp.to_bigint().unwrap(), view_width),
             // If we don't have a next timestamp, we don't need to recheck until the last time
             // step
             Ok(_) => timestamps.last().map(|t| t.0).unwrap_or_default(),
@@ -280,7 +280,7 @@ impl State {
                         &timestamps,
                         waves,
                         translators,
-                        frame_width as f64,
+                        frame_width,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -514,7 +514,7 @@ impl State {
             &waves.viewport,
         );
 
-        self.draw_cursor_boxes(waves, &mut ctx, item_offsets, response.rect.size(), gap);
+        self.draw_cursor_boxes(waves, &mut ctx, item_offsets, response.rect.size().x, gap);
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
     }

@@ -333,7 +333,7 @@ impl State {
                                 &self.wanted_timeunit,
                                 &self.get_time_format(),
                             ),
-                            viewport.from_time(&tick, frame_width as f64) as f32,
+                            viewport.from_time(&tick, frame_width),
                         )
                     })
                     .collect::<Vec<(String, f32)>>();
