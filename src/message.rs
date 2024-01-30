@@ -78,7 +78,7 @@ pub enum Message {
     ZoomToFit,
     GoToStart,
     GoToEnd,
-    GoToTime(BigInt),
+    GoToTime(Option<BigInt>),
     ToggleMenu,
     ToggleToolbar,
     ToggleOverview,
