@@ -52,13 +52,11 @@ impl State {
                     (Key::Num9, true, false, false) => {
                         handle_digit(9, modifiers, msgs);
                     }
-                    (Key::Home, true, false, false) => msgs.push(Message::SetVerticalScroll(0)),
+                    (Key::Home, true, false, false) => msgs.push(Message::ScrollToItem(0)),
                     (Key::End, true, false, false) => {
                         if let Some(waves) = &self.waves {
                             if waves.displayed_items.len() > 1 {
-                                msgs.push(Message::SetVerticalScroll(
-                                    waves.displayed_items.len() - 1,
-                                ));
+                                msgs.push(Message::ScrollToItem(waves.displayed_items.len() - 1));
                             }
                         }
                     }
