@@ -80,6 +80,7 @@ impl State {
                 "Reload",
                 Message::ReloadWaveform(self.config.behavior.keep_during_reload),
             )
+            .shortcut(self.config.keys.reload.name().to_lowercase())
             .add_closing_menu(msgs, ui);
             b("Save state...", Message::OpenSaveStateDialog).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);

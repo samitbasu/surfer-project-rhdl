@@ -182,7 +182,7 @@ impl State {
         }
 
         if self.show_keys {
-            draw_control_help_window(ctx, &mut msgs);
+            draw_control_help_window(ctx, &mut msgs, &self.config.keys);
         }
 
         if self.show_quick_start {
@@ -359,14 +359,9 @@ impl State {
                     .show(ctx, |ui| {
                         ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
-                        ui.with_layout(
-                            Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| {
-                                ScrollArea::horizontal().show(ui, |ui| {
-                                    self.draw_var_values(&item_offsets, waves, ui, &mut msgs)
-                                })
-                            },
-                        )
+                        ScrollArea::horizontal().show(ui, |ui| {
+                            self.draw_var_values(&item_offsets, waves, ui, &mut msgs);
+                        });
                     });
 
                 egui::CentralPanel::default()
