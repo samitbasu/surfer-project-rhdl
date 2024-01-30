@@ -45,16 +45,16 @@ impl Viewport {
         time.round().to_integer()
     }
 
-    pub fn from_time(&self, time: &BigInt, view_width: f64) -> f64 {
+    pub fn from_time(&self, time: &BigInt, view_width: f32) -> f32 {
         let distance_from_left = time.to_f64().unwrap() - self.curr_left;
 
-        (distance_from_left / self.width()) * view_width
+        ((distance_from_left / self.width()) * view_width as f64) as f32
     }
 
-    pub fn from_time_f64(&self, time: f64, view_width: f64) -> f64 {
+    pub fn from_time_f64(&self, time: f64, view_width: f32) -> f32 {
         let distance_from_left = time - self.curr_left;
 
-        (distance_from_left / self.width()) * view_width
+        ((distance_from_left / self.width()) * view_width as f64) as f32
     }
 
     pub fn clip_to(&self, valid: &Viewport) -> Viewport {

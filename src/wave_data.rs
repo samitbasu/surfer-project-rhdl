@@ -348,6 +348,16 @@ impl WaveData {
         self.viewport.curr_right = center_point + half_width;
     }
 
+    #[inline]
+    pub fn numbered_cursor_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
+        viewport.from_time(self.numbered_cursor_time(idx), view_width)
+    }
+
+    #[inline]
+    pub fn numbered_cursor_time(&self, idx: u8) -> &BigInt {
+        self.cursors.get(&idx).unwrap()
+    }
+
     pub fn handle_canvas_scroll(
         &mut self,
         // Canvas relative
