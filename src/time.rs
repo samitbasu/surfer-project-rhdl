@@ -30,6 +30,7 @@ pub enum TimeUnit {
 }
 
 pub const DEFAULT_TIMELINE_NAME: &str = "Time";
+pub const THIN_SPACE: &str = "\u{2009}";
 
 impl fmt::Display for TimeUnit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -200,7 +201,7 @@ fn split_and_format_number(time: String, format: &TimeStringFormatting) -> Strin
             if grouping[0] > 0 {
                 // "\u{202f}" (non-breaking thin space) does not exist in used font, replace with "\u{2009}" (thin space)
                 let thousands_sep = locale_match!(locale => LC_NUMERIC::THOUSANDS_SEP)
-                    .replace("\u{202f}", "\u{2009}");
+                    .replace('\u{202f}', THIN_SPACE);
                 if time.contains('.') {
                     let decimal_point = locale_match!(locale => LC_NUMERIC::DECIMAL_POINT);
                     let mut parts = time.split('.');
@@ -221,13 +222,13 @@ fn split_and_format_number(time: String, format: &TimeStringFormatting) -> Strin
                 let integer_part = parts.next().unwrap();
                 let fractional_part = parts.next().unwrap();
                 let integer_result = if integer_part.len() > 4 {
-                    group_n_chars(integer_part, 3).join("\u{2009}")
+                    group_n_chars(integer_part, 3).join(THIN_SPACE)
                 } else {
                     integer_part.to_string()
                 };
                 if fractional_part.len() > 4 {
                     let reversed = fractional_part.chars().rev().collect::<String>();
-                    let reversed_fractional_parts = group_n_chars(&reversed, 3).join("\u{2009}");
+                    let reversed_fractional_parts = group_n_chars(&reversed, 3).join(THIN_SPACE);
                     let fractional_result =
                         reversed_fractional_parts.chars().rev().collect::<String>();
                     format!("{integer_result}.{fractional_result}")
@@ -236,7 +237,7 @@ fn split_and_format_number(time: String, format: &TimeStringFormatting) -> Strin
                 }
             } else {
                 if time.len() > 4 {
-                    group_n_chars(&time, 3).join("\u{2009}")
+                    group_n_chars(&time, 3).join(THIN_SPACE)
                 } else {
                     time
                 }
