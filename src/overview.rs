@@ -33,12 +33,10 @@ impl State {
         };
 
         let viewport_all = waves.viewport_all();
-        let minx =
-            viewport_all.from_time_f64(waves.viewport.curr_left, response.rect.size().x as f64);
-        let maxx =
-            viewport_all.from_time_f64(waves.viewport.curr_right, response.rect.size().x as f64);
-        let min = (ctx.to_screen)(minx as f32, 0.);
-        let max = (ctx.to_screen)(maxx as f32, container_rect.max.y);
+        let minx = viewport_all.from_time_f64(waves.viewport.curr_left, response.rect.size().x);
+        let maxx = viewport_all.from_time_f64(waves.viewport.curr_right, response.rect.size().x);
+        let min = (ctx.to_screen)(minx, 0.);
+        let max = (ctx.to_screen)(maxx, container_rect.max.y);
         ctx.painter.rect_filled(
             Rect { min, max },
             Rounding::ZERO,
