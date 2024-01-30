@@ -9,7 +9,6 @@ use egui_extras::{Column, TableBuilder, TableRow};
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
-use num::BigInt;
 
 use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::command_prompt::get_parser;
@@ -394,7 +393,7 @@ impl State {
             || self
                 .waves
                 .as_ref()
-                .map_or(false, |waves| waves.displayed_items.is_empty())
+                .map_or(false, |waves| !waves.any_displayed())
         {
             egui::CentralPanel::default()
                 .frame(egui::Frame::none().fill(self.config.theme.canvas_colors.background))
@@ -937,11 +936,7 @@ impl State {
                     ItemDrawingInfo::Cursor(numbered_cursor) => {
                         if let Some(cursor) = &waves.cursor {
                             let delta = time_string(
-                                &(waves
-                                    .cursors
-                                    .get(&numbered_cursor.idx)
-                                    .unwrap_or(&BigInt::from(0))
-                                    - cursor),
+                                &(waves.numbered_cursor_time(numbered_cursor.idx) - cursor),
                                 &waves.inner.metadata().timescale,
                                 &self.wanted_timeunit,
                                 &self.get_time_format(),
