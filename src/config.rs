@@ -4,6 +4,7 @@ use color_eyre::Report;
 use config::{Config, Environment, File};
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
+use eframe::egui::Key;
 use eframe::epaint::Color32;
 use serde::de;
 use serde::{Deserialize, Deserializer};
@@ -27,6 +28,7 @@ pub struct SurferConfig {
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
     pub default_clock_highlight_type: ClockHighlightType,
+    pub keys: SurferKeybindings,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,6 +161,11 @@ pub struct SurferTheme {
     /// Number of lines using standard background before changing to
     /// alternate background and so on, set to zero to disable
     pub alt_frequency: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SurferKeybindings {
+    pub reload: Key,
 }
 
 #[derive(Debug, Deserialize)]

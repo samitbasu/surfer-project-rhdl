@@ -1,6 +1,7 @@
 use eframe::egui::{Context, Grid, RichText, Ui, Window};
 use eframe::emath::{Align2, Pos2};
 
+use crate::config::SurferKeybindings;
 use crate::wave_source::LoadOptions;
 use crate::{message::Message, State};
 
@@ -143,7 +144,7 @@ pub fn draw_quickstart_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
     }
 }
 
-pub fn draw_control_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
+pub fn draw_control_help_window(ctx: &Context, msgs: &mut Vec<Message>, keys: &SurferKeybindings) {
     let mut open = true;
     Window::new("🖮 Surfer controls")
         .collapsible(true)
@@ -151,7 +152,7 @@ pub fn draw_control_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
         .open(&mut open)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                key_listing(ui);
+                key_listing(ui, keys);
                 ui.add_space(10.);
                 if ui.button("Close").clicked() {
                     msgs.push(Message::SetKeyHelpVisible(false))
@@ -163,7 +164,8 @@ pub fn draw_control_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
     }
 }
 
-fn key_listing(ui: &mut Ui) {
+fn key_listing(ui: &mut Ui, keys: &SurferKeybindings) {
+    let reload_key = keys.reload.name().to_lowercase();
     let keys = vec![
         ("🚀", "Space", "Show command prompt"),
         ("↔", "Scroll", "Pan"),
@@ -183,7 +185,7 @@ fn key_listing(ui: &mut Ui) {
         ("", "0-9", "Center view at numbered cursor"),
         ("⏮", "s", "Go to start"),
         ("⏭", "e", "Go to end"),
-        ("\u{e5d5}", "r", "Reload waveform"),
+        ("\u{e5d5}", reload_key.as_str(), "Reload waveform"),
         ("\u{e01f}", "Page up", "Go one page/screen right"),
         ("\u{e020}", "Page down", "Go one page/screen left"),
         ("⏵", "➡", "Go right"),
