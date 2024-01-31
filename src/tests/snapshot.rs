@@ -21,7 +21,7 @@ use crate::{
     signal_filter::SignalFilterType,
     wave_container::{FieldRef, ModuleRef, SignalRef},
     wave_source::LoadOptions,
-    Message, StartupParams, State, WaveSource,
+    Message, MoveDir, StartupParams, State, WaveSource,
 };
 
 fn print_image(img: &DynamicImage) {
@@ -556,6 +556,13 @@ snapshot_ui_with_file_and_msgs! {cursors_dialog_work, "examples/counter.vcd", [
     Message::SetCursorWindowVisible(true)
 ]}
 
+snapshot_ui_with_file_and_msgs! {goto_cursor, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(600)),
+    Message::SetCursorPosition(2),
+    Message::GoToCursorPosition(2)
+]}
+
 snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",
@@ -587,6 +594,16 @@ snapshot_ui_with_file_and_msgs! {timeline_render, "examples/counter.vcd", [
     Message::AddTimeLine(None)
 ]}
 
+snapshot_ui_with_file_and_msgs! {toggle_tick_lines, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::ToggleTickLines
+]}
+
+snapshot_ui_with_file_and_msgs! {command_prompt, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::ShowCommandPrompt(true)
+]}
+
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::GoToTime(Some(BigInt::from(-50))),
@@ -610,6 +627,11 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2},
     Message::GoToEnd,
     Message::ZoomToFit
+]}
+
+snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::ZoomToRange { start: 100.0, end: 250.0 }
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
@@ -643,6 +665,54 @@ snapshot_ui_with_file_and_msgs! {remove_item_after_focus, "examples/counter.vcd"
 snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::CanvasScroll { delta: Vec2 { x: 0., y: 100.} }
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_up, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocusedItem(MoveDir::Up, 1),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_to_top, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocusedItem(MoveDir::Up, 4),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_down, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocusedItem(MoveDir::Down, 2),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_to_bottom, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocusedItem(MoveDir::Down, 10),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_up, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocus(MoveDir::Up, 1),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_to_top, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocus(MoveDir::Up, 4),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_down, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocus(MoveDir::Down, 2),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_to_bottom, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocus(MoveDir::Down, 10),
 ]}
 
 snapshot_ui!(regex_error_indication, || {
