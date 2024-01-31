@@ -21,7 +21,7 @@ use crate::{
     signal_filter::SignalFilterType,
     wave_container::{FieldRef, ModuleRef, SignalRef},
     wave_source::LoadOptions,
-    Message, StartupParams, State, WaveSource,
+    Message, MoveDir, StartupParams, State, WaveSource,
 };
 
 fn print_image(img: &DynamicImage) {
@@ -643,6 +643,54 @@ snapshot_ui_with_file_and_msgs! {remove_item_after_focus, "examples/counter.vcd"
 snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::CanvasScroll { delta: Vec2 { x: 0., y: 100.} }
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_up, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocusedItem(MoveDir::Up, 1),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_to_top, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocusedItem(MoveDir::Up, 4),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_down, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocusedItem(MoveDir::Down, 2),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focused_item_to_bottom, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocusedItem(MoveDir::Down, 10),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_up, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocus(MoveDir::Up, 1),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_to_top, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(2),
+    Message::MoveFocus(MoveDir::Up, 4),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_down, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocus(MoveDir::Down, 2),
+]}
+
+snapshot_ui_with_file_and_msgs! {move_focus_to_bottom, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(0),
+    Message::MoveFocus(MoveDir::Down, 10),
 ]}
 
 snapshot_ui!(regex_error_indication, || {
