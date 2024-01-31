@@ -198,6 +198,33 @@ windows_build:
           when: always
         - when: never
 
+mac_x86_build:
+    image: messense/cargo-zigbuild
+    stage: test
+    script:
+        - apt-get update -y
+        - apt-get install -y mingw-w64 zip
+        - rustup target add x86_64-pc-windows-gnu
+        - cargo zigbuild --release --target x86_64-apple-darwin
+        - ls -alrt target
+        - ls -alrt target/x86_64-apple-darwin
+        - ls -alrt target/x86_64-apple-darwin/release
+        - cp target/x86_64-apple-darwin/release/surfer surfer
+        - zip surfer_mac_x86.zip surfer
+    artifacts:
+        paths:
+            - surfer_mac_x86.zip
+        expire_in: 1 week
+    cache:
+        key: mac_x86_build
+        paths:
+            - target
+            - $CARGO_HOME
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main"
+          when: always
+        - when: never
+
 pages_build:
     stage: test
     cache:
