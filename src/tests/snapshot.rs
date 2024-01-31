@@ -612,6 +612,39 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::ZoomToFit
 ]}
 
+snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::RemoveItem(1, 1)
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_items, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::RemoveItem(2, 6)
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_item_with_focus, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(1),
+    Message::RemoveItem(1, 1)
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_item_before_focus, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(3),
+    Message::RemoveItem(1, 1)
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_item_after_focus, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::FocusItem(1),
+    Message::RemoveItem(2, 1)
+]}
+
+snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::CanvasScroll { delta: Vec2 { x: 0., y: 100.} }
+]}
+
 snapshot_ui!(regex_error_indication, || {
     let mut state = State::new_default_config()
         .unwrap()
