@@ -198,6 +198,50 @@ windows_build:
           when: always
         - when: never
 
+mac_x86_build:
+    image: messense/cargo-zigbuild
+    stage: test
+    script:
+        - cargo zigbuild --release --target x86_64-apple-darwin
+        - ls -alrt target
+        - ls -alrt target/x86_64-apple-darwin
+        - ls -alrt target/x86_64-apple-darwin/release
+        - cp target/x86_64-apple-darwin/release/surfer surfer
+        - zip surfer_mac_x86.zip surfer
+    artifacts:
+        paths:
+            - surfer_mac_x86.zip
+        expire_in: 1 week
+    cache:
+        key: mac_x86_build
+        paths:
+            - target
+            - $CARGO_HOME
+    rules:
+        - when: always
+
+mac_aarch64_build:
+    image: messense/cargo-zigbuild
+    stage: test
+    script:
+        - cargo zigbuild --release --target aarch64-apple-darwin
+        - ls -alrt target
+        - ls -alrt target/aarch64-apple-darwin
+        - ls -alrt target/aarch64-apple-darwin/release
+        - cp target/aarch64-apple-darwin/release/surfer surfer
+        - zip surfer_mac_aarch64.zip surfer
+    artifacts:
+        paths:
+            - surfer_mac_aarch64.zip
+        expire_in: 1 week
+    cache:
+        key: mac_aarch64_build
+        paths:
+            - target
+            - $CARGO_HOME
+    rules:
+        - when: always
+
 pages_build:
     stage: test
     cache:
