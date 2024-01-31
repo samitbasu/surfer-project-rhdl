@@ -612,6 +612,16 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::ZoomToFit
 ]}
 
+snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::RemoveItem(1, 1)
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_items, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::RemoveItem(2, 6)
+]}
+
 snapshot_ui!(regex_error_indication, || {
     let mut state = State::new_default_config()
         .unwrap()
