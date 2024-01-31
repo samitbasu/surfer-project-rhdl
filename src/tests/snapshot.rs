@@ -556,6 +556,13 @@ snapshot_ui_with_file_and_msgs! {cursors_dialog_work, "examples/counter.vcd", [
     Message::SetCursorWindowVisible(true)
 ]}
 
+snapshot_ui_with_file_and_msgs! {goto_cursor, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(600)),
+    Message::SetCursorPosition(2),
+    Message::GoToCursorPosition(2)
+]}
+
 snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",
@@ -587,6 +594,16 @@ snapshot_ui_with_file_and_msgs! {timeline_render, "examples/counter.vcd", [
     Message::AddTimeLine(None)
 ]}
 
+snapshot_ui_with_file_and_msgs! {toggle_tick_lines, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::ToggleTickLines
+]}
+
+snapshot_ui_with_file_and_msgs! {command_prompt, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::ShowCommandPrompt(true)
+]}
+
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::GoToTime(Some(BigInt::from(-50))),
@@ -610,6 +627,11 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2},
     Message::GoToEnd,
     Message::ZoomToFit
+]}
+
+snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::ZoomToRange { start: 100.0, end: 250.0 }
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
