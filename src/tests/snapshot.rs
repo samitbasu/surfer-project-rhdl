@@ -6,7 +6,7 @@ use std::{
 
 use base64::{engine::general_purpose, Engine};
 use dssim::Dssim;
-use eframe::epaint::Vec2;
+use eframe::{emath::Vec2b, epaint::Vec2};
 use egui_skia::draw_onto_surface;
 use image::{DynamicImage, ImageOutputFormat, RgbImage};
 use log::info;
@@ -610,6 +610,21 @@ snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2},
     Message::GoToEnd,
     Message::ZoomToFit
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::RemoveItem(1, 1)
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_items, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::RemoveItem(2, 6)
+]}
+
+snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["tb"])),
+    Message::CanvasScroll { delta: Vec2 { x: 0., y: 100.} }
 ]}
 
 snapshot_ui!(regex_error_indication, || {
