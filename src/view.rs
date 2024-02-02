@@ -555,11 +555,21 @@ impl State {
         ui: &mut egui::Ui,
         filter: &str,
     ) {
-        ui.with_layout(
-            Layout::top_down(Align::LEFT).with_cross_justify(true),
-            |ui| {
-                for sig in filtered_signals(wave, filter, &self.signal_filter_type) {
-                    let mut response = ui.add(egui::SelectableLabel::new(false, sig.name.clone()));
+        for sig in filtered_signals(wave, filter, &self.signal_filter_type) {
+            let index = wave
+                .inner
+                .signal_meta(&sig)
+                .ok()
+                .as_ref()
+                .and_then(|meta| meta.index.clone())
+                .map(|index| format!(" {index}"))
+                .unwrap_or_default();
+
+            let sig_name = format!("{}{}", sig.name.clone(), index);
+            ui.with_layout(
+                Layout::top_down(Align::LEFT).with_cross_justify(true),
+                |ui| {
+                    let mut response = ui.add(egui::SelectableLabel::new(false, sig_name));
                     if self
                         .show_signal_tooltip
                         .unwrap_or(self.config.layout.show_signal_tooltip())
@@ -569,9 +579,9 @@ impl State {
                     response
                         .clicked()
                         .then(|| msgs.push(Message::AddSignal(sig.clone())));
-                }
-            },
-        );
+                },
+            );
+        }
     }
 
     fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
@@ -591,11 +601,26 @@ impl State {
                     DisplayedItem::Signal(displayed_signal) => {
                         let sig = displayed_signal;
                         let info = &displayed_signal.info;
-
+                        let index = if self
+                            .show_signal_indices
+                            .unwrap_or_else(|| self.config.layout.show_signal_indices())
+                        {
+                            self.waves
+                                .as_ref()
+                                .unwrap()
+                                .inner
+                                .signal_meta(&sig.signal_ref)
+                                .ok()
+                                .as_ref()
+                                .and_then(|meta| meta.index.clone())
+                                .map(|index| format!(" {index}"))
+                        } else {
+                            None
+                        };
                         self.draw_signal_var(
                             msgs,
                             vidx,
-                            displayed_item.widget_text(&self.config.theme.foreground),
+                            displayed_item.widget_text(&self.config.theme.foreground, index),
                             FieldRef {
                                 root: sig.signal_ref.clone(),
                                 field: vec![],
@@ -786,7 +811,7 @@ impl State {
                 };
 
                 let signal_label = ui
-                    .selectable_label(false, displayed_item.widget_text(text_color))
+                    .selectable_label(false, displayed_item.widget_text(text_color, None))
                     .context_menu(|ui| {
                         self.item_context_menu(None, msgs, ui, vidx);
                     });

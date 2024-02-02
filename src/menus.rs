@@ -207,6 +207,17 @@ impl State {
                 ui.close_menu();
                 msgs.push(Message::ToggleSignalTooltip)
             });
+
+            ui.radio(
+                self.show_signal_indices
+                    .unwrap_or(self.config.layout.show_signal_indices()),
+                "Show signal indices",
+            )
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::ToggleIndices)
+            });
         });
         ui.menu_button("Help", |ui| {
             b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);

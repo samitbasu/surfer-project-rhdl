@@ -195,6 +195,7 @@ impl WaveContainer {
                         sig: r,
                         num_bits: signal.num_bits(),
                         signal_type: signal.signal_type().cloned().map(SignalType::from),
+                        index: signal.index(),
                     })
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
@@ -283,4 +284,5 @@ pub struct SignalMeta<'a> {
     pub sig: &'a SignalRef,
     pub num_bits: Option<u32>,
     pub signal_type: Option<SignalType>,
+    pub index: Option<String>,
 }
