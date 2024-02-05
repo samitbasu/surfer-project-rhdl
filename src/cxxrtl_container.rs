@@ -12,7 +12,7 @@ use color_eyre::{
     Result,
 };
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use num::BigUint;
 use serde::{Deserialize, Deserializer, Serialize};
 use spade_common::num_ext::InfallibleToBigUint;
@@ -34,7 +34,7 @@ impl SignalRef {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(tag = "command")]
 #[allow(non_camel_case_types)]
 enum CxxrtlCommand {
@@ -52,7 +52,7 @@ enum CxxrtlCommand {
     },
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(tag = "type")]
 #[allow(non_camel_case_types)]
 enum CSMessage {
@@ -199,6 +199,8 @@ impl CxxrtlContainer {
         )?;
         self.stream.write_all(&[b'\0'])?;
 
+        trace!("cxxrtl: C>S: {message:?}");
+
         Ok(())
     }
 
@@ -231,6 +233,8 @@ impl CxxrtlContainer {
                 String::from_utf8_lossy(&message)
             )
         })?;
+
+        trace!("cxxrtl: S>C: {decoded:?}");
 
         Ok(decoded)
     }

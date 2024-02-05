@@ -171,6 +171,7 @@ impl StartupParams {
 fn setup_logging(platform_logger: Dispatch) -> Result<()> {
     let egui_log_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
+        .level_for("surfer", log::LevelFilter::Trace)
         .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
         .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
 

@@ -150,6 +150,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_mouse_gestures",
                 "show_quick_start",
                 "show_performance",
+                "show_logs",
                 "load_url",
                 "scroll_to_start",
                 "scroll_to_end",
@@ -185,6 +186,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_mouse_gestures",
                 "show_quick_start",
                 "show_performance",
+                "show_logs",
                 "exit",
             ]
         }
@@ -353,6 +355,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_cursor_window" => {
                     Some(Command::Terminal(Message::SetCursorWindowVisible(true)))
                 }
+                "show_logs" => Some(Command::Terminal(Message::SetLogsVisible(true))),
                 "save_state" => single_word(
                     vec![],
                     Box::new(|word| Some(Command::Terminal(Message::SaveState(word.into())))),
