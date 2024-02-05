@@ -162,12 +162,13 @@ impl CxxrtlContainer {
         let mut stream =
             TcpStream::connect(addr).with_context(|| format!("Failed to connect to {addr}"))?;
 
-        stream.write_all(
-            serde_json::to_string(&CSMessage::greeting { version: 0 })
-                .with_context(|| format!("Failed to encode greeting message"))?
-                .as_bytes(),
-        )?;
+        let greeting = serde_json::to_string(&CSMessage::greeting { version: 0 })
+            .with_context(|| format!("Failed to encode greeting message"))?;
+        stream.write_all(&greeting.as_bytes())?;
         stream.write_all(&[b'\0'])?;
+
+        info!("Sending greeting to cxxrtl");
+        trace!("C>S: {greeting}");
 
         stream
             .set_read_timeout(Some(Duration::from_secs(1)))
