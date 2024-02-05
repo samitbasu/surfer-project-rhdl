@@ -414,9 +414,24 @@ impl WaveData {
         self.item_offsets
             .iter()
             .enumerate()
-            .find(|(_, di)| di.offset() >= self.top_item_draw_offset - 1.) // Subtract a bit of margin to avoid floating-point errors
+            .find(|(_, di)| di.top() >= self.top_item_draw_offset - 1.) // Subtract a bit of margin to avoid floating-point errors
             .map(|(idx, _)| idx)
             .unwrap_or(default)
+    }
+
+    pub fn get_item_at_y(&self, y: f32) -> Option<usize> {
+        let first_element_top = self.item_offsets.first().unwrap().top();
+        let first_element_bottom = self.item_offsets.last().unwrap().bottom();
+        let threshold = y + first_element_top + self.scroll_offset;
+        if first_element_bottom <= threshold {
+            return None;
+        }
+        self.item_offsets
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, di)| di.top() <= threshold)
+            .map(|(idx, _)| idx)
     }
 
     pub fn scroll_to_item(&mut self, idx: usize) {
@@ -424,12 +439,12 @@ impl WaveData {
             return;
         }
         // Set scroll_offset to different between requested element and first element
-        let first_element_y = self.item_offsets.first().unwrap().offset();
+        let first_element_y = self.item_offsets.first().unwrap().top();
         let item_y = self
             .item_offsets
             .get(idx)
             .unwrap_or_else(|| self.item_offsets.last().unwrap())
-            .offset();
+            .top();
         self.scroll_offset = item_y - first_element_y;
     }
 }

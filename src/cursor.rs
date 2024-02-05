@@ -33,7 +33,10 @@ impl WaveData {
                 width: theme.cursor.width,
             };
             ctx.painter.line_segment(
-                [(ctx.to_screen)(x, -0.5), (ctx.to_screen)(x, size.y)],
+                [
+                    (ctx.to_screen)(x + 0.5, -0.5),
+                    (ctx.to_screen)(x + 0.5, size.y),
+                ],
                 stroke,
             )
         }
@@ -69,7 +72,10 @@ impl WaveData {
             };
             let x = viewport.from_time(cursor, size.x);
             ctx.painter.line_segment(
-                [(ctx.to_screen)(x, -0.5), (ctx.to_screen)(x, size.y)],
+                [
+                    (ctx.to_screen)(x + 0.5, -0.5),
+                    (ctx.to_screen)(x + 0.5, size.y),
+                ],
                 stroke,
             )
         }
@@ -273,7 +279,7 @@ impl State {
             // We draw in absolute coords, but the signal offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
-            let y_offset = drawing_info.offset - (ctx.to_screen)(0., 0.).y;
+            let y_offset = drawing_info.top - (ctx.to_screen)(0., 0.).y;
 
             let background_color = item
                 .color()

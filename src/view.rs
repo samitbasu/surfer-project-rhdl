@@ -59,26 +59,30 @@ impl DrawConfig {
 pub struct SignalDrawingInfo {
     pub field_ref: FieldRef,
     pub signal_list_idx: usize,
-    pub offset: f32,
+    pub top: f32,
+    pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct DividerDrawingInfo {
     pub signal_list_idx: usize,
-    pub offset: f32,
+    pub top: f32,
+    pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct CursorDrawingInfo {
     pub signal_list_idx: usize,
-    pub offset: f32,
+    pub top: f32,
+    pub bottom: f32,
     pub idx: u8,
 }
 
 #[derive(Debug)]
 pub struct TimeLineDrawingInfo {
     pub signal_list_idx: usize,
-    pub offset: f32,
+    pub top: f32,
+    pub bottom: f32,
 }
 
 pub enum ItemDrawingInfo {
@@ -89,12 +93,20 @@ pub enum ItemDrawingInfo {
 }
 
 impl ItemDrawingInfo {
-    pub fn offset(&self) -> f32 {
+    pub fn top(&self) -> f32 {
         match self {
-            ItemDrawingInfo::Signal(drawing_info) => drawing_info.offset,
-            ItemDrawingInfo::Divider(drawing_info) => drawing_info.offset,
-            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.offset,
-            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.offset,
+            ItemDrawingInfo::Signal(drawing_info) => drawing_info.top,
+            ItemDrawingInfo::Divider(drawing_info) => drawing_info.top,
+            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.top,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.top,
+        }
+    }
+    pub fn bottom(&self) -> f32 {
+        match self {
+            ItemDrawingInfo::Signal(drawing_info) => drawing_info.bottom,
+            ItemDrawingInfo::Divider(drawing_info) => drawing_info.bottom,
+            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.bottom,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.bottom,
         }
     }
     pub fn signal_list_idx(&self) -> usize {
@@ -749,11 +761,11 @@ impl State {
                     }
                 });
 
-                let offset = response.0.rect.top();
                 item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
                     field_ref: field.clone(),
                     signal_list_idx: vidx,
-                    offset,
+                    top: response.0.rect.top(),
+                    bottom: response.0.rect.bottom(),
                 }));
             }
             SignalInfo::Bool
@@ -765,7 +777,8 @@ impl State {
                 item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
                     field_ref: field.clone(),
                     signal_list_idx: vidx,
-                    offset: label.rect.top(),
+                    top: label.rect.top(),
+                    bottom: label.rect.bottom(),
                 }));
             }
         }
@@ -814,20 +827,23 @@ impl State {
             DisplayedItem::Divider(_) => {
                 item_offsets.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
                     signal_list_idx: vidx,
-                    offset: label.rect.top(),
+                    top: label.rect.top(),
+                    bottom: label.rect.bottom(),
                 }))
             }
             DisplayedItem::Cursor(cursor) => {
                 item_offsets.push(ItemDrawingInfo::Cursor(CursorDrawingInfo {
                     signal_list_idx: vidx,
-                    offset: label.rect.top(),
+                    top: label.rect.top(),
+                    bottom: label.rect.bottom(),
                     idx: cursor.idx,
                 }))
             }
             DisplayedItem::TimeLine(_) => {
                 item_offsets.push(ItemDrawingInfo::TimeLine(TimeLineDrawingInfo {
                     signal_list_idx: vidx,
-                    offset: label.rect.top(),
+                    top: label.rect.top(),
+                    bottom: label.rect.bottom(),
                 }))
             }
             &DisplayedItem::Signal(_) => {}
@@ -922,18 +938,18 @@ impl State {
             for (vidx, drawing_info) in waves
                 .item_offsets
                 .iter()
-                .sorted_by_key(|o| o.offset() as i32)
+                .sorted_by_key(|o| o.top() as i32)
                 .enumerate()
             {
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,
                 // and compensate for it
-                if next_y < drawing_info.offset() {
-                    ui.add_space(drawing_info.offset() - next_y);
+                if next_y < drawing_info.top() {
+                    ui.add_space(drawing_info.top() - next_y);
                 }
 
-                let y_offset = drawing_info.offset() - yzero;
+                let y_offset = drawing_info.top() - yzero;
 
                 self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
                 match drawing_info {
@@ -1022,8 +1038,8 @@ impl State {
     ) -> f32 {
         if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
             // Assume that first signal has standard height (for now)
-            (item_offsets.get(1).unwrap().offset()
-                - item_offsets.get(0).unwrap().offset()
+            (item_offsets.get(1).unwrap().top()
+                - item_offsets.get(0).unwrap().top()
                 - ctx.cfg.line_height)
                 / 2.0
         } else {
