@@ -3,6 +3,7 @@ mod clock_highlighting;
 mod command_prompt;
 mod config;
 mod cursor;
+mod cxxrtl;
 mod cxxrtl_container;
 mod displayed_item;
 mod fast_wave_container;

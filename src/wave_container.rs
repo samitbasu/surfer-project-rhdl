@@ -5,6 +5,7 @@ use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
+use log::error;
 use num::BigUint;
 use serde::{Deserialize, Serialize};
 
@@ -198,16 +199,14 @@ impl WaveContainer {
                 f.fwb_signal(r)
                     .context("When getting signal metadata")
                     .map(|signal| SignalMeta {
-                        sig: r,
+                        sig: r.clone(),
                         num_bits: signal.num_bits(),
                         signal_type: signal.signal_type().cloned().map(SignalType::from),
                     })
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
             // TODO
-            WaveContainer::Cxxrtl(_) => {
-                bail!("Signal meta from cxxrtl is unimplemented implemented")
-            }
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().signal_meta(r),
         }
     }
 
@@ -216,7 +215,7 @@ impl WaveContainer {
             WaveContainer::Fwb(f) => f.query_signal(signal, time),
             WaveContainer::Empty => bail!("Querying signal from empty wave container"),
             // TODO
-            WaveContainer::Cxxrtl(_) => bail!("Cxxrtl Signal queries are not currently supported"),
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().query_signal(signal, time),
         }
     }
 
@@ -266,9 +265,9 @@ impl WaveContainer {
                 MetaData {
                     date: None,
                     version: None,
-                    // TODO: We should probably set the timestamp
                     timescale: TimeScale {
-                        unit: TimeUnit::None,
+                        // Cxxrtl always uses FemtoSeconds
+                        unit: TimeUnit::FemtoSeconds,
                         multiplier: None,
                     },
                 }
@@ -296,8 +295,13 @@ impl WaveContainer {
         match self {
             WaveContainer::Fwb(f) => f.inner.max_timestamp().clone(),
             WaveContainer::Empty => None,
-            // TODO: cxxrtl Max timestamp
-            WaveContainer::Cxxrtl(_) => None,
+            WaveContainer::Cxxrtl(c) => c
+                .lock()
+                .unwrap()
+                .max_timestamp()
+                .map_err(|e| error!("Failed to get max timestamp {e:#?}"))
+                .map(|t| t.into_femtoseconds())
+                .ok(),
         }
     }
 
@@ -310,8 +314,8 @@ impl WaveContainer {
     }
 }
 
-pub struct SignalMeta<'a> {
-    pub sig: &'a SignalRef,
+pub struct SignalMeta {
+    pub sig: SignalRef,
     pub num_bits: Option<u32>,
     pub signal_type: Option<SignalType>,
 }

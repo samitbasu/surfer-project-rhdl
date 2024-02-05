@@ -1,23 +1,36 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     io::{Read, Write},
     net::TcpStream,
+    str::FromStr,
     time::Duration,
 };
 
+use base64::prelude::*;
 use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
 use itertools::Itertools;
 use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
+use num::BigUint;
+use serde::{Deserialize, Deserializer, Serialize};
+use spade_common::num_ext::InfallibleToBigUint;
 
-use crate::wave_container::{ModuleRef, SignalRef};
+use crate::{
+    cxxrtl::timestamp::CxxrtlTimestamp,
+    wave_container::{ModuleRef, QueryResult, SignalMeta, SignalRef, SignalValue},
+};
 
 impl ModuleRef {
     fn cxxrtl_repr(&self) -> String {
         self.0.iter().join(" ")
+    }
+}
+
+impl SignalRef {
+    fn cxxrtl_repr(&self) -> String {
+        self.full_path().join(" ")
     }
 }
 
@@ -26,7 +39,17 @@ impl ModuleRef {
 #[allow(non_camel_case_types)]
 enum CxxrtlCommand {
     list_scopes,
-    list_items { scope: Option<String> },
+    list_items {
+        scope: Option<String>,
+    },
+    get_simulation_status,
+    query_interval {
+        interval: (CxxrtlTimestamp, CxxrtlTimestamp),
+        collapse: bool,
+        items: Option<String>,
+        item_values_encoding: &'static str,
+        daignostics: bool,
+    },
 }
 
 #[derive(Serialize)]
@@ -53,8 +76,8 @@ struct CxxrtlItem {
     src: Option<String>, // TODO: More stuff
     #[serde(rename = "type")]
     ty: Option<String>,
-    width: Option<usize>,
-    lsb_at: Option<usize>,
+    width: Option<u32>,
+    lsb_at: Option<u32>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -67,11 +90,19 @@ enum CommandResponse {
     list_items {
         items: HashMap<String, CxxrtlItem>,
     },
+    get_simulation_status {
+        status: String,
+        #[serde(deserialize_with = "CxxrtlTimestamp::deserialize")]
+        latest_time: CxxrtlTimestamp,
+    },
+    query_interval {
+        samples: Vec<CxxrtlSample>,
+    },
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, unused)]
 enum SCMessage {
     greeting {
         version: i64,
@@ -82,6 +113,20 @@ enum SCMessage {
     response(CommandResponse),
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct CxxrtlSample {
+    time: CxxrtlTimestamp,
+    item_values: String,
+}
+
+impl CxxrtlSample {
+    fn into_signal_value(&self) -> Result<SignalValue> {
+        Ok(SignalValue::String(
+            String::from_utf8_lossy(&BASE64_STANDARD.decode(&self.item_values)?).to_string(),
+        ))
+    }
+}
+
 pub struct CxxrtlContainer {
     stream: TcpStream,
     read_buf: VecDeque<u8>,
@@ -89,6 +134,27 @@ pub struct CxxrtlContainer {
     scopes_cache: Option<HashMap<ModuleRef, CxxrtlScope>>,
     module_item_cache: HashMap<ModuleRef, HashMap<SignalRef, CxxrtlItem>>,
     all_items_cache: HashMap<SignalRef, CxxrtlItem>,
+
+    signal_values_cache: HashMap<SignalRef, BTreeMap<BigUint, CxxrtlSample>>,
+}
+
+macro_rules! send_command {
+    ($self:expr, $command:expr, $response:pat => $on_response:expr) => {{
+        $self.send_message(CSMessage::command($command))?;
+
+        let response = $self
+            .read_one_message()
+            .context("failed to read scope response")?;
+
+        if let SCMessage::response($response) = response {
+            $on_response
+        } else {
+            bail!(
+                "Did not get a {} response from cxxrtl. Got {response:?} instead",
+                stringify! {$response}
+            )
+        }
+    }};
 }
 
 impl CxxrtlContainer {
@@ -112,6 +178,8 @@ impl CxxrtlContainer {
             read_buf: VecDeque::new(),
             scopes_cache: None,
             module_item_cache: HashMap::new(),
+            all_items_cache: HashMap::new(),
+            signal_values_cache: HashMap::new(),
         };
 
         result
@@ -168,49 +236,26 @@ impl CxxrtlContainer {
     }
 
     fn fetch_scopes(&mut self) -> Result<HashMap<String, CxxrtlScope>> {
-        self.send_message(CSMessage::command(CxxrtlCommand::list_scopes))?;
-
-        let response = self
-            .read_one_message()
-            .context("failed to read scope response")?;
-
-        if let SCMessage::response(CommandResponse::list_scopes { scopes }) = response {
-            Ok(scopes)
-        } else {
-            bail!("Did not get a scope response from cxxrtl. Got {response:?} instead")
-        }
+        send_command!(
+            self,
+            CxxrtlCommand::list_scopes,
+            CommandResponse::list_scopes {scopes} => Ok(scopes)
+        )
     }
 
     fn fetch_all_items(&mut self) -> Result<HashMap<String, CxxrtlItem>> {
-        self.send_message(CSMessage::command(CxxrtlCommand::list_items {
-            scope: None,
-        }));
-
-        let response = self
-            .read_one_message()
-            .context("failed to read scope response")?;
-
-        if let SCMessage::response(CommandResponse::list_items { items }) = response {
-            Ok(items)
-        } else {
-            bail!("Did not get a scope response from cxxrtl. Got {response:?} instead")
-        }
+        send_command!(
+            self,
+            CxxrtlCommand::list_items { scope: None },
+            CommandResponse::list_items { items } => Ok(items)
+        )
     }
 
     fn fetch_items_in_module(&mut self, module: &ModuleRef) -> Result<HashMap<String, CxxrtlItem>> {
-        self.send_message(CSMessage::command(CxxrtlCommand::list_items {
-            scope: Some(module.cxxrtl_repr()),
-        }))?;
-
-        let response = self
-            .read_one_message()
-            .context("failed to read scope response")?;
-
-        if let SCMessage::response(CommandResponse::list_items { items }) = response {
-            Ok(items)
-        } else {
-            bail!("Did not get a scope response from cxxrtl. Got {response:?} instead")
-        }
+        send_command!(self,
+            CxxrtlCommand::list_items { scope: Some(module.cxxrtl_repr()), },
+            CommandResponse::list_items{items} => Ok(items)
+        )
     }
 
     fn item_list_to_hash_map(
@@ -338,6 +383,69 @@ impl CxxrtlContainer {
             }
         }
 
-        self.all_items_cache.get(signal).unwrap_or_default()
+        if let Some(cxxitem) = self.all_items_cache.get(signal) {
+            Ok(SignalMeta {
+                sig: signal.clone(),
+                num_bits: cxxitem.width,
+                // FIXME: Use the type that cxxrtl reports
+                signal_type: None,
+            })
+        } else {
+            bail!("Found no signal {signal:?}")
+        }
+    }
+
+    pub fn max_timestamp(&mut self) -> Result<CxxrtlTimestamp> {
+        send_command!(
+            self,
+            CxxrtlCommand::get_simulation_status,
+            CommandResponse::get_simulation_status { status: _, latest_time: time } => {
+                Ok(time)
+            }
+        )
+    }
+
+    fn query_signal_values(
+        &mut self,
+        signal: &SignalRef,
+    ) -> Result<BTreeMap<BigUint, CxxrtlSample>> {
+        let max_timestamp = self.max_timestamp()?;
+        send_command! {
+            self,
+            CxxrtlCommand::query_interval{
+                interval:(CxxrtlTimestamp::zero(), max_timestamp),
+                collapse: true,
+                items: Some(signal.cxxrtl_repr()),
+                item_values_encoding: "base64(u32)",
+                daignostics: false
+            },
+            CommandResponse::query_interval {samples} => {
+                Ok(samples.into_iter().map(|s| (s.time.into_femtoseconds(), s)).collect())
+            }
+        }
+    }
+
+    fn signal_values(&mut self, signal: &SignalRef) -> Result<&BTreeMap<BigUint, CxxrtlSample>> {
+        if !self.signal_values_cache.contains_key(signal) {
+            let value = self.query_signal_values(signal)?;
+            self.signal_values_cache.insert(signal.clone(), value);
+        }
+
+        Ok(&self.signal_values_cache[signal])
+    }
+
+    pub fn query_signal(&mut self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
+        let values = self.signal_values(signal)?;
+        let current = values.range(..time).next_back();
+        let next = values.range(time..).next();
+
+        Ok(QueryResult {
+            current: if let Some(c) = current {
+                Some((c.0.clone(), c.1.into_signal_value()?))
+            } else {
+                None
+            },
+            next: next.map(|c| c.0.clone()),
+        })
     }
 }
