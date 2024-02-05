@@ -419,6 +419,23 @@ impl WaveData {
             .unwrap_or(default)
     }
 
+    pub fn get_item_at_y(&self, y: f32) -> usize {
+        let default = if self.item_offsets.is_empty() {
+            0
+        } else {
+            self.item_offsets.len() - 1
+        };
+        let first_element_y = self.item_offsets.first().unwrap().offset();
+        let threshold = y + first_element_y + self.scroll_offset;
+        self.item_offsets
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, di)| di.offset() <= threshold)
+            .map(|(idx, _)| idx)
+            .unwrap_or(default)
+    }
+
     pub fn scroll_to_item(&mut self, idx: usize) {
         if self.item_offsets.is_empty() {
             return;
