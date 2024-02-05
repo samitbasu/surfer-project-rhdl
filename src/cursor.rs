@@ -33,7 +33,10 @@ impl WaveData {
                 width: theme.cursor.width,
             };
             ctx.painter.line_segment(
-                [(ctx.to_screen)(x, -0.5), (ctx.to_screen)(x, size.y)],
+                [
+                    (ctx.to_screen)(x + 0.5, -0.5),
+                    (ctx.to_screen)(x + 0.5, size.y),
+                ],
                 stroke,
             )
         }
@@ -69,7 +72,10 @@ impl WaveData {
             };
             let x = viewport.from_time(cursor, size.x);
             ctx.painter.line_segment(
-                [(ctx.to_screen)(x, -0.5), (ctx.to_screen)(x, size.y)],
+                [
+                    (ctx.to_screen)(x + 0.5, -0.5),
+                    (ctx.to_screen)(x + 0.5, size.y),
+                ],
                 stroke,
             )
         }

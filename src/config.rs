@@ -27,6 +27,8 @@ pub struct SurferConfig {
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
     pub default_signal_name_type: SignalNameType,
     pub default_clock_highlight_type: ClockHighlightType,
+    /// Distance in pixels for cursor snap
+    pub snap_distance: f32,
 }
 
 #[derive(Debug, Deserialize)]

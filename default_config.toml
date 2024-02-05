@@ -1,5 +1,6 @@
 default_signal_name_type = "Unique"
 default_clock_highlight_type = "Line"
+snap_distance = 3
 
 [default_time_format]
 format = "No"
