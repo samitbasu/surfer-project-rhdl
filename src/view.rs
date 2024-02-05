@@ -2,8 +2,9 @@ use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
 use eframe::egui::{self, style::Margin, Align, Layout, Painter, RichText};
-use eframe::egui::{ScrollArea, Sense, TextStyle, WidgetText};
+use eframe::egui::{FontSelection, ScrollArea, Sense, Style, TextStyle, WidgetText};
 use eframe::emath::RectTransform;
+use eframe::epaint::text::LayoutJob;
 use eframe::epaint::{Color32, Pos2, Rect, Rounding, Vec2};
 use egui_extras::{Column, TableBuilder, TableRow};
 use fzcmd::expand_command;
@@ -617,10 +618,31 @@ impl State {
                         } else {
                             None
                         };
+                        let style = Style::default();
+                        let mut layout_job = LayoutJob::default();
+                        if self.sys.command_prompt.visible
+                            && expand_command(
+                                &self.sys.command_prompt_text.borrow(),
+                                get_parser(self),
+                            )
+                            .expanded
+                            .starts_with("signal_focus")
+                        {
+                            self.add_alpha_id(vidx, &style, &mut layout_job);
+                        }
+
+                        self.add_focus_marker(vidx, &style, &mut layout_job);
+                        displayed_item.add_to_layout_job(
+                            &self.config.theme.foreground,
+                            index,
+                            &style,
+                            &mut layout_job,
+                        );
+
                         self.draw_signal_var(
                             msgs,
                             vidx,
-                            displayed_item.widget_text(&self.config.theme.foreground, index),
+                            WidgetText::LayoutJob(layout_job),
                             FieldRef {
                                 root: sig.signal_ref.clone(),
                                 field: vec![],
@@ -672,16 +694,6 @@ impl State {
     ) {
         let draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
-                if self.sys.command_prompt.visible
-                    && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
-                        .expanded
-                        .starts_with("signal_focus")
-                {
-                    self.add_alpha_id(vidx, ui);
-                }
-
-                self.add_focus_marker(vidx, ui);
-
                 let mut signal_label = ui.selectable_label(false, name).context_menu(|ui| {
                     self.item_context_menu(Some(&field), msgs, ui, vidx);
                 });
@@ -763,7 +775,7 @@ impl State {
         }
     }
 
-    fn add_focus_marker(&self, vidx: usize, ui: &mut egui::Ui) {
+    fn add_focus_marker(&self, vidx: usize, style: &Style, mut layout_job: &mut LayoutJob) {
         let focus_marker_color = if self
             .waves
             .as_ref()
@@ -776,7 +788,15 @@ impl State {
         } else {
             Color32::TRANSPARENT
         };
-        ui.colored_label(focus_marker_color, "♦");
+        egui::RichText::new("♦")
+            .color(focus_marker_color)
+            .monospace()
+            .append_to(
+                &mut layout_job,
+                style,
+                FontSelection::Default,
+                Align::Center,
+            );
     }
 
     fn draw_plain_var(
@@ -789,16 +809,18 @@ impl State {
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             ui.horizontal_top(|ui| {
+                let style = Style::default();
+                let mut layout_job = LayoutJob::default();
                 if self
                     .sys
                     .command_prompt_text
                     .borrow()
                     .starts_with("signal_focus")
                 {
-                    self.add_alpha_id(vidx, ui);
+                    self.add_alpha_id(vidx, &style, &mut layout_job);
                 }
 
-                self.add_focus_marker(vidx, ui);
+                self.add_focus_marker(vidx, &style, &mut layout_job);
 
                 let text_color = if let Some(color) = &displayed_item.color() {
                     self.config
@@ -809,9 +831,9 @@ impl State {
                 } else {
                     &self.config.theme.foreground
                 };
-
+                displayed_item.add_to_layout_job(text_color, None, &style, &mut layout_job);
                 let signal_label = ui
-                    .selectable_label(false, displayed_item.widget_text(text_color, None))
+                    .selectable_label(false, WidgetText::LayoutJob(layout_job))
                     .context_menu(|ui| {
                         self.item_context_menu(None, msgs, ui, vidx);
                     });
@@ -848,19 +870,23 @@ impl State {
         }
     }
 
-    fn add_alpha_id(&self, vidx: usize, ui: &mut egui::Ui) {
+    fn add_alpha_id(&self, vidx: usize, style: &Style, mut layout_job: &mut LayoutJob) {
         let alpha_id = uint_idx_to_alpha_idx(
             vidx,
             self.waves
                 .as_ref()
                 .map_or(0, |waves| waves.displayed_items.len()),
         );
-        ui.label(
-            egui::RichText::new(alpha_id)
-                .background_color(self.config.theme.accent_info.background)
-                .monospace()
-                .color(self.config.theme.accent_info.foreground),
-        );
+        egui::RichText::new(alpha_id)
+            .background_color(self.config.theme.accent_info.background)
+            .monospace()
+            .color(self.config.theme.accent_info.foreground)
+            .append_to(
+                &mut layout_job,
+                style,
+                FontSelection::Default,
+                Align::Center,
+            );
     }
 
     fn draw_var_values(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
