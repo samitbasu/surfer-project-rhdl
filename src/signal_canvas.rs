@@ -376,8 +376,31 @@ impl State {
         });
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
-            let x = pointer_pos_canvas.unwrap().x;
-            let timestamp = waves.viewport.to_time_bigint(x as f64, frame_width);
+            let pos = pointer_pos_canvas.unwrap();
+            let timestamp = waves.viewport.to_time_bigint(pos.x, frame_width);
+            if let Some(utimestamp) = timestamp.to_biguint() {
+                if let Some(vidx) = waves.get_item_at_y(pos.y) {
+                    if let DisplayedItem::Signal(signal) = &waves.displayed_items[vidx] {
+                        if let Ok(res) = waves.inner.query_signal(&signal.signal_ref, &utimestamp) {
+                            let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
+                            let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
+                            let prev = waves.viewport.from_time(prev_time, frame_width);
+                            let next = waves.viewport.from_time(next_time, frame_width);
+                            if (prev - pos.x).abs() < (next - pos.x).abs() {
+                                if (prev - pos.x).abs() <= self.config.snap_distance {
+                                    msgs.push(Message::CursorSet(prev_time.clone()));
+                                    return;
+                                }
+                            } else {
+                                if (next - pos.x).abs() <= self.config.snap_distance {
+                                    msgs.push(Message::CursorSet(next_time.clone()));
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             msgs.push(Message::CursorSet(timestamp));
         });
 
@@ -414,7 +437,7 @@ impl State {
             // We draw in absolute coords, but the signal offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
-            let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+            let y_offset = drawing_info.top() - to_screen.transform_pos(Pos2::ZERO).y;
             let min = (ctx.to_screen)(0.0, y_offset - gap);
             let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
             ctx.painter
@@ -456,7 +479,7 @@ impl State {
                 // We draw in absolute coords, but the signal offset in the y
                 // direction is also in absolute coordinates, so we need to
                 // compensate for that
-                let y_offset = drawing_info.offset() - to_screen.transform_pos(Pos2::ZERO).y;
+                let y_offset = drawing_info.top() - to_screen.transform_pos(Pos2::ZERO).y;
 
                 let color = waves
                     .displayed_items
