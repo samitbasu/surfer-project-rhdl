@@ -51,6 +51,10 @@ struct CxxrtlScope {
 #[derive(Deserialize, Debug)]
 struct CxxrtlItem {
     src: Option<String>, // TODO: More stuff
+    #[serde(rename = "type")]
+    ty: Option<String>,
+    width: Option<usize>,
+    lsb_at: Option<usize>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -84,6 +88,7 @@ pub struct CxxrtlContainer {
 
     scopes_cache: Option<HashMap<ModuleRef, CxxrtlScope>>,
     module_item_cache: HashMap<ModuleRef, HashMap<SignalRef, CxxrtlItem>>,
+    all_items_cache: HashMap<SignalRef, CxxrtlItem>,
 }
 
 impl CxxrtlContainer {
@@ -176,6 +181,22 @@ impl CxxrtlContainer {
         }
     }
 
+    fn fetch_all_items(&mut self) -> Result<HashMap<String, CxxrtlItem>> {
+        self.send_message(CSMessage::command(CxxrtlCommand::list_items {
+            scope: None,
+        }));
+
+        let response = self
+            .read_one_message()
+            .context("failed to read scope response")?;
+
+        if let SCMessage::response(CommandResponse::list_items { items }) = response {
+            Ok(items)
+        } else {
+            bail!("Did not get a scope response from cxxrtl. Got {response:?} instead")
+        }
+    }
+
     fn fetch_items_in_module(&mut self, module: &ModuleRef) -> Result<HashMap<String, CxxrtlItem>> {
         self.send_message(CSMessage::command(CxxrtlCommand::list_items {
             scope: Some(module.cxxrtl_repr()),
@@ -190,6 +211,36 @@ impl CxxrtlContainer {
         } else {
             bail!("Did not get a scope response from cxxrtl. Got {response:?} instead")
         }
+    }
+
+    fn item_list_to_hash_map(
+        &self,
+        items: HashMap<String, CxxrtlItem>,
+    ) -> HashMap<SignalRef, CxxrtlItem> {
+        items
+            .into_iter()
+            .filter_map(|(k, v)| {
+                let sp = k.split(" ").collect::<Vec<_>>();
+
+                if sp.is_empty() {
+                    error!("Found an empty signal name and scope");
+                    None
+                } else {
+                    Some((
+                        SignalRef {
+                            path: ModuleRef(
+                                sp[0..sp.len() - 1]
+                                    .into_iter()
+                                    .map(|s| s.to_string())
+                                    .collect(),
+                            ),
+                            name: sp.last().unwrap().to_string(),
+                        },
+                        v,
+                    ))
+                }
+            })
+            .collect()
     }
 
     fn scopes(&mut self) -> Option<&HashMap<ModuleRef, CxxrtlScope>> {
@@ -265,28 +316,8 @@ impl CxxrtlContainer {
                 .map_err(|e| info!("Failed to get items {e:#?}"))
                 .ok()
             {
-                self.module_item_cache.insert(
-                    module.clone(),
-                    items
-                        .into_iter()
-                        .filter_map(|(k, v)| {
-                            let sp = k.split(" ").collect::<Vec<_>>();
-
-                            if sp.is_empty() {
-                                error!("Found an empty signal name and scope");
-                                None
-                            } else {
-                                Some((
-                                    SignalRef {
-                                        path: module.clone(),
-                                        name: sp.last().unwrap().to_string(),
-                                    },
-                                    v,
-                                ))
-                            }
-                        })
-                        .collect(),
-                );
+                self.module_item_cache
+                    .insert(module.clone(), self.item_list_to_hash_map(items));
             }
         }
 
@@ -294,5 +325,19 @@ impl CxxrtlContainer {
             .get(module)
             .map(|items| items.iter().map(|(k, _)| k.clone()).collect())
             .unwrap_or_default()
+    }
+
+    pub fn signal_meta(&mut self, signal: &SignalRef) -> Result<SignalMeta> {
+        if !self.all_items_cache.contains_key(signal) {
+            if let Some(items) = self
+                .fetch_all_items()
+                .map_err(|e| info!("Failed to get items {e:#?}"))
+                .ok()
+            {
+                self.all_items_cache = self.item_list_to_hash_map(items)
+            }
+        }
+
+        self.all_items_cache.get(signal).unwrap_or_default()
     }
 }
