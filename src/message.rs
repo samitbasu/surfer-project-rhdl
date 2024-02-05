@@ -62,6 +62,7 @@ pub enum Message {
     LoadVcd(Utf8PathBuf, bool),
     LoadVcdFromUrl(String, bool),
     LoadVcdFromData(Vec<u8>, bool),
+    ConnectToCxxrtl(String),
     WavesLoaded(
         WaveSource,
         #[derivative(Debug = "ignore")] Box<WaveContainer>,

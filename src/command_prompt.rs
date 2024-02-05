@@ -152,6 +152,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_performance",
                 "show_logs",
                 "load_url",
+                "connect_tcp",
                 "scroll_to_start",
                 "scroll_to_end",
                 "goto_start",
@@ -178,6 +179,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             vec![
                 "load_vcd",
                 "load_url",
+                "connect_tcp",
                 "config_reload",
                 "toggle_menu",
                 "toggle_side_panel",
@@ -210,6 +212,25 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         Some(Command::Terminal(Message::LoadVcdFromUrl(
                             query.to_string(),
                             false,
+                        )))
+                    }),
+                )),
+                "load_url" => Some(Command::NonTerminal(
+                    ParamGreed::Rest,
+                    vec![],
+                    Box::new(|query, _| {
+                        Some(Command::Terminal(Message::LoadVcdFromUrl(
+                            query.to_string(),
+                            false,
+                        )))
+                    }),
+                )),
+                "connect_tcp" => Some(Command::NonTerminal(
+                    ParamGreed::Rest,
+                    vec![],
+                    Box::new(|query, _| {
+                        Some(Command::Terminal(Message::ConnectToCxxrtl(
+                            query.to_string(),
                         )))
                     }),
                 )),

@@ -841,6 +841,10 @@ impl State {
             Message::LoadVcdFromData(data, keep_signals) => {
                 self.load_vcd_from_data(data, keep_signals).ok();
             }
+            Message::ConnectToCxxrtl(url) => {
+                // TODO: Set keep_signals?
+                self.connect_to_cxxrtl(url, false)
+            }
             Message::FileDropped(dropped_file) => {
                 self.load_vcd_from_dropped(dropped_file, false)
                     .map_err(|e| error!("{e:#?}"))
