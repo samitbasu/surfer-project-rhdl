@@ -6,9 +6,10 @@ use eframe::egui::{self, Sense};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
-use num::bigint::{ToBigInt, ToBigUint};
+use num::bigint::ToBigUint;
 use num::ToPrimitive;
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
+use spade_common::num_ext::InfallibleToBigInt;
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
@@ -123,7 +124,7 @@ fn signal_draw_commands(
                 ..
             }) => waves
                 .viewport
-                .from_time(&timestamp.to_bigint().unwrap(), view_width),
+                .from_time(&InfallibleToBigInt::to_bigint(timestamp), view_width),
             // If we don't have a next timestamp, we don't need to recheck until the last time
             // step
             Ok(_) => timestamps.last().map(|t| t.0).unwrap_or_default(),
@@ -376,8 +377,31 @@ impl State {
         });
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
-            let x = pointer_pos_canvas.unwrap().x;
-            let timestamp = waves.viewport.to_time_bigint(x as f64, frame_width);
+            let pos = pointer_pos_canvas.unwrap();
+            let timestamp = waves.viewport.to_time_bigint(pos.x, frame_width);
+            if let Some(utimestamp) = timestamp.to_biguint() {
+                if let Some(vidx) = waves.get_item_at_y(pos.y) {
+                    if let DisplayedItem::Signal(signal) = &waves.displayed_items[vidx] {
+                        if let Ok(res) = waves.inner.query_signal(&signal.signal_ref, &utimestamp) {
+                            let prev_time = &res.current.unwrap().0.to_bigint();
+                            let next_time = &res.next.unwrap_or_default().to_bigint();
+                            let prev = waves.viewport.from_time(prev_time, frame_width);
+                            let next = waves.viewport.from_time(next_time, frame_width);
+                            if (prev - pos.x).abs() < (next - pos.x).abs() {
+                                if (prev - pos.x).abs() <= self.config.snap_distance {
+                                    msgs.push(Message::CursorSet(prev_time.clone()));
+                                    return;
+                                }
+                            } else {
+                                if (next - pos.x).abs() <= self.config.snap_distance {
+                                    msgs.push(Message::CursorSet(next_time.clone()));
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             msgs.push(Message::CursorSet(timestamp));
         });
 
