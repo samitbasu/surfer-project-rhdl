@@ -165,9 +165,13 @@ impl DisplayedItem {
     }
 
     /// Widget displayed in signal list for the wave form, may include additional info compared to name()
-    pub fn widget_text(&self, color: &Color32, index: Option<String>) -> WidgetText {
-        let style = Style::default();
-        let mut layout_job = LayoutJob::default();
+    pub fn add_to_layout_job(
+        &self,
+        color: &Color32,
+        index: Option<String>,
+        style: &Style,
+        mut layout_job: &mut LayoutJob,
+    ) {
         match self {
             DisplayedItem::Signal(_) => {
                 RichText::new(format!("{}{}", self.name(), index.unwrap_or_default()))
@@ -209,7 +213,6 @@ impl DisplayedItem {
                     )
             }
         }
-        WidgetText::LayoutJob(layout_job)
     }
 
     pub fn set_name(&mut self, name: Option<String>) {
