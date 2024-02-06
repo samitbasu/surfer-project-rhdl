@@ -553,9 +553,9 @@ impl State {
 
         match args.waves {
             Some(WaveSource::Url(url)) => self.load_vcd_from_url(url, LoadOptions::clean()),
-            Some(WaveSource::File(file)) => {
-                self.load_vcd_from_file(file, LoadOptions::clean()).unwrap()
-            }
+            Some(WaveSource::File(file)) => self
+                .load_wave_from_file(file, LoadOptions::clean())
+                .unwrap(),
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
@@ -868,13 +868,13 @@ impl State {
                     waves.cursor = Some(new)
                 }
             }
-            Message::LoadVcd(filename, load_options) => {
-                self.load_vcd_from_file(filename, load_options).ok();
+            Message::LoadWaveformFile(filename, load_options) => {
+                self.load_wave_from_file(filename, load_options).ok();
             }
-            Message::LoadVcdFromUrl(url, load_options) => {
+            Message::LoadWaveformFileFromUrl(url, load_options) => {
                 self.load_vcd_from_url(url, load_options);
             }
-            Message::LoadVcdFromData(data, load_options) => {
+            Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_vcd_from_data(data, load_options).ok();
             }
             Message::FileDropped(dropped_file) => {
@@ -882,8 +882,8 @@ impl State {
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
-            Message::WavesLoaded(filename, new_waves, load_options) => {
-                info!("VCD file loaded");
+            Message::WavesLoaded(filename, format, new_waves, load_options) => {
+                info!("{format} file loaded");
                 let num_timestamps = new_waves
                     .max_timestamp()
                     .as_ref()
@@ -895,6 +895,7 @@ impl State {
                     self.waves.take().unwrap().update_with(
                         new_waves,
                         filename,
+                        format,
                         num_timestamps,
                         viewport,
                         &self.sys.translators,
@@ -904,6 +905,7 @@ impl State {
                     old.update_with(
                         new_waves,
                         filename,
+                        format,
                         num_timestamps,
                         viewport,
                         &self.sys.translators,
@@ -913,6 +915,7 @@ impl State {
                     WaveData {
                         inner: *new_waves,
                         source: filename,
+                        format,
                         active_module: None,
                         displayed_items: vec![],
                         viewport,
@@ -1036,11 +1039,12 @@ impl State {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
                     WaveSource::File(filename) => {
-                        self.load_vcd_from_file(
+                        self.load_wave_from_file(
                             filename.clone(),
                             LoadOptions {
                                 keep_signals: true,
                                 keep_unavailable,
+                                expect_format: Some(waves.format),
                             },
                         )
                         .ok();
@@ -1048,11 +1052,12 @@ impl State {
                     WaveSource::Data => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename.clone().and_then(|filename| {
-                            self.load_vcd_from_file(
+                            self.load_wave_from_file(
                                 filename,
                                 LoadOptions {
                                     keep_signals: true,
                                     keep_unavailable,
+                                    expect_format: None,
                                 },
                             )
                             .ok()
@@ -1064,6 +1069,7 @@ impl State {
                             LoadOptions {
                                 keep_signals: true,
                                 keep_unavailable,
+                                expect_format: None,
                             },
                         );
                     }

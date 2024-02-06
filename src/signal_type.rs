@@ -22,6 +22,11 @@ pub enum SignalType {
     VCDTri1,
     VCDWAnd,
     VCDWOr,
+    // FST Type
+    Port,
+    Bit,
+    Logic,
+    Enum,
 }
 
 impl fmt::Display for SignalType {
@@ -46,6 +51,10 @@ impl fmt::Display for SignalType {
             SignalType::VCDTriReg => write!(f, "tri reg"),
             SignalType::VCDWAnd => write!(f, "wand"),
             SignalType::VCDWOr => write!(f, "wor"),
+            SignalType::Port => write!(f, "port"),
+            SignalType::Bit => write!(f, "bit"),
+            SignalType::Logic => write!(f, "logic"),
+            SignalType::Enum => write!(f, "enum"),
         }
     }
 }

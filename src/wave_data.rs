@@ -6,6 +6,7 @@ use log::{error, warn};
 use num::{BigInt, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
+use crate::wave_source::WaveFormat;
 use crate::{
     displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal, DisplayedTimeLine},
     signal_name_type::SignalNameType,
@@ -24,6 +25,7 @@ pub struct WaveData {
     #[serde(skip, default = "WaveContainer::__new_empty")]
     pub inner: WaveContainer,
     pub source: WaveSource,
+    pub format: WaveFormat,
     pub active_module: Option<ModuleRef>,
     /// Root items (signals, dividers, ...) to display
     pub displayed_items: Vec<DisplayedItem>,
@@ -50,6 +52,7 @@ impl WaveData {
         mut self,
         new_waves: Box<WaveContainer>,
         source: WaveSource,
+        format: WaveFormat,
         num_timestamps: BigInt,
         wave_viewport: Viewport,
         translators: &TranslatorList,
@@ -124,6 +127,7 @@ impl WaveData {
         let mut new_wave = WaveData {
             inner: *new_waves,
             source,
+            format,
             active_module,
             displayed_items: display_items,
             viewport: self.viewport.clone().clip_to(&wave_viewport),

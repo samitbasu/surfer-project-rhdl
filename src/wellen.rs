@@ -205,7 +205,7 @@ pub(crate) fn var_to_meta<'a>(var: &Var, r: &'a SignalRef) -> SignalMeta<'a> {
         sig: r,
         num_bits: var.length(),
         signal_type: Some(var_to_signal_type(var.var_type())),
-        index: var.index().map(|i| index_to_string(i)),
+        index: var.index().map(index_to_string),
     }
 }
 
@@ -237,7 +237,11 @@ pub(crate) fn var_to_signal_type(signaltype: VarType) -> SignalType {
         VarType::Tri1 => SignalType::VCDTri1,
         VarType::WAnd => SignalType::VCDWAnd,
         VarType::WOr => SignalType::VCDWOr,
-        other => todo!("Translate {other:?}"),
+        VarType::Port => SignalType::Port,
+        VarType::Bit => SignalType::Bit,
+        VarType::Logic => SignalType::Logic,
+        VarType::Int => SignalType::VCDInteger,
+        VarType::Enum => SignalType::Enum,
     }
 }
 

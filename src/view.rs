@@ -445,7 +445,10 @@ impl State {
                             || (response.lost_focus()
                                 && ui.input(|i| i.key_pressed(egui::Key::Enter)))
                         {
-                            msgs.push(Message::LoadVcdFromUrl(url.clone(), LoadOptions::clean()));
+                            msgs.push(Message::LoadWaveformFileFromUrl(
+                                url.clone(),
+                                LoadOptions::clean(),
+                            ));
                             msgs.push(Message::SetUrlEntryVisible(false))
                         }
                         if ui.button("Cancel").clicked() {

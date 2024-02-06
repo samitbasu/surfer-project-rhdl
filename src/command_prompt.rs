@@ -9,7 +9,7 @@ use eframe::epaint::{FontFamily, FontId, Vec2};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
 use itertools::Itertools;
 
-use crate::wave_source::LoadOptions;
+use crate::wave_source::{LoadOptions, WaveFormat};
 use crate::{
     clock_highlighting::ClockHighlightType,
     displayed_item::DisplayedItem,
@@ -106,18 +106,25 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     let active_module = state.waves.as_ref().and_then(|w| w.active_module.clone());
 
-    fn vcd_files() -> Vec<String> {
+    fn files_with_ext(e: &str) -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
             res.map(|res| res.map(|e| e.path()).unwrap_or_default())
                 .filter(|file| {
                     file.extension()
-                        .map_or(false, |extension| extension.to_str().unwrap_or("") == "vcd")
+                        .map_or(false, |extension| extension.to_str().unwrap_or("") == e)
                 })
                 .map(|file| file.into_os_string().into_string().unwrap())
                 .collect::<Vec<String>>()
         } else {
             vec![]
         }
+    }
+
+    fn vcd_files() -> Vec<String> {
+        files_with_ext("vcd")
+    }
+    fn fst_files() -> Vec<String> {
+        files_with_ext("fst")
     }
 
     let cursors = if let Some(waves) = &state.waves {
@@ -140,6 +147,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         if state.waves.is_some() {
             vec![
                 "load_vcd",
+                "load_file",
                 "signal_add",
                 "signal_focus",
                 "signal_set_color",
@@ -180,6 +188,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         } else {
             vec![
                 "load_vcd",
+                "load_file",
                 "load_url",
                 "config_reload",
                 "toggle_menu",
@@ -204,7 +213,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "load_vcd" => single_word_delayed_suggestions(
                     Box::new(vcd_files),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::LoadVcd(
+                        Some(Command::Terminal(Message::LoadWaveformFile(
+                            word.into(),
+                            LoadOptions::clean_with_expected_format(WaveFormat::Vcd),
+                        )))
+                    }),
+                ),
+                "load_file" => single_word_delayed_suggestions(
+                    Box::new(fst_files),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::LoadWaveformFile(
                             word.into(),
                             LoadOptions::clean(),
                         )))
@@ -214,9 +232,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     ParamGreed::Rest,
                     vec![],
                     Box::new(|query, _| {
-                        Some(Command::Terminal(Message::LoadVcdFromUrl(
+                        Some(Command::Terminal(Message::LoadWaveformFileFromUrl(
                             query.to_string(),
-                            LoadOptions::clean(),
+                            LoadOptions::clean(), // load_url does not indicate any format restrictions
                         )))
                     }),
                 )),

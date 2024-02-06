@@ -27,7 +27,7 @@ impl State {
                     self.sys
                         .channels
                         .msg_sender
-                        .send(Message::LoadVcdFromUrl(
+                        .send(Message::LoadWaveformFileFromUrl(
                             "https://app.surfer-project.org/picorv32.vcd".to_string(),
                             LoadOptions::clean(),
                         ))

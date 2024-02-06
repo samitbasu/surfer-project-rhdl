@@ -9,6 +9,7 @@ use eframe::{
 };
 use num::BigInt;
 
+use crate::wave_source::WaveFormat;
 use crate::{
     clock_highlighting::ClockHighlightType,
     signal_name_type::SignalNameType,
@@ -61,10 +62,10 @@ pub enum Message {
         end: f64,
     },
     CursorSet(BigInt),
-    LoadVcd(Utf8PathBuf, LoadOptions),
-    LoadVcdFromUrl(String, LoadOptions),
-    LoadVcdFromData(Vec<u8>, LoadOptions),
-    WavesLoaded(WaveSource, Box<WaveContainer>, LoadOptions),
+    LoadWaveformFile(Utf8PathBuf, LoadOptions),
+    LoadWaveformFileFromUrl(String, LoadOptions),
+    LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    WavesLoaded(WaveSource, WaveFormat, Box<WaveContainer>, LoadOptions),
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the

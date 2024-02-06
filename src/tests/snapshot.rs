@@ -511,6 +511,10 @@ snapshot_ui_with_file_and_msgs! {vcd_with_empty_scope_loads, "examples/verilator
     Message::AddModule(ModuleRef::from_strs(&["top_test"])),
 ]}
 
+snapshot_ui_with_file_and_msgs! {fst_with_sv_data_types_loads, "examples/many_sv_datatypes.fst", [
+    Message::AddModule(ModuleRef::from_strs(&["TOP", "SVDataTypeWrapper", "bb"])),
+]}
+
 snapshot_ui_with_file_spade_and_msgs! {
     spade_translation_works,
     "examples/spade.vcd",
@@ -934,7 +938,7 @@ snapshot_ui!(load_keep_all_works, || {
         Message::ToggleSidePanel,
         Message::AddModule(ModuleRef::from_strs(&["TOP"])),
         Message::AddModule(ModuleRef::from_strs(&["TOP", "Foobar"])),
-        Message::LoadVcd(
+        Message::LoadWaveformFile(
             get_project_root()
                 .unwrap()
                 .join("examples")
@@ -944,6 +948,7 @@ snapshot_ui!(load_keep_all_works, || {
             LoadOptions {
                 keep_signals: true,
                 keep_unavailable: true,
+                expect_format: None,
             },
         ),
     ];
@@ -1000,7 +1005,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
         Message::ToggleSidePanel,
         Message::AddModule(ModuleRef::from_strs(&["TOP"])),
         Message::AddModule(ModuleRef::from_strs(&["TOP", "Foobar"])),
-        Message::LoadVcd(
+        Message::LoadWaveformFile(
             get_project_root()
                 .unwrap()
                 .join("examples")
@@ -1010,6 +1015,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             LoadOptions {
                 keep_signals: true,
                 keep_unavailable: false,
+                expect_format: None,
             },
         ),
     ];

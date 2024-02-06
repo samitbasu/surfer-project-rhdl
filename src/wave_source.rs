@@ -1,8 +1,9 @@
+use std::fmt::{Display, Formatter};
 use std::sync::{atomic::AtomicU64, Arc};
 
 use crate::wasm_util::{perform_async_work, perform_work};
 use camino::Utf8PathBuf;
-use color_eyre::eyre::{anyhow, WrapErr};
+use color_eyre::eyre::{anyhow, bail, WrapErr};
 use color_eyre::Result;
 use eframe::egui::{self, DroppedFile};
 use futures_util::FutureExt;
@@ -29,7 +30,7 @@ pub fn string_to_wavesource(path: String) -> WaveSource {
     }
 }
 
-impl std::fmt::Display for WaveSource {
+impl Display for WaveSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WaveSource::File(file) => write!(f, "{file}"),
@@ -41,17 +42,43 @@ impl std::fmt::Display for WaveSource {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+pub enum WaveFormat {
+    Vcd,
+    Fst,
+}
+
+impl Display for WaveFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WaveFormat::Vcd => write!(f, "VCD"),
+            WaveFormat::Fst => write!(f, "FST"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct LoadOptions {
     pub keep_signals: bool,
     pub keep_unavailable: bool,
+    /// Auto-detect if None, otherwise, we error when we get the wrong format.
+    pub expect_format: Option<WaveFormat>,
 }
 
 impl LoadOptions {
-    pub fn clean() -> LoadOptions {
-        LoadOptions {
+    pub fn clean() -> Self {
+        Self {
             keep_signals: false,
             keep_unavailable: false,
+            expect_format: None,
+        }
+    }
+
+    pub fn clean_with_expected_format(format: WaveFormat) -> Self {
+        Self {
+            keep_signals: false,
+            keep_unavailable: false,
+            expect_format: Some(format),
         }
     }
 }
@@ -72,28 +99,66 @@ const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::vcd::LoadOptions = wellen::vcd::Loa
     remove_scopes_with_empty_name: true,
 };
 
+fn check_format(
+    load_options: &LoadOptions,
+    detected_format: wellen::FileFormat,
+    source: &WaveSource,
+) -> Result<WaveFormat> {
+    // check format restrictions
+    match load_options.expect_format {
+        Some(WaveFormat::Vcd) if detected_format != wellen::FileFormat::Vcd => {
+            bail!("{} does not appear to be a VCD file.", source)
+        }
+        Some(WaveFormat::Fst) if detected_format != wellen::FileFormat::Fst => {
+            bail!("{} does not appear to be a FST file.", source)
+        }
+        _ => {} // OK
+    }
+
+    // convert detected file type to Surfer type
+    match detected_format {
+        wellen::FileFormat::Vcd => Ok(WaveFormat::Vcd),
+        wellen::FileFormat::Fst => Ok(WaveFormat::Fst),
+        wellen::FileFormat::Unknown => bail!("Cannot parse {source}! Unknown format."),
+    }
+}
+
 impl State {
-    pub fn load_vcd_from_file(
+    pub fn load_wave_from_file(
         &mut self,
-        vcd_filename: Utf8PathBuf,
+        filename: Utf8PathBuf,
         load_options: LoadOptions,
     ) -> Result<()> {
-        info!("Load VCD: {vcd_filename}");
-        let source = WaveSource::File(vcd_filename.clone());
+        info!("Loading a waveform file: {filename}");
+        let source = WaveSource::File(filename.clone());
         let sender = self.sys.channels.msg_sender.clone();
 
         perform_work(move || {
-            let result = wellen::vcd::read_with_options(
-                vcd_filename.as_str(),
-                WELLEN_SURFER_DEFAULT_OPTIONS,
-            )
-            .map_err(|e| anyhow!("{e:?}"))
-            .with_context(|| format!("Failed to parse VCD file: {source}"));
+            let detected_format = wellen::open_and_detect_file_format(filename.as_str());
+            let format = match check_format(&load_options, detected_format, &source) {
+                Ok(format) => format,
+                Err(e) => {
+                    sender.send(Message::Error(e)).unwrap();
+                    return;
+                }
+            };
+
+            let result = match format {
+                WaveFormat::Vcd => {
+                    wellen::vcd::read_with_options(filename.as_str(), WELLEN_SURFER_DEFAULT_OPTIONS)
+                        .map_err(|e| anyhow!("{e:?}"))
+                        .with_context(|| format!("Failed to parse VCD file: {source}"))
+                }
+                WaveFormat::Fst => wellen::fst::read(filename.as_str())
+                    .map_err(|e| anyhow!("{e:?}"))
+                    .with_context(|| format!("Failed to parse FST file: {source}")),
+            };
 
             match result {
                 Ok(waves) => sender
                     .send(Message::WavesLoaded(
                         source,
+                        format,
                         Box::new(WaveContainer::new_waveform(waves)),
                         load_options,
                     ))
@@ -179,15 +244,31 @@ impl State {
         let sender = self.sys.channels.msg_sender.clone();
 
         perform_work(move || {
-            let result =
-                wellen::vcd::read_from_bytes_with_options(&bytes, WELLEN_SURFER_DEFAULT_OPTIONS)
+            let detected_format = wellen::detect_file_format(&mut std::io::Cursor::new(&bytes));
+            let format = match check_format(&load_options, detected_format, &source) {
+                Ok(format) => format,
+                Err(e) => {
+                    sender.send(Message::Error(e)).unwrap();
+                    return;
+                }
+            };
+
+            let result = match format {
+                WaveFormat::Vcd => {
+                    wellen::vcd::read_from_bytes_with_options(&bytes, WELLEN_SURFER_DEFAULT_OPTIONS)
+                        .map_err(|e| anyhow!("{e:?}"))
+                        .with_context(|| format!("Failed to parse VCD file: {source}"))
+                }
+                WaveFormat::Fst => wellen::fst::read_from_bytes(bytes)
                     .map_err(|e| anyhow!("{e:?}"))
-                    .with_context(|| format!("Failed to parse VCD file: {source}"));
+                    .with_context(|| format!("Failed to parse FST file: {source}")),
+            };
 
             match result {
                 Ok(waves) => sender
                     .send(Message::WavesLoaded(
                         source,
+                        format,
                         Box::new(WaveContainer::new_waveform(waves)),
                         load_options,
                     ))
@@ -207,7 +288,7 @@ impl State {
         perform_async_work(async move {
             if let Some(file) = AsyncFileDialog::new()
                 .set_title("Open waveform file")
-                .add_filter("VCD-files (*.vcd)", &["vcd"])
+                .add_filter("Waveform-files (*.vcd, *.fst)", &["vcd", "fst"])
                 .add_filter("All files", &["*"])
                 .pick_file()
                 .await
@@ -219,11 +300,12 @@ impl State {
 
                 #[cfg(not(target_arch = "wasm32"))]
                 sender
-                    .send(Message::LoadVcd(
+                    .send(Message::LoadWaveformFile(
                         camino::Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
                         LoadOptions {
                             keep_signals,
                             keep_unavailable,
+                            expect_format: None,
                         },
                     ))
                     .unwrap();
@@ -232,11 +314,12 @@ impl State {
                 {
                     let data = file.read().await;
                     sender
-                        .send(Message::LoadVcdFromData(
+                        .send(Message::LoadWaveformFileFromData(
                             data,
                             LoadOptions {
                                 keep_signals,
                                 keep_unavailable,
+                                expect_format: None,
                             },
                         ))
                         .unwrap();
