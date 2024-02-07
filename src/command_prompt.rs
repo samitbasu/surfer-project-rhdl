@@ -361,7 +361,19 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Some(Command::Terminal(Message::SetGestureHelpVisible(true)))
                 }
                 "show_quick_start" => Some(Command::Terminal(Message::SetQuickStartVisible(true))),
-                "show_performance" => Some(Command::Terminal(Message::SetPerformanceVisible(true))),
+                "show_performance" => optional_single_word(
+                    vec![],
+                    Box::new(|word| {
+                        if word == "redraw" {
+                            Some(Command::Terminal(Message::Batch(vec![
+                                Message::SetPerformanceVisible(true),
+                                Message::SetContinuousRedraw(true),
+                            ])))
+                        } else {
+                            Some(Command::Terminal(Message::SetPerformanceVisible(true)))
+                        }
+                    }),
+                ),
                 "show_cursor_window" => {
                     Some(Command::Terminal(Message::SetCursorWindowVisible(true)))
                 }

@@ -905,19 +905,21 @@ snapshot_ui!(start_signal_filter_works, || {
 });
 
 snapshot_ui!(load_keep_all_works, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples")
-                .join("xx_1.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples")
+                    .join("xx_1.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
     loop {
         state.handle_async_messages();
         if state.waves.is_some() {
@@ -969,19 +971,21 @@ snapshot_ui!(load_keep_all_works, || {
 });
 
 snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
-    let mut state = State::new().unwrap().with_params(StartupParams {
-        waves: Some(WaveSource::File(
-            get_project_root()
-                .unwrap()
-                .join("examples")
-                .join("xx_1.vcd")
-                .try_into()
-                .unwrap(),
-        )),
-        spade_top: None,
-        spade_state: None,
-        startup_commands: vec![],
-    });
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples")
+                    .join("xx_1.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
     loop {
         state.handle_async_messages();
         if state.waves.is_some() {

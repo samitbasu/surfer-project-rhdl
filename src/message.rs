@@ -123,6 +123,9 @@ pub enum Message {
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
     SaveState(PathBuf),
+
+    /// Run more than one message in sequence
+    Batch(Vec<Message>),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
