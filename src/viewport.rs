@@ -15,18 +15,13 @@ impl Viewport {
         }
     }
 
-    pub fn to_time(&self, x: f64, view_width: f32) -> BigRational {
-        let time = self.to_time_f64(x, view_width);
-        BigRational::from_f64(time).unwrap_or_else(|| BigRational::from_u8(1).unwrap())
-    }
-
     pub fn to_time_f64(&self, x: f64, view_width: f32) -> f64 {
         let time_spacing = self.width() / view_width as f64;
 
         self.curr_left + time_spacing * x
     }
 
-    pub fn to_time_bigint(&self, x: f64, view_width: f32) -> BigInt {
+    pub fn to_time_bigint(&self, x: f32, view_width: f32) -> BigInt {
         let Viewport {
             curr_left: left,
             curr_right: right,
@@ -39,7 +34,7 @@ impl Viewport {
             BigRational::from_f64(*left).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
         let big_width =
             BigRational::from_f32(view_width).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
-        let big_x = BigRational::from_f64(x).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
+        let big_x = BigRational::from_f32(x).unwrap_or_else(|| BigRational::from_u8(1).unwrap());
 
         let time = big_left.clone() + (big_right - big_left) / big_width * big_x;
         time.round().to_integer()
