@@ -1183,6 +1183,11 @@ impl State {
                     self.sys.command_prompt.suggestions.len().saturating_sub(1),
                 );
             }
+            Message::Batch(messages) => {
+                for message in messages {
+                    self.update(message)
+                }
+            }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
         }
     }
