@@ -13,11 +13,28 @@ use crate::wave_container::{MetaData, ModuleRef, QueryResult, SignalMeta, Signal
 #[derive(Debug)]
 pub struct WellenContainer {
     inner: Waveform,
+    scopes: Vec<String>,
+    vars: Vec<String>,
 }
 
 impl WellenContainer {
     pub fn new(inner: Waveform) -> Self {
-        Self { inner }
+        // generate a list of names for all variables and scopes since they will be requested by the parser
+        let h = inner.hierarchy();
+        let scopes = h
+            .iter_scopes()
+            .map(|r| r.full_name(h).to_string())
+            .collect::<Vec<_>>();
+        let vars = h
+            .iter_vars()
+            .map(|r| r.full_name(h).to_string())
+            .collect::<Vec<_>>();
+
+        Self {
+            inner,
+            scopes,
+            vars,
+        }
     }
 
     pub fn metadata(&self) -> MetaData {
@@ -41,11 +58,8 @@ impl WellenContainer {
         self.inner.time_table().last().map(|t| BigUint::from(*t))
     }
 
-    pub fn signals(&self) -> Vec<SignalRef> {
-        let h = self.inner.hierarchy();
-        h.iter_vars()
-            .map(|r| SignalRef::from_hierarchy_string(&r.full_name(h)))
-            .collect::<Vec<_>>()
+    pub fn signal_names(&self) -> Vec<String> {
+        self.vars.clone()
     }
 
     pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
@@ -151,11 +165,8 @@ impl WellenContainer {
         Ok(result)
     }
 
-    pub fn modules(&self) -> Vec<ModuleRef> {
-        let h = self.inner.hierarchy();
-        h.iter_scopes()
-            .map(|r| ModuleRef::from_hierarchy_string(&r.full_name(h)))
-            .collect::<Vec<_>>()
+    pub fn module_names(&self) -> Vec<String> {
+        self.scopes.clone()
     }
 
     pub fn root_modules(&self) -> Vec<ModuleRef> {

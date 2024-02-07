@@ -55,21 +55,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
     }
 
     let modules = match &state.waves {
-        Some(v) => v
-            .inner
-            .modules()
-            .iter()
-            .map(|module| format!("{module}"))
-            .collect(),
+        Some(v) => v.inner.module_names(),
         None => vec![],
     };
     let signals = match &state.waves {
-        Some(v) => v
-            .inner
-            .signals()
-            .iter()
-            .map(|s| s.full_path_string())
-            .collect(),
+        Some(v) => v.inner.signal_names(),
         None => vec![],
     };
     let displayed_signals = match &state.waves {

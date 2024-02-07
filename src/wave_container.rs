@@ -169,9 +169,10 @@ impl WaveContainer {
         WaveContainer::Empty
     }
 
-    pub fn signals(&self) -> Vec<SignalRef> {
+    /// Returns the full names of all signals (i.e. variables) in the design.
+    pub fn signal_names(&self) -> Vec<String> {
         match self {
-            WaveContainer::Wellen(f) => f.signals(),
+            WaveContainer::Wellen(f) => f.signal_names(),
             WaveContainer::Empty => vec![],
         }
     }
@@ -226,9 +227,10 @@ impl WaveContainer {
         }
     }
 
-    pub fn modules(&self) -> Vec<ModuleRef> {
+    /// Returns the full names of all modules (i.e., scopes) in the design.
+    pub fn module_names(&self) -> Vec<String> {
         match self {
-            WaveContainer::Wellen(f) => f.modules(),
+            WaveContainer::Wellen(f) => f.module_names(),
             WaveContainer::Empty => vec![],
         }
     }
