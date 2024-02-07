@@ -74,8 +74,8 @@ impl WaveData {
                                     } else {
                                         format!(
                                             "{}{}.{}",
-                                            if l < s.path.0.len() { "…" } else { "" },
-                                            s.path.0.iter().rev().take(l).rev().join("."),
+                                            if l < s.path.strs().len() { "…" } else { "" },
+                                            s.path.strs().iter().rev().take(l).rev().join("."),
                                             s.name
                                         )
                                     }

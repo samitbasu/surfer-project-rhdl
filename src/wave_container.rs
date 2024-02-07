@@ -2,7 +2,7 @@ use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
 use num::BigUint;
 use serde::{Deserialize, Serialize};
-use wellen::Waveform;
+use wellen::{ScopeRef, VarRef, Waveform};
 
 use crate::wellen::var_to_meta;
 use crate::{
@@ -22,43 +22,112 @@ pub struct MetaData {
     pub version: Option<String>,
     pub timescale: TimeScale,
 }
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ModuleRef(pub Vec<String>);
+#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
+pub struct ModuleRef {
+    strs: Vec<String>,
+    /// Backend specific numeric ID. Performance optimization.
+    #[serde(skip, default = "__wave_container_scope_id_none")]
+    id: WaveContainerScopeId,
+}
+
+impl std::hash::Hash for ModuleRef {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // id is intentionally not hashed, since it is only a performance hint
+        self.strs.hash(state)
+    }
+}
+
+impl std::cmp::PartialEq for ModuleRef {
+    fn eq(&self, other: &Self) -> bool {
+        // id is intentionally not compared, since it is only a performance hint
+        self.strs.eq(&other.strs)
+    }
+}
+
+/// A backend-specific, numeric reference for fast access to the associated scope.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum WaveContainerScopeId {
+    None,
+    Wellen(wellen::ScopeRef),
+}
+
+fn __wave_container_scope_id_none() -> WaveContainerScopeId {
+    WaveContainerScopeId::None
+}
 
 impl ModuleRef {
-    pub fn from_strs(s: &[&str]) -> Self {
-        Self(s.iter().map(|s| s.to_string()).collect())
+    pub fn empty() -> Self {
+        Self {
+            strs: vec![],
+            id: WaveContainerScopeId::None,
+        }
+    }
+
+    pub fn from_strs<S: ToString>(s: &[S]) -> Self {
+        let strs = s.iter().map(|s| s.to_string()).collect();
+        let id = WaveContainerScopeId::None;
+        Self { strs, id }
+    }
+
+    pub fn from_strs_with_wellen_id<S: ToString>(s: &[S], id: ScopeRef) -> Self {
+        let mut a = Self::from_strs(s);
+        a.id = WaveContainerScopeId::Wellen(id);
+        a
     }
 
     /// Creates a ModuleRef from a string with each module separated by `.`
     pub fn from_hierarchy_string(s: &str) -> Self {
-        Self(s.split('.').map(|x| x.to_string()).collect())
+        let strs = s.split('.').map(|x| x.to_string()).collect();
+        let id = WaveContainerScopeId::None;
+        Self { strs, id }
     }
 
     pub fn with_submodule(&self, submodule: String) -> Self {
         let mut result = self.clone();
-        result.0.push(submodule);
+        result.strs.push(submodule);
+        // the result refers to a different module, which we do not know the ID of
+        result.id = WaveContainerScopeId::None;
         result
     }
 
     pub(crate) fn name(&self) -> String {
-        self.0.last().cloned().unwrap_or_default()
+        self.strs.last().cloned().unwrap_or_default()
+    }
+
+    pub(crate) fn strs(&self) -> &[String] {
+        &self.strs
+    }
+
+    pub(crate) fn get_wellen_id(&self) -> Option<ScopeRef> {
+        match self.id {
+            WaveContainerScopeId::Wellen(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn with_wellen_id(&self, id: ScopeRef) -> Self {
+        let mut out = self.clone();
+        out.id = WaveContainerScopeId::Wellen(id);
+        out
     }
 }
 
 impl std::fmt::Display for ModuleRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.0.join("."))
+        write!(f, "{}", &self.strs.join("."))
     }
 }
 
 // FIXME: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` or Rc/Arc would be better
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
 pub struct SignalRef {
     /// Path in the module hierarchy to where this signal resides
     pub path: ModuleRef,
     /// Name of the signal in its hierarchy
     pub name: String,
+    /// Backend specific numeric ID. Performance optimization.
+    #[serde(skip, default = "__wave_container_var_id_none")]
+    id: WaveContainerVarId,
 }
 
 impl AsRef<SignalRef> for SignalRef {
@@ -67,9 +136,47 @@ impl AsRef<SignalRef> for SignalRef {
     }
 }
 
+impl std::hash::Hash for SignalRef {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // id is intentionally not hashed, since it is only a performance hint
+        self.path.hash(state);
+        self.name.hash(state);
+    }
+}
+
+impl std::cmp::PartialEq for SignalRef {
+    fn eq(&self, other: &Self) -> bool {
+        // id is intentionally not compared, since it is only a performance hint
+        self.path.eq(&other.path) && self.name.eq(&other.name)
+    }
+}
+
+/// A backend-specific, numeric reference for fast access to the associated variable.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum WaveContainerVarId {
+    None,
+    Wellen(wellen::VarRef),
+}
+
+fn __wave_container_var_id_none() -> WaveContainerVarId {
+    WaveContainerVarId::None
+}
+
 impl SignalRef {
     pub fn new(path: ModuleRef, name: String) -> Self {
-        Self { path, name }
+        Self {
+            path,
+            name,
+            id: WaveContainerVarId::None,
+        }
+    }
+
+    pub(crate) fn new_with_wave_id(path: ModuleRef, name: String, id: VarRef) -> Self {
+        Self {
+            path,
+            name,
+            id: WaveContainerVarId::Wellen(id),
+        }
     }
 
     pub fn from_hierarchy_string(s: &str) -> Self {
@@ -77,20 +184,22 @@ impl SignalRef {
 
         if components.is_empty() {
             Self {
-                path: ModuleRef(vec![]),
+                path: ModuleRef::empty(),
                 name: String::new(),
+                id: WaveContainerVarId::None,
             }
         } else {
             Self {
-                path: ModuleRef(components[..(components.len()) - 1].to_vec()),
+                path: ModuleRef::from_strs(&components[..(components.len()) - 1]),
                 name: components.last().unwrap().to_string(),
+                id: WaveContainerVarId::None,
             }
         }
     }
 
     /// A human readable full path to the module
     pub fn full_path_string(&self) -> String {
-        if self.path.0.is_empty() {
+        if self.path.strs().is_empty() {
             self.name.clone()
         } else {
             format!("{}.{}", self.path, self.name)
@@ -99,7 +208,7 @@ impl SignalRef {
 
     pub fn full_path(&self) -> Vec<String> {
         self.path
-            .0
+            .strs()
             .iter()
             .cloned()
             .chain([self.name.clone()])
@@ -114,13 +223,26 @@ impl SignalRef {
                 .last()
                 .expect("from_strs called with an empty string")
                 .to_string(),
+            id: WaveContainerVarId::None,
         }
+    }
+
+    pub(crate) fn get_wellen_id(&self) -> Option<VarRef> {
+        match self.id {
+            WaveContainerVarId::Wellen(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// Removes any backend specific ID.
+    pub(crate) fn clear_id(&mut self) {
+        self.id = WaveContainerVarId::None;
     }
 }
 
 /// A reference to a field of a larger signal, such as a field in a struct. The fields
 /// are the recursive path to the fields inside the (translated) root
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldRef {
     pub root: SignalRef,
     pub field: Vec<String>,
@@ -220,10 +342,11 @@ impl WaveContainer {
         }
     }
 
-    pub fn signal_exists(&self, signal: &SignalRef) -> bool {
+    /// Looks up the signal _by name_ and returns a new reference with an updated `id` if the signal is found.
+    pub fn update_signal_ref(&self, signal: &SignalRef) -> Option<SignalRef> {
         match self {
-            WaveContainer::Wellen(f) => f.signal_exists(signal),
-            WaveContainer::Empty => false,
+            WaveContainer::Wellen(f) => f.update_signal_ref(signal),
+            WaveContainer::Empty => None,
         }
     }
 

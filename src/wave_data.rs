@@ -62,45 +62,13 @@ impl WaveData {
             .active_module
             .take()
             .filter(|m| new_waves.module_exists(m));
-        let mut current_items = self.displayed_items.clone();
-        let display_items = current_items
-            .drain(..)
-            .filter_map(|i| match i {
-                DisplayedItem::Divider(_)
-                | DisplayedItem::Cursor(_)
-                | DisplayedItem::TimeLine(_) => Some(i),
-                DisplayedItem::Signal(s) => {
-                    if new_waves.signal_exists(&s.signal_ref) {
-                        Some(DisplayedItem::Signal(s))
-                    } else if keep_unavailable {
-                        Some(DisplayedItem::Placeholder(s.to_placeholder()))
-                    } else {
-                        None
-                    }
-                }
-                DisplayedItem::Placeholder(p) => {
-                    if new_waves.signal_exists(&p.signal_ref) {
-                        let Ok(meta) = new_waves
-                            .signal_meta(&p.signal_ref)
-                            .context("When updating")
-                            .map_err(|e| error!("{e:#?}"))
-                        else {
-                            return Some(DisplayedItem::Placeholder(p));
-                        };
-                        let translator = self.signal_translator(
-                            &FieldRef::without_fields(p.signal_ref.clone()),
-                            translators,
-                        );
-                        let info = translator.signal_info(&meta).unwrap();
-                        Some(DisplayedItem::Signal(p.to_signal(info)))
-                    } else if keep_unavailable {
-                        Some(DisplayedItem::Placeholder(p))
-                    } else {
-                        None
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
+        let display_items = self.update_displayed_items(
+            &new_waves,
+            &self.displayed_items,
+            keep_unavailable,
+            translators,
+        );
+
         let mut nested_format = self
             .signal_format
             .iter()
@@ -178,6 +146,51 @@ impl WaveData {
             .expect("internal error: failed to load signals");
 
         new_wave
+    }
+
+    fn update_displayed_items(
+        &self,
+        new_waves: &WaveContainer,
+        current_items: &[DisplayedItem],
+        keep_unavailable: bool,
+        translators: &TranslatorList,
+    ) -> Vec<DisplayedItem> {
+        current_items
+            .iter()
+            .filter_map(|i| match i {
+                // keep without a change
+                DisplayedItem::Divider(_)
+                | DisplayedItem::Cursor(_)
+                | DisplayedItem::TimeLine(_) => Some(i.clone()),
+                DisplayedItem::Signal(s) => s.update(new_waves, keep_unavailable),
+                DisplayedItem::Placeholder(p) => match new_waves.update_signal_ref(&p.signal_ref) {
+                    None => {
+                        if keep_unavailable {
+                            Some(DisplayedItem::Placeholder(p.clone()))
+                        } else {
+                            None
+                        }
+                    }
+                    Some(new_signal_ref) => {
+                        let Ok(meta) = new_waves
+                            .signal_meta(&new_signal_ref)
+                            .context("When updating")
+                            .map_err(|e| error!("{e:#?}"))
+                        else {
+                            return Some(DisplayedItem::Placeholder(p.clone()));
+                        };
+                        let translator = self.signal_translator(
+                            &FieldRef::without_fields(p.signal_ref.clone()),
+                            translators,
+                        );
+                        let info = translator.signal_info(&meta).unwrap();
+                        Some(DisplayedItem::Signal(
+                            p.clone().to_signal(info, new_signal_ref),
+                        ))
+                    }
+                },
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn select_preferred_translator(

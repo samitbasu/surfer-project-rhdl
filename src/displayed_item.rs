@@ -3,6 +3,7 @@ use eframe::emath::Align;
 use eframe::epaint::{text::LayoutJob, Color32};
 use serde::{Deserialize, Serialize};
 
+use crate::wave_container::WaveContainer;
 use crate::{
     cursor::DEFAULT_CURSOR_NAME, message::Message, signal_name_type::SignalNameType,
     time::DEFAULT_TIMELINE_NAME, translation::SignalInfo, wave_container::SignalRef,
@@ -32,7 +33,31 @@ pub struct DisplayedSignal {
 }
 
 impl DisplayedSignal {
-    pub fn to_placeholder(self) -> DisplayedPlaceholder {
+    /// Updates the signal after a new waveform has been loaded.
+    pub fn update(
+        &self,
+        new_waves: &WaveContainer,
+        keep_unavailable: bool,
+    ) -> Option<DisplayedItem> {
+        match new_waves.update_signal_ref(&self.signal_ref) {
+            // signal is not available in the new waveform
+            None => {
+                if keep_unavailable {
+                    Some(DisplayedItem::Placeholder(self.clone().to_placeholder()))
+                } else {
+                    None
+                }
+            }
+            Some(new_ref) => {
+                let mut res = self.clone();
+                res.signal_ref = new_ref;
+                Some(DisplayedItem::Signal(res))
+            }
+        }
+    }
+
+    pub fn to_placeholder(mut self) -> DisplayedPlaceholder {
+        self.signal_ref.clear_id(); // placeholders do not refer to currently loaded signals
         DisplayedPlaceholder {
             signal_ref: self.signal_ref,
             color: self.color,
@@ -102,9 +127,13 @@ pub struct DisplayedPlaceholder {
 }
 
 impl DisplayedPlaceholder {
-    pub fn to_signal(self, signal_info: SignalInfo) -> DisplayedSignal {
+    pub fn to_signal(
+        self,
+        signal_info: SignalInfo,
+        updated_signal_ref: SignalRef,
+    ) -> DisplayedSignal {
         DisplayedSignal {
-            signal_ref: self.signal_ref,
+            signal_ref: updated_signal_ref,
             info: signal_info,
             color: self.color,
             background_color: self.background_color,

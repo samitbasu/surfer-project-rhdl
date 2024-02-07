@@ -4,9 +4,7 @@ use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
 use log::warn;
 use num::{BigUint, ToPrimitive};
-use wellen::{
-    GetItem, Time, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType, Waveform,
-};
+use wellen::*;
 
 use crate::wave_container::{MetaData, ModuleRef, QueryResult, SignalMeta, SignalRef, SignalValue};
 
@@ -62,9 +60,16 @@ impl WellenContainer {
         self.vars.clone()
     }
 
+    fn lookup_scope(&self, module: &ModuleRef) -> Option<ScopeRef> {
+        match module.get_wellen_id() {
+            Some(id) => Some(id),
+            None => self.inner.hierarchy().lookup_scope(&module.strs()),
+        }
+    }
+
     pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
         let h = self.inner.hierarchy();
-        let scope = match h.lookup_scope(&module.0) {
+        let scope = match self.lookup_scope(module) {
             Some(id) => h.get(id),
             None => {
                 warn!("Found no module '{module}'. Defaulting to no signals");
@@ -73,15 +78,27 @@ impl WellenContainer {
         };
         scope
             .vars(h)
-            .map(|id| SignalRef {
-                path: module.clone(),
-                name: h.get(id).name(h).to_string(),
+            .map(|id| {
+                SignalRef::new_with_wave_id(module.clone(), h.get(id).name(h).to_string(), id)
             })
             .collect::<Vec<_>>()
     }
 
-    pub fn signal_exists(&self, signal: &SignalRef) -> bool {
-        self.get_var_ref(signal).is_ok()
+    pub fn update_signal_ref(&self, signal: &SignalRef) -> Option<SignalRef> {
+        // IMPORTANT: lookup by name!
+        let h = self.inner.hierarchy();
+
+        // first we lookup the scope in order to update the module reference
+        let scope = h.lookup_scope(&signal.path.strs())?;
+        let new_module_ref = signal.path.with_wellen_id(scope);
+
+        // now we lookup the variable
+        let var = h
+            .get(scope)
+            .vars(h)
+            .find(|r| h.get(*r).name(h) == signal.name)?;
+        let new_signal_ref = SignalRef::new_with_wave_id(new_module_ref, signal.name.clone(), var);
+        Some(new_signal_ref)
     }
 
     pub fn get_var(&self, r: &SignalRef) -> Result<&Var> {
@@ -90,12 +107,17 @@ impl WellenContainer {
     }
 
     fn get_var_ref(&self, r: &SignalRef) -> Result<VarRef> {
-        let h = self.inner.hierarchy();
-        let var = match h.lookup_var(&r.path.0, &r.name) {
-            None => bail!("Failed to find signal: {r:?}"),
-            Some(id) => id,
-        };
-        Ok(var)
+        match r.get_wellen_id() {
+            Some(id) => Ok(id),
+            None => {
+                let h = self.inner.hierarchy();
+                let var = match h.lookup_var(&r.path.strs(), &r.name) {
+                    None => bail!("Failed to find signal: {r:?}"),
+                    Some(id) => id,
+                };
+                Ok(var)
+            }
+        }
     }
 
     pub fn load_signal(&mut self, r: &SignalRef) -> Result<&Var> {
@@ -113,8 +135,7 @@ impl WellenContainer {
         let signal_refs = signals
             .flat_map(|s| {
                 let r = s.as_ref();
-                h.lookup_var(&r.path.0, &r.name)
-                    .map(|v| h.get(v).signal_ref())
+                self.get_var_ref(r).map(|v| h.get(v).signal_ref())
             })
             .collect::<Vec<_>>();
         self.inner.load_signals(&signal_refs);
@@ -132,9 +153,7 @@ impl WellenContainer {
     pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
         let h = self.inner.hierarchy();
         // find variable from string
-        let var_ref = h
-            .lookup_var(&signal.path.0, &signal.name)
-            .ok_or_else(|| anyhow!("Failed to find signal {signal:?}"))?;
+        let var_ref = self.get_var_ref(signal)?;
         // map variable to signal
         let signal_ref = h.get(var_ref).signal_ref();
         let sig = match self.inner.get_signal(signal_ref) {
@@ -172,13 +191,13 @@ impl WellenContainer {
     pub fn root_modules(&self) -> Vec<ModuleRef> {
         let h = self.inner.hierarchy();
         h.scopes()
-            .map(|id| ModuleRef(vec![h.get(id).name(h).to_string()]))
+            .map(|id| ModuleRef::from_strs_with_wellen_id(&[h.get(id).name(h)], id))
             .collect::<Vec<_>>()
     }
 
     pub fn child_modules(&self, module: &ModuleRef) -> Result<Vec<ModuleRef>> {
         let h = self.inner.hierarchy();
-        let scope = match h.lookup_scope(&module.0) {
+        let scope = match self.lookup_scope(module) {
             Some(id) => h.get(id),
             None => return Err(anyhow!("Failed to find module {module:?}")),
         };
@@ -189,8 +208,7 @@ impl WellenContainer {
     }
 
     pub fn module_exists(&self, module: &ModuleRef) -> bool {
-        let h = self.inner.hierarchy();
-        h.lookup_scope(&module.0).is_some()
+        self.lookup_scope(module).is_some()
     }
 }
 
