@@ -602,6 +602,10 @@ impl State {
 
     fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
         let mut item_offsets = Vec::new();
+        let draw_alpha = self.sys.command_prompt.visible
+            && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
+                .expanded
+                .starts_with("signal_focus");
 
         let alignment = self.get_name_alignment();
         ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
@@ -635,7 +639,7 @@ impl State {
                         };
                         let style = Style::default();
                         let mut layout_job = LayoutJob::default();
-                        self.add_alpha_id(vidx, &style, &mut layout_job, Align::LEFT);
+                        self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::LEFT);
                         displayed_item.add_to_layout_job(
                             &self.config.theme.foreground,
                             index,
@@ -643,7 +647,7 @@ impl State {
                             &mut layout_job,
                         );
 
-                        self.add_alpha_id(vidx, &style, &mut layout_job, Align::RIGHT);
+                        self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
 
                         self.draw_signal_var(
                             msgs,
@@ -659,16 +663,44 @@ impl State {
                         );
                     }
                     DisplayedItem::Divider(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        );
                     }
                     DisplayedItem::Cursor(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        );
                     }
                     DisplayedItem::Placeholder(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        );
                     }
                     DisplayedItem::TimeLine(_) => {
-                        self.draw_plain_var(msgs, vidx, displayed_item, &mut item_offsets, ui);
+                        self.draw_plain_var(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        );
                     }
                 }
             }
@@ -794,11 +826,12 @@ impl State {
         displayed_item: &DisplayedItem,
         item_offsets: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
+        draw_alpha: bool,
     ) {
         let mut draw_label = |ui: &mut egui::Ui| {
             let style = Style::default();
             let mut layout_job = LayoutJob::default();
-            self.add_alpha_id(vidx, &style, &mut layout_job, Align::LEFT);
+            self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::LEFT);
 
             let text_color = if let Some(color) = &displayed_item.color() {
                 self.config
@@ -810,7 +843,7 @@ impl State {
                 &self.config.theme.foreground
             };
             displayed_item.add_to_layout_job(text_color, None, &style, &mut layout_job);
-            self.add_alpha_id(vidx, &style, &mut layout_job, Align::RIGHT);
+            self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
             let signal_label = ui
                 .selectable_label(
                     self.item_is_selected(vidx),
@@ -856,17 +889,13 @@ impl State {
 
     fn add_alpha_id(
         &self,
+        draw_alpha: bool,
         vidx: usize,
         style: &Style,
         mut layout_job: &mut LayoutJob,
         alignment: Align,
     ) {
-        if self.sys.command_prompt.visible
-            && alignment == self.get_name_alignment()
-            && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
-                .expanded
-                .starts_with("signal_focus")
-        {
+        if draw_alpha && alignment == self.get_name_alignment() {
             let alpha_id = uint_idx_to_alpha_idx(
                 vidx,
                 self.waves
