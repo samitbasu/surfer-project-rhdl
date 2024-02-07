@@ -235,14 +235,6 @@ impl WaveContainer {
         }
     }
 
-    // FIXME: this seems to alias the module_exists function. Remove?
-    pub fn has_module(&self, module: &ModuleRef) -> bool {
-        match self {
-            WaveContainer::Wellen(f) => f.module_exists(module),
-            WaveContainer::Empty => false,
-        }
-    }
-
     pub fn metadata(&self) -> MetaData {
         match self {
             WaveContainer::Wellen(f) => f.metadata(),

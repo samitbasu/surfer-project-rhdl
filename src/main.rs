@@ -572,7 +572,7 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                if waves.inner.has_module(&module) {
+                if waves.inner.module_exists(&module) {
                     waves.active_module = Some(module)
                 } else {
                     warn!("Setting active scope to {module} which does not exist")
