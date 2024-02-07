@@ -96,12 +96,13 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     let active_module = state.waves.as_ref().and_then(|w| w.active_module.clone());
 
-    fn files_with_ext(e: &str) -> Vec<String> {
+    fn files_with_ext(matches: fn(&str) -> bool) -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
             res.map(|res| res.map(|e| e.path()).unwrap_or_default())
                 .filter(|file| {
-                    file.extension()
-                        .map_or(false, |extension| extension.to_str().unwrap_or("") == e)
+                    file.extension().map_or(false, |extension| {
+                        (matches)(extension.to_str().unwrap_or(""))
+                    })
                 })
                 .map(|file| file.into_os_string().into_string().unwrap())
                 .collect::<Vec<String>>()
@@ -111,10 +112,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
     }
 
     fn vcd_files() -> Vec<String> {
-        files_with_ext("vcd")
+        files_with_ext(is_vcd_extension)
     }
-    fn fst_files() -> Vec<String> {
-        files_with_ext("fst")
+    fn all_wave_files() -> Vec<String> {
+        files_with_ext(is_wave_file_extension)
     }
 
     let cursors = if let Some(waves) = &state.waves {
@@ -210,7 +211,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "load_file" => single_word_delayed_suggestions(
-                    Box::new(fst_files),
+                    Box::new(all_wave_files),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::LoadWaveformFile(
                             word.into(),
@@ -394,6 +395,13 @@ pub fn get_parser(state: &State) -> Command<Message> {
             }
         }),
     )
+}
+
+fn is_vcd_extension(ext: &str) -> bool {
+    ext == "vcd"
+}
+fn is_wave_file_extension(ext: &str) -> bool {
+    ext == "vcd" || ext == "fst"
 }
 
 pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
