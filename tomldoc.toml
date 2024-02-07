@@ -1,0 +1,2 @@
+crate_name = "surfer"
+doc_items = [["config", "SurferConfig"]]
