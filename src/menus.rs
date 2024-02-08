@@ -5,10 +5,10 @@ use crate::{
     clock_highlighting::clock_highlight_type_menu,
     displayed_item::DisplayedItem,
     message::Message,
-    signal_filter::signal_filter_type_menu,
-    signal_name_type::SignalNameType,
     time::{timeformat_menu, timeunit_menu},
     translation::TranslationPreference,
+    variable_name_filter::variable_name_filter_type_menu,
+    variable_name_type::VariableNameType,
     wave_container::FieldRef,
     wave_source::OpenMode,
     State,
@@ -148,19 +148,19 @@ impl State {
                 timeformat_menu(ui, msgs, &self.get_time_format());
             });
             if let Some(waves) = &self.waves {
-                let signal_name_type = waves.default_signal_name_type;
-                ui.menu_button("Signal names", |ui| {
-                    for name_type in enum_iterator::all::<SignalNameType>() {
-                        ui.radio(signal_name_type == name_type, name_type.to_string())
+                let variable_name_type = waves.default_variable_name_type;
+                ui.menu_button("Variable names", |ui| {
+                    for name_type in enum_iterator::all::<VariableNameType>() {
+                        ui.radio(variable_name_type == name_type, name_type.to_string())
                             .clicked()
                             .then(|| {
                                 ui.close_menu();
-                                msgs.push(Message::ForceSignalNameTypes(name_type));
+                                msgs.push(Message::ForceVariableNameTypes(name_type));
                             });
                     }
                 });
             }
-            ui.menu_button("Signal name alignment", |ui| {
+            ui.menu_button("Variable name alignment", |ui| {
                 let align_right = self
                     .align_names_right
                     .unwrap_or_else(|| self.config.layout.align_names_right());
@@ -173,8 +173,8 @@ impl State {
                     msgs.push(Message::SetNameAlignRight(true));
                 });
             });
-            ui.menu_button("Signal filter type", |ui| {
-                signal_filter_type_menu(ui, msgs, &self.signal_filter_type);
+            ui.menu_button("Variable filter type", |ui| {
+                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
             });
             ui.menu_button("UI scale", |ui| {
                 for scale in [0.5, 0.75, 1.0, 1.5, 2.0, 2.5] {
@@ -198,20 +198,20 @@ impl State {
             });
 
             ui.radio(
-                self.show_signal_tooltip
-                    .unwrap_or(self.config.layout.show_signal_tooltip()),
-                "Show signal tooltip",
+                self.show_variable_tooltip
+                    .unwrap_or(self.config.layout.show_variable_tooltip()),
+                "Show variable tooltip",
             )
             .clicked()
             .then(|| {
                 ui.close_menu();
-                msgs.push(Message::ToggleSignalTooltip)
+                msgs.push(Message::ToggleVariableTooltip)
             });
 
             ui.radio(
-                self.show_signal_indices
-                    .unwrap_or(self.config.layout.show_signal_indices()),
-                "Show signal indices",
+                self.show_variable_indices
+                    .unwrap_or(self.config.layout.show_variable_indices()),
+                "Show variable indices",
             )
             .clicked()
             .then(|| {
@@ -295,15 +295,15 @@ impl State {
                 });
         });
 
-        if let DisplayedItem::Signal(signal) = displayed_item {
+        if let DisplayedItem::Variable(variable) = displayed_item {
             ui.menu_button("Name", |ui| {
-                let signal_name_type = signal.display_name_type;
-                for name_type in enum_iterator::all::<SignalNameType>() {
-                    ui.radio(signal_name_type == name_type, name_type.to_string())
+                let variable_name_type = variable.display_name_type;
+                for name_type in enum_iterator::all::<VariableNameType>() {
+                    ui.radio(variable_name_type == name_type, name_type.to_string())
                         .clicked()
                         .then(|| {
                             ui.close_menu();
-                            msgs.push(Message::ChangeSignalNameType(Some(vidx), name_type));
+                            msgs.push(Message::ChangeVariableNameType(Some(vidx), name_type));
                         });
                 }
             });
@@ -333,7 +333,7 @@ impl State {
     }
 
     fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut Ui) {
-        // Should not call this unless a signal is selected, and, hence, a VCD is loaded
+        // Should not call this unless a variable is selected, and, hence, a VCD is loaded
         let Some(waves) = &self.waves else { return };
 
         let mut available_translators = if path.field.is_empty() {
@@ -352,7 +352,7 @@ impl State {
                     } else {
                         match waves
                             .inner
-                            .signal_meta(&path.root)
+                            .variable_meta(&path.root)
                             .and_then(|meta| t.translates(&meta))
                             .context(format!(
                                 "Failed to check if {translator_name} translates {:?}",
@@ -380,10 +380,17 @@ impl State {
         available_translators.sort_by(|a, b| human_sort::compare(a, b));
         let format_menu = available_translators
             .iter()
-            .map(|t| (*t, Message::SignalFormatChange(path.clone(), t.to_string())))
+            .map(|t| {
+                (
+                    *t,
+                    Message::VariableFormatChange(path.clone(), t.to_string()),
+                )
+            })
             .collect::<Vec<_>>();
 
-        let selected_translator = waves.signal_translator(path, &self.sys.translators).name();
+        let selected_translator = waves
+            .variable_translator(path, &self.sys.translators)
+            .name();
 
         ui.menu_button("Format", |ui| {
             for (name, msg) in format_menu {

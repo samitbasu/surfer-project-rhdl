@@ -3,11 +3,11 @@ use half::{bf16, f16};
 use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
 
-use crate::{signal_type::INTEGER_TYPES, wave_container::SignalMeta};
+use crate::{signal_type::INTEGER_TYPES, wave_container::VariableMeta};
 
 use super::{
-    check_single_wordlength, map_vector_signal, translates_all_bit_types, BasicTranslator,
-    NumberParseResult, SignalValue, TranslationPreference, ValueKind,
+    check_single_wordlength, map_vector_variable, translates_all_bit_types, BasicTranslator,
+    NumberParseResult, TranslationPreference, ValueKind, VariableValue,
 };
 
 #[inline]
@@ -24,8 +24,8 @@ fn shortest_float_representation<T: std::fmt::LowerExp + std::fmt::Display>(v: T
 pub trait NumericTranslator {
     fn name(&self) -> String;
     fn translate_biguint(&self, _: u64, _: BigUint) -> String;
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        translates_all_bit_types(signal)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        translates_all_bit_types(variable)
     }
 }
 
@@ -34,13 +34,13 @@ impl<T: NumericTranslator + Send + Sync> BasicTranslator for T {
         self.name()
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => (
+            VariableValue::BigUint(v) => (
                 self.translate_biguint(num_bits, v.clone()),
                 ValueKind::Normal,
             ),
-            SignalValue::String(s) => match map_vector_signal(s) {
+            VariableValue::String(s) => match map_vector_variable(s) {
                 NumberParseResult::Unparsable(v, k) => (v, k),
                 NumberParseResult::Numerical(v) => {
                     (self.translate_biguint(num_bits, v), ValueKind::Normal)
@@ -49,8 +49,8 @@ impl<T: NumericTranslator + Send + Sync> BasicTranslator for T {
         }
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        self.translates(signal)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        self.translates(variable)
     }
 }
 
@@ -83,11 +83,11 @@ impl NumericTranslator for SignedTranslator {
         }
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        if INTEGER_TYPES.contains(&signal.signal_type) {
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        if INTEGER_TYPES.contains(&variable.signal_type) {
             Ok(TranslationPreference::Prefer)
         } else {
-            translates_all_bit_types(signal)
+            translates_all_bit_types(variable)
         }
     }
 }
@@ -103,8 +103,8 @@ impl NumericTranslator for SinglePrecisionTranslator {
         shortest_float_representation(f32::from_bits(v.iter_u32_digits().next().unwrap_or(0)))
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 32)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 32)
     }
 }
 
@@ -117,8 +117,8 @@ impl NumericTranslator for DoublePrecisionTranslator {
     fn translate_biguint(&self, _: u64, v: num::BigUint) -> String {
         shortest_float_representation(f64::from_bits(v.iter_u64_digits().next().unwrap_or(0)))
     }
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 64)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 64)
     }
 }
 
@@ -141,8 +141,8 @@ impl NumericTranslator for QuadPrecisionTranslator {
         let val = lsb as u128 | (msb as u128) << 64;
         f128::f128::from_bits(val).to_string()
     }
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 128)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 128)
     }
 }
 
@@ -157,8 +157,8 @@ impl NumericTranslator for HalfPrecisionTranslator {
             v.iter_u32_digits().next().unwrap_or(0) as u16
         ))
     }
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 16)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 16)
     }
 }
 
@@ -173,8 +173,8 @@ impl NumericTranslator for BFloat16Translator {
             v.iter_u32_digits().next().unwrap_or(0) as u16
         ))
     }
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 16)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 16)
     }
 }
 
@@ -192,8 +192,8 @@ impl NumericTranslator for Posit32Translator {
         )
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 32)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 32)
     }
 }
 
@@ -211,8 +211,8 @@ impl NumericTranslator for Posit16Translator {
         )
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 16)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 16)
     }
 }
 
@@ -230,8 +230,8 @@ impl NumericTranslator for Posit8Translator {
         )
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 8)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 8)
     }
 }
 
@@ -249,8 +249,8 @@ impl NumericTranslator for PositQuire8Translator {
         )
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 32)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 32)
     }
 }
 
@@ -273,8 +273,8 @@ impl NumericTranslator for PositQuire16Translator {
         format!("{p}", p = Q16E1::from_bits(val))
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 128)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 128)
     }
 }
 
@@ -314,8 +314,8 @@ impl NumericTranslator for E5M2Translator {
         decode_e5m2(v.iter_u32_digits().next().unwrap_or(0) as u8)
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 8)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 8)
     }
 }
 
@@ -351,8 +351,8 @@ impl NumericTranslator for E4M3Translator {
         decode_e4m3(v.iter_u32_digits().next().unwrap_or(0) as u8)
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 8)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 8)
     }
 }
 
@@ -365,14 +365,14 @@ mod test {
     fn signed_translation_from_string() {
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .basic_translate(5, &VariableValue::String("10000".to_string()))
                 .0,
             "-16"
         );
 
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(5, &SignalValue::String("01000".to_string()))
+                .basic_translate(5, &VariableValue::String("01000".to_string()))
                 .0,
             "8"
         );
@@ -382,20 +382,20 @@ mod test {
     fn signed_translation_from_biguint() {
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10011u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b10011u32)))
                 .0,
             "-13"
         );
 
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b01000u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b01000u32)))
                 .0,
             "8"
         );
         assert_eq!(
             SignedTranslator {}
-                .basic_translate(2, &SignalValue::BigUint(BigUint::from(0u32)))
+                .basic_translate(2, &VariableValue::BigUint(BigUint::from(0u32)))
                 .0,
             "0"
         );
@@ -405,14 +405,14 @@ mod test {
     fn unsigned_translation_from_string() {
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .basic_translate(5, &VariableValue::String("10000".to_string()))
                 .0,
             "16"
         );
 
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(5, &SignalValue::String("01000".to_string()))
+                .basic_translate(5, &VariableValue::String("01000".to_string()))
                 .0,
             "8"
         );
@@ -422,20 +422,20 @@ mod test {
     fn unsigned_translation_from_biguint() {
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10011u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b10011u32)))
                 .0,
             "19"
         );
 
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b01000u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b01000u32)))
                 .0,
             "8"
         );
         assert_eq!(
             UnsignedTranslator {}
-                .basic_translate(2, &SignalValue::BigUint(BigUint::from(0u32)))
+                .basic_translate(2, &VariableValue::BigUint(BigUint::from(0u32)))
                 .0,
             "0"
         );
@@ -445,7 +445,7 @@ mod test {
     fn e4m3_translation_from_biguint() {
         assert_eq!(
             E4M3Translator {}
-                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b10001000u8)))
+                .basic_translate(8, &VariableValue::BigUint(BigUint::from(0b10001000u8)))
                 .0,
             "-0.015625"
         );
@@ -455,25 +455,25 @@ mod test {
     fn e4m3_translation_from_string() {
         assert_eq!(
             E4M3Translator {}
-                .basic_translate(8, &SignalValue::String("11111111".to_string()))
+                .basic_translate(8, &VariableValue::String("11111111".to_string()))
                 .0,
             "NaN"
         );
         assert_eq!(
             E4M3Translator {}
-                .basic_translate(8, &SignalValue::String("00000011".to_string()))
+                .basic_translate(8, &VariableValue::String("00000011".to_string()))
                 .0,
             "0.005859375"
         );
         assert_eq!(
             E4M3Translator {}
-                .basic_translate(8, &SignalValue::String("10000000".to_string()))
+                .basic_translate(8, &VariableValue::String("10000000".to_string()))
                 .0,
             "-0"
         );
         assert_eq!(
             E4M3Translator {}
-                .basic_translate(8, &SignalValue::String("00000000".to_string()))
+                .basic_translate(8, &VariableValue::String("00000000".to_string()))
                 .0,
             "0"
         );
@@ -483,13 +483,13 @@ mod test {
     fn e5m2_translation_from_biguint() {
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b10000100u8)))
+                .basic_translate(8, &VariableValue::BigUint(BigUint::from(0b10000100u8)))
                 .0,
             "-6.1035156e-5"
         );
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b11111100u8)))
+                .basic_translate(8, &VariableValue::BigUint(BigUint::from(0b11111100u8)))
                 .0,
             "∞"
         );
@@ -499,25 +499,25 @@ mod test {
     fn e5m2_translation_from_string() {
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::String("11111111".to_string()))
+                .basic_translate(8, &VariableValue::String("11111111".to_string()))
                 .0,
             "NaN"
         );
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::String("00000011".to_string()))
+                .basic_translate(8, &VariableValue::String("00000011".to_string()))
                 .0,
             "4.5776367e-5"
         );
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::String("10000000".to_string()))
+                .basic_translate(8, &VariableValue::String("10000000".to_string()))
                 .0,
             "-0"
         );
         assert_eq!(
             E5M2Translator {}
-                .basic_translate(8, &SignalValue::String("00000000".to_string()))
+                .basic_translate(8, &VariableValue::String("00000000".to_string()))
                 .0,
             "0"
         );
@@ -527,13 +527,13 @@ mod test {
     fn posit8_translation_from_biguint() {
         assert_eq!(
             Posit8Translator {}
-                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0b10001000u8)))
+                .basic_translate(8, &VariableValue::BigUint(BigUint::from(0b10001000u8)))
                 .0,
             "-8"
         );
         assert_eq!(
             Posit8Translator {}
-                .basic_translate(8, &SignalValue::BigUint(BigUint::from(0u8)))
+                .basic_translate(8, &VariableValue::BigUint(BigUint::from(0u8)))
                 .0,
             "0"
         );
@@ -543,19 +543,19 @@ mod test {
     fn posit8_translation_from_string() {
         assert_eq!(
             Posit8Translator {}
-                .basic_translate(8, &SignalValue::String("11111111".to_string()))
+                .basic_translate(8, &VariableValue::String("11111111".to_string()))
                 .0,
             "-0.015625"
         );
         assert_eq!(
             Posit8Translator {}
-                .basic_translate(8, &SignalValue::String("00000011".to_string()))
+                .basic_translate(8, &VariableValue::String("00000011".to_string()))
                 .0,
             "0.046875"
         );
         assert_eq!(
             Posit8Translator {}
-                .basic_translate(8, &SignalValue::String("10000000".to_string()))
+                .basic_translate(8, &VariableValue::String("10000000".to_string()))
                 .0,
             "NaN"
         );
@@ -567,14 +567,14 @@ mod test {
             Posit16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
+                    &VariableValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "-2.68359375"
         );
         assert_eq!(
             Posit16Translator {}
-                .basic_translate(16, &SignalValue::BigUint(BigUint::from(0u16)))
+                .basic_translate(16, &VariableValue::BigUint(BigUint::from(0u16)))
                 .0,
             "0"
         );
@@ -584,19 +584,19 @@ mod test {
     fn posit16_translation_from_string() {
         assert_eq!(
             Posit16Translator {}
-                .basic_translate(16, &SignalValue::String("1111111111111111".to_string()))
+                .basic_translate(16, &VariableValue::String("1111111111111111".to_string()))
                 .0,
             "-0.000000003725290298461914"
         );
         assert_eq!(
             Posit16Translator {}
-                .basic_translate(16, &SignalValue::String("0111000000000011".to_string()))
+                .basic_translate(16, &VariableValue::String("0111000000000011".to_string()))
                 .0,
             "16.046875"
         );
         assert_eq!(
             Posit16Translator {}
-                .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
+                .basic_translate(16, &VariableValue::String("1000000000000000".to_string()))
                 .0,
             "NaN"
         );
@@ -608,14 +608,14 @@ mod test {
             Posit32Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
+                    &VariableValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "0.0000000000000000023056236824262055"
         );
         assert_eq!(
             Posit32Translator {}
-                .basic_translate(32, &SignalValue::BigUint(BigUint::from(0u32)))
+                .basic_translate(32, &VariableValue::BigUint(BigUint::from(0u32)))
                 .0,
             "0"
         );
@@ -627,7 +627,7 @@ mod test {
             Posit32Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("10000111000000001111111111111111".to_string())
+                    &VariableValue::String("10000111000000001111111111111111".to_string())
                 )
                 .0,
             "-8176.000244140625"
@@ -636,7 +636,7 @@ mod test {
             Posit32Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("01110000000000111000000000000000".to_string())
+                    &VariableValue::String("01110000000000111000000000000000".to_string())
                 )
                 .0,
             "257.75"
@@ -649,14 +649,14 @@ mod test {
             PositQuire8Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
+                    &VariableValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "10"
         );
         assert_eq!(
             PositQuire8Translator {}
-                .basic_translate(32, &SignalValue::BigUint(BigUint::from(0u16)))
+                .basic_translate(32, &VariableValue::BigUint(BigUint::from(0u16)))
                 .0,
             "0"
         );
@@ -668,7 +668,7 @@ mod test {
             PositQuire8Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("10000111000000001111111111111111".to_string())
+                    &VariableValue::String("10000111000000001111111111111111".to_string())
                 )
                 .0,
             "-64"
@@ -677,7 +677,7 @@ mod test {
             PositQuire8Translator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("01110000000000111000000000000000".to_string())
+                    &VariableValue::String("01110000000000111000000000000000".to_string())
                 )
                 .0,
             "64"
@@ -688,19 +688,19 @@ mod test {
     fn quire16_translation_from_biguint() {
         assert_eq!(
             PositQuire16Translator {}
-                .basic_translate(128, &SignalValue::BigUint(BigUint::from(0b10101010100010001010101010001000101010101000100010101010100010001010101010001000101010101000100010101010100010001010101010001000u128)))
+                .basic_translate(128, &VariableValue::BigUint(BigUint::from(0b10101010100010001010101010001000101010101000100010101010100010001010101010001000101010101000100010101010100010001010101010001000u128)))
                 .0,
             "-268435456"
         );
         assert_eq!(
             PositQuire16Translator {}
-                .basic_translate(128, &SignalValue::BigUint(BigUint::from(7u8)))
+                .basic_translate(128, &VariableValue::BigUint(BigUint::from(7u8)))
                 .0,
             "0.000000003725290298461914"
         );
         assert_eq!(
             PositQuire16Translator {}
-                .basic_translate(128, &SignalValue::BigUint(BigUint::from(0u8)))
+                .basic_translate(128, &VariableValue::BigUint(BigUint::from(0u8)))
                 .0,
             "0"
         );
@@ -712,7 +712,7 @@ mod test {
             PositQuire16Translator {}
                 .basic_translate(
                     128,
-                    &SignalValue::String(
+                    &VariableValue::String(
                         "1000011100000000111111111111111101110000000000111000000000000000"
                             .to_string()
                     )
@@ -724,7 +724,7 @@ mod test {
             PositQuire16Translator {}
                 .basic_translate(
                     128,
-                    &SignalValue::String("01110000000000111000000000000000".to_string())
+                    &VariableValue::String("01110000000000111000000000000000".to_string())
                 )
                 .0,
             "0.000000029802322387695313"
@@ -735,55 +735,55 @@ mod test {
     fn bloat16_translation_from_string() {
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("0100100011100011".to_string()))
                 .0,
             "464896"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
+                .basic_translate(16, &VariableValue::String("1000000000000000".to_string()))
                 .0,
             "-0"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("1111111111111111".to_string()))
+                .basic_translate(16, &VariableValue::String("1111111111111111".to_string()))
                 .0,
             "NaN"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("01001z0011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("01001z0011100011".to_string()))
                 .0,
             "HIGHIMP"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("01001q0011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("01001q0011100011".to_string()))
                 .0,
             "UNKNOWN VALUES"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("01001-0011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("01001-0011100011".to_string()))
                 .0,
             "DON'T CARE"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("01001w0011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("01001w0011100011".to_string()))
                 .0,
             "UNDEF WEAK"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("01001h0011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("01001h0011100011".to_string()))
                 .0,
             "WEAK"
         );
         assert_eq!(
             BFloat16Translator {}
-                .basic_translate(16, &SignalValue::String("01001u0011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("01001u0011100011".to_string()))
                 .0,
             "UNDEF"
         );
@@ -795,7 +795,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b1010101010001000u16))
+                    &VariableValue::BigUint(BigUint::from(0b1010101010001000u16))
                 )
                 .0,
             "-2.4158453e-13"
@@ -804,7 +804,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b1000000000000000u16))
+                    &VariableValue::BigUint(BigUint::from(0b1000000000000000u16))
                 )
                 .0,
             "-0"
@@ -813,7 +813,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b0000000000000000u16))
+                    &VariableValue::BigUint(BigUint::from(0b0000000000000000u16))
                 )
                 .0,
             "0"
@@ -822,7 +822,7 @@ mod test {
             BFloat16Translator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b1111111111111111u16))
+                    &VariableValue::BigUint(BigUint::from(0b1111111111111111u16))
                 )
                 .0,
             "NaN"
@@ -835,7 +835,7 @@ mod test {
             HalfPrecisionTranslator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b1000000000000000u16))
+                    &VariableValue::BigUint(BigUint::from(0b1000000000000000u16))
                 )
                 .0,
             "-0"
@@ -844,7 +844,7 @@ mod test {
             HalfPrecisionTranslator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b0000000000000000u16))
+                    &VariableValue::BigUint(BigUint::from(0b0000000000000000u16))
                 )
                 .0,
             "0"
@@ -853,7 +853,7 @@ mod test {
             HalfPrecisionTranslator {}
                 .basic_translate(
                     16,
-                    &SignalValue::BigUint(BigUint::from(0b1111111111111111u16))
+                    &VariableValue::BigUint(BigUint::from(0b1111111111111111u16))
                 )
                 .0,
             "NaN"
@@ -864,19 +864,19 @@ mod test {
     fn half_translation_from_string() {
         assert_eq!(
             HalfPrecisionTranslator {}
-                .basic_translate(16, &SignalValue::String("0100100011100011".to_string()))
+                .basic_translate(16, &VariableValue::String("0100100011100011".to_string()))
                 .0,
             "9.7734375"
         );
         assert_eq!(
             HalfPrecisionTranslator {}
-                .basic_translate(16, &SignalValue::String("1000000000000000".to_string()))
+                .basic_translate(16, &VariableValue::String("1000000000000000".to_string()))
                 .0,
             "-0"
         );
         assert_eq!(
             HalfPrecisionTranslator {}
-                .basic_translate(16, &SignalValue::String("1111111111111111".to_string()))
+                .basic_translate(16, &VariableValue::String("1111111111111111".to_string()))
                 .0,
             "NaN"
         );
@@ -888,7 +888,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(BigUint::from(0b01010101010001001010101010001000u32))
+                    &VariableValue::BigUint(BigUint::from(0b01010101010001001010101010001000u32))
                 )
                 .0,
             "1.3514794e13"
@@ -897,7 +897,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(BigUint::from(0b10000000000000000000000000000000u32))
+                    &VariableValue::BigUint(BigUint::from(0b10000000000000000000000000000000u32))
                 )
                 .0,
             "-0"
@@ -906,7 +906,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(BigUint::from(0b00000000000000000000000000000000u32))
+                    &VariableValue::BigUint(BigUint::from(0b00000000000000000000000000000000u32))
                 )
                 .0,
             "0"
@@ -915,7 +915,7 @@ mod test {
             SinglePrecisionTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(BigUint::from(0b11111111111111111111111111111111u32))
+                    &VariableValue::BigUint(BigUint::from(0b11111111111111111111111111111111u32))
                 )
                 .0,
             "NaN"
@@ -928,7 +928,7 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(BigUint::from(
+                    &VariableValue::BigUint(BigUint::from(
                         0b0101010101000100101010101000100001010101010001001010101010001000u64
                     ))
                 )
@@ -939,7 +939,7 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(BigUint::from(
+                    &VariableValue::BigUint(BigUint::from(
                         0b1000000000000000000000000000000000000000000000000000000000000000u64
                     ))
                 )
@@ -950,7 +950,7 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(BigUint::from(
+                    &VariableValue::BigUint(BigUint::from(
                         0b0000000000000000000000000000000000000000000000000000000000000000u64
                     ))
                 )
@@ -961,7 +961,7 @@ mod test {
             DoublePrecisionTranslator {}
                 .basic_translate(
                     64,
-                    &SignalValue::BigUint(BigUint::from(
+                    &VariableValue::BigUint(BigUint::from(
                         0b1111111111111111111111111111111111111111111111111111111111111111u64
                     ))
                 )

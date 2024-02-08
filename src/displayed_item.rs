@@ -4,15 +4,15 @@ use eframe::epaint::{text::LayoutJob, Color32};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cursor::DEFAULT_CURSOR_NAME, message::Message, signal_name_type::SignalNameType,
-    time::DEFAULT_TIMELINE_NAME, translation::SignalInfo, wave_container::SignalRef,
+    cursor::DEFAULT_CURSOR_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
+    translation::VariableInfo, variable_name_type::VariableNameType, wave_container::VariableRef,
 };
 
 const DEFAULT_DIVIDER_NAME: &str = "";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum DisplayedItem {
-    Signal(DisplayedSignal),
+    Variable(DisplayedVariable),
     Divider(DisplayedDivider),
     Cursor(DisplayedCursor),
     TimeLine(DisplayedTimeLine),
@@ -20,21 +20,21 @@ pub enum DisplayedItem {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct DisplayedSignal {
-    pub signal_ref: SignalRef,
+pub struct DisplayedVariable {
+    pub variable_ref: VariableRef,
     #[serde(skip)]
-    pub info: SignalInfo,
+    pub info: VariableInfo,
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub display_name: String,
-    pub display_name_type: SignalNameType,
+    pub display_name_type: VariableNameType,
     pub manual_name: Option<String>,
 }
 
-impl DisplayedSignal {
+impl DisplayedVariable {
     pub fn to_placeholder(self) -> DisplayedPlaceholder {
         DisplayedPlaceholder {
-            signal_ref: self.signal_ref,
+            variable_ref: self.variable_ref,
             color: self.color,
             background_color: self.background_color,
             display_name: self.display_name,
@@ -93,18 +93,18 @@ pub struct DisplayedTimeLine {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedPlaceholder {
-    pub signal_ref: SignalRef,
+    pub variable_ref: VariableRef,
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub display_name: String,
-    pub display_name_type: SignalNameType,
+    pub display_name_type: VariableNameType,
     pub manual_name: Option<String>,
 }
 
 impl DisplayedPlaceholder {
-    pub fn to_signal(self, signal_info: SignalInfo) -> DisplayedSignal {
-        DisplayedSignal {
-            signal_ref: self.signal_ref,
+    pub fn to_variable(self, signal_info: VariableInfo) -> DisplayedVariable {
+        DisplayedVariable {
+            variable_ref: self.variable_ref,
             info: signal_info,
             color: self.color,
             background_color: self.background_color,
@@ -118,7 +118,7 @@ impl DisplayedPlaceholder {
 impl DisplayedItem {
     pub fn color(&self) -> Option<String> {
         match self {
-            DisplayedItem::Signal(signal) => signal.color.clone(),
+            DisplayedItem::Variable(variable) => variable.color.clone(),
             DisplayedItem::Divider(divider) => divider.color.clone(),
             DisplayedItem::Cursor(cursor) => cursor.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
@@ -128,7 +128,7 @@ impl DisplayedItem {
 
     pub fn set_color(&mut self, color_name: Option<String>) {
         match self {
-            DisplayedItem::Signal(signal) => signal.color = color_name.clone(),
+            DisplayedItem::Variable(variable) => variable.color = color_name.clone(),
             DisplayedItem::Divider(divider) => divider.color = color_name.clone(),
             DisplayedItem::Cursor(cursor) => cursor.color = color_name.clone(),
             DisplayedItem::TimeLine(timeline) => {
@@ -140,10 +140,10 @@ impl DisplayedItem {
 
     pub fn name(&self) -> String {
         match self {
-            DisplayedItem::Signal(signal) => signal
+            DisplayedItem::Variable(variable) => variable
                 .manual_name
                 .as_ref()
-                .unwrap_or(&signal.display_name)
+                .unwrap_or(&variable.display_name)
                 .clone(),
             DisplayedItem::Divider(divider) => divider
                 .name
@@ -164,7 +164,7 @@ impl DisplayedItem {
         }
     }
 
-    /// Widget displayed in signal list for the wave form, may include additional info compared to name()
+    /// Widget displayed in variable list for the wave form, may include additional info compared to name()
     pub fn add_to_layout_job(
         &self,
         color: &Color32,
@@ -173,7 +173,7 @@ impl DisplayedItem {
         mut layout_job: &mut LayoutJob,
     ) {
         match self {
-            DisplayedItem::Signal(_) => {
+            DisplayedItem::Variable(_) => {
                 RichText::new(format!("{}{}", self.name(), index.unwrap_or_default()))
                     .color(*color)
                     .append_to(
@@ -217,8 +217,8 @@ impl DisplayedItem {
 
     pub fn set_name(&mut self, name: Option<String>) {
         match self {
-            DisplayedItem::Signal(signal) => {
-                signal.manual_name = name;
+            DisplayedItem::Variable(variable) => {
+                variable.manual_name = name;
             }
             DisplayedItem::Divider(divider) => {
                 divider.name = name;
@@ -237,7 +237,7 @@ impl DisplayedItem {
 
     pub fn background_color(&self) -> Option<String> {
         let background_color = match self {
-            DisplayedItem::Signal(signal) => &signal.background_color,
+            DisplayedItem::Variable(variable) => &variable.background_color,
             DisplayedItem::Divider(divider) => &divider.background_color,
             DisplayedItem::Cursor(cursor) => &cursor.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
@@ -248,8 +248,8 @@ impl DisplayedItem {
 
     pub fn set_background_color(&mut self, color_name: Option<String>) {
         match self {
-            DisplayedItem::Signal(signal) => {
-                signal.background_color = color_name.clone();
+            DisplayedItem::Variable(variable) => {
+                variable.background_color = color_name.clone();
             }
             DisplayedItem::Divider(divider) => {
                 divider.background_color = color_name.clone();

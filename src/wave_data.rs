@@ -8,12 +8,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::wave_source::WaveFormat;
 use crate::{
-    displayed_item::{DisplayedDivider, DisplayedItem, DisplayedSignal, DisplayedTimeLine},
-    signal_name_type::SignalNameType,
+    displayed_item::{DisplayedDivider, DisplayedItem, DisplayedTimeLine, DisplayedVariable},
     translation::{TranslationPreference, Translator, TranslatorList},
+    variable_name_type::VariableNameType,
     view::ItemDrawingInfo,
     viewport::Viewport,
-    wave_container::{FieldRef, ModuleRef, SignalMeta, SignalRef, WaveContainer},
+    wave_container::{FieldRef, ModuleRef, VariableMeta, VariableRef, WaveContainer},
     wave_source::WaveSource,
 };
 
@@ -27,16 +27,16 @@ pub struct WaveData {
     pub source: WaveSource,
     pub format: WaveFormat,
     pub active_module: Option<ModuleRef>,
-    /// Root items (signals, dividers, ...) to display
+    /// Root items (variables, dividers, ...) to display
     pub displayed_items: Vec<DisplayedItem>,
     pub viewport: Viewport,
     pub num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
-    pub signal_format: HashMap<FieldRef, String>,
+    pub variable_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
     pub cursors: HashMap<u8, BigInt>,
     pub focused_item: Option<usize>,
-    pub default_signal_name_type: SignalNameType,
+    pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
     /// These are just stored during operation, so no need to serialize
     #[serde(skip)]
@@ -69,9 +69,9 @@ impl WaveData {
                 DisplayedItem::Divider(_)
                 | DisplayedItem::Cursor(_)
                 | DisplayedItem::TimeLine(_) => Some(i),
-                DisplayedItem::Signal(s) => {
-                    if new_waves.signal_exists(&s.signal_ref) {
-                        Some(DisplayedItem::Signal(s))
+                DisplayedItem::Variable(s) => {
+                    if new_waves.variable_exists(&s.variable_ref) {
+                        Some(DisplayedItem::Variable(s))
                     } else if keep_unavailable {
                         Some(DisplayedItem::Placeholder(s.to_placeholder()))
                     } else {
@@ -79,20 +79,20 @@ impl WaveData {
                     }
                 }
                 DisplayedItem::Placeholder(p) => {
-                    if new_waves.signal_exists(&p.signal_ref) {
+                    if new_waves.variable_exists(&p.variable_ref) {
                         let Ok(meta) = new_waves
-                            .signal_meta(&p.signal_ref)
+                            .variable_meta(&p.variable_ref)
                             .context("When updating")
                             .map_err(|e| error!("{e:#?}"))
                         else {
                             return Some(DisplayedItem::Placeholder(p));
                         };
-                        let translator = self.signal_translator(
-                            &FieldRef::without_fields(p.signal_ref.clone()),
+                        let translator = self.variable_translator(
+                            &FieldRef::without_fields(p.variable_ref.clone()),
                             translators,
                         );
-                        let info = translator.signal_info(&meta).unwrap();
-                        Some(DisplayedItem::Signal(p.to_signal(info)))
+                        let info = translator.variable_info(&meta).unwrap();
+                        Some(DisplayedItem::Variable(p.to_variable(info)))
                     } else if keep_unavailable {
                         Some(DisplayedItem::Placeholder(p))
                     } else {
@@ -102,22 +102,22 @@ impl WaveData {
             })
             .collect::<Vec<_>>();
         let mut nested_format = self
-            .signal_format
+            .variable_format
             .iter()
             .filter(|&(field_ref, _)| !field_ref.field.is_empty())
             .map(|(x, y)| (x.clone(), y.clone()))
             .collect::<HashMap<_, _>>();
-        let signal_format = self
-            .signal_format
+        let variable_format = self
+            .variable_format
             .drain()
             .filter(|(field_ref, candidate)| {
                 display_items.iter().any(|di| match di {
-                    DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => {
-                        let Ok(meta) = new_waves.signal_meta(signal_ref) else {
+                    DisplayedItem::Variable(DisplayedVariable { variable_ref, .. }) => {
+                        let Ok(meta) = new_waves.variable_meta(variable_ref) else {
                             return false;
                         };
                         field_ref.field.is_empty()
-                            && *signal_ref == field_ref.root
+                            && *variable_ref == field_ref.root
                             && translators.is_valid_translator(&meta, candidate.as_str())
                     }
                     _ => false,
@@ -131,58 +131,60 @@ impl WaveData {
             active_module,
             displayed_items: display_items,
             viewport: self.viewport.clone().clip_to(&wave_viewport),
-            signal_format,
+            variable_format,
             num_timestamps,
             cursor: self.cursor.clone(),
             cursors: self.cursors.clone(),
             focused_item: self.focused_item,
-            default_signal_name_type: self.default_signal_name_type,
+            default_variable_name_type: self.default_variable_name_type,
             scroll_offset: self.scroll_offset,
             item_offsets: vec![],
             top_item_draw_offset: 0.,
             total_height: 0.,
         };
         nested_format.retain(|nested, _| {
-            let Some(signal_ref) = new_wave.displayed_items.iter().find_map(|di| match di {
-                DisplayedItem::Signal(DisplayedSignal { signal_ref, .. }) => Some(signal_ref),
+            let Some(variable_ref) = new_wave.displayed_items.iter().find_map(|di| match di {
+                DisplayedItem::Variable(DisplayedVariable { variable_ref, .. }) => {
+                    Some(variable_ref)
+                }
                 _ => None,
             }) else {
                 return false;
             };
-            let meta = new_wave.inner.signal_meta(&nested.root).unwrap();
+            let meta = new_wave.inner.variable_meta(&nested.root).unwrap();
             new_wave
-                .signal_translator(
+                .variable_translator(
                     &FieldRef {
-                        root: signal_ref.clone(),
+                        root: variable_ref.clone(),
                         field: vec![],
                     },
                     translators,
                 )
-                .signal_info(&meta)
+                .variable_info(&meta)
                 .map(|info| info.has_subpath(&nested.field))
                 .unwrap_or(false)
         });
-        new_wave.signal_format.extend(nested_format);
+        new_wave.variable_format.extend(nested_format);
 
-        // load signals that need to be displayed
-        let signals = new_wave
+        // load variables that need to be displayed
+        let variables = new_wave
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Signal(r) => Some(&r.signal_ref),
+                DisplayedItem::Variable(r) => Some(&r.variable_ref),
                 _ => None,
             });
         new_wave
             .inner
-            .load_signals(signals)
-            .expect("internal error: failed to load signals");
+            .load_variables(variables)
+            .expect("internal error: failed to load variables");
 
         new_wave
     }
 
     pub fn select_preferred_translator(
         &self,
-        sig: SignalMeta,
+        sig: VariableMeta,
         translators: &TranslatorList,
     ) -> String {
         translators
@@ -205,15 +207,15 @@ impl WaveData {
             .unwrap_or_else(|| translators.default.clone())
     }
 
-    pub fn signal_translator<'a>(
+    pub fn variable_translator<'a>(
         &'a self,
         field: &FieldRef,
         translators: &'a TranslatorList,
     ) -> &'a dyn Translator {
-        let translator_name = self.signal_format.get(field).cloned().unwrap_or_else(|| {
+        let translator_name = self.variable_format.get(field).cloned().unwrap_or_else(|| {
             if field.field.is_empty() {
                 self.inner
-                    .signal_meta(&field.root)
+                    .variable_meta(&field.root)
                     .map(|meta| self.select_preferred_translator(meta, translators))
                     .unwrap_or_else(|e| {
                         warn!("{e:#?}");
@@ -257,45 +259,45 @@ impl WaveData {
         self.viewport.curr_right = target_right;
     }
 
-    pub fn add_signal(&mut self, translators: &TranslatorList, sig: &SignalRef) {
+    pub fn add_variable(&mut self, translators: &TranslatorList, variable: &VariableRef) {
         let Ok(meta) = self
             .inner
-            .load_signal(sig)
-            .context("When adding signal")
+            .load_variable(variable)
+            .context("When adding variable")
             .map_err(|e| error!("{e:#?}"))
         else {
             return;
         };
 
         let translator =
-            self.signal_translator(&FieldRef::without_fields(sig.clone()), translators);
-        let info = translator.signal_info(&meta).unwrap();
+            self.variable_translator(&FieldRef::without_fields(variable.clone()), translators);
+        let info = translator.variable_info(&meta).unwrap();
 
-        let new_signal = DisplayedItem::Signal(DisplayedSignal {
-            signal_ref: sig.clone(),
+        let new_variable = DisplayedItem::Variable(DisplayedVariable {
+            variable_ref: variable.clone(),
             info,
             color: None,
             background_color: None,
-            display_name: sig.name.clone(),
-            display_name_type: self.default_signal_name_type,
+            display_name: variable.name.clone(),
+            display_name_type: self.default_variable_name_type,
             manual_name: None,
         });
 
-        self.insert_item(new_signal, None);
-        self.compute_signal_display_names();
+        self.insert_item(new_variable, None);
+        self.compute_variable_display_names();
     }
 
     pub fn remove_displayed_item(&mut self, count: usize, idx: usize) {
         for _ in 0..count {
-            let visible_signals_len = self.displayed_items.len();
+            let visible_items_len = self.displayed_items.len();
             if let Some(DisplayedItem::Cursor(cursor)) = self.displayed_items.get(idx) {
                 self.cursors.remove(&cursor.idx);
             }
-            if visible_signals_len > 0 && idx <= (visible_signals_len - 1) {
+            if visible_items_len > 0 && idx <= (visible_items_len - 1) {
                 self.displayed_items.remove(idx);
                 if let Some(focused) = self.focused_item {
                     if focused == idx {
-                        if (idx > 0) && (idx == (visible_signals_len - 1)) {
+                        if (idx > 0) && (idx == (visible_items_len - 1)) {
                             // if the end of list is selected
                             self.focused_item = Some(idx - 1);
                         }
@@ -308,7 +310,7 @@ impl WaveData {
                 }
             }
         }
-        self.compute_signal_display_names();
+        self.compute_variable_display_names();
     }
 
     pub fn add_divider(&mut self, name: Option<String>, vidx: Option<usize>) {

@@ -20,7 +20,7 @@ impl State {
                     key,
                     pressed,
                     self.sys.command_prompt.visible,
-                    self.signal_filter_focused,
+                    self.variable_name_filter_focused,
                 ) {
                     (Key::Num0, true, false, false) => {
                         handle_digit(0, modifiers, msgs);
