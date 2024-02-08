@@ -1147,26 +1147,23 @@ impl State {
                                 })
                                 .collect::<Vec<_>>();
 
-                            body.heterogeneous_rows(
-                                heights.into_iter(),
-                                |index: usize, mut row: TableRow| {
-                                    let record = &records[index];
-                                    row.col(|ui| {
-                                        let (color, text) = match record.level {
-                                            log::Level::Error => (Color32::RED, "Error"),
-                                            log::Level::Warn => (Color32::YELLOW, "Warn"),
-                                            log::Level::Info => (Color32::GREEN, "Info"),
-                                            log::Level::Debug => (Color32::BLUE, "Debug"),
-                                            log::Level::Trace => (Color32::GRAY, "Trace"),
-                                        };
+                            body.heterogeneous_rows(heights.into_iter(), |mut row: TableRow| {
+                                let record = &records[row.index()];
+                                row.col(|ui| {
+                                    let (color, text) = match record.level {
+                                        log::Level::Error => (Color32::RED, "Error"),
+                                        log::Level::Warn => (Color32::YELLOW, "Warn"),
+                                        log::Level::Info => (Color32::GREEN, "Info"),
+                                        log::Level::Debug => (Color32::BLUE, "Debug"),
+                                        log::Level::Trace => (Color32::GRAY, "Trace"),
+                                    };
 
-                                        ui.colored_label(color, text);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(RichText::new(record.msg.clone()).monospace());
-                                    });
-                                },
-                            );
+                                    ui.colored_label(color, text);
+                                });
+                                row.col(|ui| {
+                                    ui.label(RichText::new(record.msg.clone()).monospace());
+                                });
+                            });
                         })
                 })
             });
