@@ -515,6 +515,14 @@ snapshot_ui_with_file_and_msgs! {fst_with_sv_data_types_loads, "examples/many_sv
     Message::AddModule(ModuleRef::from_strs(&["TOP", "SVDataTypeWrapper", "bb"])),
 ]}
 
+snapshot_ui_with_file_and_msgs! {fst_from_vhdl_loads, "examples/vhdl3.fst", [
+    Message::AddModule(ModuleRef::from_strs(&["test", "rr"])),
+]}
+
+snapshot_ui_with_file_and_msgs! {vcd_from_vhdl_loads, "examples/vhdl3.vcd", [
+    Message::AddModule(ModuleRef::from_strs(&["test", "rr"])),
+]}
+
 snapshot_ui_with_file_spade_and_msgs! {
     spade_translation_works,
     "examples/spade.vcd",

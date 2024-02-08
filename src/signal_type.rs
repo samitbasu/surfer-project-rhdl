@@ -22,11 +22,25 @@ pub enum SignalType {
     VCDTri1,
     VCDWAnd,
     VCDWOr,
-    // FST Type
     Port,
+    SparseArray,
+    RealTime,
+    // System Verilog
     Bit,
     Logic,
+    Int,
+    ShortInt,
+    LongInt,
+    Byte,
     Enum,
+    ShortReal,
+    // VHDL (these are the types emitted by GHDL)
+    Boolean,
+    BitVector,
+    StdLogic,
+    StdLogicVector,
+    StdULogic,
+    StdULogicVector,
 }
 
 impl fmt::Display for SignalType {
@@ -55,6 +69,19 @@ impl fmt::Display for SignalType {
             SignalType::Bit => write!(f, "bit"),
             SignalType::Logic => write!(f, "logic"),
             SignalType::Enum => write!(f, "enum"),
+            SignalType::SparseArray => write!(f, "sparse array"),
+            SignalType::RealTime => write!(f, "realtime"),
+            SignalType::Int => write!(f, "int"),
+            SignalType::ShortInt => write!(f, "shortint"),
+            SignalType::LongInt => write!(f, "longint"),
+            SignalType::Byte => write!(f, "byte"),
+            SignalType::ShortReal => write!(f, "shortreal"),
+            SignalType::Boolean => write!(f, "boolean"),
+            SignalType::BitVector => write!(f, "bit_vector"),
+            SignalType::StdLogic => write!(f, "std_logic"),
+            SignalType::StdLogicVector => write!(f, "std_logic_vector"),
+            SignalType::StdULogic => write!(f, "std_ulogic"),
+            SignalType::StdULogicVector => write!(f, "std_ulogic_vector"),
         }
     }
 }

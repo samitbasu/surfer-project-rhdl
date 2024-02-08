@@ -271,6 +271,18 @@ pub(crate) fn var_to_signal_type(signaltype: VarType) -> SignalType {
         VarType::Logic => SignalType::Logic,
         VarType::Int => SignalType::VCDInteger,
         VarType::Enum => SignalType::Enum,
+        VarType::SparseArray => SignalType::SparseArray,
+        VarType::RealTime => SignalType::RealTime,
+        VarType::ShortInt => SignalType::ShortInt,
+        VarType::LongInt => SignalType::LongInt,
+        VarType::Byte => SignalType::Byte,
+        VarType::ShortReal => SignalType::ShortReal,
+        VarType::Boolean => SignalType::Boolean,
+        VarType::BitVector => SignalType::BitVector,
+        VarType::StdLogic => SignalType::StdLogic,
+        VarType::StdLogicVector => SignalType::StdLogicVector,
+        VarType::StdULogic => SignalType::StdULogic,
+        VarType::StdULogicVector => SignalType::StdULogicVector,
     }
 }
 
