@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq)]
-pub enum SignalValue {
+pub enum VariableValue {
     BigUint(BigUint),
     String(String),
 }
@@ -54,20 +54,20 @@ impl std::fmt::Display for ModuleRef {
 
 // FIXME: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` or Rc/Arc would be better
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct SignalRef {
-    /// Path in the module hierarchy to where this signal resides
+pub struct VariableRef {
+    /// Path in the module hierarchy to where this variable resides
     pub path: ModuleRef,
-    /// Name of the signal in its hierarchy
+    /// Name of the variable in its hierarchy
     pub name: String,
 }
 
-impl AsRef<SignalRef> for SignalRef {
-    fn as_ref(&self) -> &SignalRef {
+impl AsRef<VariableRef> for VariableRef {
+    fn as_ref(&self) -> &VariableRef {
         self
     }
 }
 
-impl SignalRef {
+impl VariableRef {
     pub fn new(path: ModuleRef, name: String) -> Self {
         Self { path, name }
     }
@@ -118,16 +118,16 @@ impl SignalRef {
     }
 }
 
-/// A reference to a field of a larger signal, such as a field in a struct. The fields
+/// A reference to a field of a larger variable, such as a field in a struct. The fields
 /// are the recursive path to the fields inside the (translated) root
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct FieldRef {
-    pub root: SignalRef,
+    pub root: VariableRef,
     pub field: Vec<String>,
 }
 
 impl FieldRef {
-    pub fn without_fields(root: SignalRef) -> Self {
+    pub fn without_fields(root: VariableRef) -> Self {
         Self {
             root,
             field: vec![],
@@ -137,7 +137,7 @@ impl FieldRef {
     #[cfg(test)]
     pub fn from_strs(root: &[&str], field: &[&str]) -> Self {
         Self {
-            root: SignalRef::from_strs(root),
+            root: VariableRef::from_strs(root),
             field: field.into_iter().map(|s| s.to_string()).collect(),
         }
     }
@@ -145,7 +145,7 @@ impl FieldRef {
 
 #[derive(Debug)]
 pub struct QueryResult {
-    pub current: Option<(BigUint, SignalValue)>,
+    pub current: Option<(BigUint, VariableValue)>,
     pub next: Option<BigUint>,
 }
 
@@ -169,40 +169,40 @@ impl WaveContainer {
         WaveContainer::Empty
     }
 
-    pub fn signals(&self) -> Vec<SignalRef> {
+    pub fn variables(&self) -> Vec<VariableRef> {
         match self {
-            WaveContainer::Wellen(f) => f.signals(),
+            WaveContainer::Wellen(f) => f.variables(),
             WaveContainer::Empty => vec![],
         }
     }
 
-    pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
+    pub fn variables_in_scope(&self, scope: &ModuleRef) -> Vec<VariableRef> {
         match self {
-            WaveContainer::Wellen(f) => f.signals_in_module(module),
+            WaveContainer::Wellen(f) => f.variables_in_scope(scope),
             WaveContainer::Empty => vec![],
         }
     }
 
-    /// Loads a signal into memory. Needs to be called before using `query_signal` on the signal.
-    pub fn load_signal<'a>(&mut self, r: &'a SignalRef) -> Result<SignalMeta<'a>> {
+    /// Loads a variable into memory. Needs to be called before using `query_variable` on the variable.
+    pub fn load_variable<'a>(&mut self, r: &'a VariableRef) -> Result<VariableMeta<'a>> {
         match self {
-            WaveContainer::Wellen(f) => f.load_signal(r).map(|v| var_to_meta(v, r)),
-            WaveContainer::Empty => bail!("Cannot load signal from empty container."),
+            WaveContainer::Wellen(f) => f.load_variable(r).map(|v| var_to_meta(v, r)),
+            WaveContainer::Empty => bail!("Cannot load variable from empty container."),
         }
     }
 
-    /// Loads multiple signals at once. This is useful when we want to add multiple signals in one go.
-    pub fn load_signals<S: AsRef<SignalRef>, T: Iterator<Item = S>>(
+    /// Loads multiple variables at once. This is useful when we want to add multiple variables in one go.
+    pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
-        signals: T,
+        variables: T,
     ) -> Result<()> {
         match self {
-            WaveContainer::Wellen(f) => f.load_signals(signals),
-            WaveContainer::Empty => bail!("Cannot load signal from empty container."),
+            WaveContainer::Wellen(f) => f.load_variables(variables),
+            WaveContainer::Empty => bail!("Cannot load variables from empty container."),
         }
     }
 
-    pub fn signal_meta<'a>(&'a self, r: &'a SignalRef) -> Result<SignalMeta> {
+    pub fn variable_meta<'a>(&'a self, r: &'a VariableRef) -> Result<VariableMeta> {
         match self {
             WaveContainer::Wellen(f) => {
                 let var = f.get_var(r)?;
@@ -212,16 +212,16 @@ impl WaveContainer {
         }
     }
 
-    pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
+    pub fn query_variable(&self, variable: &VariableRef, time: &BigUint) -> Result<QueryResult> {
         match self {
-            WaveContainer::Wellen(f) => f.query_signal(signal, time),
-            WaveContainer::Empty => bail!("Querying signal from empty wave container"),
+            WaveContainer::Wellen(f) => f.query_variable(variable, time),
+            WaveContainer::Empty => bail!("Querying variable from empty wave container"),
         }
     }
 
-    pub fn signal_exists(&self, signal: &SignalRef) -> bool {
+    pub fn variable_exists(&self, variable: &VariableRef) -> bool {
         match self {
-            WaveContainer::Wellen(f) => f.signal_exists(signal),
+            WaveContainer::Wellen(f) => f.variable_exists(variable),
             WaveContainer::Empty => false,
         }
     }
@@ -284,8 +284,8 @@ impl WaveContainer {
     }
 }
 
-pub struct SignalMeta<'a> {
-    pub sig: &'a SignalRef,
+pub struct VariableMeta<'a> {
+    pub sig: &'a VariableRef,
     pub num_bits: Option<u32>,
     pub signal_type: Option<SignalType>,
     pub index: Option<String>,
