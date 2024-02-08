@@ -5,15 +5,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::wave_container::WaveContainer;
 use crate::{
-    cursor::DEFAULT_CURSOR_NAME, message::Message, signal_name_type::SignalNameType,
-    time::DEFAULT_TIMELINE_NAME, translation::SignalInfo, wave_container::SignalRef,
+    cursor::DEFAULT_CURSOR_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
+    translation::VariableInfo, variable_name_type::VariableNameType, wave_container::VariableRef,
 };
 
 const DEFAULT_DIVIDER_NAME: &str = "";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum DisplayedItem {
-    Signal(DisplayedSignal),
+    Variable(DisplayedVariable),
     Divider(DisplayedDivider),
     Cursor(DisplayedCursor),
     TimeLine(DisplayedTimeLine),
@@ -21,26 +21,26 @@ pub enum DisplayedItem {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct DisplayedSignal {
-    pub signal_ref: SignalRef,
+pub struct DisplayedVariable {
+    pub variable_ref: VariableRef,
     #[serde(skip)]
-    pub info: SignalInfo,
+    pub info: VariableInfo,
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub display_name: String,
-    pub display_name_type: SignalNameType,
+    pub display_name_type: VariableNameType,
     pub manual_name: Option<String>,
 }
 
-impl DisplayedSignal {
-    /// Updates the signal after a new waveform has been loaded.
+impl DisplayedVariable {
+    /// Updates the variable after a new waveform has been loaded.
     pub fn update(
         &self,
         new_waves: &WaveContainer,
         keep_unavailable: bool,
     ) -> Option<DisplayedItem> {
-        match new_waves.update_signal_ref(&self.signal_ref) {
-            // signal is not available in the new waveform
+        match new_waves.update_variable_ref(&self.variable_ref) {
+            // variable is not available in the new waveform
             None => {
                 if keep_unavailable {
                     Some(DisplayedItem::Placeholder(self.clone().to_placeholder()))
@@ -50,16 +50,16 @@ impl DisplayedSignal {
             }
             Some(new_ref) => {
                 let mut res = self.clone();
-                res.signal_ref = new_ref;
-                Some(DisplayedItem::Signal(res))
+                res.variable_ref = new_ref;
+                Some(DisplayedItem::Variable(res))
             }
         }
     }
 
     pub fn to_placeholder(mut self) -> DisplayedPlaceholder {
-        self.signal_ref.clear_id(); // placeholders do not refer to currently loaded signals
+        self.variable_ref.clear_id(); // placeholders do not refer to currently loaded variables
         DisplayedPlaceholder {
-            signal_ref: self.signal_ref,
+            variable_ref: self.variable_ref,
             color: self.color,
             background_color: self.background_color,
             display_name: self.display_name,
@@ -118,23 +118,23 @@ pub struct DisplayedTimeLine {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedPlaceholder {
-    pub signal_ref: SignalRef,
+    pub variable_ref: VariableRef,
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub display_name: String,
-    pub display_name_type: SignalNameType,
+    pub display_name_type: VariableNameType,
     pub manual_name: Option<String>,
 }
 
 impl DisplayedPlaceholder {
-    pub fn to_signal(
+    pub fn to_variable(
         self,
-        signal_info: SignalInfo,
-        updated_signal_ref: SignalRef,
-    ) -> DisplayedSignal {
-        DisplayedSignal {
-            signal_ref: updated_signal_ref,
-            info: signal_info,
+        variable_info: VariableInfo,
+        updated_variable_ref: VariableRef,
+    ) -> DisplayedVariable {
+        DisplayedVariable {
+            variable_ref: updated_variable_ref,
+            info: variable_info,
             color: self.color,
             background_color: self.background_color,
             display_name: self.display_name,
@@ -147,7 +147,7 @@ impl DisplayedPlaceholder {
 impl DisplayedItem {
     pub fn color(&self) -> Option<String> {
         match self {
-            DisplayedItem::Signal(signal) => signal.color.clone(),
+            DisplayedItem::Variable(variable) => variable.color.clone(),
             DisplayedItem::Divider(divider) => divider.color.clone(),
             DisplayedItem::Cursor(cursor) => cursor.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
@@ -157,7 +157,7 @@ impl DisplayedItem {
 
     pub fn set_color(&mut self, color_name: Option<String>) {
         match self {
-            DisplayedItem::Signal(signal) => signal.color = color_name.clone(),
+            DisplayedItem::Variable(variable) => variable.color = color_name.clone(),
             DisplayedItem::Divider(divider) => divider.color = color_name.clone(),
             DisplayedItem::Cursor(cursor) => cursor.color = color_name.clone(),
             DisplayedItem::TimeLine(timeline) => {
@@ -169,10 +169,10 @@ impl DisplayedItem {
 
     pub fn name(&self) -> String {
         match self {
-            DisplayedItem::Signal(signal) => signal
+            DisplayedItem::Variable(variable) => variable
                 .manual_name
                 .as_ref()
-                .unwrap_or(&signal.display_name)
+                .unwrap_or(&variable.display_name)
                 .clone(),
             DisplayedItem::Divider(divider) => divider
                 .name
@@ -193,7 +193,7 @@ impl DisplayedItem {
         }
     }
 
-    /// Widget displayed in signal list for the wave form, may include additional info compared to name()
+    /// Widget displayed in variable list for the wave form, may include additional info compared to name()
     pub fn add_to_layout_job(
         &self,
         color: &Color32,
@@ -202,7 +202,7 @@ impl DisplayedItem {
         mut layout_job: &mut LayoutJob,
     ) {
         match self {
-            DisplayedItem::Signal(_) => {
+            DisplayedItem::Variable(_) => {
                 RichText::new(format!("{}{}", self.name(), index.unwrap_or_default()))
                     .color(*color)
                     .append_to(
@@ -246,8 +246,8 @@ impl DisplayedItem {
 
     pub fn set_name(&mut self, name: Option<String>) {
         match self {
-            DisplayedItem::Signal(signal) => {
-                signal.manual_name = name;
+            DisplayedItem::Variable(variable) => {
+                variable.manual_name = name;
             }
             DisplayedItem::Divider(divider) => {
                 divider.name = name;
@@ -266,7 +266,7 @@ impl DisplayedItem {
 
     pub fn background_color(&self) -> Option<String> {
         let background_color = match self {
-            DisplayedItem::Signal(signal) => &signal.background_color,
+            DisplayedItem::Variable(variable) => &variable.background_color,
             DisplayedItem::Divider(divider) => &divider.background_color,
             DisplayedItem::Cursor(cursor) => &cursor.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
@@ -277,8 +277,8 @@ impl DisplayedItem {
 
     pub fn set_background_color(&mut self, color_name: Option<String>) {
         match self {
-            DisplayedItem::Signal(signal) => {
-                signal.background_color = color_name.clone();
+            DisplayedItem::Variable(variable) => {
+                variable.background_color = color_name.clone();
             }
             DisplayedItem::Divider(divider) => {
                 divider.background_color = color_name.clone();

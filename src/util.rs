@@ -2,11 +2,11 @@
 /// a-p. This is nice because it makes for some easily typed ids.
 /// The function first formats the number as a hex digit and then performs
 /// the mapping.
-pub fn uint_idx_to_alpha_idx(idx: usize, nsignals: usize) -> String {
-    // this calculates how many hex digits we need to represent nsignals
+pub fn uint_idx_to_alpha_idx(idx: usize, nvariables: usize) -> String {
+    // this calculates how many hex digits we need to represent nvariables
     // unwrap because the result should always fit into usize and because
     // we are not going to display millions of character ids.
-    let width = usize::try_from(nsignals.ilog(16)).unwrap() + 1;
+    let width = usize::try_from(nvariables.ilog(16)).unwrap() + 1;
     format!("{:0width$x}", idx)
         .chars()
         .map(|c| match c {
