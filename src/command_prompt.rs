@@ -14,9 +14,9 @@ use crate::{
     clock_highlighting::ClockHighlightType,
     displayed_item::DisplayedItem,
     message::Message,
-    signal_name_type::SignalNameType,
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    wave_container::{ModuleRef, SignalRef},
+    variable_name_type::VariableNameType,
+    wave_container::{ModuleRef, VariableRef},
     State,
 };
 
@@ -66,7 +66,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
     let signals = match &state.waves {
         Some(v) => v
             .inner
-            .signals()
+            .variables()
             .iter()
             .map(|s| s.full_path_string())
             .collect(),
@@ -77,7 +77,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Signal(idx) => Some(idx),
+                DisplayedItem::Variable(idx) => Some(idx),
                 _ => None,
             })
             .enumerate()
@@ -85,7 +85,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 format!(
                     "{}_{}",
                     uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                    s.signal_ref.full_path_string()
+                    s.variable_ref.full_path_string()
                 )
             })
             .collect_vec(),
@@ -98,7 +98,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             waves
                 .active_module
                 .as_ref()
-                .map(|scope| waves.inner.signals_in_module(scope))
+                .map(|scope| waves.inner.variables_in_scope(scope))
         })
         .unwrap_or_default();
 
@@ -275,12 +275,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     keep_during_reload,
                 ))),
                 "remove_unavailable" => Some(Command::Terminal(Message::RemovePlaceholders)),
-                // Signal commands
+                // Variable commands
                 "signal_add" => single_word(
                     signals.clone(),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::AddSignal(
-                            SignalRef::from_hierarchy_string(word),
+                        Some(Command::Terminal(Message::AddVariable(
+                            VariableRef::from_hierarchy_string(word),
                         )))
                     }),
                 ),
@@ -291,7 +291,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         .collect(),
                     Box::new(move |name| {
                         active_module.as_ref().map(|module| {
-                            Command::Terminal(Message::AddSignal(SignalRef::new(
+                            Command::Terminal(Message::AddVariable(VariableRef::new(
                                 module.clone(),
                                 name.to_string(),
                             )))
@@ -317,9 +317,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         "Global".to_string(),
                     ],
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::ChangeSignalNameType(
+                        Some(Command::Terminal(Message::ChangeVariableNameType(
                             None,
-                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                            VariableNameType::from_str(word).unwrap_or(VariableNameType::Local),
                         )))
                     }),
                 ),
@@ -330,8 +330,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         "Global".to_string(),
                     ],
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::ForceSignalNameTypes(
-                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                        Some(Command::Terminal(Message::ForceVariableNameTypes(
+                            VariableNameType::from_str(word).unwrap_or(VariableNameType::Local),
                         )))
                     }),
                 ),

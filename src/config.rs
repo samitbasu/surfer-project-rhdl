@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::time::TimeFormat;
-use crate::{clock_highlighting::ClockHighlightType, signal_name_type::SignalNameType};
+use crate::{clock_highlighting::ClockHighlightType, variable_name_type::VariableNameType};
 
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {
@@ -25,7 +25,7 @@ pub struct SurferConfig {
     /// Time stamp format
     pub default_time_format: TimeFormat,
     // #[serde(deserialize_with = "deserialize_signal_name_type")]
-    pub default_signal_name_type: SignalNameType,
+    pub default_signal_name_type: VariableNameType,
     pub default_clock_highlight_type: ClockHighlightType,
     /// Distance in pixels for cursor snap
     pub snap_distance: f32,
@@ -47,13 +47,13 @@ pub struct SurferLayout {
     show_overview: bool,
     /// Flag to show/hide the statusbar
     show_statusbar: bool,
-    /// Flag to show/hide the indices of signals in the signal list
+    /// Flag to show/hide the indices of signals in the variable list
     show_signal_indices: bool,
     /// Initial window height
     pub window_height: usize,
     /// Initial window width
     pub window_width: usize,
-    /// Align signal names right
+    /// Align variable names right
     align_names_right: bool,
 }
 
@@ -67,7 +67,7 @@ impl SurferLayout {
     pub fn show_ticks(&self) -> bool {
         self.show_ticks
     }
-    pub fn show_signal_tooltip(&self) -> bool {
+    pub fn show_variable_tooltip(&self) -> bool {
         self.show_signal_tooltip
     }
     pub fn show_toolbar(&self) -> bool {
@@ -82,7 +82,7 @@ impl SurferLayout {
     pub fn align_names_right(&self) -> bool {
         self.align_names_right
     }
-    pub fn show_signal_indices(&self) -> bool {
+    pub fn show_variable_indices(&self) -> bool {
         self.show_signal_indices
     }
 }
@@ -127,7 +127,7 @@ pub struct SurferTheme {
     pub border_color: Color32,
     /// Colors used for the background and text of the wave view
     pub canvas_colors: ThemeColorTriple,
-    /// Colors used for most UI elements not on the signal canvas
+    /// Colors used for most UI elements not on the variable canvas
     pub primary_ui_color: ThemeColorPair,
     /// Colors used for the variable and value list, as well as secondary elements
     /// like text fields
@@ -148,7 +148,7 @@ pub struct SurferTheme {
     pub clock_highlight_cycle: Color32,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
-    /// Default signal color
+    /// Default variable color
     pub signal_default: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
     /// Color used for high-impedance signals
@@ -165,7 +165,7 @@ pub struct SurferTheme {
     #[serde(default = "default_colors", deserialize_with = "deserialize_color_map")]
     pub colors: HashMap<String, Color32>,
 
-    /// Signal line width
+    /// variable line width
     pub linewidth: f32,
 
     /// Number of lines using standard background before changing to

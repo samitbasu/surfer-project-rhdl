@@ -18,8 +18,8 @@ use test_log::test;
 use crate::{
     clock_highlighting::ClockHighlightType,
     setup_custom_font,
-    signal_filter::SignalFilterType,
-    wave_container::{FieldRef, ModuleRef, SignalRef},
+    variable_name_filter::VariableNameFilterType,
+    wave_container::{FieldRef, ModuleRef, VariableRef},
     wave_source::LoadOptions,
     Message, MoveDir, StartupParams, State, WaveSource,
 };
@@ -358,7 +358,7 @@ snapshot_ui!(overview_can_be_hidden, || {
             break;
         }
     }
-    state.update(Message::AddSignal(SignalRef::from_hierarchy_string(
+    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
         "tb.dut.counter",
     )));
     state.update(Message::CursorSet(BigInt::from(10)));
@@ -388,7 +388,7 @@ snapshot_ui!(statusbar_can_be_hidden, || {
             break;
         }
     }
-    state.update(Message::AddSignal(SignalRef::from_hierarchy_string(
+    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
         "tb.dut.counter",
     )));
     state.update(Message::CursorSet(BigInt::from(10)));
@@ -485,19 +485,19 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
-    Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
+    Message::VariableFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Line),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
-    Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
+    Message::VariableFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Cycle),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
-    Message::SignalFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
+    Message::VariableFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::None),
 ]}
 
@@ -579,7 +579,7 @@ snapshot_ui_with_file_and_msgs! {
 snapshot_ui_with_file_and_msgs! {signals_are_added_at_focus, "examples/counter.vcd", [
     Message::AddModule(ModuleRef::from_strs(&["tb"])),
     Message::FocusItem(1),
-    Message::AddSignal(SignalRef::from_hierarchy_string("tb.dut.counter"))
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.counter"))
 ]}
 
 snapshot_ui_with_file_and_msgs! {dividers_are_added_at_focus, "examples/counter.vcd", [
@@ -746,18 +746,18 @@ snapshot_ui!(regex_error_indication, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["tb"])),
-        Message::AddSignal(SignalRef::from_hierarchy_string("tb.clk")),
-        Message::SetSignalFilterType(SignalFilterType::Regex),
+        Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")),
+        Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
     for message in msgs.into_iter() {
         state.update(message);
     }
-    state.sys.signal_filter.borrow_mut().push_str("a(");
+    state.sys.variable_name_filter.borrow_mut().push_str("a(");
     state
 });
 
 snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
-    Message::ToggleSidePanel, Message::SetActiveScope(ModuleRef::from_strs(&["tb"])), Message::AddSignal(SignalRef::from_hierarchy_string("tb.clk")),
+    Message::ToggleSidePanel, Message::SetActiveScope(ModuleRef::from_strs(&["tb"])), Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")),
 ]}
 
 snapshot_ui!(fuzzy_signal_filter_works, || {
@@ -787,13 +787,13 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
-        Message::SetSignalFilterType(SignalFilterType::Fuzzy),
+        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::SetVariableNameFilterType(VariableNameFilterType::Fuzzy),
     ];
     for message in msgs.into_iter() {
         state.update(message);
     }
-    state.sys.signal_filter.borrow_mut().push_str("at");
+    state.sys.variable_name_filter.borrow_mut().push_str("at");
     state
 });
 
@@ -824,13 +824,13 @@ snapshot_ui!(contain_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
-        Message::SetSignalFilterType(SignalFilterType::Contain),
+        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::SetVariableNameFilterType(VariableNameFilterType::Contain),
     ];
     for message in msgs.into_iter() {
         state.update(message);
     }
-    state.sys.signal_filter.borrow_mut().push_str("at");
+    state.sys.variable_name_filter.borrow_mut().push_str("at");
     state
 });
 
@@ -861,13 +861,17 @@ snapshot_ui!(regex_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
-        Message::SetSignalFilterType(SignalFilterType::Regex),
+        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
     for message in msgs.into_iter() {
         state.update(message);
     }
-    state.sys.signal_filter.borrow_mut().push_str("a[dx]");
+    state
+        .sys
+        .variable_name_filter
+        .borrow_mut()
+        .push_str("a[dx]");
     state
 });
 
@@ -898,13 +902,13 @@ snapshot_ui!(start_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::SetActiveScope(ModuleRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddSignal(SignalRef::from_hierarchy_string("testbench.clk")),
-        Message::SetSignalFilterType(SignalFilterType::Start),
+        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::SetVariableNameFilterType(VariableNameFilterType::Start),
     ];
     for message in msgs.into_iter() {
         state.update(message);
     }
-    state.sys.signal_filter.borrow_mut().push_str("a");
+    state.sys.variable_name_filter.borrow_mut().push_str("a");
     state
 });
 
@@ -946,7 +950,7 @@ snapshot_ui!(load_keep_all_works, || {
                 .try_into()
                 .unwrap(),
             LoadOptions {
-                keep_signals: true,
+                keep_variables: true,
                 keep_unavailable: true,
                 expect_format: None,
             },
@@ -1013,7 +1017,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
                 .try_into()
                 .unwrap(),
             LoadOptions {
-                keep_signals: true,
+                keep_variables: true,
                 keep_unavailable: false,
                 expect_format: None,
             },
