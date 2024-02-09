@@ -4,6 +4,7 @@ use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
 use log::warn;
 use num::{BigUint, ToPrimitive};
+use std::fmt::Write;
 use wellen::*;
 
 use crate::wave_container::{MetaData, ModuleRef, QueryResult, SignalMeta, SignalRef, SignalValue};
@@ -209,6 +210,67 @@ impl WellenContainer {
 
     pub fn module_exists(&self, module: &ModuleRef) -> bool {
         self.lookup_scope(module).is_some()
+    }
+
+    pub fn get_scope_tooltip_data(&self, scope: &ModuleRef) -> String {
+        let mut out = String::new();
+        if let Some(scope_ref) = self.lookup_scope(scope) {
+            let h = self.inner.hierarchy();
+            let scope = h.get(scope_ref);
+            write!(&mut out, "{}\n", scope_type_to_string(scope.scope_type())).unwrap();
+            if let Some((path, line)) = scope.instantiation_source_loc(h) {
+                write!(&mut out, "{path}:{line}\n").unwrap();
+            }
+            match (scope.component(h), scope.source_loc(h)) {
+                (Some(name), Some((path, line))) => {
+                    write!(&mut out, "{name} : {path}:{line}").unwrap()
+                }
+                (None, Some((path, line))) => {
+                    // check to see if instance and definition are the same
+                    let same = scope
+                        .instantiation_source_loc(h)
+                        .map(|(i_path, i_line)| path == i_path && line == i_line)
+                        .unwrap_or(false);
+                    if !same {
+                        write!(&mut out, "{path}:{line}").unwrap()
+                    }
+                }
+                (Some(name), None) => write!(&mut out, "{name}").unwrap(),
+                // remove possible trailing new line
+                (None, None) => {}
+            }
+        }
+        if out.ends_with('\n') {
+            out.pop().unwrap();
+        }
+        out
+    }
+}
+
+fn scope_type_to_string(tpe: ScopeType) -> &'static str {
+    match tpe {
+        ScopeType::Module => "module",
+        ScopeType::Task => "task",
+        ScopeType::Function => "function",
+        ScopeType::Begin => "begin",
+        ScopeType::Fork => "fork",
+        ScopeType::Generate => "generate",
+        ScopeType::Struct => "struct",
+        ScopeType::Union => "union",
+        ScopeType::Class => "class",
+        ScopeType::Interface => "interface",
+        ScopeType::Package => "package",
+        ScopeType::Program => "program",
+        ScopeType::VhdlArchitecture => "architecture",
+        ScopeType::VhdlProcedure => "procedure",
+        ScopeType::VhdlFunction => "function",
+        ScopeType::VhdlRecord => "record",
+        ScopeType::VhdlProcess => "process",
+        ScopeType::VhdlBlock => "block",
+        ScopeType::VhdlForGenerate => "for-generate",
+        ScopeType::VhdlIfGenerate => "if-generate",
+        ScopeType::VhdlGenerate => "generate",
+        ScopeType::VhdlPackage => "package",
     }
 }
 

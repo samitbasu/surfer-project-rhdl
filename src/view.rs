@@ -493,7 +493,7 @@ impl State {
         }
     }
 
-    fn draw_selectable_child_or_orphan_scope(
+    fn add_scope_selectable_label(
         &self,
         msgs: &mut Vec<Message>,
         wave: &WaveData,
@@ -501,7 +501,28 @@ impl State {
         ui: &mut egui::Ui,
     ) {
         let name = module.name();
+        let mut response = ui.add(egui::SelectableLabel::new(
+            wave.active_module == Some(module.clone()),
+            name,
+        ));
+        if self
+            .show_signal_tooltip
+            .unwrap_or(self.config.layout.show_signal_tooltip())
+        {
+            response = response.on_hover_text(scope_tooltip_text(wave, &module));
+        }
+        response
+            .clicked()
+            .then(|| msgs.push(Message::SetActiveScope(module.clone())));
+    }
 
+    fn draw_selectable_child_or_orphan_scope(
+        &self,
+        msgs: &mut Vec<Message>,
+        wave: &WaveData,
+        module: &ModuleRef,
+        ui: &mut egui::Ui,
+    ) {
         let Some(child_modules) = wave
             .inner
             .child_modules(module)
@@ -513,12 +534,7 @@ impl State {
         };
 
         if child_modules.is_empty() {
-            ui.add(egui::SelectableLabel::new(
-                wave.active_module == Some(module.clone()),
-                name,
-            ))
-            .clicked()
-            .then(|| msgs.push(Message::SetActiveScope(module.clone())));
+            self.add_scope_selectable_label(msgs, wave, module, ui);
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
                 ui.ctx(),
@@ -529,12 +545,7 @@ impl State {
                 ui.with_layout(
                     Layout::top_down(Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        ui.add(egui::SelectableLabel::new(
-                            wave.active_module == Some(module.clone()),
-                            name,
-                        ))
-                        .clicked()
-                        .then(|| msgs.push(Message::SetActiveScope(module.clone())))
+                        self.add_scope_selectable_label(msgs, wave, module, ui);
                     },
                 );
             })
@@ -1189,4 +1200,13 @@ fn signal_tooltip_text(wave: &WaveData, sig: &SignalRef) -> String {
             .map(|signal_type| format!("{signal_type}"))
             .unwrap_or_else(|| "unknown".to_string())
     )
+}
+
+fn scope_tooltip_text(wave: &WaveData, scope: &ModuleRef) -> String {
+    let other = wave.inner.get_scope_tooltip_data(scope);
+    if other.is_empty() {
+        format!("{scope}")
+    } else {
+        format!("{scope}\n{other}")
+    }
 }

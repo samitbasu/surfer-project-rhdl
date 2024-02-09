@@ -399,6 +399,15 @@ impl WaveContainer {
             WaveContainer::Empty => false,
         }
     }
+
+    /// Returns a human readable string with information about a scope.
+    /// The module name itself should not be included, since it will be prepended automatically.
+    pub fn get_scope_tooltip_data(&self, scope: &ModuleRef) -> String {
+        match self {
+            WaveContainer::Wellen(f) => f.get_scope_tooltip_data(scope),
+            WaveContainer::Empty => "".to_string(),
+        }
+    }
 }
 
 pub struct SignalMeta<'a> {
