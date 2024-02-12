@@ -1,7 +1,7 @@
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum SignalType {
+pub enum VariableType {
     // VCD-specific types
     VCDEvent,
     VCDReg,
@@ -43,55 +43,55 @@ pub enum SignalType {
     StdULogicVector,
 }
 
-impl fmt::Display for SignalType {
+impl fmt::Display for VariableType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SignalType::VCDReg => write!(f, "reg"),
-            SignalType::VCDWire => write!(f, "wire"),
-            SignalType::VCDInteger => write!(f, "integer"),
-            SignalType::VCDReal => write!(f, "real"),
-            SignalType::VCDParameter => write!(f, "parameter"),
-            SignalType::VCDString => write!(f, "string"),
-            SignalType::VCDEvent => write!(f, "event"),
-            SignalType::VCDTime => write!(f, "time"),
-            SignalType::VCDRealTime => write!(f, "real time"),
-            SignalType::VCDSupply0 => write!(f, "supply 0"),
-            SignalType::VCDSupply1 => write!(f, "supply 1"),
-            SignalType::VCDTri => write!(f, "tri"),
-            SignalType::VCDTri0 => write!(f, "tri 0"),
-            SignalType::VCDTri1 => write!(f, "tri 1"),
-            SignalType::VCDTriAnd => write!(f, "tri and"),
-            SignalType::VCDTriOr => write!(f, "tri or"),
-            SignalType::VCDTriReg => write!(f, "tri reg"),
-            SignalType::VCDWAnd => write!(f, "wand"),
-            SignalType::VCDWOr => write!(f, "wor"),
-            SignalType::Port => write!(f, "port"),
-            SignalType::Bit => write!(f, "bit"),
-            SignalType::Logic => write!(f, "logic"),
-            SignalType::Enum => write!(f, "enum"),
-            SignalType::SparseArray => write!(f, "sparse array"),
-            SignalType::RealTime => write!(f, "realtime"),
-            SignalType::Int => write!(f, "int"),
-            SignalType::ShortInt => write!(f, "shortint"),
-            SignalType::LongInt => write!(f, "longint"),
-            SignalType::Byte => write!(f, "byte"),
-            SignalType::ShortReal => write!(f, "shortreal"),
-            SignalType::Boolean => write!(f, "boolean"),
-            SignalType::BitVector => write!(f, "bit_vector"),
-            SignalType::StdLogic => write!(f, "std_logic"),
-            SignalType::StdLogicVector => write!(f, "std_logic_vector"),
-            SignalType::StdULogic => write!(f, "std_ulogic"),
-            SignalType::StdULogicVector => write!(f, "std_ulogic_vector"),
+            VariableType::VCDReg => write!(f, "reg"),
+            VariableType::VCDWire => write!(f, "wire"),
+            VariableType::VCDInteger => write!(f, "integer"),
+            VariableType::VCDReal => write!(f, "real"),
+            VariableType::VCDParameter => write!(f, "parameter"),
+            VariableType::VCDString => write!(f, "string"),
+            VariableType::VCDEvent => write!(f, "event"),
+            VariableType::VCDTime => write!(f, "time"),
+            VariableType::VCDRealTime => write!(f, "real time"),
+            VariableType::VCDSupply0 => write!(f, "supply 0"),
+            VariableType::VCDSupply1 => write!(f, "supply 1"),
+            VariableType::VCDTri => write!(f, "tri"),
+            VariableType::VCDTri0 => write!(f, "tri 0"),
+            VariableType::VCDTri1 => write!(f, "tri 1"),
+            VariableType::VCDTriAnd => write!(f, "tri and"),
+            VariableType::VCDTriOr => write!(f, "tri or"),
+            VariableType::VCDTriReg => write!(f, "tri reg"),
+            VariableType::VCDWAnd => write!(f, "wand"),
+            VariableType::VCDWOr => write!(f, "wor"),
+            VariableType::Port => write!(f, "port"),
+            VariableType::Bit => write!(f, "bit"),
+            VariableType::Logic => write!(f, "logic"),
+            VariableType::Enum => write!(f, "enum"),
+            VariableType::SparseArray => write!(f, "sparse array"),
+            VariableType::RealTime => write!(f, "realtime"),
+            VariableType::Int => write!(f, "int"),
+            VariableType::ShortInt => write!(f, "shortint"),
+            VariableType::LongInt => write!(f, "longint"),
+            VariableType::Byte => write!(f, "byte"),
+            VariableType::ShortReal => write!(f, "shortreal"),
+            VariableType::Boolean => write!(f, "boolean"),
+            VariableType::BitVector => write!(f, "bit_vector"),
+            VariableType::StdLogic => write!(f, "std_logic"),
+            VariableType::StdLogicVector => write!(f, "std_logic_vector"),
+            VariableType::StdULogic => write!(f, "std_ulogic"),
+            VariableType::StdULogicVector => write!(f, "std_ulogic_vector"),
         }
     }
 }
 
 /// Types that should default to signed conversion
-pub const INTEGER_TYPES: &[Option<SignalType>] = &[Some(SignalType::VCDInteger)];
+pub const INTEGER_TYPES: &[Option<VariableType>] = &[Some(VariableType::VCDInteger)];
 
 /// Types that are strings, so no conversion should be made
-pub const STRING_TYPES: &[Option<SignalType>] = &[
-    Some(SignalType::VCDString),
-    Some(SignalType::VCDReal),
-    Some(SignalType::VCDRealTime),
+pub const STRING_TYPES: &[Option<VariableType>] = &[
+    Some(VariableType::VCDString),
+    Some(VariableType::VCDReal),
+    Some(VariableType::VCDRealTime),
 ];

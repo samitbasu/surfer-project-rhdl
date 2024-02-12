@@ -1,5 +1,5 @@
 use crate::time::{TimeScale, TimeUnit};
-use crate::variable_type::SignalType;
+use crate::variable_type::VariableType;
 use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
 use log::warn;
@@ -311,7 +311,7 @@ pub(crate) fn var_to_meta<'a>(var: &Var, r: &'a VariableRef) -> VariableMeta<'a>
     VariableMeta {
         var: r,
         num_bits: var.length(),
-        variable_type: Some(var_to_signal_type(var.var_type())),
+        variable_type: Some(var_to_variable_type(var.var_type())),
         index: var.index().map(index_to_string),
     }
 }
@@ -324,43 +324,43 @@ fn index_to_string(index: wellen::VarIndex) -> String {
     }
 }
 
-pub(crate) fn var_to_signal_type(signaltype: VarType) -> SignalType {
+pub(crate) fn var_to_variable_type(signaltype: VarType) -> VariableType {
     match signaltype {
-        VarType::Reg => SignalType::VCDReg,
-        VarType::Wire => SignalType::VCDWire,
-        VarType::Integer => SignalType::VCDInteger,
-        VarType::Real => SignalType::VCDReal,
-        VarType::Parameter => SignalType::VCDParameter,
-        VarType::String => SignalType::VCDString,
-        VarType::Time => SignalType::VCDTime,
-        VarType::Event => SignalType::VCDEvent,
-        VarType::Supply0 => SignalType::VCDSupply0,
-        VarType::Supply1 => SignalType::VCDSupply1,
-        VarType::Tri => SignalType::VCDTri,
-        VarType::TriAnd => SignalType::VCDTriAnd,
-        VarType::TriOr => SignalType::VCDTriOr,
-        VarType::TriReg => SignalType::VCDTriReg,
-        VarType::Tri0 => SignalType::VCDTri0,
-        VarType::Tri1 => SignalType::VCDTri1,
-        VarType::WAnd => SignalType::VCDWAnd,
-        VarType::WOr => SignalType::VCDWOr,
-        VarType::Port => SignalType::Port,
-        VarType::Bit => SignalType::Bit,
-        VarType::Logic => SignalType::Logic,
-        VarType::Int => SignalType::VCDInteger,
-        VarType::Enum => SignalType::Enum,
-        VarType::SparseArray => SignalType::SparseArray,
-        VarType::RealTime => SignalType::RealTime,
-        VarType::ShortInt => SignalType::ShortInt,
-        VarType::LongInt => SignalType::LongInt,
-        VarType::Byte => SignalType::Byte,
-        VarType::ShortReal => SignalType::ShortReal,
-        VarType::Boolean => SignalType::Boolean,
-        VarType::BitVector => SignalType::BitVector,
-        VarType::StdLogic => SignalType::StdLogic,
-        VarType::StdLogicVector => SignalType::StdLogicVector,
-        VarType::StdULogic => SignalType::StdULogic,
-        VarType::StdULogicVector => SignalType::StdULogicVector,
+        VarType::Reg => VariableType::VCDReg,
+        VarType::Wire => VariableType::VCDWire,
+        VarType::Integer => VariableType::VCDInteger,
+        VarType::Real => VariableType::VCDReal,
+        VarType::Parameter => VariableType::VCDParameter,
+        VarType::String => VariableType::VCDString,
+        VarType::Time => VariableType::VCDTime,
+        VarType::Event => VariableType::VCDEvent,
+        VarType::Supply0 => VariableType::VCDSupply0,
+        VarType::Supply1 => VariableType::VCDSupply1,
+        VarType::Tri => VariableType::VCDTri,
+        VarType::TriAnd => VariableType::VCDTriAnd,
+        VarType::TriOr => VariableType::VCDTriOr,
+        VarType::TriReg => VariableType::VCDTriReg,
+        VarType::Tri0 => VariableType::VCDTri0,
+        VarType::Tri1 => VariableType::VCDTri1,
+        VarType::WAnd => VariableType::VCDWAnd,
+        VarType::WOr => VariableType::VCDWOr,
+        VarType::Port => VariableType::Port,
+        VarType::Bit => VariableType::Bit,
+        VarType::Logic => VariableType::Logic,
+        VarType::Int => VariableType::VCDInteger,
+        VarType::Enum => VariableType::Enum,
+        VarType::SparseArray => VariableType::SparseArray,
+        VarType::RealTime => VariableType::RealTime,
+        VarType::ShortInt => VariableType::ShortInt,
+        VarType::LongInt => VariableType::LongInt,
+        VarType::Byte => VariableType::Byte,
+        VarType::ShortReal => VariableType::ShortReal,
+        VarType::Boolean => VariableType::Boolean,
+        VarType::BitVector => VariableType::BitVector,
+        VarType::StdLogic => VariableType::StdLogic,
+        VarType::StdLogicVector => VariableType::StdLogicVector,
+        VarType::StdULogic => VariableType::StdULogic,
+        VarType::StdULogicVector => VariableType::StdULogicVector,
     }
 }
 

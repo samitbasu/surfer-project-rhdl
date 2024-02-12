@@ -7,7 +7,7 @@ use wellen::{self, VarRef, Waveform};
 use crate::wellen::var_to_meta;
 use crate::{
     time::{TimeScale, TimeUnit},
-    variable_type::SignalType,
+    variable_type::VariableType,
     wellen::WellenContainer,
 };
 
@@ -427,6 +427,6 @@ impl WaveContainer {
 pub struct VariableMeta<'a> {
     pub var: &'a VariableRef,
     pub num_bits: Option<u32>,
-    pub variable_type: Option<SignalType>,
+    pub variable_type: Option<VariableType>,
     pub index: Option<String>,
 }
