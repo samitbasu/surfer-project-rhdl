@@ -104,7 +104,7 @@ coverage:
             - $CARGO_HOME
     script:
         - shopt -s globstar
-        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* FastWaveBackend/**/* f128/**/* --skip-clean --color Always
+        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* FastWaveBackend/**/* f128/**/* wellen/**/* material-icons/**/* --skip-clean --color Always
     coverage: '/^\d+.\d+% coverage/'
     artifacts:
         reports:
