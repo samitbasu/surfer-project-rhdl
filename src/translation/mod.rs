@@ -15,7 +15,7 @@ pub use numeric_translators::*;
 
 use crate::{
     message::Message,
-    signal_type::STRING_TYPES,
+    variable_type::STRING_TYPES,
     wave_container::{FieldRef, VariableMeta, VariableValue},
 };
 

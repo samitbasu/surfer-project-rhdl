@@ -3,7 +3,7 @@ use half::{bf16, f16};
 use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
 
-use crate::{signal_type::INTEGER_TYPES, wave_container::VariableMeta};
+use crate::{variable_type::INTEGER_TYPES, wave_container::VariableMeta};
 
 use super::{
     check_single_wordlength, map_vector_variable, translates_all_bit_types, BasicTranslator,

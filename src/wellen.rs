@@ -1,5 +1,5 @@
-use crate::signal_type::SignalType;
 use crate::time::{TimeScale, TimeUnit};
+use crate::variable_type::SignalType;
 use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
 use log::warn;

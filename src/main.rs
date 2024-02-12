@@ -12,7 +12,6 @@ mod menus;
 mod message;
 mod mousegestures;
 mod overview;
-mod signal_type;
 mod statusbar;
 #[cfg(test)]
 mod tests;
@@ -22,6 +21,7 @@ mod translation;
 mod util;
 mod variable_name_filter;
 mod variable_name_type;
+mod variable_type;
 mod view;
 mod viewport;
 mod wasm_util;

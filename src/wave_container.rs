@@ -6,8 +6,8 @@ use wellen::{self, VarRef, Waveform};
 
 use crate::wellen::var_to_meta;
 use crate::{
-    signal_type::SignalType,
     time::{TimeScale, TimeUnit},
+    variable_type::SignalType,
     wellen::WellenContainer,
 };
 
