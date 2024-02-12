@@ -578,9 +578,9 @@ impl State {
                     warn!("Setting active scope to {scope} which does not exist")
                 }
             }
-            Message::AddVariable(sig) => {
+            Message::AddVariable(var) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.add_variable(&self.sys.translators, &sig);
+                    waves.add_variable(&self.sys.translators, &var);
                     self.invalidate_draw_commands();
                 }
             }

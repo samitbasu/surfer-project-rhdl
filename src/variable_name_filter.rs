@@ -63,12 +63,12 @@ impl State {
                         // Iterate over the reversed list to get
                         // waves in the same order as the variable
                         // list
-                        for sig in
+                        for var in
                             filtered_variables(waves, filter, &self.variable_name_filter_type)
                                 .into_iter()
                                 .rev()
                         {
-                            msgs.push(Message::AddVariable(sig))
+                            msgs.push(Message::AddVariable(var))
                         }
                     }
                 });
@@ -128,7 +128,7 @@ pub fn filtered_variables(
             .inner
             .variables_in_scope(scope)
             .iter()
-            .filter(|sig| variable_name_filter_type.is_match(&sig.name, filter))
+            .filter(|var| variable_name_filter_type.is_match(&var.name, filter))
             .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
             .cloned()
             .collect_vec();

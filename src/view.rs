@@ -630,7 +630,7 @@ impl State {
             {
                 match displayed_item {
                     DisplayedItem::Variable(displayed_variable) => {
-                        let sig = displayed_variable;
+                        let var = displayed_variable;
                         let info = &displayed_variable.info;
                         let index = if self
                             .show_variable_indices
@@ -640,7 +640,7 @@ impl State {
                                 .as_ref()
                                 .unwrap()
                                 .inner
-                                .variable_meta(&sig.variable_ref)
+                                .variable_meta(&var.variable_ref)
                                 .ok()
                                 .as_ref()
                                 .and_then(|meta| meta.index.clone())
@@ -665,7 +665,7 @@ impl State {
                             vidx,
                             WidgetText::LayoutJob(layout_job),
                             FieldRef {
-                                root: sig.variable_ref.clone(),
+                                root: var.variable_ref.clone(),
                                 field: vec![],
                             },
                             &mut item_offsets,
