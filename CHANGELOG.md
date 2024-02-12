@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-Spade is currently unstable and all 0.x releases are expected to contain
+Surfer is currently unstable and all 0.x releases are expected to contain
 breaking changes. Releases are mainly symbolic and are done on a six-week
 release cycle. Every six weeks, the current master branch is tagged and
 released as a new version.
