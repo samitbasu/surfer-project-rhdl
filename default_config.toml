@@ -1,4 +1,4 @@
-default_signal_name_type = "Unique"
+default_variable_name_type = "Unique"
 default_clock_highlight_type = "Line"
 snap_distance = 6
 
@@ -12,10 +12,10 @@ show_hierarchy = true
 show_menu = true
 show_toolbar = true
 show_ticks = true
-show_signal_tooltip = true
+show_tooltip = true
 show_overview = true
 show_statusbar = true
-show_signal_indices = true
+show_variable_indices = true
 window_width = 1920
 window_height = 1080
 align_names_right = false
@@ -44,11 +44,11 @@ accent_warn = { background = "32302f", foreground = "d4d4d4" }
 accent_error = { background = "d2302f", foreground = "d4d4d4" }
 clock_highlight_line = { color = "777777", width = 2 }
 clock_highlight_cycle = "12222f"
-signal_default = "56c126"
-signal_undef = "f44747"
-signal_highimp = "c9e124"
-signal_dontcare = "4040ff"
-signal_weak = "808080"
+variable_default = "56c126"
+variable_undef = "f44747"
+variable_highimp = "c9e124"
+variable_dontcare = "4040ff"
+variable_weak = "808080"
 cursor = { color="b63935", width=2 }
 linewidth = 1.5
 alt_frequency = 3

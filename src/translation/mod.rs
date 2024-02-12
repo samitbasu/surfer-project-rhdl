@@ -15,8 +15,8 @@ pub use numeric_translators::*;
 
 use crate::{
     message::Message,
-    signal_type::STRING_TYPES,
-    wave_container::{FieldRef, SignalMeta, SignalValue},
+    variable_type::STRING_TYPES,
+    wave_container::{FieldRef, VariableMeta, VariableValue},
 };
 
 pub fn all_translators() -> TranslatorList {
@@ -107,7 +107,7 @@ impl TranslatorList {
         self.inner.insert(t.name(), t);
     }
 
-    pub fn is_valid_translator(&self, meta: &SignalMeta, candidate: &str) -> bool {
+    pub fn is_valid_translator(&self, meta: &VariableMeta, candidate: &str) -> bool {
         self.get_translator(candidate)
             .translates(meta)
             .map(|preference| preference != TranslationPreference::No)
@@ -148,8 +148,8 @@ pub enum ValueRepr {
     },
     /// Represent the value as [f1, f2, f3...]
     Array,
-    /// The signal value is not present. This is used to draw signals which are
-    /// validated by other signals.
+    /// The variable value is not present. This is used to draw variables which are
+    /// validated by other variables.
     NotPresent,
 }
 
@@ -272,7 +272,7 @@ impl TranslationResult {
                 Some(TranslatedValue::from_basic_translate(
                     subtranslator
                         .as_ref()
-                        .basic_translate(1, &SignalValue::String(val.to_string())),
+                        .basic_translate(1, &VariableValue::String(val.to_string())),
                 ))
             }
             ValueRepr::Bits(bit_count, bits) => {
@@ -289,7 +289,7 @@ impl TranslationResult {
                 Some(TranslatedValue::from_basic_translate(
                     subtranslator
                         .as_ref()
-                        .basic_translate(*bit_count, &SignalValue::String(bits.clone())),
+                        .basic_translate(*bit_count, &VariableValue::String(bits.clone())),
                 ))
             }
             ValueRepr::String(sval) => Some(TranslatedValue {
@@ -373,11 +373,11 @@ impl TranslationResult {
     }
 }
 
-/// Static information about the structure of a signal.
+/// Static information about the structure of a variable.
 #[derive(Clone, Debug, Default)]
-pub enum SignalInfo {
+pub enum VariableInfo {
     Compound {
-        subfields: Vec<(String, SignalInfo)>,
+        subfields: Vec<(String, VariableInfo)>,
     },
     Bits,
     Bool,
@@ -388,22 +388,22 @@ pub enum SignalInfo {
     Real,
 }
 
-impl SignalInfo {
-    pub fn get_subinfo(&self, path: &[String]) -> &SignalInfo {
+impl VariableInfo {
+    pub fn get_subinfo(&self, path: &[String]) -> &VariableInfo {
         match path {
             [] => self,
             [field, rest @ ..] => match self {
-                SignalInfo::Compound { subfields } => subfields
+                VariableInfo::Compound { subfields } => subfields
                     .iter()
                     .find(|(f, _)| f == field)
                     .unwrap()
                     .1
                     .get_subinfo(rest),
-                SignalInfo::Bits => panic!(),
-                SignalInfo::Bool => panic!(),
-                SignalInfo::Clock => panic!(),
-                SignalInfo::String => panic!(),
-                SignalInfo::Real => panic!(),
+                VariableInfo::Bits => panic!(),
+                VariableInfo::Bool => panic!(),
+                VariableInfo::Clock => panic!(),
+                VariableInfo::String => panic!(),
+                VariableInfo::Real => panic!(),
             },
         }
     }
@@ -412,7 +412,7 @@ impl SignalInfo {
         match path {
             [] => true,
             [field, rest @ ..] => match self {
-                SignalInfo::Compound { subfields } => subfields
+                VariableInfo::Compound { subfields } => subfields
                     .iter()
                     .find(|&(f, _)| f == field)
                     .map(|(_, info)| info.has_subpath(rest))
@@ -425,17 +425,17 @@ impl SignalInfo {
 
 #[derive(PartialEq)]
 pub enum TranslationPreference {
-    /// This translator prefers translating the signal, so it will be selected
-    /// as the default translator for the signal
+    /// This translator prefers translating the variable, so it will be selected
+    /// as the default translator for the variable
     Prefer,
-    /// This translator is able to translate the signal, but will not be
+    /// This translator is able to translate the variable, but will not be
     /// selected by default, the user has to select it
     Yes,
     No,
 }
 
-pub fn translates_all_bit_types(signal: &SignalMeta) -> Result<TranslationPreference> {
-    if STRING_TYPES.contains(&signal.signal_type) {
+pub fn translates_all_bit_types(variable: &VariableMeta) -> Result<TranslationPreference> {
+    if STRING_TYPES.contains(&variable.variable_type) {
         Ok(TranslationPreference::No)
     } else {
         Ok(TranslationPreference::Yes)
@@ -445,11 +445,15 @@ pub fn translates_all_bit_types(signal: &SignalMeta) -> Result<TranslationPrefer
 pub trait Translator: Send + Sync {
     fn name(&self) -> String;
 
-    fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult>;
+    fn translate(
+        &self,
+        variable: &VariableMeta,
+        value: &VariableValue,
+    ) -> Result<TranslationResult>;
 
-    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo>;
+    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo>;
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference>;
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference>;
 
     // By default translators are stateless, but if they need to reload, they can
     // do by defining this method.
@@ -459,12 +463,12 @@ pub trait Translator: Send + Sync {
 
 pub trait BasicTranslator: Send + Sync {
     fn name(&self) -> String;
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind);
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        translates_all_bit_types(signal)
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        translates_all_bit_types(variable)
     }
-    fn signal_info(&self, _signal: &SignalMeta) -> Result<SignalInfo> {
-        Ok(SignalInfo::Bits)
+    fn variable_info(&self, _variable: &VariableMeta) -> Result<VariableInfo> {
+        Ok(VariableInfo::Bits)
     }
 }
 
@@ -473,10 +477,14 @@ impl Translator for Box<dyn BasicTranslator> {
         self.as_ref().name()
     }
 
-    fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult> {
+    fn translate(
+        &self,
+        variable: &VariableMeta,
+        value: &VariableValue,
+    ) -> Result<TranslationResult> {
         let (val, kind) = self
             .as_ref()
-            .basic_translate(signal.num_bits.unwrap_or(0) as u64, value);
+            .basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
         Ok(TranslationResult {
             val: ValueRepr::String(val),
             kind,
@@ -485,12 +493,12 @@ impl Translator for Box<dyn BasicTranslator> {
         })
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        self.as_ref().translates(signal)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        self.as_ref().translates(variable)
     }
 
-    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo> {
-        self.as_ref().signal_info(signal)
+    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo> {
+        self.as_ref().variable_info(variable)
     }
 }
 
@@ -501,10 +509,14 @@ impl Translator for StringTranslator {
         "String".to_string()
     }
 
-    fn translate(&self, _signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult> {
+    fn translate(
+        &self,
+        _variable: &VariableMeta,
+        value: &VariableValue,
+    ) -> Result<TranslationResult> {
         match value {
-            SignalValue::BigUint(_) => panic!(),
-            SignalValue::String(s) => Ok(TranslationResult {
+            VariableValue::BigUint(_) => panic!(),
+            VariableValue::String(s) => Ok(TranslationResult {
                 val: ValueRepr::String((*s).to_string()),
                 kind: ValueKind::Normal,
                 subfields: vec![],
@@ -513,12 +525,12 @@ impl Translator for StringTranslator {
         }
     }
 
-    fn signal_info(&self, _signal: &SignalMeta) -> Result<SignalInfo> {
-        Ok(SignalInfo::String)
+    fn variable_info(&self, _variable: &VariableMeta) -> Result<VariableInfo> {
+        Ok(VariableInfo::String)
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        if STRING_TYPES.contains(&signal.signal_type) {
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        if STRING_TYPES.contains(&variable.variable_type) {
             Ok(TranslationPreference::Prefer)
         } else {
             Ok(TranslationPreference::No)
@@ -531,9 +543,9 @@ enum NumberParseResult {
     Unparsable(String, ValueKind),
 }
 
-/// Turn vector signal string into name and corresponding kind if it
+/// Turn vector variable string into name and corresponding kind if it
 /// includes values other than 0 and 1. If only 0 and 1, return None.
-fn map_vector_signal(s: &str) -> NumberParseResult {
+fn map_vector_variable(s: &str) -> NumberParseResult {
     if let Some(val) = BigUint::parse_bytes(s.as_bytes(), 2) {
         NumberParseResult::Numerical(val)
     } else if s.contains('x') {

@@ -1,13 +1,18 @@
-use crate::signal_type::SignalType;
 use crate::time::{TimeScale, TimeUnit};
+use crate::variable_type::VariableType;
 use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
 use log::warn;
 use num::{BigUint, ToPrimitive};
 use std::fmt::Write;
-use wellen::*;
+use wellen::{
+    self, GetItem, ScopeType, Time, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
+    Waveform,
+};
 
-use crate::wave_container::{MetaData, ModuleRef, QueryResult, SignalMeta, SignalRef, SignalValue};
+use crate::wave_container::{
+    MetaData, QueryResult, ScopeRef, VariableMeta, VariableRef, VariableValue,
+};
 
 #[derive(Debug)]
 pub struct WellenContainer {
@@ -57,63 +62,74 @@ impl WellenContainer {
         self.inner.time_table().last().map(|t| BigUint::from(*t))
     }
 
-    pub fn signal_names(&self) -> Vec<String> {
+    pub fn variable_names(&self) -> Vec<String> {
         self.vars.clone()
     }
 
-    fn lookup_scope(&self, module: &ModuleRef) -> Option<ScopeRef> {
-        match module.get_wellen_id() {
+    fn lookup_scope(&self, scope: &ScopeRef) -> Option<wellen::ScopeRef> {
+        match scope.get_wellen_id() {
             Some(id) => Some(id),
-            None => self.inner.hierarchy().lookup_scope(&module.strs()),
+            None => self.inner.hierarchy().lookup_scope(&scope.strs()),
         }
     }
-
-    pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
+    pub fn variables(&self) -> Vec<VariableRef> {
         let h = self.inner.hierarchy();
-        let scope = match self.lookup_scope(module) {
+        h.iter_vars()
+            .map(|r| VariableRef::from_hierarchy_string(&r.full_name(h)))
+            .collect::<Vec<_>>()
+    }
+
+    pub fn variables_in_scope(&self, scope_ref: &ScopeRef) -> Vec<VariableRef> {
+        let h = self.inner.hierarchy();
+        let scope = match self.lookup_scope(scope_ref) {
             Some(id) => h.get(id),
             None => {
-                warn!("Found no module '{module}'. Defaulting to no signals");
+                warn!("Found no scope '{scope_ref}'. Defaulting to no variables");
                 return vec![];
             }
         };
         scope
             .vars(h)
             .map(|id| {
-                SignalRef::new_with_wave_id(module.clone(), h.get(id).name(h).to_string(), id)
+                VariableRef::new_with_wave_id(scope_ref.clone(), h.get(id).name(h).to_string(), id)
             })
             .collect::<Vec<_>>()
     }
 
-    pub fn update_signal_ref(&self, signal: &SignalRef) -> Option<SignalRef> {
+    pub fn update_variable_ref(&self, variable: &VariableRef) -> Option<VariableRef> {
         // IMPORTANT: lookup by name!
         let h = self.inner.hierarchy();
 
-        // first we lookup the scope in order to update the module reference
-        let scope = h.lookup_scope(&signal.path.strs())?;
-        let new_module_ref = signal.path.with_wellen_id(scope);
+        // first we lookup the scope in order to update the scope reference
+        let scope = h.lookup_scope(&variable.path.strs())?;
+        let new_scope_ref = variable.path.with_wellen_id(scope);
 
         // now we lookup the variable
         let var = h
             .get(scope)
             .vars(h)
-            .find(|r| h.get(*r).name(h) == signal.name)?;
-        let new_signal_ref = SignalRef::new_with_wave_id(new_module_ref, signal.name.clone(), var);
-        Some(new_signal_ref)
+            .find(|r| h.get(*r).name(h) == variable.name)?;
+        let new_variable_ref =
+            VariableRef::new_with_wave_id(new_scope_ref, variable.name.clone(), var);
+        Some(new_variable_ref)
     }
 
-    pub fn get_var(&self, r: &SignalRef) -> Result<&Var> {
+    pub fn variable_exists(&self, variable: &VariableRef) -> bool {
+        self.get_var_ref(variable).is_ok()
+    }
+
+    pub fn get_var(&self, r: &VariableRef) -> Result<&Var> {
         let h = self.inner.hierarchy();
         self.get_var_ref(r).map(|r| h.get(r))
     }
 
-    fn get_var_ref(&self, r: &SignalRef) -> Result<VarRef> {
+    fn get_var_ref(&self, r: &VariableRef) -> Result<VarRef> {
         match r.get_wellen_id() {
             Some(id) => Ok(id),
             None => {
                 let h = self.inner.hierarchy();
                 let var = match h.lookup_var(&r.path.strs(), &r.name) {
-                    None => bail!("Failed to find signal: {r:?}"),
+                    None => bail!("Failed to find variable: {r:?}"),
                     Some(id) => id,
                 };
                 Ok(var)
@@ -121,19 +137,19 @@ impl WellenContainer {
         }
     }
 
-    pub fn load_signal(&mut self, r: &SignalRef) -> Result<&Var> {
+    pub fn load_variable(&mut self, r: &VariableRef) -> Result<&Var> {
         let var_ref = self.get_var_ref(r)?;
         let signal_ref = self.inner.hierarchy().get(var_ref).signal_ref();
         self.inner.load_signals(&[signal_ref]);
         Ok(self.inner.hierarchy().get(var_ref))
     }
 
-    pub fn load_signals<S: AsRef<SignalRef>, T: Iterator<Item = S>>(
+    pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
-        signals: T,
+        variables: T,
     ) -> Result<()> {
         let h = self.inner.hierarchy();
-        let signal_refs = signals
+        let signal_refs = variables
             .flat_map(|s| {
                 let r = s.as_ref();
                 self.get_var_ref(r).map(|v| h.get(v).signal_ref())
@@ -151,15 +167,15 @@ impl WellenContainer {
         idx as TimeTableIdx
     }
 
-    pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
+    pub fn query_variable(&self, variable: &VariableRef, time: &BigUint) -> Result<QueryResult> {
         let h = self.inner.hierarchy();
         // find variable from string
-        let var_ref = self.get_var_ref(signal)?;
-        // map variable to signal
+        let var_ref = self.get_var_ref(variable)?;
+        // map variable to variable ref
         let signal_ref = h.get(var_ref).signal_ref();
         let sig = match self.inner.get_signal(signal_ref) {
             Some(sig) => sig,
-            None => bail!("internal error: signal {signal:?} should have been loaded!"),
+            None => bail!("internal error: variable {variable:?} should have been loaded!"),
         };
         // convert time to index
         let idx = self.time_to_time_table_idx(time);
@@ -172,12 +188,12 @@ impl WellenContainer {
         let offset_time = time_table[offset_time_idx as usize];
         // get the last value in a time step (since we ignore delta cycles for now)
         let current_value = sig.get_value_at(&offset, offset.elements - 1);
-        // the next time the signal changes
+        // the next time the variable changes
         let next_time = offset
             .next_index
             .and_then(|i| time_table.get(i.get() as usize));
 
-        let converted_value = convert_signal_value(current_value);
+        let converted_value = convert_variable_value(current_value);
         let result = QueryResult {
             current: Some((BigUint::from(offset_time), converted_value)),
             next: next_time.map(|t| BigUint::from(*t)),
@@ -185,34 +201,34 @@ impl WellenContainer {
         Ok(result)
     }
 
-    pub fn module_names(&self) -> Vec<String> {
+    pub fn scope_names(&self) -> Vec<String> {
         self.scopes.clone()
     }
 
-    pub fn root_modules(&self) -> Vec<ModuleRef> {
+    pub fn root_scopes(&self) -> Vec<ScopeRef> {
         let h = self.inner.hierarchy();
         h.scopes()
-            .map(|id| ModuleRef::from_strs_with_wellen_id(&[h.get(id).name(h)], id))
+            .map(|id| ScopeRef::from_strs_with_wellen_id(&[h.get(id).name(h)], id))
             .collect::<Vec<_>>()
     }
 
-    pub fn child_modules(&self, module: &ModuleRef) -> Result<Vec<ModuleRef>> {
+    pub fn child_scopes(&self, scope_ref: &ScopeRef) -> Result<Vec<ScopeRef>> {
         let h = self.inner.hierarchy();
-        let scope = match self.lookup_scope(module) {
+        let scope = match self.lookup_scope(scope_ref) {
             Some(id) => h.get(id),
-            None => return Err(anyhow!("Failed to find module {module:?}")),
+            None => return Err(anyhow!("Failed to find scope {scope_ref:?}")),
         };
         Ok(scope
             .scopes(h)
-            .map(|id| module.with_submodule(h.get(id).name(h).to_string()))
+            .map(|id| scope_ref.with_subscope(h.get(id).name(h).to_string()))
             .collect::<Vec<_>>())
     }
 
-    pub fn module_exists(&self, module: &ModuleRef) -> bool {
-        self.lookup_scope(module).is_some()
+    pub fn scope_exists(&self, scope: &ScopeRef) -> bool {
+        self.lookup_scope(scope).is_some()
     }
 
-    pub fn get_scope_tooltip_data(&self, scope: &ModuleRef) -> String {
+    pub fn get_scope_tooltip_data(&self, scope: &ScopeRef) -> String {
         let mut out = String::new();
         if let Some(scope_ref) = self.lookup_scope(scope) {
             let h = self.inner.hierarchy();
@@ -274,28 +290,28 @@ fn scope_type_to_string(tpe: ScopeType) -> &'static str {
     }
 }
 
-fn convert_signal_value(value: wellen::SignalValue) -> SignalValue {
+fn convert_variable_value(value: wellen::SignalValue) -> VariableValue {
     match value {
         wellen::SignalValue::Binary(data, _bits) => {
-            SignalValue::BigUint(BigUint::from_bytes_be(data))
+            VariableValue::BigUint(BigUint::from_bytes_be(data))
         }
         wellen::SignalValue::FourValue(_, _) | wellen::SignalValue::NineValue(_, _) => {
-            SignalValue::String(
+            VariableValue::String(
                 value
                     .to_bit_string()
                     .expect("failed to convert value {value:?} to a string"),
             )
         }
-        wellen::SignalValue::String(value) => SignalValue::String(value.to_string()),
-        wellen::SignalValue::Real(value) => SignalValue::String(format!("{}", value)),
+        wellen::SignalValue::String(value) => VariableValue::String(value.to_string()),
+        wellen::SignalValue::Real(value) => VariableValue::String(format!("{}", value)),
     }
 }
 
-pub(crate) fn var_to_meta<'a>(var: &Var, r: &'a SignalRef) -> SignalMeta<'a> {
-    SignalMeta {
-        sig: r,
+pub(crate) fn var_to_meta<'a>(var: &Var, r: &'a VariableRef) -> VariableMeta<'a> {
+    VariableMeta {
+        var: r,
         num_bits: var.length(),
-        signal_type: Some(var_to_signal_type(var.var_type())),
+        variable_type: Some(var_to_variable_type(var.var_type())),
         index: var.index().map(index_to_string),
     }
 }
@@ -308,43 +324,43 @@ fn index_to_string(index: wellen::VarIndex) -> String {
     }
 }
 
-pub(crate) fn var_to_signal_type(signaltype: VarType) -> SignalType {
+pub(crate) fn var_to_variable_type(signaltype: VarType) -> VariableType {
     match signaltype {
-        VarType::Reg => SignalType::VCDReg,
-        VarType::Wire => SignalType::VCDWire,
-        VarType::Integer => SignalType::VCDInteger,
-        VarType::Real => SignalType::VCDReal,
-        VarType::Parameter => SignalType::VCDParameter,
-        VarType::String => SignalType::VCDString,
-        VarType::Time => SignalType::VCDTime,
-        VarType::Event => SignalType::VCDEvent,
-        VarType::Supply0 => SignalType::VCDSupply0,
-        VarType::Supply1 => SignalType::VCDSupply1,
-        VarType::Tri => SignalType::VCDTri,
-        VarType::TriAnd => SignalType::VCDTriAnd,
-        VarType::TriOr => SignalType::VCDTriOr,
-        VarType::TriReg => SignalType::VCDTriReg,
-        VarType::Tri0 => SignalType::VCDTri0,
-        VarType::Tri1 => SignalType::VCDTri1,
-        VarType::WAnd => SignalType::VCDWAnd,
-        VarType::WOr => SignalType::VCDWOr,
-        VarType::Port => SignalType::Port,
-        VarType::Bit => SignalType::Bit,
-        VarType::Logic => SignalType::Logic,
-        VarType::Int => SignalType::VCDInteger,
-        VarType::Enum => SignalType::Enum,
-        VarType::SparseArray => SignalType::SparseArray,
-        VarType::RealTime => SignalType::RealTime,
-        VarType::ShortInt => SignalType::ShortInt,
-        VarType::LongInt => SignalType::LongInt,
-        VarType::Byte => SignalType::Byte,
-        VarType::ShortReal => SignalType::ShortReal,
-        VarType::Boolean => SignalType::Boolean,
-        VarType::BitVector => SignalType::BitVector,
-        VarType::StdLogic => SignalType::StdLogic,
-        VarType::StdLogicVector => SignalType::StdLogicVector,
-        VarType::StdULogic => SignalType::StdULogic,
-        VarType::StdULogicVector => SignalType::StdULogicVector,
+        VarType::Reg => VariableType::VCDReg,
+        VarType::Wire => VariableType::VCDWire,
+        VarType::Integer => VariableType::VCDInteger,
+        VarType::Real => VariableType::VCDReal,
+        VarType::Parameter => VariableType::VCDParameter,
+        VarType::String => VariableType::VCDString,
+        VarType::Time => VariableType::VCDTime,
+        VarType::Event => VariableType::VCDEvent,
+        VarType::Supply0 => VariableType::VCDSupply0,
+        VarType::Supply1 => VariableType::VCDSupply1,
+        VarType::Tri => VariableType::VCDTri,
+        VarType::TriAnd => VariableType::VCDTriAnd,
+        VarType::TriOr => VariableType::VCDTriOr,
+        VarType::TriReg => VariableType::VCDTriReg,
+        VarType::Tri0 => VariableType::VCDTri0,
+        VarType::Tri1 => VariableType::VCDTri1,
+        VarType::WAnd => VariableType::VCDWAnd,
+        VarType::WOr => VariableType::VCDWOr,
+        VarType::Port => VariableType::Port,
+        VarType::Bit => VariableType::Bit,
+        VarType::Logic => VariableType::Logic,
+        VarType::Int => VariableType::VCDInteger,
+        VarType::Enum => VariableType::Enum,
+        VarType::SparseArray => VariableType::SparseArray,
+        VarType::RealTime => VariableType::RealTime,
+        VarType::ShortInt => VariableType::ShortInt,
+        VarType::LongInt => VariableType::LongInt,
+        VarType::Byte => VariableType::Byte,
+        VarType::ShortReal => VariableType::ShortReal,
+        VarType::Boolean => VariableType::Boolean,
+        VarType::BitVector => VariableType::BitVector,
+        VarType::StdLogic => VariableType::StdLogic,
+        VarType::StdLogicVector => VariableType::StdLogicVector,
+        VarType::StdULogic => VariableType::StdULogic,
+        VarType::StdULogicVector => VariableType::StdULogicVector,
     }
 }
 
@@ -377,7 +393,7 @@ mod tests {
     #[test]
     fn test_signal_conversion() {
         let inp0: &[u8] = &[128, 0, 0, 3];
-        let out0 = convert_signal_value(wellen::SignalValue::Binary(inp0, 32));
-        assert_eq!(out0, SignalValue::BigUint(BigUint::from(0x80000003u64)));
+        let out0 = convert_variable_value(wellen::SignalValue::Binary(inp0, 32));
+        assert_eq!(out0, VariableValue::BigUint(BigUint::from(0x80000003u64)));
     }
 }

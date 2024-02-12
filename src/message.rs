@@ -12,12 +12,12 @@ use num::BigInt;
 use crate::wave_source::WaveFormat;
 use crate::{
     clock_highlighting::ClockHighlightType,
-    signal_name_type::SignalNameType,
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
-    wave_container::{FieldRef, ModuleRef, SignalRef, WaveContainer},
+    variable_name_type::VariableNameType,
+    wave_container::{FieldRef, ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
-    MoveDir, SignalFilterType, WaveSource,
+    MoveDir, VariableNameFilterType, WaveSource,
 };
 
 type CommandCount = usize;
@@ -25,9 +25,9 @@ type CommandCount = usize;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub enum Message {
-    SetActiveScope(ModuleRef),
-    AddSignal(SignalRef),
-    AddModule(ModuleRef),
+    SetActiveScope(ScopeRef),
+    AddVariable(VariableRef),
+    AddScope(ScopeRef),
     AddCount(char),
     InvalidateCount,
     RemoveItem(usize, CommandCount),
@@ -39,17 +39,17 @@ pub enum Message {
     VerticalScroll(MoveDir, CommandCount),
     ScrollToItem(usize),
     SetScrollOffset(f32),
-    SignalFormatChange(FieldRef, String),
+    VariableFormatChange(FieldRef, String),
     ItemColorChange(Option<usize>, Option<String>),
     ItemBackgroundColorChange(Option<usize>, Option<String>),
     ItemNameChange(Option<usize>, Option<String>),
-    ChangeSignalNameType(Option<usize>, SignalNameType),
-    ForceSignalNameTypes(SignalNameType),
+    ChangeVariableNameType(Option<usize>, VariableNameType),
+    ForceVariableNameTypes(VariableNameType),
     SetNameAlignRight(bool),
     SetClockHighlightType(ClockHighlightType),
-    // Reset the translator for this signal back to default. Sub-signals,
-    // i.e. those with the signal idx and a shared path are also reset
-    ResetSignalFormat(FieldRef),
+    // Reset the translator for this variable back to default. Sub-variables,
+    // i.e. those with the variable idx and a shared path are also reset
+    ResetVariableFormat(FieldRef),
     CanvasScroll {
         delta: Vec2,
     },
@@ -69,8 +69,8 @@ pub enum Message {
     Error(color_eyre::eyre::Error),
     TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
-    /// specified signal
-    BlacklistTranslator(SignalRef, String),
+    /// specified variable
+    BlacklistTranslator(VariableRef, String),
     ToggleSidePanel,
     ShowCommandPrompt(bool),
     FileDropped(DroppedFile),
@@ -107,7 +107,7 @@ pub enum Message {
     SetLogsVisible(bool),
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
-    SetSignalFilterType(SignalFilterType),
+    SetVariableNameFilterType(VariableNameFilterType),
     SetUiScale(f32),
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),
@@ -120,7 +120,7 @@ pub enum Message {
     // or last if no focused item
     AddTimeLine(Option<usize>),
     ToggleTickLines,
-    ToggleSignalTooltip,
+    ToggleVariableTooltip,
     SetCursorPosition(u8),
     GoToCursorPosition(u8),
     SaveState(PathBuf),
