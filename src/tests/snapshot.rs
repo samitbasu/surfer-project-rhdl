@@ -584,6 +584,19 @@ snapshot_ui_with_file_and_msgs! {
     []
 }
 
+// NOTE: The `divider_add .` command currently fails because of a bug in the CLI
+// parsing library. If we fix that, it this test should be updated. For now, it is
+// enough to make sure that this one broken command doesn't bring the rest of the
+// test down
+snapshot_ui_with_file_and_msgs! {
+    yosys_blogpost_startup_commands_work,
+    "examples/picorv32.vcd",
+    state_mods: (|state: &mut State| {
+        state.sys.startup_commands = vec!["startup_commands=module_add testbench;divider_add .;divider_add top;module_add testbench.top;show_quick_start".to_string()];
+    }),
+    []
+}
+
 snapshot_ui_with_file_and_msgs! {signals_are_added_at_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(1),
