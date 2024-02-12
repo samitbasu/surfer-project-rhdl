@@ -16,6 +16,7 @@ impl State {
                     repeat: _,
                     pressed,
                     modifiers,
+                    physical_key: _,
                 } => match (
                     key,
                     pressed,
@@ -79,10 +80,12 @@ impl State {
                         mouse_ptr_timestamp: None,
                         delta: 2.0,
                     }),
-                    (Key::PlusEquals, true, false, false) => msgs.push(Message::CanvasZoom {
-                        mouse_ptr_timestamp: None,
-                        delta: 0.5,
-                    }),
+                    (Key::Plus | Key::Equals, true, false, false) => {
+                        msgs.push(Message::CanvasZoom {
+                            mouse_ptr_timestamp: None,
+                            delta: 0.5,
+                        })
+                    }
                     (Key::PageUp, true, false, false) => msgs.push(Message::CanvasScroll {
                         delta: Vec2 {
                             x: 0.,
