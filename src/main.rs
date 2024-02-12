@@ -4,6 +4,7 @@ mod command_prompt;
 mod config;
 mod cursor;
 mod displayed_item;
+mod drawing_canvas;
 mod help;
 mod keys;
 mod logs;
@@ -11,7 +12,6 @@ mod menus;
 mod message;
 mod mousegestures;
 mod overview;
-mod signal_canvas;
 mod signal_type;
 mod statusbar;
 #[cfg(test)]
@@ -333,7 +333,7 @@ pub enum ColorSpecifier {
 }
 
 struct CachedDrawData {
-    pub draw_commands: HashMap<FieldRef, signal_canvas::DrawingCommands>,
+    pub draw_commands: HashMap<FieldRef, drawing_canvas::DrawingCommands>,
     pub clock_edges: Vec<f32>,
     pub ticks: Vec<(String, f32)>,
 }
