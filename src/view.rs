@@ -618,7 +618,7 @@ impl State {
         let draw_alpha = self.sys.command_prompt.visible
             && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
                 .expanded
-                .starts_with("signal_focus");
+                .starts_with("item_focus");
 
         let alignment = self.get_name_alignment();
         ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {

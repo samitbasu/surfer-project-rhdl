@@ -62,21 +62,22 @@ pub fn get_parser(state: &State) -> Command<Message> {
         Some(v) => v.inner.variable_names(),
         None => vec![],
     };
-    let displayed_variables = match &state.waves {
+    let displayed_items = match &state.waves {
         Some(v) => v
             .displayed_items
             .iter()
-            .filter_map(|item| match item {
-                DisplayedItem::Variable(idx) => Some(idx),
-                _ => None,
-            })
             .enumerate()
-            .map(|(idx, s)| {
-                format!(
+            .map(|(idx, item)| match item {
+                DisplayedItem::Variable(var) => format!(
                     "{}_{}",
                     uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                    s.variable_ref.full_path_string()
-                )
+                    var.variable_ref.full_path_string()
+                ),
+                _ => format!(
+                    "{}_{}",
+                    uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                    item.name()
+                ),
             })
             .collect_vec(),
         None => vec![],
@@ -140,8 +141,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "load_vcd",
                 "load_file",
                 "variable_add",
-                "variable_focus",
-                "variable_set_color",
+                "item_focus",
+                "item_set_color",
                 "zoom_fit",
                 "scope_add",
                 "scope_select",
@@ -167,8 +168,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "variable_add_from_scope",
                 "variable_set_name_type",
                 "variable_force_name_type",
-                "variable_unfocus",
-                "variable_unset_color",
+                "item_unfocus",
+                "item_unset_color",
                 "preference_set_clock_highlight",
                 "goto_cursor",
                 "save_state",
@@ -289,7 +290,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         })
                     }),
                 ),
-                "variable_set_color" => single_word(
+                "item_set_color" => single_word(
                     color_names.clone(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::ItemColorChange(
@@ -298,9 +299,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
-                "variable_unset_color" => {
-                    Some(Command::Terminal(Message::ItemColorChange(None, None)))
-                }
+                "item_unset_color" => Some(Command::Terminal(Message::ItemColorChange(None, None))),
                 "variable_set_name_type" => single_word(
                     vec![
                         "Local".to_string(),
@@ -326,8 +325,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
-                "variable_focus" => single_word(
-                    displayed_variables.clone(),
+                "item_focus" => single_word(
+                    displayed_items.clone(),
                     Box::new(|word| {
                         // split off the idx which is always followed by an underscore
                         let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
@@ -346,7 +345,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
-                "variable_unfocus" => Some(Command::Terminal(Message::UnfocusItem)),
+                "item_unfocus" => Some(Command::Terminal(Message::UnfocusItem)),
                 "divider_add" => optional_single_word(
                     vec![],
                     Box::new(|word| {
