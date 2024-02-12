@@ -247,7 +247,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
                 "toggle_tick_lines" => Some(Command::Terminal(Message::ToggleTickLines)),
                 // scope commands
-                "scope_add" => single_word(
+                "scope_add" | "module_add " => single_word(
                     scopes,
                     Box::new(|word| {
                         Some(Command::Terminal(Message::AddScope(
