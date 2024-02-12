@@ -1280,18 +1280,16 @@ impl State {
                     .map(|cmd| (no, cmd.to_string()))
                     .collect::<Vec<_>>()
             })
-            .map(|(no, command)| {
+            .filter_map(|(no, command)| {
                 parse_command(&command, get_parser(self))
                     .map_err(|e| {
                         error!("Error on startup commands line {no}: {e:#?}");
                         e
                     })
                     .map(|message| (message, command))
+                    .ok()
             })
-            .collect::<std::result::Result<Vec<_>, _>>()
-            // We reported the errors so we can just ignore everything if we had any errors
-            .ok()
-            .unwrap_or_default();
+            .collect::<Vec<_>>();
 
         for (message, message_string) in parsed {
             info!("Applying message {message_string}");
