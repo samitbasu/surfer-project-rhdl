@@ -74,16 +74,13 @@ pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
             ui.vertical_centered(|ui| {
                 ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
                 ui.add_space(20.);
-                ui.label(format!("Version: {ver}", ver = env!("CARGO_PKG_VERSION")));
-                ui.label(format!(
-                    "Exact version: {info}",
-                    info = env!("VERGEN_GIT_DESCRIBE")
-                ));
+                ui.label(format!("Version: {ver}", ver = env!("VERGEN_GIT_DESCRIBE")));
                 ui.label(format!(
                     "Build date: {date}",
                     date = env!("VERGEN_BUILD_DATE")
                 ));
                 ui.hyperlink_to(" repository", "https://gitlab.com/surfer-project/surfer");
+                ui.hyperlink_to("Homepage", "https://surfer-project.org/");
                 ui.add_space(10.);
                 if ui.button("Close").clicked() {
                     msgs.push(Message::SetAboutVisible(false))
