@@ -59,7 +59,7 @@ impl Display for WaveFormat {
 
 #[derive(Debug)]
 pub struct LoadOptions {
-    pub keep_signals: bool,
+    pub keep_variables: bool,
     pub keep_unavailable: bool,
     /// Auto-detect if None, otherwise, we error when we get the wrong format.
     pub expect_format: Option<WaveFormat>,
@@ -68,7 +68,7 @@ pub struct LoadOptions {
 impl LoadOptions {
     pub fn clean() -> Self {
         Self {
-            keep_signals: false,
+            keep_variables: false,
             keep_unavailable: false,
             expect_format: None,
         }
@@ -76,7 +76,7 @@ impl LoadOptions {
 
     pub fn clean_with_expected_format(format: WaveFormat) -> Self {
         Self {
-            keep_signals: false,
+            keep_variables: false,
             keep_unavailable: false,
             expect_format: Some(format),
         }
@@ -293,7 +293,7 @@ impl State {
                 .pick_file()
                 .await
             {
-                let keep_signals = match mode {
+                let keep_variables = match mode {
                     OpenMode::Open => false,
                     OpenMode::Switch => true,
                 };
@@ -303,7 +303,7 @@ impl State {
                     .send(Message::LoadWaveformFile(
                         camino::Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
                         LoadOptions {
-                            keep_signals,
+                            keep_variables,
                             keep_unavailable,
                             expect_format: None,
                         },
@@ -317,7 +317,7 @@ impl State {
                         .send(Message::LoadWaveformFileFromData(
                             data,
                             LoadOptions {
-                                keep_signals,
+                                keep_variables,
                                 keep_unavailable,
                                 expect_format: None,
                             },

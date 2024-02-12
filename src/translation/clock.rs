@@ -1,8 +1,8 @@
 use color_eyre::eyre::anyhow;
 
-use crate::wave_container::{SignalMeta, SignalValue};
+use crate::wave_container::{VariableMeta, VariableValue};
 
-use super::{BasicTranslator, BitTranslator, SignalInfo, Translator};
+use super::{BasicTranslator, BitTranslator, Translator, VariableInfo};
 
 pub struct ClockTranslator {
     // In order to not duplicate logic, we'll re-use the bit translator internally
@@ -24,24 +24,27 @@ impl Translator for ClockTranslator {
 
     fn translate(
         &self,
-        signal: &SignalMeta,
-        value: &SignalValue,
+        variable: &VariableMeta,
+        value: &VariableValue,
     ) -> color_eyre::Result<super::TranslationResult> {
-        if signal.num_bits == Some(1) {
-            self.inner.translate(signal, value)
+        if variable.num_bits == Some(1) {
+            self.inner.translate(variable, value)
         } else {
             Err(anyhow!(
-                "Clock translator translates a signal which is not 1 bit wide"
+                "Clock translator translates a variable which is not 1 bit wide"
             ))
         }
     }
 
-    fn signal_info(&self, _signal: &SignalMeta) -> color_eyre::Result<super::SignalInfo> {
-        Ok(SignalInfo::Clock)
+    fn variable_info(&self, _variable: &VariableMeta) -> color_eyre::Result<super::VariableInfo> {
+        Ok(VariableInfo::Clock)
     }
 
-    fn translates(&self, signal: &SignalMeta) -> color_eyre::Result<super::TranslationPreference> {
-        if signal.num_bits == Some(1) {
+    fn translates(
+        &self,
+        variable: &VariableMeta,
+    ) -> color_eyre::Result<super::TranslationPreference> {
+        if variable.num_bits == Some(1) {
             Ok(super::TranslationPreference::Yes)
         } else {
             Ok(super::TranslationPreference::No)

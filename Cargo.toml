@@ -51,7 +51,7 @@ tokio = { version = "1.35.1", features = ["rt", "time"] }
 toml = "0.8.8"
 vcd-translate = { path = "spade/vcd-translate" }
 web-sys = { version = "0.3.66", features = ["Location", "UrlSearchParams"] }
-wellen = {path = "wellen"}
+wellen = { path = "wellen" }
 
 [features]
 default = ["spade"]

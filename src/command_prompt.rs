@@ -14,9 +14,9 @@ use crate::{
     clock_highlighting::ClockHighlightType,
     displayed_item::DisplayedItem,
     message::Message,
-    signal_name_type::SignalNameType,
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
-    wave_container::{ModuleRef, SignalRef},
+    variable_name_type::VariableNameType,
+    wave_container::{ScopeRef, VariableRef},
     State,
 };
 
@@ -54,20 +54,20 @@ pub fn get_parser(state: &State) -> Command<Message> {
         ))
     }
 
-    let modules = match &state.waves {
-        Some(v) => v.inner.module_names(),
+    let scopes = match &state.waves {
+        Some(v) => v.inner.scope_names(),
         None => vec![],
     };
-    let signals = match &state.waves {
-        Some(v) => v.inner.signal_names(),
+    let variables = match &state.waves {
+        Some(v) => v.inner.variable_names(),
         None => vec![],
     };
-    let displayed_signals = match &state.waves {
+    let displayed_variables = match &state.waves {
         Some(v) => v
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Signal(idx) => Some(idx),
+                DisplayedItem::Variable(idx) => Some(idx),
                 _ => None,
             })
             .enumerate()
@@ -75,26 +75,26 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 format!(
                     "{}_{}",
                     uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                    s.signal_ref.full_path_string()
+                    s.variable_ref.full_path_string()
                 )
             })
             .collect_vec(),
         None => vec![],
     };
-    let signals_in_active_scope = state
+    let variables_in_active_scope = state
         .waves
         .as_ref()
         .and_then(|waves| {
             waves
-                .active_module
+                .active_scope
                 .as_ref()
-                .map(|scope| waves.inner.signals_in_module(scope))
+                .map(|scope| waves.inner.variables_in_scope(scope))
         })
         .unwrap_or_default();
 
     let color_names = state.config.theme.colors.keys().cloned().collect_vec();
 
-    let active_module = state.waves.as_ref().and_then(|w| w.active_module.clone());
+    let active_scope = state.waves.as_ref().and_then(|w| w.active_scope.clone());
 
     fn files_with_ext(matches: fn(&str) -> bool) -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
@@ -139,12 +139,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
             vec![
                 "load_vcd",
                 "load_file",
-                "signal_add",
-                "signal_focus",
-                "signal_set_color",
+                "variable_add",
+                "variable_focus",
+                "variable_set_color",
                 "zoom_fit",
-                "module_add",
-                "module_select",
+                "scope_add",
+                "scope_select",
                 "divider_add",
                 "config_reload",
                 "reload",
@@ -164,11 +164,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "toggle_side_panel",
                 "toggle_fullscreen",
                 "toggle_tick_lines",
-                "signal_add_from_module",
-                "signal_set_name_type",
-                "signal_force_name_type",
-                "signal_unfocus",
-                "signal_unset_color",
+                "variable_add_from_scope",
+                "variable_set_name_type",
+                "variable_force_name_type",
+                "variable_unfocus",
+                "variable_unset_color",
                 "preference_set_clock_highlight",
                 "goto_cursor",
                 "save_state",
@@ -196,10 +196,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
         .map(|s| s.into())
         .collect(),
         Box::new(move |query, _| {
-            let signals_in_active_scope = signals_in_active_scope.clone();
+            let variables_in_active_scope = variables_in_active_scope.clone();
             let cursors = cursors.clone();
-            let modules = modules.clone();
-            let active_module = active_module.clone();
+            let scopes = scopes.clone();
+            let active_scope = active_scope.clone();
             match query {
                 "load_vcd" => single_word_delayed_suggestions(
                     Box::new(vcd_files),
@@ -245,20 +245,20 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "toggle_side_panel" => Some(Command::Terminal(Message::ToggleSidePanel)),
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
                 "toggle_tick_lines" => Some(Command::Terminal(Message::ToggleTickLines)),
-                // Module commands
-                "module_add" => single_word(
-                    modules,
+                // scope commands
+                "scope_add" => single_word(
+                    scopes,
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::AddModule(
-                            ModuleRef::from_hierarchy_string(word),
+                        Some(Command::Terminal(Message::AddScope(
+                            ScopeRef::from_hierarchy_string(word),
                         )))
                     }),
                 ),
-                "module_select" => single_word(
-                    modules.clone(),
+                "scope_select" => single_word(
+                    scopes.clone(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SetActiveScope(
-                            ModuleRef::from_hierarchy_string(word),
+                            ScopeRef::from_hierarchy_string(word),
                         )))
                     }),
                 ),
@@ -266,30 +266,30 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     keep_during_reload,
                 ))),
                 "remove_unavailable" => Some(Command::Terminal(Message::RemovePlaceholders)),
-                // Signal commands
-                "signal_add" => single_word(
-                    signals.clone(),
+                // Variable commands
+                "variable_add" => single_word(
+                    variables.clone(),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::AddSignal(
-                            SignalRef::from_hierarchy_string(word),
+                        Some(Command::Terminal(Message::AddVariable(
+                            VariableRef::from_hierarchy_string(word),
                         )))
                     }),
                 ),
-                "signal_add_from_module" => single_word(
-                    signals_in_active_scope
+                "variable_add_from_scope" => single_word(
+                    variables_in_active_scope
                         .into_iter()
                         .map(|s| s.name)
                         .collect(),
                     Box::new(move |name| {
-                        active_module.as_ref().map(|module| {
-                            Command::Terminal(Message::AddSignal(SignalRef::new(
-                                module.clone(),
+                        active_scope.as_ref().map(|scope| {
+                            Command::Terminal(Message::AddVariable(VariableRef::new(
+                                scope.clone(),
                                 name.to_string(),
                             )))
                         })
                     }),
                 ),
-                "signal_set_color" => single_word(
+                "variable_set_color" => single_word(
                     color_names.clone(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::ItemColorChange(
@@ -298,36 +298,36 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
-                "signal_unset_color" => {
+                "variable_unset_color" => {
                     Some(Command::Terminal(Message::ItemColorChange(None, None)))
                 }
-                "signal_set_name_type" => single_word(
+                "variable_set_name_type" => single_word(
                     vec![
                         "Local".to_string(),
                         "Unique".to_string(),
                         "Global".to_string(),
                     ],
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::ChangeSignalNameType(
+                        Some(Command::Terminal(Message::ChangeVariableNameType(
                             None,
-                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                            VariableNameType::from_str(word).unwrap_or(VariableNameType::Local),
                         )))
                     }),
                 ),
-                "signal_force_name_type" => single_word(
+                "variable_force_name_type" => single_word(
                     vec![
                         "Local".to_string(),
                         "Unique".to_string(),
                         "Global".to_string(),
                     ],
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::ForceSignalNameTypes(
-                            SignalNameType::from_str(word).unwrap_or(SignalNameType::Local),
+                        Some(Command::Terminal(Message::ForceVariableNameTypes(
+                            VariableNameType::from_str(word).unwrap_or(VariableNameType::Local),
                         )))
                     }),
                 ),
-                "signal_focus" => single_word(
-                    displayed_signals.clone(),
+                "variable_focus" => single_word(
+                    displayed_variables.clone(),
                     Box::new(|word| {
                         // split off the idx which is always followed by an underscore
                         let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
@@ -346,7 +346,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
-                "signal_unfocus" => Some(Command::Terminal(Message::UnfocusItem)),
+                "variable_unfocus" => Some(Command::Terminal(Message::UnfocusItem)),
                 "divider_add" => optional_single_word(
                     vec![],
                     Box::new(|word| {

@@ -20,12 +20,12 @@ use spade_types::{ConcreteType, PrimitiveType};
 
 use crate::{
     message::Message, translation::SubFieldTranslationResult, wasm_util::perform_work,
-    wave_container::SignalMeta,
+    wave_container::VariableMeta,
 };
 
 use super::{
-    SignalInfo, SignalValue, TranslationPreference, TranslationResult, Translator, ValueKind,
-    ValueRepr,
+    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableInfo,
+    VariableValue,
 };
 
 pub struct SpadeTranslator {
@@ -86,14 +86,18 @@ impl Translator for SpadeTranslator {
         "spade".to_string()
     }
 
-    fn translate(&self, signal: &SignalMeta, value: &SignalValue) -> Result<TranslationResult> {
+    fn translate(
+        &self,
+        variable: &VariableMeta,
+        value: &VariableValue,
+    ) -> Result<TranslationResult> {
         let ty = self
             .state
-            .type_of_hierarchical_value(&self.top, &signal.sig.full_path()[1..])?;
+            .type_of_hierarchical_value(&self.top, &variable.var.full_path()[1..])?;
 
         let val_vcd_raw = match value {
-            SignalValue::BigUint(v) => format!("{v:b}"),
-            SignalValue::String(v) => v.clone(),
+            VariableValue::BigUint(v) => format!("{v:b}"),
+            VariableValue::String(v) => v.clone(),
         };
         let mir_ty = ty.to_mir_type();
         let ty_size = mir_ty
@@ -117,18 +121,18 @@ impl Translator for SpadeTranslator {
         translate_concrete(&val_vcd, &ty, &mut false)
     }
 
-    fn signal_info(&self, signal: &SignalMeta) -> Result<SignalInfo> {
+    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo> {
         let ty = self
             .state
-            .type_of_hierarchical_value(&self.top, &signal.sig.full_path()[1..])?;
+            .type_of_hierarchical_value(&self.top, &variable.var.full_path()[1..])?;
 
         info_from_concrete(&ty)
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
         let ty = self
             .state
-            .type_of_hierarchical_value(&self.top, &signal.sig.full_path()[1..])?;
+            .type_of_hierarchical_value(&self.top, &variable.var.full_path()[1..])?;
 
         match ty {
             ConcreteType::Single {
@@ -431,33 +435,33 @@ fn translate_concrete(
     Ok(result)
 }
 
-fn info_from_concrete(ty: &ConcreteType) -> Result<SignalInfo> {
+fn info_from_concrete(ty: &ConcreteType) -> Result<VariableInfo> {
     let result = match ty {
-        ConcreteType::Tuple(inner) => SignalInfo::Compound {
+        ConcreteType::Tuple(inner) => VariableInfo::Compound {
             subfields: inner
                 .iter()
                 .enumerate()
                 .map(|(i, inner)| Ok((format!("{i}"), info_from_concrete(inner)?)))
                 .collect::<Result<_>>()?,
         },
-        ConcreteType::Struct { name: _, members } => SignalInfo::Compound {
+        ConcreteType::Struct { name: _, members } => VariableInfo::Compound {
             subfields: members
                 .iter()
                 .map(|(f, inner)| Ok((f.0.clone(), info_from_concrete(inner)?)))
                 .collect::<Result<_>>()?,
         },
-        ConcreteType::Array { inner, size } => SignalInfo::Compound {
+        ConcreteType::Array { inner, size } => VariableInfo::Compound {
             subfields: (0..size.to_u64().context("Array size did not fit in u64")?)
                 .map(|i| Ok((format!("{i}"), info_from_concrete(inner)?)))
                 .collect::<Result<_>>()?,
         },
-        ConcreteType::Enum { options } => SignalInfo::Compound {
+        ConcreteType::Enum { options } => VariableInfo::Compound {
             subfields: options
                 .iter()
                 .map(|(name, fields)| {
                     Ok((
                         name.1.tail().0.clone(),
-                        SignalInfo::Compound {
+                        VariableInfo::Compound {
                             subfields: fields
                                 .iter()
                                 .map(|(f_name, f_ty)| {
@@ -472,13 +476,13 @@ fn info_from_concrete(ty: &ConcreteType) -> Result<SignalInfo> {
         ConcreteType::Single {
             base: PrimitiveType::Bool,
             params: _,
-        } => SignalInfo::Bool,
+        } => VariableInfo::Bool,
         ConcreteType::Single {
             base: PrimitiveType::Clock,
             params: _,
-        } => SignalInfo::Clock,
-        ConcreteType::Single { .. } => SignalInfo::Bits,
-        ConcreteType::Integer(_) => SignalInfo::Bits,
+        } => VariableInfo::Clock,
+        ConcreteType::Single { .. } => VariableInfo::Bits,
+        ConcreteType::Integer(_) => VariableInfo::Bits,
         ConcreteType::Backward(inner) => info_from_concrete(inner)?,
         ConcreteType::Wire(inner) => info_from_concrete(inner)?,
     };

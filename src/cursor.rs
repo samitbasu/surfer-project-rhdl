@@ -272,11 +272,11 @@ impl State {
             ItemDrawingInfo::Cursor(cursor) => Some(cursor),
             _ => None,
         }) {
-            let Some(item) = waves.displayed_items.get(drawing_info.signal_list_idx) else {
+            let Some(item) = waves.displayed_items.get(drawing_info.item_list_idx) else {
                 return;
             };
 
-            // We draw in absolute coords, but the signal offset in the y
+            // We draw in absolute coords, but the variable offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
             let y_offset = drawing_info.top - (ctx.to_screen)(0., 0.).y;
