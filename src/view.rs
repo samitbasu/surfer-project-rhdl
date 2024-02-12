@@ -165,10 +165,8 @@ impl eframe::App for State {
         // We can save some user battery life by not redrawing unless needed. At the moment,
         // we only need to continuously redraw to make surfer interactive during loading, otherwise
         // we'll back off a bit
-        if self.sys.continuous_redraw || self.sys.vcd_progress.is_some() {
+        if self.sys.continuous_redraw || self.sys.vcd_progress.is_some() || self.show_performance {
             ctx.request_repaint();
-        } else {
-            ctx.request_repaint_after(std::time::Duration::from_millis(50));
         }
 
         if let Some(prev_cpu) = frame.info().cpu_usage {
