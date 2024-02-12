@@ -9,11 +9,11 @@ secondary_ui_color = { background = "073642", foreground = "839496" }
 accent_info = { background = "2aa198", foreground = "839496" }
 accent_warn = { background = "b58900", foreground = "1e1e1e" }
 accent_error = { background = "dc322f", foreground = "839496" }
-signal_default = "1f6102"
-signal_undefined = "46000c"
+variable_default = "1f6102"
+variable_undefined = "46000c"
 # Convention dictates this being yellow, but yellow is super hard
 # to make visible on a white background, so we'll make it blue
-signal_highimp = "000347"
+variable_highimp = "000347"
 cursor = { color="b63935", width=2 }
 linewidth = 1
 

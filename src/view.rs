@@ -17,14 +17,14 @@ use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
 use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
 use crate::logs::EGUI_LOGGER;
-use crate::signal_filter::filtered_signals;
 use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
-use crate::wave_container::{FieldRef, ModuleRef, SignalRef};
+use crate::variable_name_filter::filtered_variables;
+use crate::wave_container::{FieldRef, ScopeRef, VariableRef};
 use crate::wave_source::{draw_progress_panel, LoadOptions};
 use crate::{
-    command_prompt::show_command_prompt, translation::SignalInfo, wave_data::WaveData, Message,
+    command_prompt::show_command_prompt, translation::VariableInfo, wave_data::WaveData, Message,
     MoveDir, State,
 };
 
@@ -56,23 +56,23 @@ impl DrawConfig {
 }
 
 #[derive(Debug)]
-pub struct SignalDrawingInfo {
+pub struct VariableDrawingInfo {
     pub field_ref: FieldRef,
-    pub signal_list_idx: usize,
+    pub item_list_idx: usize,
     pub top: f32,
     pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct DividerDrawingInfo {
-    pub signal_list_idx: usize,
+    pub item_list_idx: usize,
     pub top: f32,
     pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct CursorDrawingInfo {
-    pub signal_list_idx: usize,
+    pub item_list_idx: usize,
     pub top: f32,
     pub bottom: f32,
     pub idx: u8,
@@ -80,13 +80,13 @@ pub struct CursorDrawingInfo {
 
 #[derive(Debug)]
 pub struct TimeLineDrawingInfo {
-    pub signal_list_idx: usize,
+    pub item_list_idx: usize,
     pub top: f32,
     pub bottom: f32,
 }
 
 pub enum ItemDrawingInfo {
-    Signal(SignalDrawingInfo),
+    Variable(VariableDrawingInfo),
     Divider(DividerDrawingInfo),
     Cursor(CursorDrawingInfo),
     TimeLine(TimeLineDrawingInfo),
@@ -95,7 +95,7 @@ pub enum ItemDrawingInfo {
 impl ItemDrawingInfo {
     pub fn top(&self) -> f32 {
         match self {
-            ItemDrawingInfo::Signal(drawing_info) => drawing_info.top,
+            ItemDrawingInfo::Variable(drawing_info) => drawing_info.top,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.top,
             ItemDrawingInfo::Cursor(drawing_info) => drawing_info.top,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.top,
@@ -103,18 +103,18 @@ impl ItemDrawingInfo {
     }
     pub fn bottom(&self) -> f32 {
         match self {
-            ItemDrawingInfo::Signal(drawing_info) => drawing_info.bottom,
+            ItemDrawingInfo::Variable(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::Cursor(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.bottom,
         }
     }
-    pub fn signal_list_idx(&self) -> usize {
+    pub fn item_list_idx(&self) -> usize {
         match self {
-            ItemDrawingInfo::Signal(drawing_info) => drawing_info.signal_list_idx,
-            ItemDrawingInfo::Divider(drawing_info) => drawing_info.signal_list_idx,
-            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.signal_list_idx,
-            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.signal_list_idx,
+            ItemDrawingInfo::Variable(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Divider(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx,
         }
     }
 }
@@ -265,7 +265,7 @@ impl State {
             .show_hierarchy
             .unwrap_or(self.config.layout.show_hierarchy())
         {
-            egui::SidePanel::left("signal select left panel")
+            egui::SidePanel::left("variable select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
                 .frame(egui::Frame {
@@ -286,10 +286,10 @@ impl State {
                                     ui.set_max_height(total_space / 2.);
                                     ui.set_min_height(total_space / 2.);
 
-                                    ui.heading("Modules");
+                                    ui.heading("Scopes");
                                     ui.add_space(3.0);
 
-                                    ScrollArea::both().id_source("modules").show(ui, |ui| {
+                                    ScrollArea::both().id_source("scopes").show(ui, |ui| {
                                         ui.style_mut().wrap = Some(false);
                                         if let Some(waves) = &self.waves {
                                             self.draw_all_scopes(&mut msgs, waves, ui);
@@ -300,20 +300,22 @@ impl State {
                             egui::Frame::none()
                                 .inner_margin(Margin::same(5.0))
                                 .show(ui, |ui| {
-                                    let filter = &mut *self.sys.signal_filter.borrow_mut();
+                                    let filter = &mut *self.sys.variable_name_filter.borrow_mut();
                                     ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                                        ui.heading("Signals");
+                                        ui.heading("Variables");
                                         ui.add_space(3.0);
-                                        self.draw_signal_filter_edit(ui, filter, &mut msgs);
+                                        self.draw_variable_name_filter_edit(ui, filter, &mut msgs);
                                     });
                                     ui.add_space(3.0);
 
                                     ScrollArea::both()
                                         .max_height(f32::INFINITY)
-                                        .id_source("signals")
+                                        .id_source("variables")
                                         .show(ui, |ui| {
                                             if let Some(waves) = &self.waves {
-                                                self.draw_signal_list(&mut msgs, waves, ui, filter);
+                                                self.draw_variable_list(
+                                                    &mut msgs, waves, ui, filter,
+                                                );
                                             }
                                         });
                                 });
@@ -352,7 +354,7 @@ impl State {
         if self.waves.is_some() {
             let scroll_offset = self.waves.as_ref().unwrap().scroll_offset;
             if self.waves.as_ref().unwrap().any_displayed() {
-                egui::SidePanel::left("signal list")
+                egui::SidePanel::left("variable list")
                     .default_width(200.)
                     .width_range(20.0..=max_width)
                     .show(ctx, |ui| {
@@ -371,7 +373,7 @@ impl State {
                         }
                     });
 
-                egui::SidePanel::left("signal values")
+                egui::SidePanel::left("variable values")
                     .default_width(100.)
                     .width_range(10.0..=max_width)
                     .show(ctx, |ui| {
@@ -397,7 +399,7 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_signals(&mut msgs, ui);
+                        self.draw_items(&mut msgs, ui);
                     });
             }
         };
@@ -488,8 +490,8 @@ impl State {
     }
 
     pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, wave: &WaveData, ui: &mut egui::Ui) {
-        for module in wave.inner.root_modules() {
-            self.draw_selectable_child_or_orphan_scope(msgs, wave, &module, ui);
+        for scope in wave.inner.root_scopes() {
+            self.draw_selectable_child_or_orphan_scope(msgs, wave, &scope, ui);
         }
     }
 
@@ -497,59 +499,59 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         wave: &WaveData,
-        module: &ModuleRef,
+        scope: &ScopeRef,
         ui: &mut egui::Ui,
     ) {
-        let name = module.name();
+        let name = scope.name();
         let mut response = ui.add(egui::SelectableLabel::new(
-            wave.active_module == Some(module.clone()),
+            wave.active_scope == Some(scope.clone()),
             name,
         ));
         if self
-            .show_signal_tooltip
-            .unwrap_or(self.config.layout.show_signal_tooltip())
+            .show_variable_tooltip
+            .unwrap_or(self.config.layout.show_tooltip())
         {
-            response = response.on_hover_text(scope_tooltip_text(wave, &module));
+            response = response.on_hover_text(scope_tooltip_text(wave, &scope));
         }
         response
             .clicked()
-            .then(|| msgs.push(Message::SetActiveScope(module.clone())));
+            .then(|| msgs.push(Message::SetActiveScope(scope.clone())));
     }
 
     fn draw_selectable_child_or_orphan_scope(
         &self,
         msgs: &mut Vec<Message>,
         wave: &WaveData,
-        module: &ModuleRef,
+        scope: &ScopeRef,
         ui: &mut egui::Ui,
     ) {
-        let Some(child_modules) = wave
+        let Some(child_scopes) = wave
             .inner
-            .child_modules(module)
-            .context("Failed to get child modules")
+            .child_scopes(scope)
+            .context("Failed to get child scopes")
             .map_err(|e| warn!("{e:#?}"))
             .ok()
         else {
             return;
         };
 
-        if child_modules.is_empty() {
-            self.add_scope_selectable_label(msgs, wave, module, ui);
+        if child_scopes.is_empty() {
+            self.add_scope_selectable_label(msgs, wave, scope, ui);
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
                 ui.ctx(),
-                egui::Id::new(module),
+                egui::Id::new(scope),
                 false,
             )
             .show_header(ui, |ui| {
                 ui.with_layout(
                     Layout::top_down(Align::LEFT).with_cross_justify(true),
                     |ui| {
-                        self.add_scope_selectable_label(msgs, wave, module, ui);
+                        self.add_scope_selectable_label(msgs, wave, scope, ui);
                     },
                 );
             })
-            .body(|ui| self.draw_root_scope_view(msgs, wave, module, ui));
+            .body(|ui| self.draw_root_scope_view(msgs, wave, scope, ui));
         }
     }
 
@@ -557,55 +559,55 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         wave: &WaveData,
-        root_module: &ModuleRef,
+        root_scope: &ScopeRef,
         ui: &mut egui::Ui,
     ) {
-        let Some(child_modules) = wave
+        let Some(child_scopes) = wave
             .inner
-            .child_modules(root_module)
-            .context("Failed to get child modules")
+            .child_scopes(root_scope)
+            .context("Failed to get child scopes")
             .map_err(|e| warn!("{e:#?}"))
             .ok()
         else {
             return;
         };
 
-        for child_module in child_modules {
-            self.draw_selectable_child_or_orphan_scope(msgs, wave, &child_module, ui);
+        for child_scope in child_scopes {
+            self.draw_selectable_child_or_orphan_scope(msgs, wave, &child_scope, ui);
         }
     }
 
-    fn draw_signal_list(
+    fn draw_variable_list(
         &self,
         msgs: &mut Vec<Message>,
         wave: &WaveData,
         ui: &mut egui::Ui,
         filter: &str,
     ) {
-        for sig in filtered_signals(wave, filter, &self.signal_filter_type) {
+        for variable in filtered_variables(wave, filter, &self.variable_name_filter_type) {
             let index = wave
                 .inner
-                .signal_meta(&sig)
+                .variable_meta(&variable)
                 .ok()
                 .as_ref()
                 .and_then(|meta| meta.index.clone())
                 .map(|index| format!(" {index}"))
                 .unwrap_or_default();
 
-            let sig_name = format!("{}{}", sig.name.clone(), index);
+            let sig_name = format!("{}{}", variable.name.clone(), index);
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
                     let mut response = ui.add(egui::SelectableLabel::new(false, sig_name));
                     if self
-                        .show_signal_tooltip
-                        .unwrap_or(self.config.layout.show_signal_tooltip())
+                        .show_variable_tooltip
+                        .unwrap_or(self.config.layout.show_tooltip())
                     {
-                        response = response.on_hover_text(signal_tooltip_text(wave, &sig));
+                        response = response.on_hover_text(variable_tooltip_text(wave, &variable));
                     }
                     response
                         .clicked()
-                        .then(|| msgs.push(Message::AddSignal(sig.clone())));
+                        .then(|| msgs.push(Message::AddVariable(variable.clone())));
                 },
             );
         }
@@ -629,18 +631,18 @@ impl State {
                 .enumerate()
             {
                 match displayed_item {
-                    DisplayedItem::Signal(displayed_signal) => {
-                        let sig = displayed_signal;
-                        let info = &displayed_signal.info;
+                    DisplayedItem::Variable(displayed_variable) => {
+                        let sig = displayed_variable;
+                        let info = &displayed_variable.info;
                         let index = if self
-                            .show_signal_indices
-                            .unwrap_or_else(|| self.config.layout.show_signal_indices())
+                            .show_variable_indices
+                            .unwrap_or_else(|| self.config.layout.show_variable_indices())
                         {
                             self.waves
                                 .as_ref()
                                 .unwrap()
                                 .inner
-                                .signal_meta(&sig.signal_ref)
+                                .variable_meta(&sig.variable_ref)
                                 .ok()
                                 .as_ref()
                                 .and_then(|meta| meta.index.clone())
@@ -660,12 +662,12 @@ impl State {
 
                         self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
 
-                        self.draw_signal_var(
+                        self.draw_variable(
                             msgs,
                             vidx,
                             WidgetText::LayoutJob(layout_job),
                             FieldRef {
-                                root: sig.signal_ref.clone(),
+                                root: sig.variable_ref.clone(),
                                 field: vec![],
                             },
                             &mut item_offsets,
@@ -674,7 +676,7 @@ impl State {
                         );
                     }
                     DisplayedItem::Divider(_) => {
-                        self.draw_plain_var(
+                        self.draw_plain_item(
                             msgs,
                             vidx,
                             displayed_item,
@@ -684,7 +686,7 @@ impl State {
                         );
                     }
                     DisplayedItem::Cursor(_) => {
-                        self.draw_plain_var(
+                        self.draw_plain_item(
                             msgs,
                             vidx,
                             displayed_item,
@@ -694,7 +696,7 @@ impl State {
                         );
                     }
                     DisplayedItem::Placeholder(_) => {
-                        self.draw_plain_var(
+                        self.draw_plain_item(
                             msgs,
                             vidx,
                             displayed_item,
@@ -704,7 +706,7 @@ impl State {
                         );
                     }
                     DisplayedItem::TimeLine(_) => {
-                        self.draw_plain_var(
+                        self.draw_plain_item(
                             msgs,
                             vidx,
                             displayed_item,
@@ -731,40 +733,40 @@ impl State {
         }
     }
 
-    fn draw_signal_var(
+    fn draw_variable(
         &self,
         msgs: &mut Vec<Message>,
         vidx: usize,
         name: WidgetText,
         field: FieldRef,
         item_offsets: &mut Vec<ItemDrawingInfo>,
-        info: &SignalInfo,
+        info: &VariableInfo,
         ui: &mut egui::Ui,
     ) {
         let draw_label = |ui: &mut egui::Ui| {
-            let mut signal_label = ui
+            let mut variable_label = ui
                 .selectable_label(self.item_is_selected(vidx), name)
                 .context_menu(|ui| {
                     self.item_context_menu(Some(&field), msgs, ui, vidx);
                 });
 
             if self
-                .show_signal_tooltip
-                .unwrap_or(self.config.layout.show_signal_tooltip())
+                .show_variable_tooltip
+                .unwrap_or(self.config.layout.show_tooltip())
             {
                 let tooltip = if let Some(waves) = &self.waves {
                     if field.field.is_empty() {
-                        signal_tooltip_text(waves, &field.root)
+                        variable_tooltip_text(waves, &field.root)
                     } else {
                         "From translator".to_string()
                     }
                 } else {
                     "No VCD loaded".to_string()
                 };
-                signal_label = signal_label.on_hover_text(tooltip);
+                variable_label = variable_label.on_hover_text(tooltip);
             }
 
-            if signal_label.clicked() {
+            if variable_label.clicked() {
                 if self
                     .waves
                     .as_ref()
@@ -775,11 +777,11 @@ impl State {
                     msgs.push(Message::FocusItem(vidx));
                 }
             }
-            signal_label
+            variable_label
         };
 
         match info {
-            SignalInfo::Compound { subfields } => {
+            VariableInfo::Compound { subfields } => {
                 let response = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
                     egui::Id::new(&field),
@@ -795,7 +797,7 @@ impl State {
                     for (name, info) in subfields {
                         let mut new_path = field.clone();
                         new_path.field.push(name.clone());
-                        self.draw_signal_var(
+                        self.draw_variable(
                             msgs,
                             vidx,
                             WidgetText::RichText(RichText::new(name)),
@@ -807,22 +809,22 @@ impl State {
                     }
                 });
 
-                item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
+                item_offsets.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     field_ref: field.clone(),
-                    signal_list_idx: vidx,
+                    item_list_idx: vidx,
                     top: response.0.rect.top(),
                     bottom: response.0.rect.bottom(),
                 }));
             }
-            SignalInfo::Bool
-            | SignalInfo::Bits
-            | SignalInfo::Clock
-            | SignalInfo::String
-            | SignalInfo::Real => {
+            VariableInfo::Bool
+            | VariableInfo::Bits
+            | VariableInfo::Clock
+            | VariableInfo::String
+            | VariableInfo::Real => {
                 let label = draw_label(ui);
-                item_offsets.push(ItemDrawingInfo::Signal(SignalDrawingInfo {
+                item_offsets.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     field_ref: field.clone(),
-                    signal_list_idx: vidx,
+                    item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                 }));
@@ -830,7 +832,7 @@ impl State {
         }
     }
 
-    fn draw_plain_var(
+    fn draw_plain_item(
         &self,
         msgs: &mut Vec<Message>,
         vidx: usize,
@@ -855,7 +857,7 @@ impl State {
             };
             displayed_item.add_to_layout_job(text_color, None, &style, &mut layout_job);
             self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
-            let signal_label = ui
+            let item_label = ui
                 .selectable_label(
                     self.item_is_selected(vidx),
                     WidgetText::LayoutJob(layout_job),
@@ -863,24 +865,24 @@ impl State {
                 .context_menu(|ui| {
                     self.item_context_menu(None, msgs, ui, vidx);
                 });
-            if signal_label.clicked() {
+            if item_label.clicked() {
                 msgs.push(Message::FocusItem(vidx))
             }
-            signal_label
+            item_label
         };
 
         let label = draw_label(ui);
         match displayed_item {
             DisplayedItem::Divider(_) => {
                 item_offsets.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
-                    signal_list_idx: vidx,
+                    item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                 }))
             }
             DisplayedItem::Cursor(cursor) => {
                 item_offsets.push(ItemDrawingInfo::Cursor(CursorDrawingInfo {
-                    signal_list_idx: vidx,
+                    item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                     idx: cursor.idx,
@@ -888,12 +890,12 @@ impl State {
             }
             DisplayedItem::TimeLine(_) => {
                 item_offsets.push(ItemDrawingInfo::TimeLine(TimeLineDrawingInfo {
-                    signal_list_idx: vidx,
+                    item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                 }))
             }
-            &DisplayedItem::Signal(_) => {}
+            &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
         }
     }
@@ -996,20 +998,20 @@ impl State {
 
                 self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
                 match drawing_info {
-                    ItemDrawingInfo::Signal(drawing_info) => {
+                    ItemDrawingInfo::Variable(drawing_info) => {
                         if ucursor.as_ref().is_none() {
                             ui.label("");
                             continue;
                         }
 
-                        let translator =
-                            waves.signal_translator(&drawing_info.field_ref, &self.sys.translators);
+                        let translator = waves
+                            .variable_translator(&drawing_info.field_ref, &self.sys.translators);
 
-                        let signal = &drawing_info.field_ref.root;
-                        let meta = waves.inner.signal_meta(signal);
+                        let variable = &drawing_info.field_ref.root;
+                        let meta = waves.inner.variable_meta(variable);
                         let translation_result = waves
                             .inner
-                            .query_signal(signal, ucursor.as_ref().unwrap())
+                            .query_variable(variable, ucursor.as_ref().unwrap())
                             .ok()
                             .and_then(|q| q.current)
                             .map(|(_time, value)| {
@@ -1020,7 +1022,7 @@ impl State {
                             let subfields = s
                                 .flatten(
                                     FieldRef::without_fields(drawing_info.field_ref.root.clone()),
-                                    &waves.signal_format,
+                                    &waves.variable_format,
                                     &self.sys.translators,
                                 )
                                 .as_fields();
@@ -1036,7 +1038,7 @@ impl State {
                             {
                                 ui.label(v).context_menu(|ui| {
                                     self.item_context_menu(
-                                        Some(&FieldRef::without_fields(signal.clone())),
+                                        Some(&FieldRef::without_fields(variable.clone())),
                                         msgs,
                                         ui,
                                         vidx,
@@ -1080,7 +1082,7 @@ impl State {
         ctx: &DrawingContext<'_>,
     ) -> f32 {
         if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
-            // Assume that first signal has standard height (for now)
+            // Assume that first variable has standard height (for now)
             (item_offsets.get(1).unwrap().top()
                 - item_offsets.get(0).unwrap().top()
                 - ctx.cfg.line_height)
@@ -1103,8 +1105,8 @@ impl State {
         let default_background_color = self.get_default_alternating_background_color(vidx);
         let background_color = *waves
             .displayed_items
-            .get(drawing_info.signal_list_idx())
-            .and_then(|signal| signal.background_color())
+            .get(drawing_info.item_list_idx())
+            .and_then(|variable| variable.background_color())
             .and_then(|color| self.config.theme.colors.get(&color))
             .unwrap_or(&default_background_color);
         // Draw background
@@ -1187,22 +1189,22 @@ impl State {
     }
 }
 
-fn signal_tooltip_text(wave: &WaveData, sig: &SignalRef) -> String {
-    let meta = wave.inner.signal_meta(sig).ok();
+fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
+    let meta = wave.inner.variable_meta(variable).ok();
     format!(
         "{}\nNum bits: {}\nType: {}",
-        sig.full_path_string(),
+        variable.full_path_string(),
         meta.as_ref()
             .and_then(|meta| meta.num_bits)
             .map(|num_bits| format!("{num_bits}"))
             .unwrap_or_else(|| "unknown".to_string()),
-        meta.and_then(|meta| meta.signal_type)
-            .map(|signal_type| format!("{signal_type}"))
+        meta.and_then(|meta| meta.variable_type)
+            .map(|variable_type| format!("{variable_type}"))
             .unwrap_or_else(|| "unknown".to_string())
     )
 }
 
-fn scope_tooltip_text(wave: &WaveData, scope: &ModuleRef) -> String {
+fn scope_tooltip_text(wave: &WaveData, scope: &ScopeRef) -> String {
     let other = wave.inner.get_scope_tooltip_data(scope);
     if other.is_empty() {
         format!("{scope}")

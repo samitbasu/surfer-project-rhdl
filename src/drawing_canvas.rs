@@ -12,12 +12,12 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
-use crate::displayed_item::DisplayedSignal;
+use crate::displayed_item::DisplayedVariable;
 use crate::translation::{
-    SignalInfo, SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind,
+    SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind, VariableInfo,
 };
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
-use crate::wave_container::{FieldRef, QueryResult, SignalRef};
+use crate::wave_container::{FieldRef, QueryResult, VariableRef};
 use crate::wave_data::WaveData;
 use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
 
@@ -29,7 +29,7 @@ pub struct DrawnRegion {
     force_anti_alias: bool,
 }
 
-/// List of values to draw for a signal. It is an ordered list of values that should
+/// List of values to draw for a variable. It is an ordered list of values that should
 /// be drawn at the *start time* until the *start time* of the next value
 pub struct DrawingCommands {
     is_bool: bool,
@@ -56,27 +56,27 @@ impl DrawingCommands {
     }
 }
 
-struct SignalDrawCommands {
+struct VariableDrawCommands {
     clock_edges: Vec<f32>,
-    signal_ref: SignalRef,
+    variable_ref: VariableRef,
     local_commands: HashMap<Vec<String>, DrawingCommands>,
     local_msgs: Vec<Message>,
 }
 
-fn signal_draw_commands(
-    displayed_signal: &DisplayedSignal,
+fn variable_draw_commands(
+    displayed_variable: &DisplayedVariable,
     timestamps: &[(f32, num::BigUint)],
     waves: &WaveData,
     translators: &TranslatorList,
     view_width: f32,
-) -> Option<SignalDrawCommands> {
+) -> Option<VariableDrawCommands> {
     let mut clock_edges = vec![];
     let mut local_msgs = vec![];
 
     let meta = match waves
         .inner
-        .signal_meta(&displayed_signal.signal_ref)
-        .context("failed to get signal meta")
+        .variable_meta(&displayed_variable.variable_ref)
+        .context("failed to get variable meta")
     {
         Ok(meta) => meta,
         Err(e) => {
@@ -85,15 +85,15 @@ fn signal_draw_commands(
         }
     };
 
-    let translator = waves.signal_translator(
+    let translator = waves.variable_translator(
         &FieldRef {
-            root: displayed_signal.signal_ref.clone(),
+            root: displayed_variable.variable_ref.clone(),
             field: vec![],
         },
         translators,
     );
-    // we need to get the signal info here to get the correct info for aliases
-    let info = translator.signal_info(&meta).unwrap();
+    // we need to get the variable info here to get the correct info for aliases
+    let info = translator.variable_info(&meta).unwrap();
 
     let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
 
@@ -116,7 +116,9 @@ fn signal_draw_commands(
             continue;
         }
 
-        let query_result = waves.inner.query_signal(&displayed_signal.signal_ref, time);
+        let query_result = waves
+            .inner
+            .query_variable(&displayed_variable.variable_ref, time);
         next_change = match &query_result {
             Ok(QueryResult {
                 next: Some(timestamp),
@@ -139,7 +141,7 @@ fn signal_draw_commands(
             }) => (change_time, val),
             Ok(QueryResult { current: None, .. }) => continue,
             Err(e) => {
-                error!("Signal query error {e:#?}");
+                error!("Variable query error {e:#?}");
                 continue;
             }
         };
@@ -156,11 +158,11 @@ fn signal_draw_commands(
                 error!(
                     "{translator_name} for {sig_name} failed. Disabling:",
                     translator_name = translator.name(),
-                    sig_name = displayed_signal.signal_ref.full_path_string()
+                    sig_name = displayed_variable.variable_ref.full_path_string()
                 );
                 error!("{e:#}");
-                local_msgs.push(Message::ResetSignalFormat(FieldRef {
-                    root: displayed_signal.signal_ref.clone(),
+                local_msgs.push(Message::ResetVariableFormat(FieldRef {
+                    root: displayed_variable.variable_ref.clone(),
                     field: vec![],
                 }));
                 return None;
@@ -170,10 +172,10 @@ fn signal_draw_commands(
         let fields = translation_result
             .flatten(
                 FieldRef {
-                    root: displayed_signal.signal_ref.clone(),
+                    root: displayed_variable.variable_ref.clone(),
                     field: vec![],
                 },
-                &waves.signal_format,
+                &waves.variable_format,
                 translators,
             )
             .as_fields();
@@ -183,7 +185,7 @@ fn signal_draw_commands(
 
             // If the value changed between this and the previous pixel, we want to
             // draw a transition even if the translated value didn't change.  We
-            // only want to do this for root signals, because resolving when a
+            // only want to do this for root variables, because resolving when a
             // sub-field change is tricky without more information from the
             // translators
             let anti_alias = &change_time > prev_time && names.is_empty();
@@ -193,7 +195,7 @@ fn signal_draw_commands(
             if new_value || is_last_timestep || anti_alias {
                 *prev_values.entry(names.clone()).or_insert(value.clone()) = value.clone();
 
-                if let SignalInfo::Clock = info.get_subinfo(&names) {
+                if let VariableInfo::Clock = info.get_subinfo(&names) {
                     match value.as_ref().map(|result| result.value.as_str()) {
                         Some("1") => {
                             if !is_last_timestep && !is_first_timestep {
@@ -208,7 +210,7 @@ fn signal_draw_commands(
                 local_commands
                     .entry(names.clone())
                     .or_insert_with(|| {
-                        if let SignalInfo::Bool | SignalInfo::Clock = info.get_subinfo(&names) {
+                        if let VariableInfo::Bool | VariableInfo::Clock = info.get_subinfo(&names) {
                             DrawingCommands::new_bool()
                         } else {
                             DrawingCommands::new_wide()
@@ -224,9 +226,9 @@ fn signal_draw_commands(
             }
         }
     }
-    Some(SignalDrawCommands {
+    Some(VariableDrawCommands {
         clock_edges,
-        signal_ref: displayed_signal.signal_ref.clone(),
+        variable_ref: displayed_variable.variable_ref.clone(),
         local_commands,
         local_msgs,
     })
@@ -269,14 +271,14 @@ impl State {
                 .displayed_items
                 .par_iter()
                 .filter_map(|item| match item {
-                    DisplayedItem::Signal(signal_ref) => Some(signal_ref),
+                    DisplayedItem::Variable(variable_ref) => Some(variable_ref),
                     _ => None,
                 })
-                // Iterate over the signals, generating draw commands for all the
+                // Iterate over the variables, generating draw commands for all the
                 // subfields
-                .filter_map(|displayed_signal| {
-                    signal_draw_commands(
-                        displayed_signal,
+                .filter_map(|displayed_variable| {
+                    variable_draw_commands(
+                        displayed_variable,
                         &timestamps,
                         waves,
                         translators,
@@ -285,9 +287,9 @@ impl State {
                 })
                 .collect::<Vec<_>>();
 
-            for SignalDrawCommands {
+            for VariableDrawCommands {
                 clock_edges: mut new_clock_edges,
-                signal_ref,
+                variable_ref,
                 local_commands,
                 mut local_msgs,
             } in commands
@@ -296,7 +298,7 @@ impl State {
                 for (path, val) in local_commands {
                     draw_commands.insert(
                         FieldRef {
-                            root: signal_ref.clone(),
+                            root: variable_ref.clone(),
                             field: path.clone(),
                         },
                         val,
@@ -320,7 +322,7 @@ impl State {
         self.sys.timing.borrow_mut().end("Generate draw commands");
     }
 
-    pub fn draw_signals(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
         let cfg = DrawConfig::new(response.rect.size().y);
@@ -380,8 +382,11 @@ impl State {
             let timestamp = waves.viewport.to_time_bigint(pos.x, frame_width);
             if let Some(utimestamp) = timestamp.to_biguint() {
                 if let Some(vidx) = waves.get_item_at_y(pos.y) {
-                    if let DisplayedItem::Signal(signal) = &waves.displayed_items[vidx] {
-                        if let Ok(res) = waves.inner.query_signal(&signal.signal_ref, &utimestamp) {
+                    if let DisplayedItem::Variable(variable) = &waves.displayed_items[vidx] {
+                        if let Ok(res) = waves
+                            .inner
+                            .query_variable(&variable.variable_ref, &utimestamp)
+                        {
                             let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
                             let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
                             let prev = waves.viewport.from_time(prev_time, frame_width);
@@ -429,12 +434,12 @@ impl State {
             let default_background_color = self.get_default_alternating_background_color(idx);
             let background_color = *waves
                 .displayed_items
-                .get(drawing_info.signal_list_idx())
-                .and_then(|signal| signal.background_color())
+                .get(drawing_info.item_list_idx())
+                .and_then(|variable| variable.background_color())
                 .and_then(|color| self.config.theme.colors.get(&color))
                 .unwrap_or(&default_background_color);
 
-            // We draw in absolute coords, but the signal offset in the y
+            // We draw in absolute coords, but the variable offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
             let y_offset = drawing_info.top() - to_screen.transform_pos(Pos2::ZERO).y;
@@ -476,24 +481,24 @@ impl State {
             }
 
             for drawing_info in item_offsets {
-                // We draw in absolute coords, but the signal offset in the y
+                // We draw in absolute coords, but the variable offset in the y
                 // direction is also in absolute coordinates, so we need to
                 // compensate for that
                 let y_offset = drawing_info.top() - to_screen.transform_pos(Pos2::ZERO).y;
 
                 let color = waves
                     .displayed_items
-                    .get(drawing_info.signal_list_idx())
-                    .and_then(|signal| signal.color())
+                    .get(drawing_info.item_list_idx())
+                    .and_then(|variable| variable.color())
                     .and_then(|color| self.config.theme.colors.get(&color));
 
                 match drawing_info {
-                    ItemDrawingInfo::Signal(drawing_info) => {
+                    ItemDrawingInfo::Variable(drawing_info) => {
                         if let Some(commands) = draw_commands.get(&drawing_info.field_ref) {
                             for (old, new) in
                                 commands.values.iter().zip(commands.values.iter().skip(1))
                             {
-                                let color = *color.unwrap_or(&self.config.theme.signal_default);
+                                let color = *color.unwrap_or(&self.config.theme.variable_default);
                                 if commands.is_bool {
                                     self.draw_bool_transition(
                                         (old, new),
@@ -656,7 +661,7 @@ impl State {
     }
 }
 
-trait SignalExt {
+trait VariableExt {
     fn bool_drawing_spec(
         &self,
         user_color: Color32,
@@ -668,18 +673,18 @@ trait SignalExt {
 impl ValueKind {
     fn color(&self, user_color: Color32, theme: &SurferTheme) -> Color32 {
         match self {
-            ValueKind::HighImp => theme.signal_highimp,
-            ValueKind::Undef => theme.signal_undef,
-            ValueKind::DontCare => theme.signal_dontcare,
-            ValueKind::Warn => theme.signal_undef,
+            ValueKind::HighImp => theme.variable_highimp,
+            ValueKind::Undef => theme.variable_undef,
+            ValueKind::DontCare => theme.variable_dontcare,
+            ValueKind::Warn => theme.variable_undef,
             ValueKind::Custom(custom_color) => *custom_color,
-            ValueKind::Weak => theme.signal_weak,
+            ValueKind::Weak => theme.variable_weak,
             ValueKind::Normal => user_color,
         }
     }
 }
 
-impl SignalExt for String {
+impl VariableExt for String {
     /// Return the height and color with which to draw this value if it is a boolean
     fn bool_drawing_spec(
         &self,

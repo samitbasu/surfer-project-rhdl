@@ -1,7 +1,7 @@
 use super::{
-    check_single_wordlength, BasicTranslator, SignalInfo, TranslationPreference, ValueKind,
+    check_single_wordlength, BasicTranslator, TranslationPreference, ValueKind, VariableInfo,
 };
-use crate::wave_container::{SignalMeta, SignalValue};
+use crate::wave_container::{VariableMeta, VariableValue};
 
 use color_eyre::Result;
 use itertools::Itertools;
@@ -57,9 +57,9 @@ fn extend_string(val: &String, num_bits: u64) -> String {
     }
 }
 
-/// Turn vector signal string into name and corresponding color if it
+/// Turn vector variable string into name and corresponding color if it
 /// includes values other than 0 and 1. If only 0 and 1, return None.
-fn check_vector_signal(s: &str) -> Option<(String, ValueKind)> {
+fn check_vector_variable(s: &str) -> Option<(String, ValueKind)> {
     if s.contains('x') {
         Some(("UNDEF".to_string(), ValueKind::Undef))
     } else if s.contains('z') {
@@ -176,13 +176,13 @@ impl BasicTranslator for HexTranslator {
         String::from("Hexadecimal")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => (
+            VariableValue::BigUint(v) => (
                 format!("{v:0width$x}", width = no_of_digits(num_bits, 4)),
                 ValueKind::Normal,
             ),
-            SignalValue::String(s) => map_to_radix(s, 4, num_bits),
+            VariableValue::String(s) => map_to_radix(s, 4, num_bits),
         }
     }
 }
@@ -194,9 +194,9 @@ impl BasicTranslator for BitTranslator {
         String::from("Bit")
     }
 
-    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => (
+            VariableValue::BigUint(v) => (
                 if (*v).is_zero() {
                     "0".to_string()
                 } else {
@@ -204,12 +204,12 @@ impl BasicTranslator for BitTranslator {
                 },
                 ValueKind::Normal,
             ),
-            SignalValue::String(s) => (s.to_string(), color_for_binary_representation(s)),
+            VariableValue::String(s) => (s.to_string(), color_for_binary_representation(s)),
         }
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        if let Some(num_bits) = signal.num_bits {
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        if let Some(num_bits) = variable.num_bits {
             if num_bits == 1u32 {
                 Ok(TranslationPreference::Prefer)
             } else {
@@ -220,8 +220,8 @@ impl BasicTranslator for BitTranslator {
         }
     }
 
-    fn signal_info(&self, _signal: &SignalMeta) -> Result<SignalInfo> {
-        Ok(SignalInfo::Bool)
+    fn variable_info(&self, _variable: &VariableMeta) -> Result<VariableInfo> {
+        Ok(VariableInfo::Bool)
     }
 }
 
@@ -232,13 +232,13 @@ impl BasicTranslator for OctalTranslator {
         String::from("Octal")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => (
+            VariableValue::BigUint(v) => (
                 format!("{v:0width$o}", width = no_of_digits(num_bits, 3)),
                 ValueKind::Normal,
             ),
-            SignalValue::String(s) => map_to_radix(s, 3, num_bits),
+            VariableValue::String(s) => map_to_radix(s, 3, num_bits),
         }
     }
 }
@@ -250,13 +250,13 @@ impl BasicTranslator for GroupingBinaryTranslator {
         String::from("Binary (with groups)")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         let (val, color) = match value {
-            SignalValue::BigUint(v) => (
+            VariableValue::BigUint(v) => (
                 format!("{v:0width$b}", width = num_bits as usize),
                 ValueKind::Normal,
             ),
-            SignalValue::String(s) => (
+            VariableValue::String(s) => (
                 format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
                 color_for_binary_representation(s),
             ),
@@ -273,13 +273,13 @@ impl BasicTranslator for BinaryTranslator {
         String::from("Binary")
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => (
+            VariableValue::BigUint(v) => (
                 format!("{v:0width$b}", width = num_bits as usize),
                 ValueKind::Normal,
             ),
-            SignalValue::String(s) => (
+            VariableValue::String(s) => (
                 format!("{extra_bits}{s}", extra_bits = extend_string(s, num_bits)),
                 color_for_binary_representation(s),
             ),
@@ -294,16 +294,16 @@ impl BasicTranslator for ASCIITranslator {
         String::from("ASCII")
     }
 
-    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         match value {
-            SignalValue::BigUint(v) => (
+            VariableValue::BigUint(v) => (
                 v.to_bytes_be()
                     .into_iter()
                     .map(|val| format!("{cval}", cval = val as char))
                     .join(""),
                 ValueKind::Normal,
             ),
-            SignalValue::String(s) => match check_vector_signal(s) {
+            VariableValue::String(s) => match check_vector_variable(s) {
                 Some(v) => v,
                 None => (
                     group_n_chars(s, 8)
@@ -331,10 +331,10 @@ impl BasicTranslator for RiscvTranslator {
         "RV32I".to_string()
     }
 
-    fn basic_translate(&self, _num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         let u32_value = match value {
-            SignalValue::BigUint(v) => v.to_u32_digits().last().cloned(),
-            SignalValue::String(s) => match check_vector_signal(s) {
+            VariableValue::BigUint(v) => v.to_u32_digits().last().cloned(),
+            VariableValue::String(s) => match check_vector_variable(s) {
                 Some(v) => return v,
                 None => s.parse().ok(),
             },
@@ -347,8 +347,8 @@ impl BasicTranslator for RiscvTranslator {
         }
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(signal.num_bits, 32)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 32)
     }
 }
 
@@ -421,10 +421,10 @@ impl BasicTranslator for LebTranslator {
         "LEBxxx".to_string()
     }
 
-    fn basic_translate(&self, num_bits: u64, value: &SignalValue) -> (String, ValueKind) {
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         let decoded = match value {
-            SignalValue::BigUint(v) => decode_lebxxx(v),
-            SignalValue::String(s) => match check_vector_signal(s) {
+            VariableValue::BigUint(v) => decode_lebxxx(v),
+            VariableValue::String(s) => match check_vector_variable(s) {
                 Some(v) => return v,
                 None => match num::BigUint::parse_bytes(s.as_bytes(), 2) {
                     Some(bi) => decode_lebxxx(&bi),
@@ -446,8 +446,8 @@ impl BasicTranslator for LebTranslator {
         }
     }
 
-    fn translates(&self, signal: &SignalMeta) -> Result<TranslationPreference> {
-        check_wordlength(signal.num_bits, |n| (n % 8 == 0) && n > 0)
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_wordlength(variable.num_bits, |n| (n % 8 == 0) && n > 0)
     }
 }
 
@@ -462,39 +462,39 @@ mod test {
     fn hexadecimal_translation_groups_digits_correctly_string() {
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .basic_translate(5, &VariableValue::String("10000".to_string()))
                 .0,
             "10"
         );
 
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::String("1000".to_string()))
+                .basic_translate(5, &VariableValue::String("1000".to_string()))
                 .0,
             "08"
         );
 
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::String("100000".to_string()))
+                .basic_translate(5, &VariableValue::String("100000".to_string()))
                 .0,
             "20"
         );
         assert_eq!(
             HexTranslator {}
-                .basic_translate(10, &SignalValue::String("1z00x0".to_string()))
+                .basic_translate(10, &VariableValue::String("1z00x0".to_string()))
                 .0,
             "0zx"
         );
         assert_eq!(
             HexTranslator {}
-                .basic_translate(10, &SignalValue::String("z0110".to_string()))
+                .basic_translate(10, &VariableValue::String("z0110".to_string()))
                 .0,
             "zz6"
         );
         assert_eq!(
             HexTranslator {}
-                .basic_translate(24, &SignalValue::String("xz0110".to_string()))
+                .basic_translate(24, &VariableValue::String("xz0110".to_string()))
                 .0,
             "xxxxx6"
         );
@@ -504,19 +504,19 @@ mod test {
     fn hexadecimal_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10000u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b10000u32)))
                 .0,
             "10"
         );
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b1000u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b1000u32)))
                 .0,
             "08"
         );
         assert_eq!(
             HexTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0u32)))
                 .0,
             "00"
         );
@@ -526,19 +526,19 @@ mod test {
     fn octal_translation_groups_digits_correctly_string() {
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .basic_translate(5, &VariableValue::String("10000".to_string()))
                 .0,
             "20"
         );
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(5, &SignalValue::String("100".to_string()))
+                .basic_translate(5, &VariableValue::String("100".to_string()))
                 .0,
             "04"
         );
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(9, &SignalValue::String("x100".to_string()))
+                .basic_translate(9, &VariableValue::String("x100".to_string()))
                 .0,
             "xx4"
         );
@@ -548,13 +548,13 @@ mod test {
     fn octal_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b10000u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b10000u32)))
                 .0,
             "20"
         );
         assert_eq!(
             OctalTranslator {}
-                .basic_translate(5, &SignalValue::BigUint(BigUint::from(0b00100u32)))
+                .basic_translate(5, &VariableValue::BigUint(BigUint::from(0b00100u32)))
                 .0,
             "04"
         );
@@ -564,25 +564,25 @@ mod test {
     fn grouping_binary_translation_groups_digits_correctly_string() {
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(5, &SignalValue::String("1000w".to_string()))
+                .basic_translate(5, &VariableValue::String("1000w".to_string()))
                 .0,
             "1 000w"
         );
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(8, &SignalValue::String("100l00".to_string()))
+                .basic_translate(8, &VariableValue::String("100l00".to_string()))
                 .0,
             "0010 0l00"
         );
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(7, &SignalValue::String("10x00".to_string()))
+                .basic_translate(7, &VariableValue::String("10x00".to_string()))
                 .0,
             "001 0x00"
         );
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(7, &SignalValue::String("z10x00".to_string()))
+                .basic_translate(7, &VariableValue::String("z10x00".to_string()))
                 .0,
             "zz1 0x00"
         );
@@ -592,7 +592,7 @@ mod test {
     fn grouping_binary_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             GroupingBinaryTranslator {}
-                .basic_translate(7, &SignalValue::BigUint(BigUint::from(0b100000u32)))
+                .basic_translate(7, &VariableValue::BigUint(BigUint::from(0b100000u32)))
                 .0,
             "010 0000"
         )
@@ -602,25 +602,25 @@ mod test {
     fn binary_translation_groups_digits_correctly_string() {
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(5, &SignalValue::String("10000".to_string()))
+                .basic_translate(5, &VariableValue::String("10000".to_string()))
                 .0,
             "10000"
         );
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(8, &SignalValue::String("100h00".to_string()))
+                .basic_translate(8, &VariableValue::String("100h00".to_string()))
                 .0,
             "00100h00"
         );
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(7, &SignalValue::String("10x0-".to_string()))
+                .basic_translate(7, &VariableValue::String("10x0-".to_string()))
                 .0,
             "0010x0-"
         );
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(7, &SignalValue::String("z10x00".to_string()))
+                .basic_translate(7, &VariableValue::String("z10x00".to_string()))
                 .0,
             "zz10x00"
         );
@@ -630,7 +630,7 @@ mod test {
     fn binary_translation_groups_digits_correctly_bigint() {
         assert_eq!(
             BinaryTranslator {}
-                .basic_translate(7, &SignalValue::BigUint(BigUint::from(0b100000u32)))
+                .basic_translate(7, &VariableValue::BigUint(BigUint::from(0b100000u32)))
                 .0,
             "0100000"
         )
@@ -642,14 +642,14 @@ mod test {
             ASCIITranslator {}
                 .basic_translate(
                     15,
-                    &SignalValue::BigUint(BigUint::from(0b100111101001011u32))
+                    &VariableValue::BigUint(BigUint::from(0b100111101001011u32))
                 )
                 .0,
             "OK"
         );
         assert_eq!(
             ASCIITranslator {}
-                .basic_translate(72, &SignalValue::BigUint(BigUint::from(0b010011000110111101101110011001110010000001110100011001010111001101110100u128)))
+                .basic_translate(72, &VariableValue::BigUint(BigUint::from(0b010011000110111101101110011001110010000001110100011001010111001101110100u128)))
                 .0,
             "Long test"
         );
@@ -659,7 +659,7 @@ mod test {
     fn ascii_translation_from_string() {
         assert_eq!(
             ASCIITranslator {}
-                .basic_translate(15, &SignalValue::String("100111101001011".to_string()))
+                .basic_translate(15, &VariableValue::String("100111101001011".to_string()))
                 .0,
             "OK"
         );
@@ -667,7 +667,7 @@ mod test {
             ASCIITranslator {}
                 .basic_translate(
                     72,
-                    &SignalValue::String(
+                    &VariableValue::String(
                         "010011000110111101101110011001110010000001110100011001010111001101110100"
                             .to_string()
                     )
@@ -677,7 +677,7 @@ mod test {
         );
         assert_eq!(
             ASCIITranslator {}
-                .basic_translate(16, &SignalValue::String("010x111101001011".to_string()))
+                .basic_translate(16, &VariableValue::String("010x111101001011".to_string()))
                 .0,
             "UNDEF"
         );
@@ -687,13 +687,13 @@ mod test {
     fn bit_translation_from_biguint() {
         assert_eq!(
             BitTranslator {}
-                .basic_translate(1, &SignalValue::BigUint(BigUint::from(0b1u8)))
+                .basic_translate(1, &VariableValue::BigUint(BigUint::from(0b1u8)))
                 .0,
             "1"
         );
         assert_eq!(
             BitTranslator {}
-                .basic_translate(1, &SignalValue::BigUint(BigUint::from(0b0u8)))
+                .basic_translate(1, &VariableValue::BigUint(BigUint::from(0b0u8)))
                 .0,
             "0"
         );
@@ -703,19 +703,19 @@ mod test {
     fn bit_translation_from_string() {
         assert_eq!(
             BitTranslator {}
-                .basic_translate(1, &SignalValue::String("1".to_string()))
+                .basic_translate(1, &VariableValue::String("1".to_string()))
                 .0,
             "1"
         );
         assert_eq!(
             BitTranslator {}
-                .basic_translate(1, &SignalValue::String("0".to_string()))
+                .basic_translate(1, &VariableValue::String("0".to_string()))
                 .0,
             "0"
         );
         assert_eq!(
             BitTranslator {}
-                .basic_translate(1, &SignalValue::String("x".to_string()))
+                .basic_translate(1, &VariableValue::String("x".to_string()))
                 .0,
             "x"
         );
@@ -725,25 +725,25 @@ mod test {
     fn leb_translation_from_biguint() {
         assert_eq!(
             LebTranslator {}
-                .basic_translate(16, &SignalValue::BigUint(0b01011010_11101111u16.into()))
+                .basic_translate(16, &VariableValue::BigUint(0b01011010_11101111u16.into()))
                 .0,
             "11631"
         );
         assert_eq!(
             LebTranslator {}
-                .basic_translate(16, &SignalValue::BigUint(0b00000000_00000001u16.into()))
+                .basic_translate(16, &VariableValue::BigUint(0b00000000_00000001u16.into()))
                 .0,
             "1"
         );
         assert_eq!(
-            LebTranslator{}.basic_translate(64, &SignalValue::BigUint(0b01001010_11110111_11101000_10100000_10111010_11110110_11100001_10011001u64.into())).0, "42185246214303897"
+            LebTranslator{}.basic_translate(64, &VariableValue::BigUint(0b01001010_11110111_11101000_10100000_10111010_11110110_11100001_10011001u64.into())).0, "42185246214303897"
         );
     }
     #[test]
     fn leb_translation_from_string() {
         assert_eq!(
             LebTranslator {}
-                .basic_translate(16, &SignalValue::String("0111110011100010".to_owned()))
+                .basic_translate(16, &VariableValue::String("0111110011100010".to_owned()))
                 .0,
             "15970"
         )
@@ -752,7 +752,7 @@ mod test {
     fn leb_translation_invalid_msb() {
         assert_eq!(
             LebTranslator {}
-                .basic_translate(16, &SignalValue::BigUint(0b1000000010000000u16.into()))
+                .basic_translate(16, &VariableValue::BigUint(0b1000000010000000u16.into()))
                 .0,
             "invalid MSB: 1000 0000 1000 0000"
         )
@@ -761,7 +761,7 @@ mod test {
     fn leb_translation_invalid_continuation() {
         assert_eq!(
             LebTranslator {}
-                .basic_translate(16, &SignalValue::BigUint(0b0111111101111111u16.into()))
+                .basic_translate(16, &VariableValue::BigUint(0b0111111101111111u16.into()))
                 .0,
             "invalid flag: 0111 1111 0111 1111"
         )
@@ -771,13 +771,13 @@ mod test {
     fn riscv_from_bigunit() {
         assert_eq!(
             RiscvTranslator {}
-                .basic_translate(32, &SignalValue::BigUint(0u32.into()))
+                .basic_translate(32, &VariableValue::BigUint(0u32.into()))
                 .0,
             "UNKNOWN INSN (0x0)"
         );
         assert_eq!(
             RiscvTranslator {}
-                .basic_translate(32, &SignalValue::BigUint(0b1000000010000000u32.into()))
+                .basic_translate(32, &VariableValue::BigUint(0b1000000010000000u32.into()))
                 .0,
             "UNKNOWN INSN (0x8080)"
         );
@@ -785,7 +785,7 @@ mod test {
             RiscvTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::BigUint(0b100000010011_01010_000_01011_0010011u32.into())
+                    &VariableValue::BigUint(0b100000010011_01010_000_01011_0010011u32.into())
                 )
                 .0,
             "addi A1, A0, 2067"
@@ -795,7 +795,7 @@ mod test {
     fn riscv_from_string() {
         assert_eq!(
             RiscvTranslator {}
-                .basic_translate(32, &SignalValue::String("0".to_owned()))
+                .basic_translate(32, &VariableValue::String("0".to_owned()))
                 .0,
             "UNKNOWN INSN (0x0)"
         );
@@ -803,7 +803,7 @@ mod test {
             RiscvTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("01001000100010001000100010001000".to_owned())
+                    &VariableValue::String("01001000100010001000100010001000".to_owned())
                 )
                 .0,
             "UNKNOWN INSN (0x0)" // Should be 0x48888888 -- see issue #114
@@ -812,7 +812,7 @@ mod test {
             RiscvTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("01xzz-hlw0010001000100010001000".to_owned())
+                    &VariableValue::String("01xzz-hlw0010001000100010001000".to_owned())
                 )
                 .0,
             "UNDEF"
@@ -821,7 +821,7 @@ mod test {
             RiscvTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("010zz-hlw0010001000100010001000".to_owned())
+                    &VariableValue::String("010zz-hlw0010001000100010001000".to_owned())
                 )
                 .0,
             "HIGHIMP"
@@ -830,7 +830,7 @@ mod test {
             RiscvTranslator {}
                 .basic_translate(
                     32,
-                    &SignalValue::String("01011-hlw0010001000100010001000".to_owned())
+                    &VariableValue::String("01011-hlw0010001000100010001000".to_owned())
                 )
                 .0,
             "DON'T CARE"

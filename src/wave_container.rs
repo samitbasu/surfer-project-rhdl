@@ -2,17 +2,17 @@ use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
 use num::BigUint;
 use serde::{Deserialize, Serialize};
-use wellen::{ScopeRef, VarRef, Waveform};
+use wellen::{self, VarRef, Waveform};
 
 use crate::wellen::var_to_meta;
 use crate::{
-    signal_type::SignalType,
     time::{TimeScale, TimeUnit},
+    variable_type::VariableType,
     wellen::WellenContainer,
 };
 
 #[derive(Debug, PartialEq)]
-pub enum SignalValue {
+pub enum VariableValue {
     BigUint(BigUint),
     String(String),
 }
@@ -23,21 +23,21 @@ pub struct MetaData {
     pub timescale: TimeScale,
 }
 #[derive(Clone, Debug, Eq, Serialize, Deserialize)]
-pub struct ModuleRef {
+pub struct ScopeRef {
     strs: Vec<String>,
     /// Backend specific numeric ID. Performance optimization.
     #[serde(skip, default = "__wave_container_scope_id_none")]
     id: WaveContainerScopeId,
 }
 
-impl std::hash::Hash for ModuleRef {
+impl std::hash::Hash for ScopeRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // id is intentionally not hashed, since it is only a performance hint
         self.strs.hash(state)
     }
 }
 
-impl std::cmp::PartialEq for ModuleRef {
+impl std::cmp::PartialEq for ScopeRef {
     fn eq(&self, other: &Self) -> bool {
         // id is intentionally not compared, since it is only a performance hint
         self.strs.eq(&other.strs)
@@ -55,7 +55,7 @@ fn __wave_container_scope_id_none() -> WaveContainerScopeId {
     WaveContainerScopeId::None
 }
 
-impl ModuleRef {
+impl ScopeRef {
     pub fn empty() -> Self {
         Self {
             strs: vec![],
@@ -69,23 +69,23 @@ impl ModuleRef {
         Self { strs, id }
     }
 
-    pub fn from_strs_with_wellen_id<S: ToString>(s: &[S], id: ScopeRef) -> Self {
+    pub fn from_strs_with_wellen_id<S: ToString>(s: &[S], id: wellen::ScopeRef) -> Self {
         let mut a = Self::from_strs(s);
         a.id = WaveContainerScopeId::Wellen(id);
         a
     }
 
-    /// Creates a ModuleRef from a string with each module separated by `.`
+    /// Creates a ScopeRef from a string with each scope separated by `.`
     pub fn from_hierarchy_string(s: &str) -> Self {
         let strs = s.split('.').map(|x| x.to_string()).collect();
         let id = WaveContainerScopeId::None;
         Self { strs, id }
     }
 
-    pub fn with_submodule(&self, submodule: String) -> Self {
+    pub fn with_subscope(&self, subscope: String) -> Self {
         let mut result = self.clone();
-        result.strs.push(submodule);
-        // the result refers to a different module, which we do not know the ID of
+        result.strs.push(subscope);
+        // the result refers to a different scope, which we do not know the ID of
         result.id = WaveContainerScopeId::None;
         result
     }
@@ -98,21 +98,21 @@ impl ModuleRef {
         &self.strs
     }
 
-    pub(crate) fn get_wellen_id(&self) -> Option<ScopeRef> {
+    pub(crate) fn get_wellen_id(&self) -> Option<wellen::ScopeRef> {
         match self.id {
             WaveContainerScopeId::Wellen(id) => Some(id),
             _ => None,
         }
     }
 
-    pub(crate) fn with_wellen_id(&self, id: ScopeRef) -> Self {
+    pub(crate) fn with_wellen_id(&self, id: wellen::ScopeRef) -> Self {
         let mut out = self.clone();
         out.id = WaveContainerScopeId::Wellen(id);
         out
     }
 }
 
-impl std::fmt::Display for ModuleRef {
+impl std::fmt::Display for ScopeRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self.strs.join("."))
     }
@@ -120,23 +120,23 @@ impl std::fmt::Display for ModuleRef {
 
 // FIXME: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` or Rc/Arc would be better
 #[derive(Clone, Debug, Eq, Serialize, Deserialize)]
-pub struct SignalRef {
-    /// Path in the module hierarchy to where this signal resides
-    pub path: ModuleRef,
-    /// Name of the signal in its hierarchy
+pub struct VariableRef {
+    /// Path in the scope hierarchy to where this variable resides
+    pub path: ScopeRef,
+    /// Name of the variable in its hierarchy
     pub name: String,
     /// Backend specific numeric ID. Performance optimization.
     #[serde(skip, default = "__wave_container_var_id_none")]
     id: WaveContainerVarId,
 }
 
-impl AsRef<SignalRef> for SignalRef {
-    fn as_ref(&self) -> &SignalRef {
+impl AsRef<VariableRef> for VariableRef {
+    fn as_ref(&self) -> &VariableRef {
         self
     }
 }
 
-impl std::hash::Hash for SignalRef {
+impl std::hash::Hash for VariableRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // id is intentionally not hashed, since it is only a performance hint
         self.path.hash(state);
@@ -144,7 +144,7 @@ impl std::hash::Hash for SignalRef {
     }
 }
 
-impl std::cmp::PartialEq for SignalRef {
+impl std::cmp::PartialEq for VariableRef {
     fn eq(&self, other: &Self) -> bool {
         // id is intentionally not compared, since it is only a performance hint
         self.path.eq(&other.path) && self.name.eq(&other.name)
@@ -162,8 +162,8 @@ fn __wave_container_var_id_none() -> WaveContainerVarId {
     WaveContainerVarId::None
 }
 
-impl SignalRef {
-    pub fn new(path: ModuleRef, name: String) -> Self {
+impl VariableRef {
+    pub fn new(path: ScopeRef, name: String) -> Self {
         Self {
             path,
             name,
@@ -171,7 +171,7 @@ impl SignalRef {
         }
     }
 
-    pub(crate) fn new_with_wave_id(path: ModuleRef, name: String, id: VarRef) -> Self {
+    pub(crate) fn new_with_wave_id(path: ScopeRef, name: String, id: VarRef) -> Self {
         Self {
             path,
             name,
@@ -184,20 +184,20 @@ impl SignalRef {
 
         if components.is_empty() {
             Self {
-                path: ModuleRef::empty(),
+                path: ScopeRef::empty(),
                 name: String::new(),
                 id: WaveContainerVarId::None,
             }
         } else {
             Self {
-                path: ModuleRef::from_strs(&components[..(components.len()) - 1]),
+                path: ScopeRef::from_strs(&components[..(components.len()) - 1]),
                 name: components.last().unwrap().to_string(),
                 id: WaveContainerVarId::None,
             }
         }
     }
 
-    /// A human readable full path to the module
+    /// A human readable full path to the scope
     pub fn full_path_string(&self) -> String {
         if self.path.strs().is_empty() {
             self.name.clone()
@@ -218,7 +218,7 @@ impl SignalRef {
     #[cfg(test)]
     pub fn from_strs(s: &[&str]) -> Self {
         Self {
-            path: ModuleRef::from_strs(&s[..(s.len() - 1)]),
+            path: ScopeRef::from_strs(&s[..(s.len() - 1)]),
             name: s
                 .last()
                 .expect("from_strs called with an empty string")
@@ -240,16 +240,16 @@ impl SignalRef {
     }
 }
 
-/// A reference to a field of a larger signal, such as a field in a struct. The fields
+/// A reference to a field of a larger variable, such as a field in a struct. The fields
 /// are the recursive path to the fields inside the (translated) root
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldRef {
-    pub root: SignalRef,
+    pub root: VariableRef,
     pub field: Vec<String>,
 }
 
 impl FieldRef {
-    pub fn without_fields(root: SignalRef) -> Self {
+    pub fn without_fields(root: VariableRef) -> Self {
         Self {
             root,
             field: vec![],
@@ -259,7 +259,7 @@ impl FieldRef {
     #[cfg(test)]
     pub fn from_strs(root: &[&str], field: &[&str]) -> Self {
         Self {
-            root: SignalRef::from_strs(root),
+            root: VariableRef::from_strs(root),
             field: field.into_iter().map(|s| s.to_string()).collect(),
         }
     }
@@ -267,7 +267,7 @@ impl FieldRef {
 
 #[derive(Debug)]
 pub struct QueryResult {
-    pub current: Option<(BigUint, SignalValue)>,
+    pub current: Option<(BigUint, VariableValue)>,
     pub next: Option<BigUint>,
 }
 
@@ -291,41 +291,48 @@ impl WaveContainer {
         WaveContainer::Empty
     }
 
-    /// Returns the full names of all signals (i.e. variables) in the design.
-    pub fn signal_names(&self) -> Vec<String> {
+    /// Returns the full names of all variables in the design.
+    pub fn variable_names(&self) -> Vec<String> {
         match self {
-            WaveContainer::Wellen(f) => f.signal_names(),
+            WaveContainer::Wellen(f) => f.variable_names(),
             WaveContainer::Empty => vec![],
         }
     }
 
-    pub fn signals_in_module(&self, module: &ModuleRef) -> Vec<SignalRef> {
+    pub fn variables(&self) -> Vec<VariableRef> {
         match self {
-            WaveContainer::Wellen(f) => f.signals_in_module(module),
+            WaveContainer::Wellen(f) => f.variables(),
             WaveContainer::Empty => vec![],
         }
     }
 
-    /// Loads a signal into memory. Needs to be called before using `query_signal` on the signal.
-    pub fn load_signal<'a>(&mut self, r: &'a SignalRef) -> Result<SignalMeta<'a>> {
+    pub fn variables_in_scope(&self, scope: &ScopeRef) -> Vec<VariableRef> {
         match self {
-            WaveContainer::Wellen(f) => f.load_signal(r).map(|v| var_to_meta(v, r)),
-            WaveContainer::Empty => bail!("Cannot load signal from empty container."),
+            WaveContainer::Wellen(f) => f.variables_in_scope(scope),
+            WaveContainer::Empty => vec![],
         }
     }
 
-    /// Loads multiple signals at once. This is useful when we want to add multiple signals in one go.
-    pub fn load_signals<S: AsRef<SignalRef>, T: Iterator<Item = S>>(
+    /// Loads a variable into memory. Needs to be called before using `query_variable` on the variable.
+    pub fn load_variable<'a>(&mut self, r: &'a VariableRef) -> Result<VariableMeta<'a>> {
+        match self {
+            WaveContainer::Wellen(f) => f.load_variable(r).map(|v| var_to_meta(v, r)),
+            WaveContainer::Empty => bail!("Cannot load variable from empty container."),
+        }
+    }
+
+    /// Loads multiple variables at once. This is useful when we want to add multiple variables in one go.
+    pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
-        signals: T,
+        variables: T,
     ) -> Result<()> {
         match self {
-            WaveContainer::Wellen(f) => f.load_signals(signals),
-            WaveContainer::Empty => bail!("Cannot load signal from empty container."),
+            WaveContainer::Wellen(f) => f.load_variables(variables),
+            WaveContainer::Empty => bail!("Cannot load variables from empty container."),
         }
     }
 
-    pub fn signal_meta<'a>(&'a self, r: &'a SignalRef) -> Result<SignalMeta> {
+    pub fn variable_meta<'a>(&'a self, r: &'a VariableRef) -> Result<VariableMeta> {
         match self {
             WaveContainer::Wellen(f) => {
                 let var = f.get_var(r)?;
@@ -335,25 +342,32 @@ impl WaveContainer {
         }
     }
 
-    pub fn query_signal(&self, signal: &SignalRef, time: &BigUint) -> Result<QueryResult> {
+    pub fn query_variable(&self, variable: &VariableRef, time: &BigUint) -> Result<QueryResult> {
         match self {
-            WaveContainer::Wellen(f) => f.query_signal(signal, time),
-            WaveContainer::Empty => bail!("Querying signal from empty wave container"),
+            WaveContainer::Wellen(f) => f.query_variable(variable, time),
+            WaveContainer::Empty => bail!("Querying variable from empty wave container"),
         }
     }
 
-    /// Looks up the signal _by name_ and returns a new reference with an updated `id` if the signal is found.
-    pub fn update_signal_ref(&self, signal: &SignalRef) -> Option<SignalRef> {
+    /// Looks up the variable _by name_ and returns a new reference with an updated `id` if the variable is found.
+    pub fn update_variable_ref(&self, variable: &VariableRef) -> Option<VariableRef> {
         match self {
-            WaveContainer::Wellen(f) => f.update_signal_ref(signal),
+            WaveContainer::Wellen(f) => f.update_variable_ref(variable),
             WaveContainer::Empty => None,
         }
     }
 
-    /// Returns the full names of all modules (i.e., scopes) in the design.
-    pub fn module_names(&self) -> Vec<String> {
+    pub fn variable_exists(&self, variable: &VariableRef) -> bool {
         match self {
-            WaveContainer::Wellen(f) => f.module_names(),
+            WaveContainer::Wellen(f) => f.variable_exists(variable),
+            WaveContainer::Empty => false,
+        }
+    }
+
+    /// Returns the full names of all scopes in the design.
+    pub fn scope_names(&self) -> Vec<String> {
+        match self {
+            WaveContainer::Wellen(f) => f.scope_names(),
             WaveContainer::Empty => vec![],
         }
     }
@@ -372,17 +386,17 @@ impl WaveContainer {
         }
     }
 
-    pub fn root_modules(&self) -> Vec<ModuleRef> {
+    pub fn root_scopes(&self) -> Vec<ScopeRef> {
         match self {
-            WaveContainer::Wellen(f) => f.root_modules(),
+            WaveContainer::Wellen(f) => f.root_scopes(),
             WaveContainer::Empty => vec![],
         }
     }
 
-    pub fn child_modules(&self, module: &ModuleRef) -> Result<Vec<ModuleRef>> {
+    pub fn child_scopes(&self, scope: &ScopeRef) -> Result<Vec<ScopeRef>> {
         match self {
-            WaveContainer::Wellen(f) => f.child_modules(module),
-            WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
+            WaveContainer::Wellen(f) => f.child_scopes(scope),
+            WaveContainer::Empty => bail!("Getting child scopes from empty wave container"),
         }
     }
 
@@ -393,16 +407,16 @@ impl WaveContainer {
         }
     }
 
-    pub fn module_exists(&self, module: &ModuleRef) -> bool {
+    pub fn scope_exists(&self, scope: &ScopeRef) -> bool {
         match self {
-            WaveContainer::Wellen(f) => f.module_exists(module),
+            WaveContainer::Wellen(f) => f.scope_exists(scope),
             WaveContainer::Empty => false,
         }
     }
 
     /// Returns a human readable string with information about a scope.
-    /// The module name itself should not be included, since it will be prepended automatically.
-    pub fn get_scope_tooltip_data(&self, scope: &ModuleRef) -> String {
+    /// The scope name itself should not be included, since it will be prepended automatically.
+    pub fn get_scope_tooltip_data(&self, scope: &ScopeRef) -> String {
         match self {
             WaveContainer::Wellen(f) => f.get_scope_tooltip_data(scope),
             WaveContainer::Empty => "".to_string(),
@@ -410,9 +424,9 @@ impl WaveContainer {
     }
 }
 
-pub struct SignalMeta<'a> {
-    pub sig: &'a SignalRef,
+pub struct VariableMeta<'a> {
+    pub var: &'a VariableRef,
     pub num_bits: Option<u32>,
-    pub signal_type: Option<SignalType>,
+    pub variable_type: Option<VariableType>,
     pub index: Option<String>,
 }
