@@ -199,13 +199,13 @@ impl WaveData {
 
     pub fn select_preferred_translator(
         &self,
-        sig: VariableMeta,
+        var: VariableMeta,
         translators: &TranslatorList,
     ) -> String {
         translators
             .all_translators()
             .iter()
-            .filter_map(|t| match t.translates(&sig) {
+            .filter_map(|t| match t.translates(&var) {
                 Ok(TranslationPreference::Prefer) => Some(t.name()),
                 Ok(TranslationPreference::Yes) => None,
                 Ok(TranslationPreference::No) => None,
@@ -213,7 +213,7 @@ impl WaveData {
                     error!(
                         "Failed to check if {} translates {}\n{e:#?}",
                         t.name(),
-                        sig.var.full_path_string()
+                        var.var.full_path_string()
                     );
                     None
                 }
