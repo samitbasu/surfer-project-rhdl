@@ -7,7 +7,9 @@ use crate::{message::Message, State};
 impl State {
     pub fn help_message(&self, ui: &mut Ui) {
         if self.waves.is_none() {
-            ui.label(RichText::new("Drag and drop a VCD file here to open it"));
+            ui.label(RichText::new(
+                "Drag and drop a VCD or FST file here to open it",
+            ));
 
             #[cfg(target_arch = "wasm32")]
             ui.label(RichText::new("Or press space and type load_url"));
