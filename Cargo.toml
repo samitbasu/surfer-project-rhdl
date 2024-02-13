@@ -31,7 +31,7 @@ human-sort = "0.2.2"
 itertools = "0.12.0"
 log = "0.4"
 material-icons = { path = "material-icons" }
-num = "0.4"
+num = { version = "0.4", features = ["serde"] }
 progress-streams = "1.1.0"
 pure-rust-locales = "0.7.0"
 rayon = "1.8.0"
@@ -50,14 +50,14 @@ spade-types = { path = "spade/spade-types", optional = true }
 sys-locale = "0.3.1"
 tokio = { version = "1.35.1", features = ["rt", "time"] }
 toml = "0.8.8"
-vcd-translate = { path = "spade/vcd-translate" }
+vcd-translate = { path = "spade/vcd-translate", optional = true }
 web-sys = { version = "0.3.66", features = ["Location", "UrlSearchParams"] }
 wellen = { path = "wellen" }
 
 [features]
 default = ["spade"]
 f128 = ["dep:f128"]
-spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-mir", "dep:spade-types"]
+spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-mir", "dep:spade-types", "dep:vcd-translate"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
