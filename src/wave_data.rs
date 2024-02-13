@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
-use eframe::epaint::Vec2;
+use itertools::Itertools;
 use log::{error, warn};
 use num::{BigInt, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub struct WaveData {
     pub active_scope: Option<ScopeRef>,
     /// Root items (variables, dividers, ...) to display
     pub displayed_items: Vec<DisplayedItem>,
-    pub viewport: Viewport,
+    pub viewports: Vec<Viewport>,
     pub num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
     pub variable_format: HashMap<FieldRef, String>,
@@ -54,7 +54,7 @@ impl WaveData {
         source: WaveSource,
         format: WaveFormat,
         num_timestamps: BigInt,
-        wave_viewport: Viewport,
+        wave_viewport: Vec<Viewport>,
         translators: &TranslatorList,
         keep_unavailable: bool,
     ) -> WaveData {
@@ -98,7 +98,12 @@ impl WaveData {
             format,
             active_scope,
             displayed_items: display_items,
-            viewport: self.viewport.clone().clip_to(&wave_viewport),
+            viewports: self
+                .viewports
+                .into_iter()
+                .enumerate()
+                .map(|(idx, viewport)| viewport.clip_to(&wave_viewport[idx]))
+                .collect_vec(),
             variable_format,
             num_timestamps,
             cursor: self.cursor.clone(),
@@ -244,36 +249,6 @@ impl WaveData {
         translator
     }
 
-    pub fn handle_canvas_zoom(
-        &mut self,
-        // Canvas relative
-        mouse_ptr_timestamp: Option<f64>,
-        delta: f64,
-    ) {
-        // Zoom or scroll
-        let Viewport {
-            curr_left: left,
-            curr_right: right,
-            ..
-        } = &self.viewport;
-
-        let (target_left, target_right) = match mouse_ptr_timestamp {
-            Some(mouse_location) => (
-                (left - mouse_location) / delta + mouse_location,
-                (right - mouse_location) / delta + mouse_location,
-            ),
-            None => {
-                let mid_point = (right + left) * 0.5;
-                let offset = (right - left) * delta * 0.5;
-
-                (mid_point - offset, mid_point + offset)
-            }
-        };
-
-        self.viewport.curr_left = target_left;
-        self.viewport.curr_right = target_right;
-    }
-
     pub fn add_variable(&mut self, translators: &TranslatorList, variable: &VariableRef) {
         let Ok(meta) = self
             .inner
@@ -366,34 +341,6 @@ impl WaveData {
         }
     }
 
-    pub fn go_to_start(&mut self) {
-        let width = self.viewport.curr_right - self.viewport.curr_left;
-
-        self.viewport.curr_left = 0.0;
-        self.viewport.curr_right = width;
-    }
-
-    pub fn go_to_end(&mut self) {
-        let end_point = self.num_timestamps.to_f64().unwrap();
-        let width = self.viewport.curr_right - self.viewport.curr_left;
-
-        self.viewport.curr_left = end_point - width;
-        self.viewport.curr_right = end_point;
-    }
-
-    pub fn zoom_to_fit(&mut self) {
-        self.viewport.curr_left = 0.0;
-        self.viewport.curr_right = self.num_timestamps.to_f64().unwrap();
-    }
-
-    pub fn go_to_time(&mut self, center: &BigInt) {
-        let center_point = center.to_f64().unwrap();
-        let half_width = (self.viewport.curr_right - self.viewport.curr_left) / 2.;
-
-        self.viewport.curr_left = center_point - half_width;
-        self.viewport.curr_right = center_point + half_width;
-    }
-
     #[inline]
     pub fn numbered_cursor_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
         viewport.from_time(self.numbered_cursor_time(idx), view_width)
@@ -402,23 +349,6 @@ impl WaveData {
     #[inline]
     pub fn numbered_cursor_time(&self, idx: u8) -> &BigInt {
         self.cursors.get(&idx).unwrap()
-    }
-
-    pub fn handle_canvas_scroll(
-        &mut self,
-        // Canvas relative
-        delta: Vec2,
-    ) {
-        // Scroll 1/SCROLL_EVENTS_PER_PAGE = 5% of the viewport per scroll event.
-        // One scroll event yields PER_SCROLL_EVENT = 50
-        let scroll_step = -(self.viewport.curr_right - self.viewport.curr_left)
-            / (PER_SCROLL_EVENT * SCROLL_EVENTS_PER_PAGE) as f64;
-
-        let target_left = self.viewport.curr_left + scroll_step * delta.y as f64;
-        let target_right = self.viewport.curr_right + scroll_step * delta.y as f64;
-
-        self.viewport.curr_left = target_left;
-        self.viewport.curr_right = target_right;
     }
 
     pub fn viewport_all(&self) -> Viewport {

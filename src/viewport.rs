@@ -1,7 +1,7 @@
 use num::{BigInt, BigRational, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Viewport {
     pub curr_left: f64,
     pub curr_right: f64,
@@ -21,6 +21,11 @@ impl Viewport {
         self.curr_left + time_spacing * x
     }
 
+    pub fn to_time(self, x: f64, view_width: f32) -> BigRational {
+        let time = self.to_time_f64(x, view_width);
+        BigRational::from_f64(time).unwrap_or_else(|| BigRational::from_f32(1.0).unwrap())
+    }
+
     pub fn to_time_bigint(&self, x: f32, view_width: f32) -> BigInt {
         let Viewport {
             curr_left: left,
@@ -38,6 +43,17 @@ impl Viewport {
 
         let time = big_left.clone() + (big_right - big_left) / big_width * big_x;
         time.round().to_integer()
+    }
+
+    pub fn get_fraction_scale(&self, view_width: f32, max_time_span: BigInt) -> f64 {
+        let Viewport {
+            curr_left: left,
+            curr_right: right,
+            ..
+        } = &self;
+        ((self.to_time(*right, view_width) - self.to_time(*left, view_width)) / max_time_span)
+            .to_f64()
+            .unwrap_or(1.)
     }
 
     pub fn from_time(&self, time: &BigInt, view_width: f32) -> f32 {
@@ -64,7 +80,7 @@ impl Viewport {
         let zoom_fixed = if corr_zoom > 1.0 {
             Viewport::new(self.curr_left / corr_zoom, self.curr_right / corr_zoom)
         } else {
-            self.clone()
+            *self
         };
 
         // scroll waveform less than 10% of the screen to the left & right
@@ -90,5 +106,78 @@ impl Viewport {
 
     fn width(&self) -> f64 {
         self.curr_right - self.curr_left
+    }
+
+    pub fn go_to_time(&mut self, center: &BigInt) {
+        let center_point = center.to_f64().unwrap();
+        let half_width = self.half_width();
+
+        self.curr_left = center_point - half_width;
+        self.curr_right = center_point + half_width;
+    }
+
+    pub fn zoom_to_fit(&mut self, num_timestamps: &BigInt) {
+        self.curr_left = 0.0;
+        self.curr_right = num_timestamps.to_f64().unwrap();
+    }
+
+    pub fn go_to_start(&mut self) {
+        let old_width = self.width();
+        self.curr_left = 0.0;
+        self.curr_right = old_width;
+    }
+
+    pub fn go_to_end(&mut self, num_timestamps: &BigInt) {
+        let end_point = num_timestamps.to_f64().unwrap();
+        self.curr_left = end_point - self.width();
+        self.curr_right = end_point;
+    }
+
+    pub fn handle_canvas_zoom(&mut self, mouse_ptr_timestamp: Option<f64>, delta: f64) {
+        // Zoom or scroll
+        let Viewport {
+            curr_left: left,
+            curr_right: right,
+            ..
+        } = &self;
+
+        let (target_left, target_right) = match mouse_ptr_timestamp {
+            Some(mouse_location) => (
+                (left - mouse_location) / delta + mouse_location,
+                (right - mouse_location) / delta + mouse_location,
+            ),
+            None => {
+                let mid_point = self.midpoint();
+                let offset = self.half_width() * delta;
+
+                (mid_point - offset, mid_point + offset)
+            }
+        };
+
+        self.curr_left = target_left;
+        self.curr_right = target_right;
+    }
+
+    pub fn handle_canvas_scroll(&mut self, deltay: f64) {
+        // Scroll 5% of the viewport per scroll event.
+        // One scroll event yields 50
+        let scroll_step = -self.width() / (50. * 20.);
+        let scaled_deltay = scroll_step * deltay;
+
+        self.curr_left += scaled_deltay;
+        self.curr_right += scaled_deltay;
+    }
+
+    fn midpoint(&self) -> f64 {
+        (self.curr_right + self.curr_left) * 0.5
+    }
+
+    fn half_width(&self) -> f64 {
+        self.width() * 0.5
+    }
+
+    pub fn zoom_to_range(&mut self, left: f64, right: f64) {
+        self.curr_left = left;
+        self.curr_right = right;
     }
 }
