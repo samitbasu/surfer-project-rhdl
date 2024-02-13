@@ -69,6 +69,7 @@ fn variable_draw_commands(
     waves: &WaveData,
     translators: &TranslatorList,
     view_width: f32,
+    viewport_idx: usize,
 ) -> Option<VariableDrawCommands> {
     let mut clock_edges = vec![];
     let mut local_msgs = vec![];
@@ -123,9 +124,9 @@ fn variable_draw_commands(
             Ok(QueryResult {
                 next: Some(timestamp),
                 ..
-            }) => waves
-                .viewport
-                .from_time(&timestamp.to_bigint().unwrap(), view_width),
+            }) => {
+                waves.viewports[viewport_idx].from_time(&timestamp.to_bigint().unwrap(), view_width)
+            }
             // If we don't have a next timestamp, we don't need to recheck until the last time
             // step
             Ok(_) => timestamps.last().map(|t| t.0).unwrap_or_default(),
@@ -236,7 +237,11 @@ fn variable_draw_commands(
 
 impl State {
     pub fn invalidate_draw_commands(&mut self) {
-        *self.sys.draw_data.borrow_mut() = None;
+        if let Some(waves) = &self.waves {
+            for viewport in 0..waves.viewports.len() {
+                self.sys.draw_data.borrow_mut()[viewport] = None;
+            }
+        }
     }
 
     pub fn generate_draw_commands(
@@ -244,6 +249,7 @@ impl State {
         cfg: &DrawConfig,
         frame_width: f32,
         msgs: &mut Vec<Message>,
+        viewport_idx: usize,
     ) {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Generate draw commands");
@@ -257,7 +263,7 @@ impl State {
                 ..(frame_width as i32 + cfg.max_transition_width))
                 .par_bridge()
                 .filter_map(|x| {
-                    let time = waves.viewport.to_time_f64(x as f64, frame_width);
+                    let time = waves.viewports[viewport_idx].to_time_f64(x as f64, frame_width);
                     if time < 0. || time > max_time {
                         None
                     } else {
@@ -284,6 +290,7 @@ impl State {
                         waves,
                         translators,
                         frame_width,
+                        viewport_idx,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -308,13 +315,13 @@ impl State {
                 clock_edges.append(&mut new_clock_edges)
             }
             let ticks = self.get_ticks(
-                &waves.viewport,
+                &waves.viewports[viewport_idx],
                 &waves.inner.metadata().timescale,
                 frame_width,
                 cfg.text_size,
             );
 
-            *self.sys.draw_data.borrow_mut() = Some(CachedDrawData {
+            self.sys.draw_data.borrow_mut()[viewport_idx] = Some(CachedDrawData {
                 draw_commands,
                 clock_edges,
                 ticks,
@@ -324,15 +331,15 @@ impl State {
         self.sys.timing.borrow_mut().end("Generate draw commands");
     }
 
-    pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui, viewport_idx: usize) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
         let cfg = DrawConfig::new(response.rect.size().y);
         // the draw commands have been invalidated, recompute
-        if self.sys.draw_data.borrow().is_none()
+        if self.sys.draw_data.borrow()[viewport_idx].is_none()
             || Some(response.rect) != *self.sys.last_canvas_rect.borrow()
         {
-            self.generate_draw_commands(&cfg, response.rect.width(), msgs);
+            self.generate_draw_commands(&cfg, response.rect.width(), msgs, viewport_idx);
             *self.sys.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
@@ -350,19 +357,19 @@ impl State {
             if scroll_delta != Vec2::ZERO {
                 msgs.push(Message::CanvasScroll {
                     delta: ui.input(|i| i.scroll_delta),
+                    viewport_idx,
                 })
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
                 let mouse_ptr_timestamp = Some(
-                    waves
-                        .viewport
-                        .to_time_f64(mouse_ptr_pos.x as f64, frame_width),
+                    waves.viewports[viewport_idx].to_time_f64(mouse_ptr_pos.x as f64, frame_width),
                 );
 
                 msgs.push(Message::CanvasZoom {
                     mouse_ptr_timestamp,
                     delta: ui.input(|i| i.zoom_delta()),
+                    viewport_idx,
                 })
             }
         }
@@ -375,13 +382,14 @@ impl State {
                         x: i.pointer.delta().y,
                         y: i.pointer.delta().x,
                     },
+                    viewport_idx: 0,
                 })
             }
         });
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
             let pos = pointer_pos_canvas.unwrap();
-            let timestamp = waves.viewport.to_time_bigint(pos.x, frame_width);
+            let timestamp = waves.viewports[viewport_idx].to_time_bigint(pos.x, frame_width);
             if let Some(utimestamp) = timestamp.to_biguint() {
                 if let Some(vidx) = waves.get_item_at_y(pos.y) {
                     if let DisplayedItem::Variable(variable) = &waves.displayed_items[vidx] {
@@ -391,8 +399,10 @@ impl State {
                         {
                             let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
                             let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
-                            let prev = waves.viewport.from_time(prev_time, frame_width);
-                            let next = waves.viewport.from_time(next_time, frame_width);
+                            let prev =
+                                waves.viewports[viewport_idx].from_time(prev_time, frame_width);
+                            let next =
+                                waves.viewports[viewport_idx].from_time(next_time, frame_width);
                             if (prev - pos.x).abs() < (next - pos.x).abs() {
                                 if (prev - pos.x).abs() <= self.config.snap_distance {
                                     msgs.push(Message::CursorSet(prev_time.clone()));
@@ -453,7 +463,7 @@ impl State {
 
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Wave drawing");
-        if let Some(draw_data) = &*self.sys.draw_data.borrow() {
+        if let Some(draw_data) = &self.sys.draw_data.borrow()[viewport_idx] {
             let clock_edges = &draw_data.clock_edges;
             let draw_commands = &draw_data.draw_commands;
             let draw_clock_edges = match clock_edges.as_slice() {
@@ -531,19 +541,33 @@ impl State {
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
-            &waves.viewport,
+            &waves.viewports[viewport_idx],
         );
 
         waves.draw_cursors(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
-            &waves.viewport,
+            &waves.viewports[viewport_idx],
         );
 
-        self.draw_cursor_boxes(waves, &mut ctx, item_offsets, response.rect.size().x, gap);
+        self.draw_cursor_boxes(
+            waves,
+            &mut ctx,
+            item_offsets,
+            response.rect.size().x,
+            gap,
+            &waves.viewports[viewport_idx],
+        );
 
-        self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
+        self.draw_mouse_gesture_widget(
+            waves,
+            pointer_pos_canvas,
+            &response,
+            msgs,
+            &mut ctx,
+            viewport_idx,
+        );
     }
 
     fn draw_region(
