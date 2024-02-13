@@ -2,7 +2,8 @@
 name = "surfer"
 version = "0.1.0"
 edition = "2021"
-license-file = "LICENSE-EUPL-1.2.txt"
+license = "EUPL-1.2"
+categories = ["development-tools::debugging", "science"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
