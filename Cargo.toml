@@ -18,7 +18,7 @@ derivative = "2.2.0"
 directories = "5.0"
 eframe = "0.24.1"
 egui_extras = "0.24.2"
-egui_plot = "0.24.2"
+egui_plot = { version = "0.24.2", optional = true }
 enum-iterator = "1.4.1"
 f128 = { path = "f128", optional = true }
 fern = { version = "0.6.2", features = ["colored"] }
@@ -55,9 +55,10 @@ web-sys = { version = "0.3.66", features = ["Location", "UrlSearchParams"] }
 wellen = { path = "wellen" }
 
 [features]
-default = ["spade"]
+default = ["spade", "performance_plot"]
 f128 = ["dep:f128"]
 spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-mir", "dep:spade-types", "dep:vcd-translate"]
+performance_plot = ["dep:egui_plot"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
