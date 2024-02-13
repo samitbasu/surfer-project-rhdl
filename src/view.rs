@@ -11,6 +11,7 @@ use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 
+#[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::command_prompt::get_parser;
 use crate::config::SurferTheme;
@@ -121,6 +122,7 @@ impl ItemDrawingInfo {
 
 impl eframe::App for State {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start_frame();
 
         if self.sys.continuous_redraw {
@@ -134,10 +136,13 @@ impl eframe::App for State {
             )
         });
 
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("draw");
         let mut msgs = self.draw(ctx, window_size);
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("draw");
 
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("update");
         if let Some(scale) = self.ui_scale {
             if ctx.pixels_per_point() != scale {
@@ -156,10 +161,13 @@ impl eframe::App for State {
             }
             self.update(msg);
         }
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("update");
 
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("handle_async_messages");
         self.handle_async_messages();
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("handle_async_messages");
 
         // We can save some user battery life by not redrawing unless needed. At the moment,
@@ -169,6 +177,7 @@ impl eframe::App for State {
             ctx.request_repaint();
         }
 
+        #[cfg(feature = "performance_plot")]
         if let Some(prev_cpu) = frame.info().cpu_usage {
             self.sys.rendering_cpu_times.push_back(prev_cpu);
             if self.sys.rendering_cpu_times.len() > NUM_PERF_SAMPLES {
@@ -176,6 +185,7 @@ impl eframe::App for State {
             }
         }
 
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end_frame();
     }
 }
@@ -208,6 +218,7 @@ impl State {
         }
 
         if self.show_performance {
+            #[cfg(feature = "performance_plot")]
             self.draw_performance_graph(ctx, &mut msgs);
         }
 

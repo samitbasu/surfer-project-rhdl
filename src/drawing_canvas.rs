@@ -245,6 +245,7 @@ impl State {
         frame_width: f32,
         msgs: &mut Vec<Message>,
     ) {
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
@@ -319,6 +320,7 @@ impl State {
                 ticks,
             });
         }
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Generate draw commands");
     }
 
@@ -449,6 +451,7 @@ impl State {
                 .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
         }
 
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Wave drawing");
         if let Some(draw_data) = &*self.sys.draw_data.borrow() {
             let clock_edges = &draw_data.clock_edges;
@@ -521,6 +524,7 @@ impl State {
                 }
             }
         }
+        #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Wave drawing");
 
         waves.draw_cursor(

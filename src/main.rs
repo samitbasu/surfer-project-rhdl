@@ -1,3 +1,4 @@
+#[cfg(feature = "performance_plot")]
 mod benchmark;
 mod clock_highlighting;
 mod command_prompt;
@@ -30,6 +31,7 @@ mod wave_data;
 mod wave_source;
 mod wellen;
 
+#[cfg(feature = "performance_plot")]
 use benchmark::Timing;
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
@@ -387,7 +389,9 @@ pub struct SystemState {
     // Benchmarking stuff
     /// Invalidate draw commands every frame to make performance comparison easier
     continuous_redraw: bool,
+    #[cfg(feature = "performance_plot")]
     rendering_cpu_times: VecDeque<f32>,
+    #[cfg(feature = "performance_plot")]
     timing: RefCell<Timing>,
 }
 
@@ -419,7 +423,9 @@ impl SystemState {
             item_renaming_string: RefCell::new(String::new()),
 
             continuous_redraw: false,
+            #[cfg(feature = "performance_plot")]
             rendering_cpu_times: VecDeque::new(),
+            #[cfg(feature = "performance_plot")]
             timing: RefCell::new(Timing::new()),
         }
     }

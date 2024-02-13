@@ -133,69 +133,66 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
 
     let keep_during_reload = state.config.behavior.keep_during_reload;
-
+    let mut commands = if state.waves.is_some() {
+        vec![
+            "load_vcd",
+            "load_file",
+            "variable_add",
+            "item_focus",
+            "item_set_color",
+            "zoom_fit",
+            "scope_add",
+            "scope_select",
+            "divider_add",
+            "config_reload",
+            "reload",
+            "remove_unavailable",
+            "show_controls",
+            "show_mouse_gestures",
+            "show_quick_start",
+            "load_url",
+            "scroll_to_start",
+            "scroll_to_end",
+            "goto_start",
+            "goto_end",
+            "zoom_in",
+            "zoom_out",
+            "toggle_menu",
+            "toggle_side_panel",
+            "toggle_fullscreen",
+            "toggle_tick_lines",
+            "variable_add_from_scope",
+            "variable_set_name_type",
+            "variable_force_name_type",
+            "item_unfocus",
+            "item_unset_color",
+            "preference_set_clock_highlight",
+            "goto_cursor",
+            "save_state",
+            "timeline_add",
+            "show_cursor_window",
+            "exit",
+        ]
+    } else {
+        vec![
+            "load_vcd",
+            "load_file",
+            "load_url",
+            "config_reload",
+            "toggle_menu",
+            "toggle_side_panel",
+            "toggle_fullscreen",
+            "show_controls",
+            "show_mouse_gestures",
+            "show_quick_start",
+            "exit",
+        ]
+    };
+    #[cfg(feature = "performance_plot")]
+    commands.push("show_performance");
     Command::NonTerminal(
         ParamGreed::Word,
-        if state.waves.is_some() {
-            vec![
-                "load_vcd",
-                "load_file",
-                "variable_add",
-                "item_focus",
-                "item_set_color",
-                "zoom_fit",
-                "scope_add",
-                "scope_select",
-                "divider_add",
-                "config_reload",
-                "reload",
-                "remove_unavailable",
-                "show_controls",
-                "show_mouse_gestures",
-                "show_quick_start",
-                "show_performance",
-                "load_url",
-                "scroll_to_start",
-                "scroll_to_end",
-                "goto_start",
-                "goto_end",
-                "zoom_in",
-                "zoom_out",
-                "toggle_menu",
-                "toggle_side_panel",
-                "toggle_fullscreen",
-                "toggle_tick_lines",
-                "variable_add_from_scope",
-                "variable_set_name_type",
-                "variable_force_name_type",
-                "item_unfocus",
-                "item_unset_color",
-                "preference_set_clock_highlight",
-                "goto_cursor",
-                "save_state",
-                "timeline_add",
-                "show_cursor_window",
-                "exit",
-            ]
-        } else {
-            vec![
-                "load_vcd",
-                "load_file",
-                "load_url",
-                "config_reload",
-                "toggle_menu",
-                "toggle_side_panel",
-                "toggle_fullscreen",
-                "show_controls",
-                "show_mouse_gestures",
-                "show_quick_start",
-                "show_performance",
-                "exit",
-            ]
-        }
-        .into_iter()
-        .map(|s| s.into())
-        .collect(),
+        commands.into_iter().map(|s| s.into()).collect(),
         Box::new(move |query, _| {
             let variables_in_active_scope = variables_in_active_scope.clone();
             let cursors = cursors.clone();
@@ -369,6 +366,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Some(Command::Terminal(Message::SetGestureHelpVisible(true)))
                 }
                 "show_quick_start" => Some(Command::Terminal(Message::SetQuickStartVisible(true))),
+                #[cfg(feature = "performance_plot")]
                 "show_performance" => optional_single_word(
                     vec![],
                     Box::new(|word| {
