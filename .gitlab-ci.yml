@@ -5,10 +5,13 @@ variables:
     FF_ENABLE_BASH_EXIT_CODE_CHECK: "true"
     GIT_SUBMODULE_STRATEGY: normal
     EPHEMERAL_BRANCHES_PATH: preview # subpath where previews of pages will be built
+    PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/surfer/${CI_COMMIT_TAG}"
 
 stages:
     - test
     - deploy
+    - upload
+    - release
 
 clippy:
     stage: test
@@ -277,3 +280,32 @@ pages_preview_stop:
     action: stop
   script:
     - echo "👋 bye"
+
+
+upload:
+  dependencies: [windows_build, linux_build]
+  needs: [windows_build, linux_build]
+  stage: upload
+  image: curlimages/curl:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - |
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file surfer_win.zip "${PACKAGE_REGISTRY_URL}/surfer_win_${CI_COMMIT_TAG}.zip"
+    - |
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file surfer_linux.zip "${PACKAGE_REGISTRY_URL}/surfer_linux_${CI_COMMIT_TAG}.zip"
+
+release:
+  # Caution, as of 2021-02-02 these assets links require a login, see:
+  # https://gitlab.com/gitlab-org/gitlab/-/issues/299384
+  dependencies: [upload]
+  needs: [upload]
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - |
+      release-cli create --name "Release $CI_COMMIT_TAG" --tag-name $CI_COMMIT_TAG \
+        --assets-link "{\"name\":\"surfer_win_${CI_COMMIT_TAG}.zip\",\"url\":\"${PACKAGE_REGISTRY_URL}/surfer_win_${CI_COMMIT_TAG}.zip\"}" \
+        --assets-link "{\"name\":\"surfer_linux_${CI_COMMIT_TAG}.zip\",\"url\":\"${PACKAGE_REGISTRY_URL}/surfer_linux_${CI_COMMIT_TAG}.zip\"}"
