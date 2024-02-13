@@ -990,11 +990,10 @@ dependencies = [
 
 [[package]]
 name = "colored"
-version = "2.0.4"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2674ec482fbc38012cf31e6c42ba0177b431a0cb6f15fe40efa5aab1bda516f6"
+checksum = "cbf2150cce219b664a8a70df7a1f933836724b503f8a413af9365b4dcc4d90b8"
 dependencies = [
- "is-terminal",
  "lazy_static",
  "windows-sys 0.48.0",
 ]
@@ -2589,12 +2588,12 @@ dependencies = [
 
 [[package]]
 name = "local-impl"
-version = "0.1.0"
-source = "git+https://gitlab.com/sornas/local-impl#09293b492c653d78bb2f5fd64187e0c68ea51733"
+version = "0.1.2"
+source = "git+https://gitlab.com/sornas/local-impl#39accb5d2ccba3832f1f7837d9f0c13adb574a1c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.48",
 ]
 
 [[package]]
@@ -4220,7 +4219,7 @@ dependencies = [
  "codespan",
  "codespan-reporting",
  "color-eyre",
- "colored 2.0.4",
+ "colored 2.1.0",
  "indoc",
  "itertools 0.10.5",
  "logos",
@@ -4287,7 +4286,7 @@ version = "0.6.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
- "colored 2.0.4",
+ "colored 2.1.0",
  "local-impl",
  "logos",
  "spade-ast",
@@ -4302,7 +4301,7 @@ name = "spade-hir"
 version = "0.6.0"
 dependencies = [
  "codespan-reporting",
- "colored 2.0.4",
+ "colored 2.1.0",
  "itertools 0.10.5",
  "local-impl",
  "num",
@@ -4371,7 +4370,7 @@ version = "0.6.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
- "colored 2.0.4",
+ "colored 2.1.0",
  "itertools 0.10.5",
  "local-impl",
  "logos",
@@ -4390,7 +4389,7 @@ version = "0.6.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
- "colored 2.0.4",
+ "colored 2.1.0",
  "itertools 0.10.5",
  "local-impl",
  "num",
@@ -4419,7 +4418,7 @@ version = "0.6.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
- "colored 2.0.4",
+ "colored 2.1.0",
  "local-impl",
  "num",
  "serde",

@@ -5,7 +5,7 @@
 ![Code coverage](https://gitlab.com/surfer-project/surfer/badges/main/coverage.svg)
 ![Contributors](https://img.shields.io/gitlab/contributors/surfer-project%2Fsurfer)
 
-A VCD viewer with a focus on a snappy usable interface, and extensibility
+A waveform viewer with a focus on a snappy usable interface, and extensibility.
 
 ![A screenshot of surfer](misc/screenshot.png)
 
@@ -27,21 +27,21 @@ Surfer depends on openssl, install it via your package manager
 #### Debian/Ubuntu
 
 ```bash
-$sudo apt install openssl
-$sudo apt install libssl-dev
+sudo apt install openssl
+sudo apt install libssl-dev
 ```
 
 #### Fedora
 
 ```bash
-$sudo dnf install openssl
-$sudo dnf install openssl-devel
+sudo dnf install openssl
+sudo dnf install openssl-devel
 ```
 
 #### Arch
 
 ```bash
-$sudo pacman -S openssl
+sudo pacman -S openssl
 ```
 
 Then, install [Rust via Rustup](https://rustup.rs) and run
@@ -96,7 +96,8 @@ As an indication of the status of the project, here is an incomplete list of sup
 - [x] Basic rendering of waves
 - [x] Snappy zooming, panning and general interaction
 - [x] VCD loading
-- [ ] FST loading
+- [x] FST loading
+- [ ] GHW loading
 - [x] [Fuzzy completion based command line interface](misc/surfer_ui_trimmed.mp4)
 - [x] Bit translation
   - [x] Raw bits
