@@ -1,24 +1,27 @@
+use crate::message::Message;
 use crate::view::{DrawConfig, DrawingContext};
 use crate::{wave_data::WaveData, State};
-use eframe::egui::{Context, Frame, Sense, TopBottomPanel, Ui};
+use eframe::egui::{Context, Frame, PointerButton, Sense, TopBottomPanel, Ui};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 
 impl State {
-    pub fn add_overview_panel(&self, ctx: &Context, waves: &WaveData) {
+    pub fn add_overview_panel(&self, ctx: &Context, waves: &WaveData, msgs: &mut Vec<Message>) {
         TopBottomPanel::bottom("overview")
             .frame(Frame {
                 fill: self.config.theme.primary_ui_color.background,
                 ..Default::default()
             })
             .show(ctx, |ui| {
-                self.draw_overview(ui, waves);
+                self.draw_overview(ui, waves, msgs);
             });
     }
 
-    fn draw_overview(&self, ui: &mut Ui, waves: &WaveData) {
+    fn draw_overview(&self, ui: &mut Ui, waves: &WaveData, msgs: &mut Vec<Message>) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
-        let cfg = DrawConfig::new(response.rect.size().y);
+        let frame_width = response.rect.width();
+        let frame_height = response.rect.height();
+        let cfg = DrawConfig::new(frame_height);
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = RectTransform::from_to(container_rect, response.rect);
 
@@ -33,8 +36,8 @@ impl State {
         };
 
         let viewport_all = waves.viewport_all();
-        let minx = viewport_all.from_time_f64(waves.viewport.curr_left, response.rect.size().x);
-        let maxx = viewport_all.from_time_f64(waves.viewport.curr_right, response.rect.size().x);
+        let minx = viewport_all.from_time_f64(waves.viewport.curr_left, frame_width);
+        let maxx = viewport_all.from_time_f64(waves.viewport.curr_right, frame_width);
         let min = (ctx.to_screen)(minx, 0.);
         let max = (ctx.to_screen)(maxx, container_rect.max.y);
         ctx.painter.rect_filled(
@@ -56,7 +59,7 @@ impl State {
         let mut ticks = self.get_ticks(
             &viewport_all,
             &waves.inner.metadata().timescale,
-            response.rect.size().x,
+            frame_width,
             cfg.text_size,
         );
 
@@ -67,7 +70,7 @@ impl State {
                 None,
                 &ticks,
                 &ctx,
-                response.rect.height() * 0.5,
+                frame_height * 0.5,
                 Align2::CENTER_CENTER,
             );
         }
@@ -85,5 +88,13 @@ impl State {
             &self.config.theme,
             &viewport_all,
         );
+        response.dragged_by(PointerButton::Primary).then(|| {
+            let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
+            let pos = pointer_pos_global
+                .map(|p| to_screen.inverse().transform_pos(p))
+                .unwrap();
+            let timestamp = viewport_all.to_time_bigint(pos.x, frame_width);
+            msgs.push(Message::GoToTime(Some(timestamp)));
+        });
     }
 }
