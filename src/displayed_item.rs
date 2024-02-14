@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::wave_container::WaveContainer;
 use crate::{
-    cursor::DEFAULT_CURSOR_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
+    marker::DEFAULT_MARKER_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
     translation::VariableInfo, variable_name_type::VariableNameType, wave_container::VariableRef,
 };
 
@@ -104,7 +104,7 @@ impl DisplayedMarker {
     fn cursor_name(&self) -> String {
         self.name
             .as_ref()
-            .unwrap_or(&DEFAULT_CURSOR_NAME.to_string())
+            .unwrap_or(&DEFAULT_MARKER_NAME.to_string())
             .clone()
     }
 }
