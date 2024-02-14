@@ -1,6 +1,9 @@
-use lazy_static::lazy_static;
-use log::{error, info};
+use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::RwLock;
+
+use lazy_static::lazy_static;
+use log::{error, info, warn};
 use wasm_bindgen::prelude::*;
 
 use crate::Message;
@@ -8,17 +11,24 @@ use crate::State;
 
 lazy_static! {
     pub static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
+    pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);
 }
 
-// Export a `greet` function from Rust to JavaScript, that alerts a
-// hello message.
 #[wasm_bindgen]
 pub fn inject_message(message: &str) {
     info!("Processing message {message} from wasm");
     let deser = serde_json::from_str(message);
 
     match deser {
-        Ok(message) => MESSAGE_QUEUE.lock().unwrap().push(message),
+        Ok(message) => {
+            MESSAGE_QUEUE.lock().unwrap().push(message);
+
+            if let Some(ctx) = EGUI_CONTEXT.read().unwrap().as_ref() {
+                ctx.request_repaint();
+            } else {
+                warn!("Attempted to request surfer repaint but surfer has not given us EGUI_CONTEXT yet")
+            }
+        }
         Err(e) => {
             error!("{e:#?}")
         }
