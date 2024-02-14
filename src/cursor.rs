@@ -7,7 +7,7 @@ use num::BigInt;
 use crate::State;
 use crate::{
     config::SurferTheme,
-    displayed_item::{DisplayedCursor, DisplayedItem},
+    displayed_item::{DisplayedItem, DisplayedMarker},
     message::Message,
     time::time_string,
     view::{DrawingContext, ItemDrawingInfo},
@@ -15,18 +15,18 @@ use crate::{
     wave_data::WaveData,
 };
 
-pub const DEFAULT_CURSOR_NAME: &str = "Cursor";
+pub const DEFAULT_CURSOR_NAME: &str = "Marker";
 
 impl WaveData {
-    pub fn draw_cursor(
+    pub fn draw_marker(
         &self,
         theme: &SurferTheme,
         ctx: &mut DrawingContext,
         size: Vec2,
         viewport: &Viewport,
     ) {
-        if let Some(cursor) = &self.cursor {
-            let x = viewport.from_time(cursor, size.x);
+        if let Some(marker) = &self.cursor {
+            let x = viewport.from_time(marker, size.x);
 
             let stroke = Stroke {
                 color: theme.cursor.color,
@@ -42,35 +42,35 @@ impl WaveData {
         }
     }
 
-    pub fn draw_cursors(
+    pub fn draw_markers(
         &self,
         theme: &SurferTheme,
         ctx: &mut DrawingContext,
         size: Vec2,
         viewport: &Viewport,
     ) {
-        for (idx, cursor) in &self.cursors {
+        for (idx, marker) in &self.markers {
             let color = self
                 .displayed_items
                 .iter()
                 .find_map(|item| match item {
-                    DisplayedItem::Cursor(tmp_cursor) => {
-                        if *idx == tmp_cursor.idx {
-                            Some(tmp_cursor)
+                    DisplayedItem::Marker(tmp_marker) => {
+                        if *idx == tmp_marker.idx {
+                            Some(tmp_marker)
                         } else {
                             None
                         }
                     }
                     _ => None,
                 })
-                .and_then(|displayed_cursor| displayed_cursor.color.clone())
+                .and_then(|displayed_maker| displayed_maker.color.clone())
                 .and_then(|color| theme.colors.get(&color))
                 .unwrap_or(&theme.cursor.color);
             let stroke = Stroke {
                 color: *color,
                 width: theme.cursor.width,
             };
-            let x = viewport.from_time(cursor, size.x);
+            let x = viewport.from_time(marker, size.x);
             ctx.painter.line_segment(
                 [
                     (ctx.to_screen)(x + 0.5, -0.5),
@@ -81,7 +81,7 @@ impl WaveData {
         }
     }
 
-    pub fn set_cursor_position(&mut self, idx: u8) {
+    pub fn set_marker_position(&mut self, idx: u8) {
         let Some(location) = &self.cursor else {
             return;
         };
@@ -89,9 +89,9 @@ impl WaveData {
             .displayed_items
             .iter()
             .find_map(|item| match item {
-                DisplayedItem::Cursor(cursor) => {
-                    if cursor.idx == idx {
-                        Some(cursor)
+                DisplayedItem::Marker(maker) => {
+                    if maker.idx == idx {
+                        Some(maker)
                     } else {
                         None
                     }
@@ -100,18 +100,18 @@ impl WaveData {
             })
             .is_none()
         {
-            let cursor = DisplayedCursor {
+            let maker = DisplayedMarker {
                 color: None,
                 background_color: None,
                 name: None,
                 idx,
             };
-            self.displayed_items.push(DisplayedItem::Cursor(cursor));
+            self.displayed_items.push(DisplayedItem::Marker(maker));
         }
-        self.cursors.insert(idx, location.clone());
+        self.markers.insert(idx, location.clone());
     }
 
-    pub fn draw_cursor_number_boxes(
+    pub fn draw_marker_number_boxes(
         &self,
         ctx: &mut DrawingContext,
         size: Vec2,
@@ -121,7 +121,7 @@ impl WaveData {
         let text_size = ctx.cfg.text_size;
 
         for displayed_item in self.displayed_items.iter().filter_map(|item| match item {
-            DisplayedItem::Cursor(cursor) => Some(cursor),
+            DisplayedItem::Marker(maker) => Some(maker),
             _ => None,
         }) {
             let background_color = displayed_item
@@ -130,7 +130,7 @@ impl WaveData {
                 .and_then(|color| theme.colors.get(color))
                 .unwrap_or(&theme.cursor.color);
 
-            let x = self.numbered_cursor_location(displayed_item.idx, viewport, size.x);
+            let x = self.numbered_marker_location(displayed_item.idx, viewport, size.x);
 
             let idx_string = displayed_item.idx.to_string();
             // Determine size of text
@@ -164,28 +164,28 @@ impl WaveData {
 }
 
 impl State {
-    pub fn draw_cursor_window(&self, waves: &WaveData, ctx: &Context, msgs: &mut Vec<Message>) {
+    pub fn draw_marker_window(&self, waves: &WaveData, ctx: &Context, msgs: &mut Vec<Message>) {
         let mut open = true;
 
-        let mut cursors: Vec<(u8, &BigInt, WidgetText)> = vec![];
+        let mut markers: Vec<(u8, &BigInt, WidgetText)> = vec![];
         if let Some(cursor) = &waves.cursor {
-            cursors.push((255, cursor, WidgetText::RichText(RichText::new("Primary"))))
+            markers.push((255, cursor, WidgetText::RichText(RichText::new("Primary"))))
         }
 
-        let mut numbered_cursors = waves
+        let mut numbered_markers = waves
             .displayed_items
             .iter()
             .filter_map(|displayed_item| match displayed_item {
-                DisplayedItem::Cursor(cursor) => {
+                DisplayedItem::Marker(marker) => {
                     let text_color = displayed_item
                         .color()
                         .and_then(|color| self.config.theme.colors.get(&color))
                         .unwrap_or(&self.config.theme.foreground);
 
                     Some((
-                        cursor.idx,
-                        waves.numbered_cursor_time(cursor.idx),
-                        cursor.cursor_text(text_color),
+                        marker.idx,
+                        waves.numbered_marker_time(marker.idx),
+                        marker.marker_text(text_color),
                     ))
                 }
                 _ => None,
@@ -193,25 +193,25 @@ impl State {
             .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
             .collect_vec();
 
-        cursors.append(&mut numbered_cursors);
-        Window::new("Cursors")
+        markers.append(&mut numbered_markers);
+        Window::new("Markers")
             .collapsible(true)
             .resizable(true)
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    Grid::new("cursors")
+                    Grid::new("markers")
                         .striped(true)
-                        .num_columns(cursors.len() + 1)
+                        .num_columns(markers.len() + 1)
                         .spacing([5., 5.])
                         .show(ui, |ui| {
                             ui.label("");
-                            for (cursor_idx, _, widget_text) in &cursors {
-                                if *cursor_idx < 255 {
+                            for (marker_idx, _, widget_text) in &markers {
+                                if *marker_idx < 255 {
                                     ui.selectable_label(false, widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToCursorPosition(*cursor_idx))
+                                            msgs.push(Message::GoToMarkerPosition(*marker_idx))
                                         });
                                 } else {
                                     ui.selectable_label(false, widget_text.clone())
@@ -222,12 +222,12 @@ impl State {
                                 }
                             }
                             ui.end_row();
-                            for (cursor_idx, row_cursor_time, row_widget_text) in &cursors {
-                                if *cursor_idx < 255 {
+                            for (marker_idx, row_marker_time, row_widget_text) in &markers {
+                                if *marker_idx < 255 {
                                     ui.selectable_label(false, row_widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToCursorPosition(*cursor_idx))
+                                            msgs.push(Message::GoToMarkerPosition(*marker_idx))
                                         });
                                 } else {
                                     ui.selectable_label(false, row_widget_text.clone())
@@ -236,9 +236,9 @@ impl State {
                                             msgs.push(Message::GoToTime(waves.cursor.clone()))
                                         });
                                 }
-                                for (_, col_cursor_time, _) in &cursors {
+                                for (_, col_marker_time, _) in &markers {
                                     ui.label(time_string(
-                                        &(*row_cursor_time - *col_cursor_time),
+                                        &(*row_marker_time - *col_marker_time),
                                         &waves.inner.metadata().timescale,
                                         &self.wanted_timeunit,
                                         &self.get_time_format(),
@@ -258,7 +258,7 @@ impl State {
         }
     }
 
-    pub fn draw_cursor_boxes(
+    pub fn draw_marker_boxes(
         &self,
         waves: &WaveData,
         ctx: &mut DrawingContext,
@@ -269,7 +269,7 @@ impl State {
         let text_size = ctx.cfg.text_size;
 
         for drawing_info in item_offsets.iter().filter_map(|item| match item {
-            ItemDrawingInfo::Cursor(cursor) => Some(cursor),
+            ItemDrawingInfo::Marker(marker) => Some(marker),
             _ => None,
         }) {
             let Some(item) = waves.displayed_items.get(drawing_info.item_list_idx) else {
@@ -286,12 +286,12 @@ impl State {
                 .and_then(|color| self.config.theme.colors.get(&color))
                 .unwrap_or(&self.config.theme.cursor.color);
 
-            let x = waves.numbered_cursor_location(drawing_info.idx, &waves.viewport, view_width);
+            let x = waves.numbered_marker_location(drawing_info.idx, &waves.viewport, view_width);
 
             // Time string
             let time = time_string(
                 waves
-                    .cursors
+                    .markers
                     .get(&drawing_info.idx)
                     .unwrap_or(&BigInt::from(0)),
                 &waves.inner.metadata().timescale,

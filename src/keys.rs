@@ -187,8 +187,8 @@ fn handle_digit(digit: u8, modifiers: &Modifiers, msgs: &mut Vec<Message>) {
     if modifiers.alt {
         msgs.push(Message::AddCount((digit + 48) as char))
     } else if modifiers.ctrl {
-        msgs.push(Message::SetCursorPosition(digit))
+        msgs.push(Message::MoveMarkerToCursor(digit))
     } else {
-        msgs.push(Message::GoToCursorPosition(digit))
+        msgs.push(Message::GoToMarkerPosition(digit))
     }
 }
