@@ -433,22 +433,11 @@ impl State {
         let item_offsets = &waves.item_offsets;
         let gap = self.get_item_gap(item_offsets, &ctx);
         for (idx, drawing_info) in item_offsets.iter().enumerate() {
-            let default_background_color = self.get_default_alternating_background_color(idx);
-            let background_color = *waves
-                .displayed_items
-                .get(drawing_info.item_list_idx())
-                .and_then(|variable| variable.background_color())
-                .and_then(|color| self.config.theme.colors.get(&color))
-                .unwrap_or(&default_background_color);
-
             // We draw in absolute coords, but the variable offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
             let y_offset = drawing_info.top() - to_screen.transform_pos(Pos2::ZERO).y;
-            let min = (ctx.to_screen)(0.0, y_offset - gap);
-            let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
-            ctx.painter
-                .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
+            self.draw_background(idx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
         }
 
         #[cfg(feature = "performance_plot")]
