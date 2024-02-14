@@ -96,6 +96,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Arc;
 
 #[derive(clap::Parser, Default)]
 struct Args {
@@ -257,7 +258,7 @@ fn main() -> Result<()> {
         "Surfer",
         options,
         Box::new(|cc| {
-            state.sys.context = Some(cc.egui_ctx.clone());
+            state.sys.context = Some(Arc::new(cc.egui_ctx.clone()));
             cc.egui_ctx.set_visuals(state.get_visuals());
             setup_custom_font(&cc.egui_ctx);
             Box::new(state)
@@ -295,7 +296,9 @@ fn main() -> Result<()> {
                 "the_canvas_id", // hardcode it
                 web_options,
                 Box::new(|cc| {
-                    state.sys.context = Some(cc.egui_ctx.clone());
+                    let ctx_arc = Arc::new(cc.egui_ctx.clone());
+                    *wasm_api::EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
+                    state.sys.context = Some(ctx_arc.clone());
                     cc.egui_ctx.set_visuals(state.get_visuals());
                     setup_custom_font(&cc.egui_ctx);
                     Box::new(state)
@@ -369,7 +372,7 @@ pub struct SystemState {
     command_prompt: command_prompt::CommandPrompt,
 
     /// The context to egui, we need this to change the visual settings when the config is reloaded
-    context: Option<eframe::egui::Context>,
+    context: Option<Arc<eframe::egui::Context>>,
 
     // List of unparsed commands to run at startup after the first wave has been loaded
     startup_commands: Vec<String>,

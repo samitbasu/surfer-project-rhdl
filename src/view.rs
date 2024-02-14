@@ -166,15 +166,16 @@ impl eframe::App for State {
 
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("handle_async_messages");
-        self.handle_async_messages();
-        #[cfg(target_arch = "wasm32")]
-        self.handle_wasm_external_messages();
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("handle_async_messages");
 
+        self.handle_async_messages();
+        #[cfg(target_arch = "wasm32")]
+        self.handle_wasm_external_messages();
+
         // We can save some user battery life by not redrawing unless needed. At the moment,
         // we only need to continuously redraw to make surfer interactive during loading, otherwise
-        // we'll back off a bit
+        // we'll let egui manage repainting. In practice
         if self.sys.continuous_redraw || self.sys.vcd_progress.is_some() || self.show_performance {
             ctx.request_repaint();
         }
