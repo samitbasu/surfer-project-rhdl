@@ -57,7 +57,7 @@ impl Display for WaveFormat {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct LoadOptions {
     pub keep_variables: bool,
     pub keep_unavailable: bool,
@@ -83,7 +83,7 @@ impl LoadOptions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub enum OpenMode {
     Open,
     Switch,
