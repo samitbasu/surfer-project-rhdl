@@ -15,7 +15,7 @@ use crate::{
     wave_data::WaveData,
 };
 
-pub const DEFAULT_CURSOR_NAME: &str = "Marker";
+pub const DEFAULT_MARKER_NAME: &str = "Marker";
 
 impl WaveData {
     pub fn draw_marker(
