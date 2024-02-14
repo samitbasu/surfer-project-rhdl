@@ -140,6 +140,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "variable_add",
             "item_focus",
             "item_set_color",
+            "item_set_background_color",
+            "item_unset_color",
+            "item_unset_background_color",
+            "item_unfocus",
+            "item_rename",
             "zoom_fit",
             "scope_add",
             "scope_select",
@@ -164,8 +169,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "variable_add_from_scope",
             "variable_set_name_type",
             "variable_force_name_type",
-            "item_unfocus",
-            "item_unset_color",
             "preference_set_clock_highlight",
             "goto_cursor",
             "save_state",
@@ -296,7 +299,20 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 ),
+                "item_set_background_color" => single_word(
+                    color_names.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::ItemBackgroundColorChange(
+                            None,
+                            Some(word.to_string()),
+                        )))
+                    }),
+                ),
                 "item_unset_color" => Some(Command::Terminal(Message::ItemColorChange(None, None))),
+                "item_unset_background_color" => Some(Command::Terminal(
+                    Message::ItemBackgroundColorChange(None, None),
+                )),
+                "item_rename" => Some(Command::Terminal(Message::RenameItem(None))),
                 "variable_set_name_type" => single_word(
                     vec![
                         "Local".to_string(),

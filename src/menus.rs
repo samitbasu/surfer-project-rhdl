@@ -311,7 +311,7 @@ impl State {
 
         if ui.button("Rename").clicked() {
             ui.close_menu();
-            msgs.push(Message::RenameItem(vidx));
+            msgs.push(Message::RenameItem(Some(vidx)));
         }
 
         if ui.button("Remove").clicked() {

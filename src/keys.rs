@@ -107,6 +107,11 @@ impl State {
                             y: PER_SCROLL_EVENT,
                         },
                     }),
+                    (Key::G, true, true, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::ShowCommandPrompt(false))
+                        }
+                    }
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
