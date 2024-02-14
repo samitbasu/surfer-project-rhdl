@@ -167,6 +167,8 @@ impl eframe::App for State {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("handle_async_messages");
         self.handle_async_messages();
+        #[cfg(target_arch = "wasm32")]
+        self.handle_wasm_external_messages();
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("handle_async_messages");
 
