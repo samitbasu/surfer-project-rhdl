@@ -506,7 +506,7 @@ impl State {
                         }
                     }
                     ItemDrawingInfo::Divider(_) => {}
-                    ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::Marker(_) => {}
                     ItemDrawingInfo::TimeLine(_) => {
                         self.draw_ticks(color, ticks, &ctx, y_offset, Align2::CENTER_TOP);
                     }
@@ -516,21 +516,21 @@ impl State {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Wave drawing");
 
-        waves.draw_cursor(
+        waves.draw_marker(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             &waves.viewport,
         );
 
-        waves.draw_cursors(
+        waves.draw_markers(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             &waves.viewport,
         );
 
-        self.draw_cursor_boxes(waves, &mut ctx, item_offsets, response.rect.size().x, gap);
+        self.draw_marker_boxes(waves, &mut ctx, item_offsets, response.rect.size().x, gap);
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
     }

@@ -126,8 +126,8 @@ pub enum Message {
     AddTimeLine(Option<usize>),
     ToggleTickLines,
     ToggleVariableTooltip,
-    SetCursorPosition(u8),
-    GoToCursorPosition(u8),
+    MoveMarkerToCursor(u8),
+    GoToMarkerPosition(u8),
     SaveState(PathBuf),
 
     /// Run more than one message in sequence
