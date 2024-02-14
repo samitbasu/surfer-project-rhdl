@@ -1,2 +1,1 @@
-show_performance redraw
 module_add testbench.top.uut

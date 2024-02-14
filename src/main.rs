@@ -1101,9 +1101,14 @@ impl State {
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type
             }
+            Message::SetMarker { id, time } => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.set_marker_position(id, &time)
+                };
+            }
             Message::MoveMarkerToCursor(idx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.set_marker_position(idx);
+                    waves.move_marker_to_cursor(idx);
                 };
             }
             Message::GoToMarkerPosition(idx) => {
