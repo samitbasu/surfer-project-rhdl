@@ -1,0 +1,11 @@
+[build]
+pattern_script = """
+    <script type=\"module\">
+        import init from '{base}{js}';
+        init('{base}{wasm}');
+        import {inject_message} from '{base}{js}';
+        window.inject_message = inject_message;
+    </script>
+    """
+
+filehash=false
