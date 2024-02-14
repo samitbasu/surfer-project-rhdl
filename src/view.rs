@@ -1094,7 +1094,7 @@ impl State {
         }
     }
 
-    fn draw_background(
+    pub fn draw_background(
         &self,
         vidx: usize,
         waves: &WaveData,
@@ -1104,13 +1104,13 @@ impl State {
         gap: f32,
         frame_width: f32,
     ) {
-        let default_background_color = self.get_default_alternating_background_color(vidx);
+        // Get background color
         let background_color = *waves
             .displayed_items
             .get(drawing_info.item_list_idx())
             .and_then(|variable| variable.background_color())
             .and_then(|color| self.config.theme.colors.get(&color))
-            .unwrap_or(&default_background_color);
+            .unwrap_or_else(|| self.get_default_alternating_background_color(vidx));
         // Draw background
         let min = (ctx.to_screen)(0.0, y_offset - gap);
         let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
@@ -1118,13 +1118,13 @@ impl State {
             .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
     }
 
-    pub fn get_default_alternating_background_color(&self, vidx: usize) -> Color32 {
+    fn get_default_alternating_background_color(&self, vidx: usize) -> &Color32 {
         // Set background color
         if self.config.theme.alt_frequency != 0 && (vidx / self.config.theme.alt_frequency) % 2 == 1
         {
-            self.config.theme.canvas_colors.alt_background
+            &self.config.theme.canvas_colors.alt_background
         } else {
-            Color32::TRANSPARENT
+            &Color32::TRANSPARENT
         }
     }
 
