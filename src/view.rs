@@ -266,7 +266,7 @@ impl State {
                 .show_overview
                 .unwrap_or(self.config.layout.show_overview())
             {
-                self.add_overview_panel(ctx, waves)
+                self.add_overview_panel(ctx, waves, &mut msgs)
             }
         }
 
