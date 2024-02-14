@@ -1,22 +1,23 @@
+use crate::message::Message;
 use crate::view::{DrawConfig, DrawingContext};
 use crate::{wave_data::WaveData, State};
-use eframe::egui::{Context, Frame, Sense, TopBottomPanel, Ui};
+use eframe::egui::{Context, Frame, PointerButton, Sense, TopBottomPanel, Ui};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
 
 impl State {
-    pub fn add_overview_panel(&self, ctx: &Context, waves: &WaveData) {
+    pub fn add_overview_panel(&self, ctx: &Context, waves: &WaveData, msgs: &mut Vec<Message>) {
         TopBottomPanel::bottom("overview")
             .frame(Frame {
                 fill: self.config.theme.primary_ui_color.background,
                 ..Default::default()
             })
             .show(ctx, |ui| {
-                self.draw_overview(ui, waves);
+                self.draw_overview(ui, waves, msgs);
             });
     }
 
-    fn draw_overview(&self, ui: &mut Ui, waves: &WaveData) {
+    fn draw_overview(&self, ui: &mut Ui, waves: &WaveData, msgs: &mut Vec<Message>) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
         let cfg = DrawConfig::new(response.rect.size().y);
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
@@ -85,5 +86,14 @@ impl State {
             &self.config.theme,
             &viewport_all,
         );
+        response.dragged_by(PointerButton::Primary).then(|| {
+            let frame_width = response.rect.width();
+            let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
+            let pointer_pos_canvas =
+                pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
+            let pos = pointer_pos_canvas.unwrap();
+            let timestamp = viewport_all.to_time_bigint(pos.x, frame_width);
+            msgs.push(Message::GoToTime(Some(timestamp)));
+        });
     }
 }
