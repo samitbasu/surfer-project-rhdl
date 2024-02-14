@@ -523,7 +523,7 @@ impl State {
             .show_variable_tooltip
             .unwrap_or(self.config.layout.show_tooltip())
         {
-            response = response.on_hover_text(scope_tooltip_text(wave, &scope));
+            response = response.on_hover_text(scope_tooltip_text(wave, scope));
         }
         response
             .clicked()
@@ -917,7 +917,7 @@ impl State {
         draw_alpha: bool,
         vidx: usize,
         style: &Style,
-        mut layout_job: &mut LayoutJob,
+        layout_job: &mut LayoutJob,
         alignment: Align,
     ) {
         if draw_alpha && alignment == self.get_name_alignment() {
@@ -932,31 +932,21 @@ impl State {
                 .monospace()
                 .color(self.config.theme.accent_info.foreground);
             if alignment == Align::LEFT {
-                text.append_to(
-                    &mut layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
+                text.append_to(layout_job, style, FontSelection::Default, Align::Center);
                 egui::RichText::new(" ").append_to(
-                    &mut layout_job,
+                    layout_job,
                     style,
                     FontSelection::Default,
                     Align::Center,
                 );
             } else {
                 egui::RichText::new(" ").append_to(
-                    &mut layout_job,
+                    layout_job,
                     style,
                     FontSelection::Default,
                     Align::Center,
                 );
-                text.append_to(
-                    &mut layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
+                text.append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
         }
     }

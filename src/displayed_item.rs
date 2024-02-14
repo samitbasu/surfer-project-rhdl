@@ -199,32 +199,22 @@ impl DisplayedItem {
         color: &Color32,
         index: Option<String>,
         style: &Style,
-        mut layout_job: &mut LayoutJob,
+        layout_job: &mut LayoutJob,
     ) {
         match self {
             DisplayedItem::Variable(_) => {
                 RichText::new(format!("{}{}", self.name(), index.unwrap_or_default()))
                     .color(*color)
-                    .append_to(
-                        &mut layout_job,
-                        &style,
-                        FontSelection::Default,
-                        Align::Center,
-                    );
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
                 RichText::new(self.name())
                     .color(*color)
                     .italics()
-                    .append_to(
-                        &mut layout_job,
-                        &style,
-                        FontSelection::Default,
-                        Align::Center,
-                    );
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
             DisplayedItem::Cursor(cursor) => {
-                cursor.rich_text(color, &style, &mut layout_job);
+                cursor.rich_text(color, style, layout_job);
             }
             DisplayedItem::Placeholder(placeholder) => {
                 let s = placeholder
@@ -234,12 +224,7 @@ impl DisplayedItem {
                 RichText::new("Not available: ".to_owned() + s)
                     .color(*color)
                     .italics()
-                    .append_to(
-                        &mut layout_job,
-                        &style,
-                        FontSelection::Default,
-                        Align::Center,
-                    )
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center)
             }
         }
     }

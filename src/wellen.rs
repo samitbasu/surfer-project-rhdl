@@ -69,7 +69,7 @@ impl WellenContainer {
     fn lookup_scope(&self, scope: &ScopeRef) -> Option<wellen::ScopeRef> {
         match scope.get_wellen_id() {
             Some(id) => Some(id),
-            None => self.inner.hierarchy().lookup_scope(&scope.strs()),
+            None => self.inner.hierarchy().lookup_scope(scope.strs()),
         }
     }
     pub fn variables(&self) -> Vec<VariableRef> {
@@ -101,7 +101,7 @@ impl WellenContainer {
         let h = self.inner.hierarchy();
 
         // first we lookup the scope in order to update the scope reference
-        let scope = h.lookup_scope(&variable.path.strs())?;
+        let scope = h.lookup_scope(variable.path.strs())?;
         let new_scope_ref = variable.path.with_wellen_id(scope);
 
         // now we lookup the variable
@@ -128,7 +128,7 @@ impl WellenContainer {
             Some(id) => Ok(id),
             None => {
                 let h = self.inner.hierarchy();
-                let var = match h.lookup_var(&r.path.strs(), &r.name) {
+                let var = match h.lookup_var(r.path.strs(), &r.name) {
                     None => bail!("Failed to find variable: {r:?}"),
                     Some(id) => id,
                 };
@@ -233,9 +233,9 @@ impl WellenContainer {
         if let Some(scope_ref) = self.lookup_scope(scope) {
             let h = self.inner.hierarchy();
             let scope = h.get(scope_ref);
-            write!(&mut out, "{}\n", scope_type_to_string(scope.scope_type())).unwrap();
+            writeln!(&mut out, "{}", scope_type_to_string(scope.scope_type())).unwrap();
             if let Some((path, line)) = scope.instantiation_source_loc(h) {
-                write!(&mut out, "{path}:{line}\n").unwrap();
+                writeln!(&mut out, "{path}:{line}").unwrap();
             }
             match (scope.component(h), scope.source_loc(h)) {
                 (Some(name), Some((path, line))) => {
