@@ -33,7 +33,7 @@ pub enum Message {
     RemoveItem(usize, CommandCount),
     FocusItem(usize),
     UnfocusItem,
-    RenameItem(usize),
+    RenameItem(Option<usize>),
     MoveFocus(MoveDir, CommandCount),
     MoveFocusedItem(MoveDir, CommandCount),
     VerticalScroll(MoveDir, CommandCount),

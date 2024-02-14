@@ -144,6 +144,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "item_unset_color",
             "item_unset_background_color",
             "item_unfocus",
+            "item_rename",
             "zoom_fit",
             "scope_add",
             "scope_select",
@@ -311,6 +312,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "item_unset_background_color" => Some(Command::Terminal(
                     Message::ItemBackgroundColorChange(None, None),
                 )),
+                "item_rename" => Some(Command::Terminal(Message::RenameItem(None))),
                 "variable_set_name_type" => single_word(
                     vec![
                         "Local".to_string(),
