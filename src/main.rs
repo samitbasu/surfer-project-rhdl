@@ -25,6 +25,8 @@ mod variable_name_type;
 mod variable_type;
 mod view;
 mod viewport;
+#[cfg(target_arch = "wasm32")]
+mod wasm_api;
 mod wasm_util;
 mod wave_container;
 mod wave_data;
@@ -323,7 +325,7 @@ fn setup_custom_font(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub enum MoveDir {
     Up,
     Down,

@@ -8,6 +8,7 @@ use eframe::{
     epaint::{Pos2, Vec2},
 };
 use num::BigInt;
+use serde::Deserialize;
 
 use crate::wave_source::WaveFormat;
 use crate::{
@@ -22,7 +23,7 @@ use crate::{
 
 type CommandCount = usize;
 
-#[derive(Derivative)]
+#[derive(Derivative, Deserialize)]
 #[derivative(Debug)]
 pub enum Message {
     SetActiveScope(ScopeRef),
@@ -65,8 +66,11 @@ pub enum Message {
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    #[serde(skip)]
     WavesLoaded(WaveSource, WaveFormat, Box<WaveContainer>, LoadOptions),
+    #[serde(skip)]
     Error(color_eyre::eyre::Error),
+    #[serde(skip)]
     TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified variable
@@ -74,6 +78,7 @@ pub enum Message {
     ToggleSidePanel,
     ShowCommandPrompt(bool),
     FileDropped(DroppedFile),
+    #[serde(skip)]
     FileDownloaded(String, Bytes, LoadOptions),
     ReloadConfig,
     ReloadWaveform(bool),
