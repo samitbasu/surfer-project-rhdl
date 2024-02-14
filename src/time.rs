@@ -4,6 +4,7 @@ use eframe::egui::Ui;
 use eframe::emath::{Align2, Pos2};
 use eframe::epaint::{Color32, FontId, Stroke};
 use enum_iterator::Sequence;
+use itertools::Itertools;
 use num::{BigInt, BigRational, ToPrimitive};
 use pure_rust_locales::{locale_match, Locale};
 use serde::{Deserialize, Serialize};
@@ -308,15 +309,10 @@ impl State {
                 .floor(),
         );
 
-        let steps = &[1., 2., 2.5, 5., 10.];
+        let steps = &[1., 2., 2.5, 5., 10., 20., 25., 50.];
         let mut ticks: Vec<(String, f32)> = [].to_vec();
         for step in steps {
             let scaled_step = scale * step;
-            if (scaled_step.round() - scaled_step).abs() >= 0.1 {
-                // Do not select a step size so that we get ticks that are drawn inbetween
-                // possible cursor positions
-                continue;
-            }
             let rounded_min_label_time = (viewport.curr_left / scaled_step).floor() * scaled_step;
             let high =
                 ((viewport.curr_right - rounded_min_label_time) / scaled_step).ceil() as f32 + 1.;
@@ -325,6 +321,7 @@ impl State {
                     .map(|v| {
                         BigInt::from(((v as f64) * scaled_step + rounded_min_label_time) as i128)
                     })
+                    .unique()
                     .map(|tick| {
                         (
                             // Time string
