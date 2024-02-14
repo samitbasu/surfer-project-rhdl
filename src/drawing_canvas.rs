@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{self, Sense};
+use eframe::egui::{self, Response, Sense};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
 use log::{error, warn};
@@ -544,6 +544,8 @@ impl State {
         self.draw_marker_boxes(waves, &mut ctx, item_offsets, response.rect.size().x, gap);
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
+
+        self.draw_canvas_context_menu(response, waves, frame_width, to_screen, msgs);
     }
 
     fn draw_region(
@@ -662,6 +664,41 @@ impl State {
                 });
             }
         }
+    }
+
+    fn draw_canvas_context_menu(
+        &self,
+        response: Response,
+        waves: &WaveData,
+        frame_width: f32,
+        to_screeen: RectTransform,
+        msgs: &mut Vec<Message>,
+    ) {
+        response.context_menu(|ui| {
+            let left = to_screeen.inverse().transform_rect(ui.min_rect()).left();
+            let time = waves.viewport.to_time_bigint(left, frame_width);
+
+            ui.menu_button("Set Marker", |ui| {
+                for (id, _) in &waves.markers {
+                    ui.button(format!("{id}")).clicked().then(|| {
+                        msgs.push(Message::SetMarker {
+                            id: *id,
+                            time: time.clone(),
+                        });
+                        ui.close_menu()
+                    });
+                }
+                // At the moment we only support 255 markers, and the cursor is the 255th
+                if waves.markers.len() < 254 {
+                    ui.button("New").clicked().then(|| {
+                        // NOTE: Safe unwrap, we have at least one empty slot
+                        let id = (0..254).find(|id| !waves.markers.contains_key(id)).unwrap();
+                        msgs.push(Message::SetMarker { id, time });
+                        ui.close_menu()
+                    });
+                }
+            });
+        });
     }
 }
 

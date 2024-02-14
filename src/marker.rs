@@ -81,10 +81,9 @@ impl WaveData {
         }
     }
 
-    pub fn set_marker_position(&mut self, idx: u8) {
-        let Some(location) = &self.cursor else {
-            return;
-        };
+    /// Set the marker with the specified id to the location. If the marker doesn't exist already,
+    /// it will be created
+    pub fn set_marker_position(&mut self, idx: u8, location: &BigInt) {
         if self
             .displayed_items
             .iter()
@@ -109,6 +108,13 @@ impl WaveData {
             self.displayed_items.push(DisplayedItem::Marker(maker));
         }
         self.markers.insert(idx, location.clone());
+    }
+
+    pub fn move_marker_to_cursor(&mut self, idx: u8) {
+        let Some(location) = &self.cursor.clone() else {
+            return;
+        };
+        self.set_marker_position(idx, &location)
     }
 
     pub fn draw_marker_number_boxes(
