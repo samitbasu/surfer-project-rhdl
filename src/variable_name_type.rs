@@ -99,7 +99,7 @@ impl WaveData {
                     };
                 }
                 DisplayedItem::Divider(_) => {}
-                DisplayedItem::Cursor(_) => {}
+                DisplayedItem::Marker(_) => {}
                 DisplayedItem::TimeLine(_) => {}
                 DisplayedItem::Placeholder(_) => {}
             }

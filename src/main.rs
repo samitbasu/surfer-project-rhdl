@@ -830,7 +830,7 @@ impl State {
                                         break;
                                     }
                                 }
-                                DisplayedItem::Cursor(_) => {}
+                                DisplayedItem::Marker(_) => {}
                                 DisplayedItem::Divider(_) => {}
                                 DisplayedItem::TimeLine(_) => {}
                                 DisplayedItem::Placeholder(_) => {}
@@ -928,7 +928,7 @@ impl State {
                         variable_format: HashMap::new(),
                         num_timestamps,
                         cursor: None,
-                        cursors: HashMap::new(),
+                        markers: HashMap::new(),
                         focused_item: None,
                         default_variable_name_type: self.config.default_variable_name_type,
                         scroll_offset: 0.,
@@ -1093,14 +1093,14 @@ impl State {
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type
             }
-            Message::SetCursorPosition(idx) => {
+            Message::MoveMarkerToCursor(idx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.set_cursor_position(idx);
+                    waves.set_marker_position(idx);
                 };
             }
-            Message::GoToCursorPosition(idx) => {
+            Message::GoToMarkerPosition(idx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(cursor) = waves.cursors.get(&idx) {
+                    if let Some(cursor) = waves.markers.get(&idx) {
                         waves.go_to_time(&cursor.clone());
                         self.invalidate_draw_commands();
                     }

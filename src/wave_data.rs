@@ -34,7 +34,7 @@ pub struct WaveData {
     /// Name of the translator used to translate this trace
     pub variable_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
-    pub cursors: HashMap<u8, BigInt>,
+    pub markers: HashMap<u8, BigInt>,
     pub focused_item: Option<usize>,
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
@@ -102,7 +102,7 @@ impl WaveData {
             variable_format,
             num_timestamps,
             cursor: self.cursor.clone(),
-            cursors: self.cursors.clone(),
+            markers: self.markers.clone(),
             focused_item: self.focused_item,
             default_variable_name_type: self.default_variable_name_type,
             scroll_offset: self.scroll_offset,
@@ -162,7 +162,7 @@ impl WaveData {
             .filter_map(|i| match i {
                 // keep without a change
                 DisplayedItem::Divider(_)
-                | DisplayedItem::Cursor(_)
+                | DisplayedItem::Marker(_)
                 | DisplayedItem::TimeLine(_) => Some(i.clone()),
                 DisplayedItem::Variable(s) => s.update(new_waves, keep_unavailable),
                 DisplayedItem::Placeholder(p) => {
@@ -305,8 +305,8 @@ impl WaveData {
     pub fn remove_displayed_item(&mut self, count: usize, idx: usize) {
         for _ in 0..count {
             let visible_items_len = self.displayed_items.len();
-            if let Some(DisplayedItem::Cursor(cursor)) = self.displayed_items.get(idx) {
-                self.cursors.remove(&cursor.idx);
+            if let Some(DisplayedItem::Marker(cursor)) = self.displayed_items.get(idx) {
+                self.markers.remove(&cursor.idx);
             }
             if visible_items_len > 0 && idx <= (visible_items_len - 1) {
                 self.displayed_items.remove(idx);
@@ -395,13 +395,13 @@ impl WaveData {
     }
 
     #[inline]
-    pub fn numbered_cursor_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
-        viewport.from_time(self.numbered_cursor_time(idx), view_width)
+    pub fn numbered_marker_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
+        viewport.from_time(self.numbered_marker_time(idx), view_width)
     }
 
     #[inline]
-    pub fn numbered_cursor_time(&self, idx: u8) -> &BigInt {
-        self.cursors.get(&idx).unwrap()
+    pub fn numbered_marker_time(&self, idx: u8) -> &BigInt {
+        self.markers.get(&idx).unwrap()
     }
 
     pub fn handle_canvas_scroll(
