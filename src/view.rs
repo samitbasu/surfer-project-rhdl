@@ -454,7 +454,6 @@ impl State {
         filter: &str,
     ) {
         for scope in wave.inner.root_scopes() {
-            // self.draw_selectable_child_or_orphan_scope(msgs, wave, &scope, ui);
             self.draw_selectable_child_or_orphan_scope(
                 msgs,
                 wave,
