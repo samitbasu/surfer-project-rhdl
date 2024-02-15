@@ -543,7 +543,7 @@ snapshot_ui_with_file_and_msgs! {divider_works, "examples/counter.vcd", [
     Message::ItemColorChange(Some(4), Some("Green".to_string()))
 ]}
 
-snapshot_ui_with_file_and_msgs! {markerss_work, "examples/counter.vcd", [
+snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
     Message::ToggleOverview,
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
@@ -555,7 +555,7 @@ snapshot_ui_with_file_and_msgs! {markerss_work, "examples/counter.vcd", [
     Message::CursorSet(BigInt::from(500)),
 ]}
 
-snapshot_ui_with_file_and_msgs! {markerss_dialog_work, "examples/counter.vcd", [
+snapshot_ui_with_file_and_msgs! {markers_dialog_work, "examples/counter.vcd", [
     Message::ToggleOverview,
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
@@ -629,7 +629,7 @@ snapshot_ui_with_file_and_msgs! {command_prompt, "examples/counter.vcd", [
     Message::ShowCommandPrompt(true)
 ]}
 
-snapshot_ui_with_file_and_msgs! {negative_markerslocation, "examples/counter.vcd", [
+snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::GoToTime(Some(BigInt::from(-50))),
     Message::CursorSet(BigInt::from(-100)),

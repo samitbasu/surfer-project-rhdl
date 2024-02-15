@@ -124,7 +124,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Marker(markers) => Some((item.name(), markers.idx)),
+                DisplayedItem::Marker(marker) => Some((item.name(), marker.idx)),
                 _ => None,
             })
             .collect::<BTreeMap<_, _>>()

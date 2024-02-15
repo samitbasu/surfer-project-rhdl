@@ -18,7 +18,7 @@ use crate::{
 pub const DEFAULT_MARKER_NAME: &str = "Marker";
 
 impl WaveData {
-    pub fn draw_marker(
+    pub fn draw_cursor(
         &self,
         theme: &SurferTheme,
         ctx: &mut DrawingContext,

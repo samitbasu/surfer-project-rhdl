@@ -305,8 +305,8 @@ impl WaveData {
     pub fn remove_displayed_item(&mut self, count: usize, idx: usize) {
         for _ in 0..count {
             let visible_items_len = self.displayed_items.len();
-            if let Some(DisplayedItem::Marker(cursor)) = self.displayed_items.get(idx) {
-                self.markers.remove(&cursor.idx);
+            if let Some(DisplayedItem::Marker(marker)) = self.displayed_items.get(idx) {
+                self.markers.remove(&marker.idx);
             }
             if visible_items_len > 0 && idx <= (visible_items_len - 1) {
                 self.displayed_items.remove(idx);

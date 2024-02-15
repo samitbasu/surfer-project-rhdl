@@ -49,7 +49,7 @@ impl State {
                 .foreground
                 .gamma_multiply(0.3),
         );
-        waves.draw_marker(
+        waves.draw_cursor(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),

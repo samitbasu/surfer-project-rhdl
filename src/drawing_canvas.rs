@@ -516,7 +516,7 @@ impl State {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Wave drawing");
 
-        waves.draw_marker(
+        waves.draw_cursor(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
@@ -667,7 +667,7 @@ impl State {
             let left = to_screeen.inverse().transform_rect(ui.min_rect()).left();
             let time = waves.viewport.to_time_bigint(left, frame_width);
 
-            ui.menu_button("Set Marker", |ui| {
+            ui.menu_button("Set marker", |ui| {
                 for (id, _) in &waves.markers {
                     ui.button(format!("{id}")).clicked().then(|| {
                         msgs.push(Message::SetMarker {
