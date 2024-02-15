@@ -244,10 +244,7 @@ impl State {
             self.add_menu_panel(ctx, &mut msgs);
         }
 
-        if self
-            .show_toolbar
-            .unwrap_or_else(|| self.config.layout.show_toolbar())
-        {
+        if self.get_show_toolbar() {
             self.add_toolbar_panel(ctx, &mut msgs);
         }
 
@@ -256,24 +253,15 @@ impl State {
         }
 
         if let Some(waves) = &self.waves {
-            if self
-                .show_statusbar
-                .unwrap_or(self.config.layout.show_statusbar())
-            {
+            if self.get_show_statusbar() {
                 self.add_statusbar_panel(ctx, waves, &mut msgs);
             }
-            if self
-                .show_overview
-                .unwrap_or(self.config.layout.show_overview())
-            {
+            if self.get_show_overview() {
                 self.add_overview_panel(ctx, waves, &mut msgs)
             }
         }
 
-        if self
-            .show_hierarchy
-            .unwrap_or(self.config.layout.show_hierarchy())
-        {
+        if self.get_show_hierarchy() {
             egui::SidePanel::left("variable select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
@@ -516,10 +504,7 @@ impl State {
             wave.active_scope == Some(scope.clone()),
             name,
         ));
-        if self
-            .show_variable_tooltip
-            .unwrap_or(self.config.layout.show_tooltip())
-        {
+        if self.get_show_tooltip() {
             response = response.on_hover_text(scope_tooltip_text(wave, &scope));
         }
         response
@@ -608,10 +593,7 @@ impl State {
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
                     let mut response = ui.add(egui::SelectableLabel::new(false, sig_name));
-                    if self
-                        .show_variable_tooltip
-                        .unwrap_or(self.config.layout.show_tooltip())
-                    {
+                    if self.get_show_tooltip() {
                         response = response.on_hover_text(variable_tooltip_text(wave, &variable));
                     }
                     response
@@ -759,10 +741,7 @@ impl State {
                     self.item_context_menu(Some(&field), msgs, ui, vidx);
                 });
 
-            if self
-                .show_variable_tooltip
-                .unwrap_or(self.config.layout.show_tooltip())
-            {
+            if self.get_show_tooltip() {
                 let tooltip = if let Some(waves) = &self.waves {
                     if field.field.is_empty() {
                         variable_tooltip_text(waves, &field.root)
@@ -855,15 +834,8 @@ impl State {
             let mut layout_job = LayoutJob::default();
             self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::LEFT);
 
-            let text_color = if let Some(color) = &displayed_item.color() {
-                self.config
-                    .theme
-                    .colors
-                    .get(color)
-                    .unwrap_or(&self.config.theme.foreground)
-            } else {
-                &self.config.theme.foreground
-            };
+            let text_color = self.get_item_text_color(displayed_item);
+
             displayed_item.add_to_layout_job(text_color, None, &style, &mut layout_job);
             self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
             let item_label = ui

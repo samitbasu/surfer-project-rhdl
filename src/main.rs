@@ -13,6 +13,7 @@ mod menus;
 mod message;
 mod mousegestures;
 mod overview;
+mod state_util;
 mod statusbar;
 #[cfg(test)]
 mod tests;
@@ -441,7 +442,7 @@ pub struct State {
     show_menu: Option<bool>,
     show_ticks: Option<bool>,
     show_toolbar: Option<bool>,
-    show_variable_tooltip: Option<bool>,
+    show_tooltip: Option<bool>,
     show_overview: Option<bool>,
     show_statusbar: Option<bool>,
     align_names_right: Option<bool>,
@@ -521,7 +522,7 @@ impl State {
             show_menu: None,
             show_ticks: None,
             show_toolbar: None,
-            show_variable_tooltip: None,
+            show_tooltip: None,
             show_overview: None,
             show_statusbar: None,
             align_names_right: None,
@@ -992,11 +993,11 @@ impl State {
                 self.show_ticks = Some(new)
             }
             Message::ToggleVariableTooltip => {
-                let new = match self.show_variable_tooltip {
+                let new = match self.show_tooltip {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_tooltip(),
                 };
-                self.show_variable_tooltip = Some(new)
+                self.show_tooltip = Some(new)
             }
             Message::ToggleOverview => {
                 let new = match self.show_overview {
