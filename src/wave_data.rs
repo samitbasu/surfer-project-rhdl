@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use color_eyre::eyre::WrapErr;
 use eframe::epaint::Vec2;
 use log::{error, warn};
+use num::bigint::ToBigInt;
 use num::{BigInt, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -488,5 +489,27 @@ impl WaveData {
             .unwrap_or_else(|| self.item_offsets.last().unwrap())
             .top();
         self.scroll_offset = item_y - first_element_y;
+    }
+    pub fn set_cursor_at_transition(&mut self, next: bool) {
+        if let Some(vidx) = self.focused_item {
+            if let Some(time) = &self.cursor {
+                if let DisplayedItem::Variable(variable) = &self.displayed_items[vidx] {
+                    if let Ok(res) = self.inner.query_variable(
+                        &variable.variable_ref,
+                        &time.to_biguint().unwrap_or_default(),
+                    ) {
+                        let time = if next {
+                            res.next.unwrap_or_default()
+                        } else {
+                            res.current.unwrap().0
+                        };
+                        let stime = time.to_bigint();
+                        if stime.is_some() {
+                            self.cursor = stime.clone();
+                        }
+                    }
+                }
+            }
+        }
     }
 }

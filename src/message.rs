@@ -136,6 +136,9 @@ pub enum Message {
     MoveMarkerToCursor(u8),
     GoToMarkerPosition(u8),
     SaveState(PathBuf),
+    MoveCursorToTransition {
+        next: bool,
+    },
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),
