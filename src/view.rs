@@ -449,7 +449,7 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         wave: &WaveData,
-        draw_signals: bool,
+        draw_variables: bool,
         ui: &mut egui::Ui,
         filter: &str,
     ) {
