@@ -62,6 +62,7 @@ pub enum Message {
         end: f64,
     },
     CursorSet(BigInt),
+    RightCursorSet(Option<BigInt>),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),

@@ -874,6 +874,11 @@ impl State {
                     waves.cursor = Some(new)
                 }
             }
+            Message::RightCursorSet(new) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.right_cursor = new
+                }
+            }
             Message::LoadWaveformFile(filename, load_options) => {
                 self.load_wave_from_file(filename, load_options).ok();
             }
@@ -928,6 +933,7 @@ impl State {
                         variable_format: HashMap::new(),
                         num_timestamps,
                         cursor: None,
+                        right_cursor: None,
                         markers: HashMap::new(),
                         focused_item: None,
                         default_variable_name_type: self.config.default_variable_name_type,
