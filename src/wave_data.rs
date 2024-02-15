@@ -34,6 +34,9 @@ pub struct WaveData {
     /// Name of the translator used to translate this trace
     pub variable_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
+    /// When right clicking we'll create a temporary cursor that shows where right click
+    /// actions will apply. This gets cleared when the context menu is closed
+    pub right_cursor: Option<BigInt>,
     pub markers: HashMap<u8, BigInt>,
     pub focused_item: Option<usize>,
     pub default_variable_name_type: VariableNameType,
@@ -102,6 +105,7 @@ impl WaveData {
             variable_format,
             num_timestamps,
             cursor: self.cursor.clone(),
+            right_cursor: None,
             markers: self.markers.clone(),
             focused_item: self.focused_item,
             default_variable_name_type: self.default_variable_name_type,
