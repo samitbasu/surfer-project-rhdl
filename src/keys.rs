@@ -61,7 +61,7 @@ impl State {
                         }
                     }
                     (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                    (Key::Escape, true, true, false) => {
+                    (Key::Escape | Key::G, true, true, false) => {
                         msgs.push(Message::ShowCommandPrompt(false))
                     }
                     (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
