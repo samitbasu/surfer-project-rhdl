@@ -187,37 +187,26 @@ impl State {
                 }
             });
 
-            ui.radio(
-                self.show_ticks.unwrap_or(self.config.layout.show_ticks()),
-                "Show tick lines",
-            )
-            .clicked()
-            .then(|| {
-                ui.close_menu();
-                msgs.push(Message::ToggleTickLines)
-            });
+            ui.radio(self.show_ticks(), "Show tick lines")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleTickLines)
+                });
 
-            ui.radio(
-                self.show_variable_tooltip
-                    .unwrap_or(self.config.layout.show_tooltip()),
-                "Show variable tooltip",
-            )
-            .clicked()
-            .then(|| {
-                ui.close_menu();
-                msgs.push(Message::ToggleVariableTooltip)
-            });
+            ui.radio(self.show_tooltip(), "Show variable tooltip")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleVariableTooltip)
+                });
 
-            ui.radio(
-                self.show_variable_indices
-                    .unwrap_or(self.config.layout.show_variable_indices()),
-                "Show variable indices",
-            )
-            .clicked()
-            .then(|| {
-                ui.close_menu();
-                msgs.push(Message::ToggleIndices)
-            });
+            ui.radio(self.show_variable_indices(), "Show variable indices")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleIndices)
+                });
         });
         ui.menu_button("Help", |ui| {
             b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);
