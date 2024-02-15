@@ -649,12 +649,15 @@ impl State {
             }
             Message::RenameItem(vidx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    self.rename_target = Some(vidx);
-                    *self.sys.item_renaming_string.borrow_mut() = waves
-                        .displayed_items
-                        .get(vidx)
-                        .map(|item| item.name())
-                        .unwrap_or_default();
+                    let idx = vidx.or(waves.focused_item);
+                    if let Some(idx) = idx {
+                        self.rename_target = Some(idx);
+                        *self.sys.item_renaming_string.borrow_mut() = waves
+                            .displayed_items
+                            .get(idx)
+                            .map(|item| item.name())
+                            .unwrap_or_default();
+                    }
                 }
             }
             Message::MoveFocus(direction, count) => {
