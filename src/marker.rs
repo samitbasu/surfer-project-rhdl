@@ -183,11 +183,7 @@ impl State {
             .iter()
             .filter_map(|displayed_item| match displayed_item {
                 DisplayedItem::Marker(marker) => {
-                    let text_color = displayed_item
-                        .color()
-                        .and_then(|color| self.config.theme.colors.get(&color))
-                        .unwrap_or(&self.config.theme.foreground);
-
+                    let text_color = self.get_item_text_color(displayed_item);
                     Some((
                         marker.idx,
                         waves.numbered_marker_time(marker.idx),
