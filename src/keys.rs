@@ -61,7 +61,7 @@ impl State {
                         }
                     }
                     (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                    (Key::Escape, true, true, false) => {
+                    (Key::Escape | Key::G, true, true, false) => {
                         msgs.push(Message::ShowCommandPrompt(false))
                     }
                     (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
@@ -107,11 +107,6 @@ impl State {
                             y: PER_SCROLL_EVENT,
                         },
                     }),
-                    (Key::G, true, true, false) => {
-                        if modifiers.ctrl {
-                            msgs.push(Message::ShowCommandPrompt(false))
-                        }
-                    }
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
