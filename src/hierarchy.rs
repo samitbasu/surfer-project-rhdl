@@ -63,9 +63,6 @@ pub fn tree(state: &mut State, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
             egui::Frame::none()
                 .inner_margin(Margin::same(5.0))
                 .show(ui, |ui| {
-                    ui.set_max_height(total_space / 2.);
-                    ui.set_min_height(total_space / 2.);
-
                     let filter = &mut *state.sys.variable_name_filter.borrow_mut();
                     ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                         ui.heading("Hierarchy");

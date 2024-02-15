@@ -272,30 +272,9 @@ impl State {
                     fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
-                .show(ctx, |ui| {
-                    match self.config.layout.hierarchy_style {
-                        HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
-                        HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
-                    }
-
-                    if self.waves.is_some() {
-                        egui::TopBottomPanel::bottom("add_extra_buttons")
-                            .frame(egui::Frame {
-                                fill: self.config.theme.primary_ui_color.background,
-                                inner_margin: Margin::same(5.0),
-                                ..Default::default()
-                            })
-                            .show_inside(ui, |ui| {
-                                ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                                    ui.button("Add divider").clicked().then(|| {
-                                        msgs.push(Message::AddDivider(None, None));
-                                    });
-                                    ui.button("Add timeline").clicked().then(|| {
-                                        msgs.push(Message::AddTimeLine(None));
-                                    });
-                                })
-                            });
-                    }
+                .show(ctx, |ui| match self.config.layout.hierarchy_style {
+                    HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
+                    HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
                 });
         }
 
@@ -458,7 +437,7 @@ impl State {
                 msgs,
                 wave,
                 &scope,
-                draw_signals,
+                draw_variables,
                 ui,
                 filter,
             );
