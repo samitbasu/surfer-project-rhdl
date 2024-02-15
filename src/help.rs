@@ -48,8 +48,10 @@ impl State {
         ui.add_space(20.0);
         ui.separator();
         ui.add_space(20.0);
-        if let Some(waves) = &self.waves {
-            ui.label(RichText::new(format!("Filename: {}", waves.source)).monospace());
+        if self.show_wave_source {
+            if let Some(waves) = &self.waves {
+                ui.label(RichText::new(format!("Filename: {}", waves.source)).monospace());
+            }
         }
 
         #[cfg(target_arch = "wasm32")]
