@@ -3,12 +3,12 @@ mod benchmark;
 mod clock_highlighting;
 mod command_prompt;
 mod config;
-mod cursor;
 mod displayed_item;
 mod drawing_canvas;
 mod help;
 mod keys;
 mod logs;
+mod marker;
 mod menus;
 mod message;
 mod mousegestures;
@@ -838,7 +838,7 @@ impl State {
                                         break;
                                     }
                                 }
-                                DisplayedItem::Cursor(_) => {}
+                                DisplayedItem::Marker(_) => {}
                                 DisplayedItem::Divider(_) => {}
                                 DisplayedItem::TimeLine(_) => {}
                                 DisplayedItem::Placeholder(_) => {}
@@ -880,6 +880,11 @@ impl State {
             Message::CursorSet(new) => {
                 if let Some(waves) = self.waves.as_mut() {
                     waves.cursor = Some(new)
+                }
+            }
+            Message::RightCursorSet(new) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.right_cursor = new
                 }
             }
             Message::LoadWaveformFile(filename, load_options) => {
@@ -936,7 +941,8 @@ impl State {
                         variable_format: HashMap::new(),
                         num_timestamps,
                         cursor: None,
-                        cursors: HashMap::new(),
+                        right_cursor: None,
+                        markers: HashMap::new(),
                         focused_item: None,
                         default_variable_name_type: self.config.default_variable_name_type,
                         scroll_offset: 0.,
@@ -1101,14 +1107,19 @@ impl State {
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type
             }
-            Message::SetCursorPosition(idx) => {
+            Message::SetMarker { id, time } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.set_cursor_position(idx);
+                    waves.set_marker_position(id, &time)
                 };
             }
-            Message::GoToCursorPosition(idx) => {
+            Message::MoveMarkerToCursor(idx) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(cursor) = waves.cursors.get(&idx) {
+                    waves.move_marker_to_cursor(idx);
+                };
+            }
+            Message::GoToMarkerPosition(idx) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    if let Some(cursor) = waves.markers.get(&idx) {
                         waves.go_to_time(&cursor.clone());
                         self.invalidate_draw_commands();
                     }

@@ -63,6 +63,7 @@ pub enum Message {
         end: f64,
     },
     CursorSet(BigInt),
+    RightCursorSet(Option<BigInt>),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
@@ -126,8 +127,13 @@ pub enum Message {
     AddTimeLine(Option<usize>),
     ToggleTickLines,
     ToggleVariableTooltip,
-    SetCursorPosition(u8),
-    GoToCursorPosition(u8),
+    /// Set a marker at a specific position. If it doesn't exist, it will be created
+    SetMarker {
+        id: u8,
+        time: BigInt,
+    },
+    MoveMarkerToCursor(u8),
+    GoToMarkerPosition(u8),
     SaveState(PathBuf),
 
     /// Run more than one message in sequence

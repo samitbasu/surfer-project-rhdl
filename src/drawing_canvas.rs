@@ -2,12 +2,13 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{self, Sense};
+use eframe::egui::{self, Response, Sense};
 use eframe::emath::{Align2, RectTransform};
 use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
+use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};
-use num::ToPrimitive;
+use num::{BigInt, ToPrimitive};
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 
 use crate::clock_highlighting::draw_clock_edge;
@@ -17,6 +18,7 @@ use crate::translation::{
     SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind, VariableInfo,
 };
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
+use crate::viewport::Viewport;
 use crate::wave_container::{FieldRef, QueryResult, VariableRef};
 use crate::wave_data::WaveData;
 use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
@@ -380,35 +382,9 @@ impl State {
         });
 
         response.dragged_by(egui::PointerButton::Primary).then(|| {
-            let pos = pointer_pos_canvas.unwrap();
-            let timestamp = waves.viewport.to_time_bigint(pos.x, frame_width);
-            if let Some(utimestamp) = timestamp.to_biguint() {
-                if let Some(vidx) = waves.get_item_at_y(pos.y) {
-                    if let DisplayedItem::Variable(variable) = &waves.displayed_items[vidx] {
-                        if let Ok(res) = waves
-                            .inner
-                            .query_variable(&variable.variable_ref, &utimestamp)
-                        {
-                            let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
-                            let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
-                            let prev = waves.viewport.from_time(prev_time, frame_width);
-                            let next = waves.viewport.from_time(next_time, frame_width);
-                            if (prev - pos.x).abs() < (next - pos.x).abs() {
-                                if (prev - pos.x).abs() <= self.config.snap_distance {
-                                    msgs.push(Message::CursorSet(prev_time.clone()));
-                                    return;
-                                }
-                            } else {
-                                if (next - pos.x).abs() <= self.config.snap_distance {
-                                    msgs.push(Message::CursorSet(next_time.clone()));
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
+            if let Some(snap_point) = self.snap_to_edge(pointer_pos_canvas, waves, frame_width) {
+                msgs.push(Message::CursorSet(snap_point))
             }
-            msgs.push(Message::CursorSet(timestamp));
         });
 
         painter.rect_filled(
@@ -506,7 +482,7 @@ impl State {
                         }
                     }
                     ItemDrawingInfo::Divider(_) => {}
-                    ItemDrawingInfo::Cursor(_) => {}
+                    ItemDrawingInfo::Marker(_) => {}
                     ItemDrawingInfo::TimeLine(_) => {
                         self.draw_ticks(color, ticks, &ctx, y_offset, Align2::CENTER_TOP);
                     }
@@ -523,16 +499,18 @@ impl State {
             &waves.viewport,
         );
 
-        waves.draw_cursors(
+        waves.draw_markers(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             &waves.viewport,
         );
 
-        self.draw_cursor_boxes(waves, &mut ctx, item_offsets, response.rect.size().x, gap);
+        self.draw_marker_boxes(waves, &mut ctx, item_offsets, response.rect.size().x, gap);
 
         self.draw_mouse_gesture_widget(waves, pointer_pos_canvas, &response, msgs, &mut ctx);
+
+        self.handle_canvas_context_menu(response, waves, to_screen, &mut ctx, msgs);
     }
 
     fn draw_region(
@@ -652,7 +630,123 @@ impl State {
             }
         }
     }
+
+    fn handle_canvas_context_menu(
+        &self,
+        response: Response,
+        waves: &WaveData,
+        to_screen: RectTransform,
+        ctx: &mut DrawingContext,
+        msgs: &mut Vec<Message>,
+    ) {
+        let size = response.rect.size().clone();
+        response.context_menu(|ui| {
+            let offset = ui.style().as_ref().spacing.menu_margin.left;
+            let top_left = to_screen.inverse().transform_rect(ui.min_rect()).left_top()
+                - Pos2 {
+                    x: offset,
+                    y: offset,
+                };
+
+            let snap_pos = self.snap_to_edge(Some(top_left.to_pos2()), waves, size.x);
+
+            if let Some(time) = snap_pos {
+                self.draw_line(&time, ctx, size, &waves.viewport);
+                ui.menu_button("Set marker", |ui| {
+                    macro_rules! close_menu {
+                        () => {{
+                            ui.close_menu();
+                            msgs.push(Message::RightCursorSet(None))
+                        }};
+                    }
+
+                    for id in waves.markers.keys().sorted() {
+                        ui.button(format!("{id}")).clicked().then(|| {
+                            msgs.push(Message::SetMarker {
+                                id: *id,
+                                time: time.clone(),
+                            });
+                            close_menu!()
+                        });
+                    }
+                    // At the moment we only support 255 markers, and the cursor is the 255th
+                    if waves.markers.len() < 254 {
+                        ui.button("New").clicked().then(|| {
+                            // NOTE: Safe unwrap, we have at least one empty slot
+                            let id = (0..254).find(|id| !waves.markers.contains_key(id)).unwrap();
+                            msgs.push(Message::SetMarker { id, time });
+                            close_menu!()
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    /// Takes a pointer pos in the canvas and returns a position that is snapped to transitions
+    /// if the cursor is close enough to any transition. If the cursor is on the canvas
+    /// a point will be returned, otherwise `None`
+    fn snap_to_edge(
+        &self,
+        pointer_pos_canvas: Option<Pos2>,
+        waves: &WaveData,
+        frame_width: f32,
+    ) -> Option<BigInt> {
+        let Some(pos) = pointer_pos_canvas else {
+            return None;
+        };
+        let timestamp = waves.viewport.to_time_bigint(pos.x, frame_width);
+        if let Some(utimestamp) = timestamp.to_biguint() {
+            if let Some(vidx) = waves.get_item_at_y(pos.y) {
+                if let DisplayedItem::Variable(variable) = &waves.displayed_items[vidx] {
+                    if let Ok(res) = waves
+                        .inner
+                        .query_variable(&variable.variable_ref, &utimestamp)
+                    {
+                        let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
+                        let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
+                        let prev = waves.viewport.from_time(prev_time, frame_width);
+                        let next = waves.viewport.from_time(next_time, frame_width);
+                        if (prev - pos.x).abs() < (next - pos.x).abs() {
+                            if (prev - pos.x).abs() <= self.config.snap_distance {
+                                return Some(prev_time.clone());
+                            }
+                        } else {
+                            if (next - pos.x).abs() <= self.config.snap_distance {
+                                return Some(next_time.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Some(timestamp)
+    }
+
+    pub fn draw_line(
+        &self,
+        time: &BigInt,
+        ctx: &mut DrawingContext,
+        size: Vec2,
+        viewport: &Viewport,
+    ) {
+        let x = viewport.from_time(time, size.x);
+
+        let stroke = Stroke {
+            color: self.config.theme.cursor.color,
+            width: self.config.theme.cursor.width,
+        };
+        ctx.painter.line_segment(
+            [
+                (ctx.to_screen)(x + 0.5, -0.5),
+                (ctx.to_screen)(x + 0.5, size.y),
+            ],
+            stroke,
+        )
+    }
 }
+
+impl WaveData {}
 
 trait VariableExt {
     fn bool_drawing_spec(

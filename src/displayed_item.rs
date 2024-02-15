@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::wave_container::WaveContainer;
 use crate::{
-    cursor::DEFAULT_CURSOR_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
+    marker::DEFAULT_MARKER_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
     translation::VariableInfo, variable_name_type::VariableNameType, wave_container::VariableRef,
 };
 
@@ -15,7 +15,7 @@ const DEFAULT_DIVIDER_NAME: &str = "";
 pub enum DisplayedItem {
     Variable(DisplayedVariable),
     Divider(DisplayedDivider),
-    Cursor(DisplayedCursor),
+    Marker(DisplayedMarker),
     TimeLine(DisplayedTimeLine),
     Placeholder(DisplayedPlaceholder),
 }
@@ -77,15 +77,15 @@ pub struct DisplayedDivider {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct DisplayedCursor {
+pub struct DisplayedMarker {
     pub color: Option<String>,
     pub background_color: Option<String>,
     pub name: Option<String>,
     pub idx: u8,
 }
 
-impl DisplayedCursor {
-    pub fn cursor_text(&self, color: &Color32) -> WidgetText {
+impl DisplayedMarker {
+    pub fn marker_text(&self, color: &Color32) -> WidgetText {
         let style = Style::default();
         let mut layout_job = LayoutJob::default();
         self.rich_text(color, &style, &mut layout_job);
@@ -104,7 +104,7 @@ impl DisplayedCursor {
     fn cursor_name(&self) -> String {
         self.name
             .as_ref()
-            .unwrap_or(&DEFAULT_CURSOR_NAME.to_string())
+            .unwrap_or(&DEFAULT_MARKER_NAME.to_string())
             .clone()
     }
 }
@@ -149,7 +149,7 @@ impl DisplayedItem {
         match self {
             DisplayedItem::Variable(variable) => variable.color.clone(),
             DisplayedItem::Divider(divider) => divider.color.clone(),
-            DisplayedItem::Cursor(cursor) => cursor.color.clone(),
+            DisplayedItem::Marker(cursor) => cursor.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
             DisplayedItem::Placeholder(_) => None,
         }
@@ -159,7 +159,7 @@ impl DisplayedItem {
         match self {
             DisplayedItem::Variable(variable) => variable.color = color_name.clone(),
             DisplayedItem::Divider(divider) => divider.color = color_name.clone(),
-            DisplayedItem::Cursor(cursor) => cursor.color = color_name.clone(),
+            DisplayedItem::Marker(cursor) => cursor.color = color_name.clone(),
             DisplayedItem::TimeLine(timeline) => {
                 timeline.color = color_name.clone();
             }
@@ -179,7 +179,7 @@ impl DisplayedItem {
                 .as_ref()
                 .unwrap_or(&DEFAULT_DIVIDER_NAME.to_string())
                 .clone(),
-            DisplayedItem::Cursor(cursor) => cursor.cursor_name(),
+            DisplayedItem::Marker(cursor) => cursor.cursor_name(),
             DisplayedItem::TimeLine(timeline) => timeline
                 .name
                 .as_ref()
@@ -213,8 +213,8 @@ impl DisplayedItem {
                     .italics()
                     .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
-            DisplayedItem::Cursor(cursor) => {
-                cursor.rich_text(color, style, layout_job);
+            DisplayedItem::Marker(marker) => {
+                marker.rich_text(color, style, layout_job);
             }
             DisplayedItem::Placeholder(placeholder) => {
                 let s = placeholder
@@ -237,7 +237,7 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => {
                 divider.name = name;
             }
-            DisplayedItem::Cursor(cursor) => {
+            DisplayedItem::Marker(cursor) => {
                 cursor.name = name;
             }
             DisplayedItem::TimeLine(timeline) => {
@@ -253,7 +253,7 @@ impl DisplayedItem {
         let background_color = match self {
             DisplayedItem::Variable(variable) => &variable.background_color,
             DisplayedItem::Divider(divider) => &divider.background_color,
-            DisplayedItem::Cursor(cursor) => &cursor.background_color,
+            DisplayedItem::Marker(cursor) => &cursor.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
             DisplayedItem::Placeholder(_) => &None,
         };
@@ -268,7 +268,7 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => {
                 divider.background_color = color_name.clone();
             }
-            DisplayedItem::Cursor(cursor) => {
+            DisplayedItem::Marker(cursor) => {
                 cursor.background_color = color_name.clone();
             }
             DisplayedItem::TimeLine(timeline) => {

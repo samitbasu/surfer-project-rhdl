@@ -75,14 +75,14 @@ impl State {
             );
         }
 
-        waves.draw_cursors(
+        waves.draw_markers(
             &self.config.theme,
             &mut ctx,
             response.rect.size(),
             &viewport_all,
         );
 
-        waves.draw_cursor_number_boxes(
+        waves.draw_marker_number_boxes(
             &mut ctx,
             response.rect.size(),
             &self.config.theme,
