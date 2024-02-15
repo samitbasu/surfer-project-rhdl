@@ -177,11 +177,7 @@ impl State {
             .iter()
             .filter_map(|displayed_item| match displayed_item {
                 DisplayedItem::Cursor(cursor) => {
-                    let text_color = displayed_item
-                        .color()
-                        .and_then(|color| self.config.theme.colors.get(&color))
-                        .unwrap_or(&self.config.theme.foreground);
-
+                    let text_color = self.get_item_text_color(displayed_item);
                     Some((
                         cursor.idx,
                         waves.numbered_cursor_time(cursor.idx),

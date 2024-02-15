@@ -462,7 +462,7 @@ impl State {
                 [first, second, ..] => second - first > 15.,
             };
             let ticks = &draw_data.ticks;
-            if !ticks.is_empty() && self.show_ticks.unwrap_or(self.config.layout.show_ticks()) {
+            if !ticks.is_empty() && self.get_show_ticks() {
                 let stroke = Stroke {
                     color: self.config.ticks.style.color,
                     width: self.config.ticks.style.width,

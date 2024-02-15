@@ -53,7 +53,7 @@ impl State {
     fn draw_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         let wave_loaded = self.waves.is_some();
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-            if !self.show_menu.unwrap_or(self.config.layout.show_menu()) {
+            if !self.get_show_menu() {
                 // Menu
                 ui.menu_button(RichText::new("☰").heading(), |ui| {
                     self.menu_contents(ui, msgs);
