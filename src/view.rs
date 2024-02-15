@@ -72,7 +72,7 @@ pub struct DividerDrawingInfo {
 }
 
 #[derive(Debug)]
-pub struct CursorDrawingInfo {
+pub struct MarkerDrawingInfo {
     pub item_list_idx: usize,
     pub top: f32,
     pub bottom: f32,
@@ -89,7 +89,7 @@ pub struct TimeLineDrawingInfo {
 pub enum ItemDrawingInfo {
     Variable(VariableDrawingInfo),
     Divider(DividerDrawingInfo),
-    Cursor(CursorDrawingInfo),
+    Marker(MarkerDrawingInfo),
     TimeLine(TimeLineDrawingInfo),
 }
 
@@ -98,7 +98,7 @@ impl ItemDrawingInfo {
         match self {
             ItemDrawingInfo::Variable(drawing_info) => drawing_info.top,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.top,
-            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.top,
+            ItemDrawingInfo::Marker(drawing_info) => drawing_info.top,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.top,
         }
     }
@@ -106,7 +106,7 @@ impl ItemDrawingInfo {
         match self {
             ItemDrawingInfo::Variable(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.bottom,
-            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.bottom,
+            ItemDrawingInfo::Marker(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.bottom,
         }
     }
@@ -114,7 +114,7 @@ impl ItemDrawingInfo {
         match self {
             ItemDrawingInfo::Variable(drawing_info) => drawing_info.item_list_idx,
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.item_list_idx,
-            ItemDrawingInfo::Cursor(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Marker(drawing_info) => drawing_info.item_list_idx,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx,
         }
     }
@@ -227,7 +227,7 @@ impl State {
 
         if self.show_cursor_window {
             if let Some(waves) = &self.waves {
-                self.draw_cursor_window(waves, ctx, &mut msgs);
+                self.draw_marker_window(waves, ctx, &mut msgs);
             }
         }
 
@@ -697,7 +697,7 @@ impl State {
                             draw_alpha,
                         );
                     }
-                    DisplayedItem::Cursor(_) => {
+                    DisplayedItem::Marker(_) => {
                         self.draw_plain_item(
                             msgs,
                             vidx,
@@ -892,8 +892,8 @@ impl State {
                     bottom: label.rect.bottom(),
                 }))
             }
-            DisplayedItem::Cursor(cursor) => {
-                item_offsets.push(ItemDrawingInfo::Cursor(CursorDrawingInfo {
+            DisplayedItem::Marker(cursor) => {
+                item_offsets.push(ItemDrawingInfo::Marker(MarkerDrawingInfo {
                     item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
@@ -1054,10 +1054,10 @@ impl State {
                     ItemDrawingInfo::Divider(_) => {
                         ui.label("");
                     }
-                    ItemDrawingInfo::Cursor(numbered_cursor) => {
+                    ItemDrawingInfo::Marker(numbered_cursor) => {
                         if let Some(cursor) = &waves.cursor {
                             let delta = time_string(
-                                &(waves.numbered_cursor_time(numbered_cursor.idx) - cursor),
+                                &(waves.numbered_marker_time(numbered_cursor.idx) - cursor),
                                 &waves.inner.metadata().timescale,
                                 &self.wanted_timeunit,
                                 &self.get_time_format(),

@@ -119,12 +119,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
         files_with_ext(is_wave_file_extension)
     }
 
-    let cursors = if let Some(waves) = &state.waves {
+    let markers = if let Some(waves) = &state.waves {
         waves
             .displayed_items
             .iter()
             .filter_map(|item| match item {
-                DisplayedItem::Cursor(cursor) => Some((item.name(), cursor.idx)),
+                DisplayedItem::Marker(marker) => Some((item.name(), marker.idx)),
                 _ => None,
             })
             .collect::<BTreeMap<_, _>>()
@@ -170,10 +170,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "variable_set_name_type",
             "variable_force_name_type",
             "preference_set_clock_highlight",
-            "goto_cursor",
+            "goto_marker",
             "save_state",
             "timeline_add",
-            "show_cursor_window",
+            "show_marker_window",
             "exit",
         ]
     } else {
@@ -198,7 +198,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         commands.into_iter().map(|s| s.into()).collect(),
         Box::new(move |query, _| {
             let variables_in_active_scope = variables_in_active_scope.clone();
-            let cursors = cursors.clone();
+            let markers = markers.clone();
             let scopes = scopes.clone();
             let active_scope = active_scope.clone();
             match query {
@@ -369,12 +369,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "timeline_add" => Some(Command::Terminal(Message::AddTimeLine(None))),
-                "goto_cursor" => single_word(
-                    cursors.keys().cloned().collect(),
+                "goto_marker" => single_word(
+                    markers.keys().cloned().collect(),
                     Box::new(move |name| {
-                        cursors
+                        markers
                             .get(name)
-                            .map(|idx| Command::Terminal(Message::GoToCursorPosition(*idx)))
+                            .map(|idx| Command::Terminal(Message::GoToMarkerPosition(*idx)))
                     }),
                 ),
                 "show_controls" => Some(Command::Terminal(Message::SetKeyHelpVisible(true))),
@@ -396,7 +396,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         }
                     }),
                 ),
-                "show_cursor_window" => {
+                "show_marker_window" => {
                     Some(Command::Terminal(Message::SetCursorWindowVisible(true)))
                 }
                 "save_state" => single_word(
