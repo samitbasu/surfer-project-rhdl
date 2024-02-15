@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use color_eyre::eyre::WrapErr;
 use itertools::Itertools;
 use log::{error, warn};
+use num::bigint::ToBigInt;
 use num::{BigInt, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -345,6 +346,14 @@ impl WaveData {
         }
     }
 
+    pub fn go_to_cursor_if_not_in_view(&mut self) -> bool {
+        if let Some(cursor) = &self.cursor {
+            self.viewports[0].go_to_cursor_if_not_in_view(cursor)
+        } else {
+            false
+        }
+    }
+
     #[inline]
     pub fn numbered_marker_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
         viewport.from_time(self.numbered_marker_time(idx), view_width)
@@ -418,5 +427,49 @@ impl WaveData {
             .unwrap_or_else(|| self.item_offsets.last().unwrap())
             .top();
         self.scroll_offset = item_y - first_element_y;
+    }
+    pub fn set_cursor_at_transition(&mut self, next: bool, variable: Option<usize>) {
+        if let Some(vidx) = variable.or(self.focused_item) {
+            if let Some(cursor) = &self.cursor {
+                if let DisplayedItem::Variable(variable) = &self.displayed_items[vidx] {
+                    if let Ok(res) = self.inner.query_variable(
+                        &variable.variable_ref,
+                        &cursor.to_biguint().unwrap_or_default(),
+                    ) {
+                        if next {
+                            if let Some(time) = res.next {
+                                let stime = time.to_bigint();
+                                if stime.is_some() {
+                                    self.cursor = stime.clone();
+                                }
+                            } else {
+                                // No next transition, go to end
+                                self.cursor = Some(self.num_timestamps.clone());
+                            }
+                        } else {
+                            if let Some(stime) = res.current.unwrap().0.to_bigint() {
+                                let bigone = BigInt::from(1);
+                                // Check if we are on a transition
+                                if stime == *cursor && *cursor >= bigone {
+                                    // If so, subtract cursor position by one
+                                    if let Ok(newres) = self.inner.query_variable(
+                                        &variable.variable_ref,
+                                        &(cursor - bigone).to_biguint().unwrap_or_default(),
+                                    ) {
+                                        if let Some(newstime) =
+                                            newres.current.unwrap().0.to_bigint()
+                                        {
+                                            self.cursor = Some(newstime);
+                                        }
+                                    }
+                                } else {
+                                    self.cursor = Some(stime);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

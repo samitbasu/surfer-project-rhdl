@@ -178,6 +178,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "show_marker_window",
             "viewport_add",
             "viewport_remove",
+            "transition_next",
+            "transition_previous",
             "exit",
         ]
     } else {
@@ -355,6 +357,32 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
                         alpha_idx_to_uint_idx(alpha_idx)
                             .map(|idx| Command::Terminal(Message::FocusItem(idx)))
+                    }),
+                ),
+                "transition_next" => single_word(
+                    displayed_items.clone(),
+                    Box::new(|word| {
+                        // split off the idx which is always followed by an underscore
+                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                        alpha_idx_to_uint_idx(alpha_idx).map(|idx| {
+                            Command::Terminal(Message::MoveCursorToTransition {
+                                next: true,
+                                variable: Some(idx),
+                            })
+                        })
+                    }),
+                ),
+                "transition_previous" => single_word(
+                    displayed_items.clone(),
+                    Box::new(|word| {
+                        // split off the idx which is always followed by an underscore
+                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                        alpha_idx_to_uint_idx(alpha_idx).map(|idx| {
+                            Command::Terminal(Message::MoveCursorToTransition {
+                                next: false,
+                                variable: Some(idx),
+                            })
+                        })
                     }),
                 ),
                 "preference_set_clock_highlight" => single_word(
