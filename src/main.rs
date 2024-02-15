@@ -873,6 +873,15 @@ impl State {
                     }
                 };
             }
+            Message::MoveCursorToTransition { next, variable } => {
+                if let Some(waves) = &mut self.waves {
+                    waves.set_cursor_at_transition(next, variable);
+                    let moved = waves.go_to_cursor_if_not_in_view();
+                    if moved {
+                        self.invalidate_draw_commands();
+                    }
+                }
+            }
             Message::ResetVariableFormat(idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     waves.variable_format.remove(&idx);

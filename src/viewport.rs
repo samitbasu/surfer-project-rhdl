@@ -91,4 +91,21 @@ impl Viewport {
     fn width(&self) -> f64 {
         self.curr_right - self.curr_left
     }
+
+    pub fn go_to_cursor_if_not_in_view(&mut self, cursor: &BigInt) -> bool {
+        let fcursor = cursor.to_f64().unwrap();
+        if fcursor <= self.curr_left || fcursor >= self.curr_right {
+            self.go_to_time_f64(fcursor);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn go_to_time_f64(&mut self, center: f64) {
+        let half_width = (self.curr_right - self.curr_left) / 2.;
+
+        self.curr_left = center - half_width;
+        self.curr_right = center + half_width;
+    }
 }
