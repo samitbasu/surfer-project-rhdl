@@ -5,14 +5,41 @@ use config::{Config, Environment, File};
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
 use eframe::epaint::Color32;
+use enum_iterator::Sequence;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
+use std::fmt;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
 use crate::time::TimeFormat;
 use crate::{clock_highlighting::ClockHighlightType, variable_name_type::VariableNameType};
+
+#[derive(Debug, Deserialize, PartialEq, Eq, Sequence)]
+pub enum HierarchyStyle {
+    Separate,
+    Tree,
+}
+
+impl fmt::Display for HierarchyStyle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HierarchyStyle::Separate => write!(f, "Separate"),
+            HierarchyStyle::Tree => write!(f, "Tree"),
+        }
+    }
+}
+
+impl From<String> for HierarchyStyle {
+    fn from(string: String) -> Self {
+        match string.as_str() {
+            "Separate" => Self::Separate,
+            "Tree" => Self::Tree,
+            _ => Self::Separate,
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {
@@ -55,6 +82,8 @@ pub struct SurferLayout {
     pub window_width: usize,
     /// Align variable names right
     align_names_right: bool,
+    /// Set style of hierarchy
+    pub hierarchy_style: HierarchyStyle,
 }
 
 impl SurferLayout {
