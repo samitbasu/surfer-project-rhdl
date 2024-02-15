@@ -25,8 +25,8 @@ use crate::variable_name_filter::filtered_variables;
 use crate::wave_container::{FieldRef, ScopeRef, VariableRef};
 use crate::wave_source::{draw_progress_panel, LoadOptions};
 use crate::{
-    command_prompt::show_command_prompt, translation::VariableInfo, wave_data::WaveData, Message,
-    MoveDir, State,
+    command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy,
+    translation::VariableInfo, wave_data::WaveData, Message, MoveDir, State,
 };
 
 pub struct DrawingContext<'a> {
@@ -285,73 +285,29 @@ impl State {
                     ..Default::default()
                 })
                 .show(ctx, |ui| {
-                    ui.visuals_mut().override_text_color =
-                        Some(self.config.theme.primary_ui_color.foreground);
+                    match self.config.layout.hierarchy_style {
+                        HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
+                        HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
+                    }
 
-                    ui.with_layout(
-                        Layout::top_down(Align::LEFT).with_cross_justify(true),
-                        |ui| {
-                            let total_space = ui.available_height();
-                            egui::Frame::none()
-                                .inner_margin(Margin::same(5.0))
-                                .show(ui, |ui| {
-                                    ui.set_max_height(total_space / 2.);
-                                    ui.set_min_height(total_space / 2.);
-
-                                    ui.heading("Scopes");
-                                    ui.add_space(3.0);
-
-                                    ScrollArea::both().id_source("scopes").show(ui, |ui| {
-                                        ui.style_mut().wrap = Some(false);
-                                        if let Some(waves) = &self.waves {
-                                            self.draw_all_scopes(&mut msgs, waves, ui);
-                                        }
+                    if self.waves.is_some() {
+                        egui::TopBottomPanel::bottom("add_extra_buttons")
+                            .frame(egui::Frame {
+                                fill: self.config.theme.primary_ui_color.background,
+                                inner_margin: Margin::same(5.0),
+                                ..Default::default()
+                            })
+                            .show_inside(ui, |ui| {
+                                ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
+                                    ui.button("Add divider").clicked().then(|| {
+                                        msgs.push(Message::AddDivider(None, None));
                                     });
-                                });
-
-                            egui::Frame::none()
-                                .inner_margin(Margin::same(5.0))
-                                .show(ui, |ui| {
-                                    let filter = &mut *self.sys.variable_name_filter.borrow_mut();
-                                    ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                                        ui.heading("Variables");
-                                        ui.add_space(3.0);
-                                        self.draw_variable_name_filter_edit(ui, filter, &mut msgs);
+                                    ui.button("Add timeline").clicked().then(|| {
+                                        msgs.push(Message::AddTimeLine(None));
                                     });
-                                    ui.add_space(3.0);
-
-                                    ScrollArea::both()
-                                        .max_height(f32::INFINITY)
-                                        .id_source("variables")
-                                        .show(ui, |ui| {
-                                            if let Some(waves) = &self.waves {
-                                                self.draw_variable_list(
-                                                    &mut msgs, waves, ui, filter,
-                                                );
-                                            }
-                                        });
-                                });
-
-                            if self.waves.is_some() {
-                                egui::TopBottomPanel::bottom("add_extra_buttons")
-                                    .frame(egui::Frame {
-                                        fill: self.config.theme.primary_ui_color.background,
-                                        inner_margin: Margin::same(5.0),
-                                        ..Default::default()
-                                    })
-                                    .show_inside(ui, |ui| {
-                                        ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                                            ui.button("Add divider").clicked().then(|| {
-                                                msgs.push(Message::AddDivider(None, None));
-                                            });
-                                            ui.button("Add timeline").clicked().then(|| {
-                                                msgs.push(Message::AddTimeLine(None));
-                                            });
-                                        })
-                                    });
-                            }
-                        },
-                    );
+                                })
+                            });
+                    }
                 });
         }
 
@@ -501,9 +457,24 @@ impl State {
         }
     }
 
-    pub fn draw_all_scopes(&self, msgs: &mut Vec<Message>, wave: &WaveData, ui: &mut egui::Ui) {
+    pub fn draw_all_scopes(
+        &self,
+        msgs: &mut Vec<Message>,
+        wave: &WaveData,
+        draw_signals: bool,
+        ui: &mut egui::Ui,
+        filter: &str,
+    ) {
         for scope in wave.inner.root_scopes() {
-            self.draw_selectable_child_or_orphan_scope(msgs, wave, &scope, ui);
+            // self.draw_selectable_child_or_orphan_scope(msgs, wave, &scope, ui);
+            self.draw_selectable_child_or_orphan_scope(
+                msgs,
+                wave,
+                &scope,
+                draw_signals,
+                ui,
+                filter,
+            );
         }
     }
 
@@ -523,7 +494,7 @@ impl State {
             .show_variable_tooltip
             .unwrap_or(self.config.layout.show_tooltip())
         {
-            response = response.on_hover_text(scope_tooltip_text(wave, &scope));
+            response = response.on_hover_text(scope_tooltip_text(wave, scope));
         }
         response
             .clicked()
@@ -535,7 +506,9 @@ impl State {
         msgs: &mut Vec<Message>,
         wave: &WaveData,
         scope: &ScopeRef,
+        draw_variables: bool,
         ui: &mut egui::Ui,
+        filter: &str,
     ) {
         let Some(child_scopes) = wave
             .inner
@@ -547,7 +520,7 @@ impl State {
             return;
         };
 
-        if child_scopes.is_empty() {
+        if child_scopes.is_empty() && !draw_variables {
             self.add_scope_selectable_label(msgs, wave, scope, ui);
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -563,7 +536,12 @@ impl State {
                     },
                 );
             })
-            .body(|ui| self.draw_root_scope_view(msgs, wave, scope, ui));
+            .body(|ui| {
+                self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
+                if draw_variables {
+                    self.draw_variable_list(msgs, wave, ui, scope, filter);
+                }
+            });
         }
     }
 
@@ -572,7 +550,9 @@ impl State {
         msgs: &mut Vec<Message>,
         wave: &WaveData,
         root_scope: &ScopeRef,
+        draw_variables: bool,
         ui: &mut egui::Ui,
+        filter: &str,
     ) {
         let Some(child_scopes) = wave
             .inner
@@ -585,18 +565,26 @@ impl State {
         };
 
         for child_scope in child_scopes {
-            self.draw_selectable_child_or_orphan_scope(msgs, wave, &child_scope, ui);
+            self.draw_selectable_child_or_orphan_scope(
+                msgs,
+                wave,
+                &child_scope,
+                draw_variables,
+                ui,
+                filter,
+            );
         }
     }
 
-    fn draw_variable_list(
+    pub fn draw_variable_list(
         &self,
         msgs: &mut Vec<Message>,
         wave: &WaveData,
         ui: &mut egui::Ui,
+        scope: &ScopeRef,
         filter: &str,
     ) {
-        for variable in filtered_variables(wave, filter, &self.variable_name_filter_type) {
+        for variable in filtered_variables(wave, filter, &self.variable_name_filter_type, scope) {
             let index = wave
                 .inner
                 .variable_meta(&variable)

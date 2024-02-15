@@ -7,6 +7,7 @@ mod cursor;
 mod displayed_item;
 mod drawing_canvas;
 mod help;
+mod hierarchy;
 mod keys;
 mod logs;
 mod menus;
@@ -1200,6 +1201,7 @@ impl State {
                     self.sys.command_prompt.suggestions.len().saturating_sub(1),
                 );
             }
+            Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
             Message::Batch(messages) => {
                 for message in messages {
                     self.update(message)

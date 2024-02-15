@@ -10,7 +10,6 @@ use eframe::{
 use num::BigInt;
 use serde::Deserialize;
 
-use crate::wave_source::WaveFormat;
 use crate::{
     clock_highlighting::ClockHighlightType,
     time::{TimeStringFormatting, TimeUnit},
@@ -20,6 +19,7 @@ use crate::{
     wave_source::{LoadOptions, OpenMode},
     MoveDir, VariableNameFilterType, WaveSource,
 };
+use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
 type CommandCount = usize;
 
@@ -118,6 +118,7 @@ pub enum Message {
     SetContinuousRedraw(bool),
     SetCursorWindowVisible(bool),
     ToggleFullscreen,
+    SetHierarchyStyle(HierarchyStyle),
     // Second argument is position to insert after, None inserts after focused item,
     // or last if no focused item
     AddDivider(Option<String>, Option<usize>),

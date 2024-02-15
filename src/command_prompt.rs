@@ -9,6 +9,7 @@ use eframe::epaint::{FontFamily, FontId, Vec2};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
 use itertools::Itertools;
 
+use crate::config::HierarchyStyle;
 use crate::wave_source::{LoadOptions, WaveFormat};
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -167,6 +168,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "item_unfocus",
             "item_unset_color",
             "preference_set_clock_highlight",
+            "preference_set_hierarchy_style",
             "goto_cursor",
             "save_state",
             "timeline_add",
@@ -339,6 +341,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SetClockHighlightType(
                             ClockHighlightType::from_str(word).unwrap_or(ClockHighlightType::Line),
+                        )))
+                    }),
+                ),
+                "preference_set_hierarchy_style" => single_word(
+                    enum_iterator::all::<HierarchyStyle>()
+                        .map(|o| o.to_string())
+                        .collect_vec(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SetHierarchyStyle(
+                            HierarchyStyle::from(word.to_string()),
                         )))
                     }),
                 ),
