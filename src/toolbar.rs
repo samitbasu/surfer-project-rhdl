@@ -52,6 +52,7 @@ impl State {
 
     fn draw_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         let wave_loaded = self.waves.is_some();
+        let item_selected = wave_loaded && self.waves.as_ref().unwrap().focused_item.is_some();
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
             if !self.show_menu() {
                 // Menu
@@ -207,6 +208,31 @@ impl State {
                 "Add timeline",
                 Message::AddTimeLine(None),
                 wave_loaded,
+            );
+            ui.separator();
+
+            // Next transition
+            add_toolbar_button_with_icon(
+                ui,
+                msgs,
+                Icon::KeyboardTab,
+                "Set cursor on previous transition of focused signal",
+                Message::MoveCursorToTransition {
+                    next: false,
+                    variable: None,
+                },
+                item_selected,
+            );
+            add_toolbar_button_with_icon(
+                ui,
+                msgs,
+                Icon::KeyboardTab,
+                "Set cursor on next transition of focused signal",
+                Message::MoveCursorToTransition {
+                    next: true,
+                    variable: None,
+                },
+                item_selected,
             );
         });
     }

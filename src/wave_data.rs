@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use color_eyre::eyre::WrapErr;
 use eframe::epaint::Vec2;
 use log::{error, warn};
+use num::bigint::ToBigInt;
 use num::{BigInt, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -398,6 +399,14 @@ impl WaveData {
         self.viewport.curr_right = center_point + half_width;
     }
 
+    pub fn go_to_cursor_if_not_in_view(&mut self) -> bool {
+        if let Some(cursor) = &self.cursor {
+            self.viewport.go_to_cursor_if_not_in_view(cursor)
+        } else {
+            false
+        }
+    }
+
     #[inline]
     pub fn numbered_marker_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
         viewport.from_time(self.numbered_marker_time(idx), view_width)
@@ -488,5 +497,27 @@ impl WaveData {
             .unwrap_or_else(|| self.item_offsets.last().unwrap())
             .top();
         self.scroll_offset = item_y - first_element_y;
+    }
+    pub fn set_cursor_at_transition(&mut self, next: bool, variable: Option<usize>) {
+        if let Some(vidx) = variable.or(self.focused_item) {
+            if let Some(time) = &self.cursor {
+                if let DisplayedItem::Variable(variable) = &self.displayed_items[vidx] {
+                    if let Ok(res) = self.inner.query_variable(
+                        &variable.variable_ref,
+                        &time.to_biguint().unwrap_or_default(),
+                    ) {
+                        let time = if next {
+                            res.next.unwrap_or_default()
+                        } else {
+                            res.current.unwrap().0
+                        };
+                        let stime = time.to_bigint();
+                        if stime.is_some() {
+                            self.cursor = stime.clone();
+                        }
+                    }
+                }
+            }
+        }
     }
 }
