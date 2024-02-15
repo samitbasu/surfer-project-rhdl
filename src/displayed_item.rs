@@ -95,13 +95,13 @@ impl DisplayedMarker {
         RichText::new(format!("{idx}: ", idx = self.idx))
             .color(*color)
             .append_to(layout_job, style, FontSelection::Default, Align::Center);
-        RichText::new(self.cursor_name())
+        RichText::new(self.marker_name())
             .color(*color)
             .italics()
             .append_to(layout_job, style, FontSelection::Default, Align::Center);
     }
 
-    fn cursor_name(&self) -> String {
+    fn marker_name(&self) -> String {
         self.name
             .as_ref()
             .unwrap_or(&DEFAULT_MARKER_NAME.to_string())
@@ -149,7 +149,7 @@ impl DisplayedItem {
         match self {
             DisplayedItem::Variable(variable) => variable.color.clone(),
             DisplayedItem::Divider(divider) => divider.color.clone(),
-            DisplayedItem::Marker(cursor) => cursor.color.clone(),
+            DisplayedItem::Marker(marker) => marker.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
             DisplayedItem::Placeholder(_) => None,
         }
@@ -159,7 +159,7 @@ impl DisplayedItem {
         match self {
             DisplayedItem::Variable(variable) => variable.color = color_name.clone(),
             DisplayedItem::Divider(divider) => divider.color = color_name.clone(),
-            DisplayedItem::Marker(cursor) => cursor.color = color_name.clone(),
+            DisplayedItem::Marker(marker) => marker.color = color_name.clone(),
             DisplayedItem::TimeLine(timeline) => {
                 timeline.color = color_name.clone();
             }
@@ -179,7 +179,7 @@ impl DisplayedItem {
                 .as_ref()
                 .unwrap_or(&DEFAULT_DIVIDER_NAME.to_string())
                 .clone(),
-            DisplayedItem::Marker(cursor) => cursor.cursor_name(),
+            DisplayedItem::Marker(marker) => marker.marker_name(),
             DisplayedItem::TimeLine(timeline) => timeline
                 .name
                 .as_ref()
@@ -237,8 +237,8 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => {
                 divider.name = name;
             }
-            DisplayedItem::Marker(cursor) => {
-                cursor.name = name;
+            DisplayedItem::Marker(marker) => {
+                marker.name = name;
             }
             DisplayedItem::TimeLine(timeline) => {
                 timeline.name = name;
@@ -253,7 +253,7 @@ impl DisplayedItem {
         let background_color = match self {
             DisplayedItem::Variable(variable) => &variable.background_color,
             DisplayedItem::Divider(divider) => &divider.background_color,
-            DisplayedItem::Marker(cursor) => &cursor.background_color,
+            DisplayedItem::Marker(marker) => &marker.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
             DisplayedItem::Placeholder(_) => &None,
         };
@@ -268,8 +268,8 @@ impl DisplayedItem {
             DisplayedItem::Divider(divider) => {
                 divider.background_color = color_name.clone();
             }
-            DisplayedItem::Marker(cursor) => {
-                cursor.background_color = color_name.clone();
+            DisplayedItem::Marker(marker) => {
+                marker.background_color = color_name.clone();
             }
             DisplayedItem::TimeLine(timeline) => {
                 timeline.background_color = color_name.clone();
