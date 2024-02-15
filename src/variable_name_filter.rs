@@ -6,6 +6,7 @@ use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
+use crate::wave_container::ScopeRef;
 use crate::{message::Message, wave_container::VariableRef, wave_data::WaveData, State};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Sequence)]
@@ -56,19 +57,25 @@ impl State {
     ) {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.button("➕")
-                .on_hover_text("Add all variables")
+                .on_hover_text("Add all variables from active Scope")
                 .clicked()
                 .then(|| {
                     if let Some(waves) = self.waves.as_ref() {
                         // Iterate over the reversed list to get
                         // waves in the same order as the variable
                         // list
-                        for var in
-                            filtered_variables(waves, filter, &self.variable_name_filter_type)
-                                .into_iter()
-                                .rev()
-                        {
-                            msgs.push(Message::AddVariable(var))
+                        if let Some(active_scope) = waves.active_scope.as_ref() {
+                            for var in filtered_variables(
+                                waves,
+                                filter,
+                                &self.variable_name_filter_type,
+                                active_scope,
+                            )
+                            .into_iter()
+                            .rev()
+                            {
+                                msgs.push(Message::AddVariable(var))
+                            }
                         }
                     }
                 });
@@ -122,19 +129,16 @@ pub fn filtered_variables(
     waves: &WaveData,
     filter: &str,
     variable_name_filter_type: &VariableNameFilterType,
+    scope: &ScopeRef,
 ) -> Vec<VariableRef> {
-    if let Some(scope) = &waves.active_scope {
-        let listed = waves
-            .inner
-            .variables_in_scope(scope)
-            .iter()
-            .filter(|var| variable_name_filter_type.is_match(&var.name, filter))
-            .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
-            .cloned()
-            .collect_vec();
+    let listed = waves
+        .inner
+        .variables_in_scope(scope)
+        .iter()
+        .filter(|var| variable_name_filter_type.is_match(&var.name, filter))
+        .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
+        .cloned()
+        .collect_vec();
 
-        listed
-    } else {
-        vec![]
-    }
+    listed
 }
