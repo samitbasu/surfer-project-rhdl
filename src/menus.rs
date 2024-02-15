@@ -3,6 +3,7 @@ use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
 
 use crate::{
     clock_highlighting::clock_highlight_type_menu,
+    config::HierarchyStyle,
     displayed_item::DisplayedItem,
     message::Message,
     time::{timeformat_menu, timeunit_menu},
@@ -184,6 +185,20 @@ impl State {
                             ui.close_menu();
                             msgs.push(Message::SetUiScale(scale))
                         });
+                }
+            });
+
+            ui.menu_button("Hierarchy", |ui| {
+                for style in enum_iterator::all::<HierarchyStyle>() {
+                    ui.radio(
+                        self.config.layout.hierarchy_style == style,
+                        style.to_string(),
+                    )
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::SetHierarchyStyle(style));
+                    });
                 }
             });
 
