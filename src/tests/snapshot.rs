@@ -17,6 +17,7 @@ use test_log::test;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
+    config::HierarchyStyle,
     setup_custom_font,
     variable_name_filter::VariableNameFilterType,
     wave_container::{FieldRef, ScopeRef, VariableRef},
@@ -1071,4 +1072,14 @@ snapshot_ui_with_file_and_msgs! {alignment_right_works, "examples/counter.vcd", 
     Message::ToggleOverview,
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::SetNameAlignRight(true)
+]}
+
+snapshot_ui_with_file_and_msgs! {hierarchy_tree, "examples/counter.vcd", [
+    Message::ToggleSidePanel,
+    Message::SetHierarchyStyle(HierarchyStyle::Tree),
+]}
+
+snapshot_ui_with_file_and_msgs! {hierarchy_separate, "examples/counter.vcd", [
+    Message::ToggleSidePanel,
+    Message::SetHierarchyStyle(HierarchyStyle::Separate),
 ]}
