@@ -324,7 +324,7 @@ impl State {
                 Align2::CENTER_TOP,
                 time,
                 FontId::proportional(text_size),
-                self.config.theme.foreground,
+                self.config.theme.marker_text_color,
             );
         }
     }
