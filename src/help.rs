@@ -1,5 +1,6 @@
 use eframe::egui::{Context, Grid, RichText, Ui, Window};
 use eframe::emath::{Align2, Pos2};
+use egui_remixicon::icons;
 
 use crate::wave_source::LoadOptions;
 use crate::{message::Message, State};
@@ -90,7 +91,10 @@ pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
                     "Build date: {date}",
                     date = env!("VERGEN_BUILD_DATE")
                 ));
-                ui.hyperlink_to(" repository", "https://gitlab.com/surfer-project/surfer");
+                ui.hyperlink_to(
+                    (icons::GITLAB_FILL).to_string() + " repository",
+                    "https://gitlab.com/surfer-project/surfer",
+                );
                 ui.hyperlink_to("Homepage", "https://surfer-project.org/");
                 ui.add_space(10.);
                 if ui.button("Close").clicked() {
@@ -176,29 +180,33 @@ fn key_listing(ui: &mut Ui) {
         ("🚀", "Space", "Show command prompt"),
         ("↔", "Scroll", "Pan"),
         ("🔎", "Ctrl+Scroll", "Zoom"),
-        ("〰", "b", "Show or hide the design hierarchy"),
-        ("☰", "m", "Show or hide menu"),
-        ("🛠", "t", "Show or hide toolbar"),
-        ("\u{e8ff}", "+", "Zoom in"),
-        ("\u{e900}", "-", "Zoom out"),
+        (
+            icons::LAYOUT_LEFT_FILL,
+            "b",
+            "Show or hide the design hierarchy",
+        ),
+        (icons::MENU_FILL, "m", "Show or hide menu"),
+        (icons::TOOLS_FILL, "t", "Show or hide toolbar"),
+        (icons::ZOOM_IN_FILL, "+", "Zoom in"),
+        (icons::ZOOM_OUT_FILL, "-", "Zoom out"),
         ("", "k/⬆", "Scroll up"),
         ("", "j/⬇", "Scroll down"),
         ("", "Ctrl+k/⬆", "Move focused item up"),
         ("", "Ctrl+j/⬇", "Move focused item down"),
         ("", "Alt+k/⬆", "Move focus up"),
         ("", "Alt+j/⬇", "Move focus down"),
-        ("", "Ctrl+0-9", "Add numbered cursor"),
-        ("", "0-9", "Center view at numbered cursor"),
-        ("⏮", "s", "Go to start"),
-        ("⏭", "e", "Go to end"),
-        ("\u{e5d5}", "r", "Reload waveform"),
-        ("\u{e01f}", "Page up", "Go one page/screen right"),
-        ("\u{e020}", "Page down", "Go one page/screen left"),
-        ("⏵", "➡", "Go right"),
-        ("⏴", "⬅", "Go left"),
-        ("🗙", "x/Delete", "Delete focused item"),
+        ("", "Ctrl+0-9", "Add numbered marker"),
+        ("", "0-9", "Center view at numbered marker"),
+        (icons::REWIND_START_FILL, "s", "Go to start"),
+        (icons::FORWARD_END_FILL, "e", "Go to end"),
+        (icons::REFRESH_LINE, "r", "Reload waveform"),
+        (icons::SPEED_FILL, "Page up", "Go one page/screen right"),
+        (icons::REWIND_FILL, "Page down", "Go one page/screen left"),
+        (icons::PLAY_FILL, "➡", "Go right"),
+        (icons::PLAY_REVERSE_FILL, "⬅", "Go left"),
+        (icons::DELETE_BIN_2_FILL, "x/Delete", "Delete focused item"),
         #[cfg(not(target_arch = "wasm32"))]
-        ("⛶", "F11", "Toggle full screen"),
+        (icons::FULLSCREEN_LINE, "F11", "Toggle full screen"),
     ];
 
     Grid::new("keys")
@@ -224,9 +232,13 @@ fn controls_listing(ui: &mut Ui) {
         ("⌖", "Ctrl+j, k, Up, Down", "Move focus down/up"),
         ("🔃", "Alt+j, k, Up, Down", "Move focused item down/up"),
         ("🔎", "Ctrl+Scroll", "Zoom"),
-        ("〰", "b", "Show or hide the design hierarchy"),
-        ("☰", "m", "Show or hide menu"),
-        ("🛠", "t", "Show or hide toolbar"),
+        (
+            icons::LAYOUT_LEFT_2_FILL,
+            "b",
+            "Show or hide the design hierarchy",
+        ),
+        (icons::MENU_FILL, "m", "Show or hide menu"),
+        (icons::TOOLS_FILL, "t", "Show or hide toolbar"),
     ];
 
     Grid::new("controls")
