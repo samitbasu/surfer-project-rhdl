@@ -49,14 +49,13 @@ use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
 use eframe::egui::style::Widgets;
-use eframe::egui::FontData;
 use eframe::egui::FontDefinitions;
 use eframe::egui::Visuals;
 use eframe::emath;
-use eframe::epaint::FontFamily;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
+use egui_remixicon;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
@@ -315,17 +314,7 @@ fn main() -> Result<()> {
 
 fn setup_custom_font(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
-
-    fonts.font_data.insert(
-        "material_design_icons".to_owned(),
-        FontData::from_static(material_icons::FONT),
-    );
-
-    fonts
-        .families
-        .get_mut(&FontFamily::Proportional)
-        .unwrap()
-        .push("material_design_icons".to_owned());
+    egui_remixicon::add_to_fonts(&mut fonts);
 
     ctx.set_fonts(fonts);
 }

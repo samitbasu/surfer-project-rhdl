@@ -7,9 +7,6 @@
 [submodule "f128"]
 	path = f128
 	url = https://github.com/jkarns275/f128.git
-[submodule "material-icons"]
-	path = material-icons
-	url = https://github.com/fschutt/material-icons
 [submodule "waveform"]
 	path = wellen
 	url = https://github.com/ekiwi/waveform-rust.git
