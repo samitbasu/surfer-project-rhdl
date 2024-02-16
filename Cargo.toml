@@ -16,10 +16,11 @@ color-eyre = "0.6.2"
 config = "0.13.4"
 derivative = "2.2.0"
 directories = "5.0"
-eframe = "0.24.1"
-egui_extras = "0.24.2"
-egui_plot = { version = "0.24.2", optional = true }
-enum-iterator = "1.4.1"
+eframe = "0.25.0"
+egui-remixicon = "0.2"
+egui_extras = "0.25.0"
+egui_plot = { version = "0.25", optional = true }
+enum-iterator = "1.5.0"
 f128 = { path = "f128", optional = true }
 fern = { version = "0.6.2", features = ["colored"] }
 futures-core = "0.3.29"
@@ -31,7 +32,6 @@ human-sort = "0.2.2"
 itertools = "0.12.0"
 lazy_static = "1.4.0"
 log = "0.4"
-material-icons = { path = "material-icons" }
 num = { version = "0.4", features = ["serde"] }
 progress-streams = "1.1.0"
 pure-rust-locales = "0.7.0"
@@ -91,4 +91,4 @@ opt-level = 3
 debug = false
 
 [build-dependencies]
-vergen = { version = "8.2.6", features = ["build", "git", "gitcl"] }
+vergen = { version = "8.3.1", features = ["build", "git", "gitcl"] }

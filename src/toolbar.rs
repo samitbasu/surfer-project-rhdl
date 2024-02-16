@@ -1,7 +1,7 @@
 use eframe::egui::{Button, Context, Layout, RichText, TopBottomPanel, Ui};
 use eframe::emath::Align;
 use eframe::epaint::Vec2;
-use material_icons::{icon_to_char, Icon};
+use egui_remixicon::icons;
 
 use crate::{
     message::Message,
@@ -13,7 +13,7 @@ use crate::{
 fn add_toolbar_button(
     ui: &mut Ui,
     msgs: &mut Vec<Message>,
-    icon_string: String,
+    icon_string: &str,
     hover_text: &str,
     message: Message,
     enabled: bool,
@@ -23,24 +23,6 @@ fn add_toolbar_button(
         .on_hover_text(hover_text)
         .clicked()
         .then(|| msgs.push(message));
-}
-
-fn add_toolbar_button_with_icon(
-    ui: &mut Ui,
-    msgs: &mut Vec<Message>,
-    icon: Icon,
-    hover_text: &str,
-    message: Message,
-    enabled: bool,
-) {
-    add_toolbar_button(
-        ui,
-        msgs,
-        icon_to_char(icon).to_string(),
-        hover_text,
-        message,
-        enabled,
-    );
 }
 
 impl State {
@@ -55,24 +37,24 @@ impl State {
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
             if !self.show_menu() {
                 // Menu
-                ui.menu_button(RichText::new("☰").heading(), |ui| {
+                ui.menu_button(RichText::new(icons::MENU_FILL).heading(), |ui| {
                     self.menu_contents(ui, msgs);
                 });
                 ui.separator();
             }
             // Files
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::FileOpen,
+                icons::FILE_FILL,
                 "Open file...",
                 Message::OpenFileDialog(OpenMode::Open),
                 true,
             );
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::Download,
+                icons::FILE_DOWNLOAD_FILL,
                 "Open URL...",
                 Message::SetUrlEntryVisible(true),
                 true,
@@ -80,7 +62,7 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                "⟳".to_string(),
+                icons::REFRESH_FILL,
                 "Reload",
                 Message::ReloadWaveform(self.config.behavior.keep_during_reload),
                 wave_loaded,
@@ -88,10 +70,10 @@ impl State {
             ui.separator();
 
             // Zoom
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::ZoomIn,
+                icons::ZOOM_IN_FILL,
                 "Zoom in",
                 Message::CanvasZoom {
                     mouse_ptr_timestamp: None,
@@ -99,10 +81,10 @@ impl State {
                 },
                 wave_loaded,
             );
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::ZoomOut,
+                icons::ZOOM_OUT_FILL,
                 "Zoom out",
                 Message::CanvasZoom {
                     mouse_ptr_timestamp: None,
@@ -110,10 +92,10 @@ impl State {
                 },
                 wave_loaded,
             );
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::FitScreen,
+                "⛶",
                 "Zoom to fit",
                 Message::ZoomToFit,
                 wave_loaded,
@@ -124,15 +106,15 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                "⏮".to_string(),
+                icons::REWIND_START_FILL,
                 "Go to start",
                 Message::GoToStart,
                 wave_loaded,
             );
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::FastRewind,
+                icons::REWIND_FILL,
                 "Go one page left",
                 Message::CanvasScroll {
                     delta: Vec2 {
@@ -145,7 +127,7 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                "⏴".to_string(),
+                icons::PLAY_REVERSE_FILL,
                 "Go left",
                 Message::CanvasScroll {
                     delta: Vec2 {
@@ -158,7 +140,7 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                "⏵".to_string(),
+                icons::PLAY_FILL,
                 "Go right",
                 Message::CanvasScroll {
                     delta: Vec2 {
@@ -168,10 +150,10 @@ impl State {
                 },
                 wave_loaded,
             );
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::FastForward,
+                icons::SPEED_FILL,
                 "Go one page right",
                 Message::CanvasScroll {
                     delta: Vec2 {
@@ -184,7 +166,7 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                "⏭".to_string(),
+                icons::FORWARD_END_FILL,
                 "Go to end",
                 Message::GoToEnd,
                 wave_loaded,
@@ -192,18 +174,18 @@ impl State {
             ui.separator();
 
             // Add items
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::SpaceBar,
+                icons::SPACE,
                 "Add divider",
                 Message::AddDivider(None, None),
                 wave_loaded,
             );
-            add_toolbar_button_with_icon(
+            add_toolbar_button(
                 ui,
                 msgs,
-                Icon::MoreTime,
+                icons::TIME_FILL,
                 "Add timeline",
                 Message::AddTimeLine(None),
                 wave_loaded,
