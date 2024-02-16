@@ -59,7 +59,6 @@ pub fn tree(state: &mut State, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
     ui.with_layout(
         Layout::top_down(Align::LEFT).with_cross_justify(true),
         |ui| {
-            let total_space = ui.available_height();
             egui::Frame::none()
                 .inner_margin(Margin::same(5.0))
                 .show(ui, |ui| {
