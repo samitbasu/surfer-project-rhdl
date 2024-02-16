@@ -159,12 +159,17 @@ impl WellenContainer {
         Ok(())
     }
 
-    fn time_to_time_table_idx(&self, time: &BigUint) -> TimeTableIdx {
+    fn time_to_time_table_idx(&self, time: &BigUint) -> Option<TimeTableIdx> {
         let time: Time = time.to_u64().expect("unsupported time!");
-        // binary search to find correct index
-        let idx = binary_search(self.inner.time_table(), time);
-        assert!(self.inner.time_table()[idx] <= time);
-        idx as TimeTableIdx
+        let table = self.inner.time_table();
+        if table.is_empty() || table[0] > time {
+            None
+        } else {
+            // binary search to find correct index
+            let idx = binary_search(table, time);
+            assert!(table[idx] <= time);
+            Some(idx as TimeTableIdx)
+        }
     }
 
     pub fn query_variable(&self, variable: &VariableRef, time: &BigUint) -> Result<QueryResult> {
@@ -177,25 +182,36 @@ impl WellenContainer {
             Some(sig) => sig,
             None => bail!("internal error: variable {variable:?} should have been loaded!"),
         };
-        // convert time to index
-        let idx = self.time_to_time_table_idx(time);
-        // calculate time
         let time_table = self.inner.time_table();
-        // get data offset
-        let offset = sig.get_offset(idx);
-        // which time did we actually get the value for?
-        let offset_time_idx = sig.get_time_idx_at(&offset);
-        let offset_time = time_table[offset_time_idx as usize];
-        // get the last value in a time step (since we ignore delta cycles for now)
-        let current_value = sig.get_value_at(&offset, offset.elements - 1);
-        // the next time the variable changes
-        let next_time = offset
-            .next_index
-            .and_then(|i| time_table.get(i.get() as usize));
 
-        let converted_value = convert_variable_value(current_value);
+        // convert time to index
+        if let Some(idx) = self.time_to_time_table_idx(time) {
+            // get data offset
+            if let Some(offset) = sig.get_offset(idx) {
+                // which time did we actually get the value for?
+                let offset_time_idx = sig.get_time_idx_at(&offset);
+                let offset_time = time_table[offset_time_idx as usize];
+                // get the last value in a time step (since we ignore delta cycles for now)
+                let current_value = sig.get_value_at(&offset, offset.elements - 1);
+                // the next time the variable changes
+                let next_time = offset
+                    .next_index
+                    .and_then(|i| time_table.get(i.get() as usize));
+
+                let converted_value = convert_variable_value(current_value);
+                let result = QueryResult {
+                    current: Some((BigUint::from(offset_time), converted_value)),
+                    next: next_time.map(|t| BigUint::from(*t)),
+                };
+                return Ok(result);
+            }
+        }
+
+        // if `get_offset` returns None, this means that there is no change at or before the requested time
+        let first_index = sig.get_first_time_idx();
+        let next_time = first_index.and_then(|i| time_table.get(i as usize));
         let result = QueryResult {
-            current: Some((BigUint::from(offset_time), converted_value)),
+            current: None,
             next: next_time.map(|t| BigUint::from(*t)),
         };
         Ok(result)

@@ -524,6 +524,11 @@ snapshot_ui_with_file_and_msgs! {vcd_from_vhdl_loads, "examples/vhdl3.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["test", "rr"])),
 ]}
 
+// This VCD file contains signals that are not initialized at zero and only obtain their first value at a later point.
+snapshot_ui_with_file_and_msgs! {vcd_with_non_zero_start_displays_correctly, "examples/gameroy_trace_with_non_zero_start.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["gameroy", "cpu"])),
+]}
+
 snapshot_ui_with_file_spade_and_msgs! {
     spade_translation_works,
     "examples/spade.vcd",
