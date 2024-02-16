@@ -529,6 +529,12 @@ snapshot_ui_with_file_and_msgs! {vcd_with_non_zero_start_displays_correctly, "ex
     Message::AddScope(ScopeRef::from_strs(&["gameroy", "cpu"])),
 ]}
 
+// This VCD file used to cause Issue 145 (https://gitlab.com/surfer-project/surfer/-/issues/145).
+// It contains "false" changes, where a change to the same value is reported.
+snapshot_ui_with_file_and_msgs! {vcd_with_false_changes_correctly, "examples/issue_145.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["logic"])),
+]}
+
 snapshot_ui_with_file_spade_and_msgs! {
     spade_translation_works,
     "examples/spade.vcd",
