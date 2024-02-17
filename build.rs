@@ -3,7 +3,7 @@ use vergen::EmitBuilder;
 
 fn main() -> Result<(), Box<dyn Error>> {
     EmitBuilder::builder()
-        .git_describe(true, false, None)
+        .git_describe(true, true, None)
         .build_date()
         .emit()?;
     Ok(())
