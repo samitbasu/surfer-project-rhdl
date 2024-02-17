@@ -1,4 +1,4 @@
-use eframe::egui::{Context, Grid, RichText, Ui, Window};
+use eframe::egui::{Context, Grid, RichText, ScrollArea, Ui, Window};
 use eframe::emath::{Align2, Pos2};
 
 use crate::wave_source::LoadOptions;
@@ -238,4 +238,26 @@ fn controls_listing(ui: &mut Ui) {
 fn add_hint_text(ui: &mut Ui) {
     ui.add_space(20.);
     ui.label(RichText::new("Hint: You can repeat keybinds by typing Alt+0-9 before them. For example, Alt+1 Alt+0 k scrolls 10 steps up."));
+}
+
+pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
+    let mut open = true;
+    let text = include_str!("../LICENSE-EUPL-1.2.txt");
+    Window::new("Surfer License")
+        .open(&mut open)
+        .collapsible(false)
+        .max_height(600.)
+        .default_width(600.)
+        .show(ctx, |ui| {
+            ScrollArea::vertical().show(ui, |ui| {
+                ui.label(text);
+            });
+            ui.add_space(10.);
+            if ui.button("Close").clicked() {
+                msgs.push(Message::SetLicenseVisible(false))
+            }
+        });
+    if !open {
+        msgs.push(Message::SetLicenseVisible(false))
+    }
 }

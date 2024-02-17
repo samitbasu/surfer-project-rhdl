@@ -425,9 +425,14 @@ snapshot_ui! {example_vcd_renders, || {
 snapshot_empty_state_with_msgs! {
     dialogs_work,
     [
+        Message::ToggleMenu,
+        Message::ToggleSidePanel,
+        Message::ToggleToolbar,
+        Message::ToggleOverview,
         Message::SetUrlEntryVisible(true),
         Message::SetKeyHelpVisible(true),
         Message::SetGestureHelpVisible(true),
+        Message::SetLicenseVisible(true),
     ]
 }
 snapshot_empty_state_with_msgs! {

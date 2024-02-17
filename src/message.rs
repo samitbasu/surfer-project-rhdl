@@ -109,6 +109,7 @@ pub enum Message {
     SetGestureHelpVisible(bool),
     SetQuickStartVisible(bool),
     SetUrlEntryVisible(bool),
+    SetLicenseVisible(bool),
     SetRenameItemVisible(bool),
     SetLogsVisible(bool),
     SetDragStart(Option<Pos2>),

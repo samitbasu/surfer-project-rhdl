@@ -16,7 +16,9 @@ use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::command_prompt::get_parser;
 use crate::config::SurferTheme;
 use crate::displayed_item::{draw_rename_window, DisplayedItem};
-use crate::help::{draw_about_window, draw_control_help_window, draw_quickstart_help_window};
+use crate::help::{
+    draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
+};
 use crate::logs::EGUI_LOGGER;
 use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
@@ -202,6 +204,10 @@ impl State {
 
         if self.show_about {
             draw_about_window(ctx, &mut msgs);
+        }
+
+        if self.show_license {
+            draw_license_window(ctx, &mut msgs);
         }
 
         if self.show_keys {
