@@ -432,6 +432,7 @@ snapshot_empty_state_with_msgs! {
         Message::SetUrlEntryVisible(true),
         Message::SetKeyHelpVisible(true),
         Message::SetGestureHelpVisible(true),
+        Message::SetLicenseVisible(true),
     ]
 }
 snapshot_empty_state_with_msgs! {
