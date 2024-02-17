@@ -255,7 +255,9 @@ impl State {
             b("Show logs", Message::SetLogsVisible(true)).add_closing_menu(msgs, ui);
 
             ui.separator();
-            b("About", Message::SetAboutVisible(true)).add_closing_menu(msgs, ui)
+            b("License information", Message::SetLicenseVisible(true)).add_closing_menu(msgs, ui);
+            ui.separator();
+            b("About", Message::SetAboutVisible(true)).add_closing_menu(msgs, ui);
         });
     }
 

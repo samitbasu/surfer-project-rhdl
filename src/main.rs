@@ -452,6 +452,7 @@ pub struct State {
     show_keys: bool,
     show_gestures: bool,
     show_quick_start: bool,
+    show_license: bool,
     /// Hide the wave source. For now, this is only used in snapshot tests to avoid problems
     /// with absolute path diffs
     show_wave_source: bool,
@@ -497,6 +498,7 @@ impl State {
             show_keys: false,
             show_gestures: false,
             show_performance: false,
+            show_license: false,
             show_logs: false,
             show_cursor_window: false,
             wanted_timeunit: TimeUnit::None,
@@ -1236,6 +1238,7 @@ impl State {
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetGestureHelpVisible(s) => self.show_gestures = s,
             Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
+            Message::SetLicenseVisible(s) => self.show_license = s,
             Message::SetQuickStartVisible(s) => self.show_quick_start = s,
             Message::SetRenameItemVisible(_) => self.rename_target = None,
             Message::SetPerformanceVisible(s) => {
