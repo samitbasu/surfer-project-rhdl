@@ -161,6 +161,7 @@ linux_build:
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
+        - git fetch --tags
         - cargo build --release
         - cp target/release/surfer surfer
         - zip surfer_linux.zip surfer
@@ -185,6 +186,7 @@ windows_build:
     script:
         - apt-get update -y
         - apt-get install -y mingw-w64 zip
+        - git fetch --tags
         - rustup target add x86_64-pc-windows-gnu
         - cargo build --target x86_64-pc-windows-gnu --release
         - cp target/x86_64-pc-windows-gnu/release/surfer.exe surfer.exe
@@ -214,6 +216,7 @@ pages_build:
             - $CARGO_HOME
     before_script:
     script:
+        - git fetch --tags
         - rustup target add wasm32-unknown-unknown
         - wget -qO- https://github.com/trunk-rs/trunk/releases/download/v0.18.7/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
         - ls ./trunk
