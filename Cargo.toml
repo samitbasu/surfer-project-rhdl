@@ -1,9 +1,10 @@
 [package]
 name = "surfer"
-version = "0.1.0"
+version = "0.2.0-dev"
 edition = "2021"
 license = "EUPL-1.2"
 categories = ["development-tools::debugging", "science"]
+build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -91,4 +92,4 @@ opt-level = 3
 debug = false
 
 [build-dependencies]
-vergen = { version = "8.3.1", features = ["build", "git", "gitcl"] }
+vergen = { version = "8.3.1", features = ["build", "git", "git2"] }
