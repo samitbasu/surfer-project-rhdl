@@ -156,7 +156,7 @@ pub struct SurferTheme {
     pub border_color: Color32,
     /// Color used for text across the markers
     #[serde(deserialize_with = "deserialize_hex_color")]
-    pub marker_text_color: Color32,
+    pub alt_text_color: Color32,
     /// Colors used for the background and text of the wave view
     pub canvas_colors: ThemeColorTriple,
     /// Colors used for most UI elements not on the variable canvas

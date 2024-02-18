@@ -35,7 +35,7 @@ density = 1
 
 [theme]
 foreground = "d4d4d4"
-marker_text_color = "2b2b2b" # negated foreground
+alt_text_color = "2b2b2b" # negated foreground
 border_color = "282b2d"
 selected_elements_colors = { background = "444444", foreground = "d4d4d4" }
 canvas_colors = { background = "0b151d", alt_background = "1b252d", foreground = "d4d4d4" }
