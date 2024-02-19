@@ -62,8 +62,13 @@ impl State {
                         }
                     }
                     (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                    (Key::Escape | Key::G, true, true, false) => {
+                    (Key::Escape, true, true, false) => {
                         msgs.push(Message::ShowCommandPrompt(false))
+                    }
+                    (Key::G, true, true, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::ShowCommandPrompt(false))
+                        }
                     }
                     (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
                     (Key::Escape, true, _, true) => msgs.push(Message::SetFilterFocused(false)),

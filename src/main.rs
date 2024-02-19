@@ -166,11 +166,6 @@ impl StartupParams {
             startup_commands,
         }
     }
-
-    pub fn with_startup_commands(mut self, startup_commands: Vec<String>) -> Self {
-        self.startup_commands = startup_commands;
-        self
-    }
 }
 
 fn setup_logging(platform_logger: Dispatch) -> Result<()> {
