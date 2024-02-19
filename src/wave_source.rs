@@ -189,20 +189,28 @@ impl State {
     pub fn load_vcd_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
         info!("Got a dropped file");
 
-        let filename = file.path.and_then(|p| Utf8PathBuf::try_from(p).ok());
-        let bytes = file
-            .bytes
-            .ok_or_else(|| anyhow!("Dropped a file with no bytes"))?;
+        let path = file.path.and_then(|x| Utf8PathBuf::try_from(x).ok());
 
-        let total_bytes = bytes.len();
-
-        self.load_vcd_from_bytes(
-            WaveSource::DragAndDrop(filename),
-            bytes.to_vec(),
-            Some(total_bytes as u64),
-            LoadOptions::clean(),
-        );
-        Ok(())
+        if let Some(bytes) = file.bytes {
+            if bytes.len() == 0 {
+                Err(anyhow!("Dropped an empty file"))
+            } else {
+                let total_bytes = bytes.len();
+                self.load_vcd_from_bytes(
+                    WaveSource::DragAndDrop(path),
+                    bytes.to_vec(),
+                    Some(total_bytes as u64),
+                    LoadOptions::clean(),
+                );
+                Ok(())
+            }
+        } else if let Some(path) = path {
+            self.load_wave_from_file(path, LoadOptions::clean())
+        } else {
+            Err(anyhow!(
+                "Unknown how to load dropped file w/o path or bytes"
+            ))
+        }
     }
 
     pub fn load_vcd_from_url(&mut self, url: String, load_options: LoadOptions) {
