@@ -4993,7 +4993,7 @@ dependencies = [
 [[package]]
 name = "tracing-tree"
 version = "0.2.0"
-source = "git+https://github.com/jonathanmorley/tracing-tree?rev=8b97ec6e50e3f755644d1a0aaf4c45a2112607b2#8b97ec6e50e3f755644d1a0aaf4c45a2112607b2"
+source = "git+https://github.com/jonathanmorley/tracing-tree#c577326deec991832cbe4adee9254f073d9432b3"
 dependencies = [
  "ansi_term",
  "atty",

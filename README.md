@@ -54,8 +54,8 @@ To compile a version in your local repo without installing it anywhere:
 
 ```bash
 git clone git@gitlab.com:surfer-project/surfer.git
-git submodule update --init --recursive
 cd surfer
+git submodule update --init --recursive
 cargo build
 ```
 
