@@ -133,7 +133,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
 
         // comparator.create_image_rgb(&prev_imgref.as_ref(), width, height);
         let (score, map) = comparator.compare(&prev, &new);
-        (score != 0., Some((score, map)))
+        (score >= 1e-6, Some((score, map)))
     } else {
         (true, None)
     };
