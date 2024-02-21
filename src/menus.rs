@@ -73,6 +73,8 @@ impl State {
             ButtonBuilder::new(text, message)
         }
 
+        let waves_loaded = self.waves.is_some();
+
         ui.menu_button("File", |ui| {
             b("Open file...", Message::OpenFileDialog(OpenMode::Open)).add_closing_menu(msgs, ui);
             b("Switch file...", Message::OpenFileDialog(OpenMode::Switch))
@@ -89,38 +91,44 @@ impl State {
         });
         ui.menu_button("View", |ui| {
             ui.style_mut().wrap = Some(false);
-            b(
-                "Zoom in",
-                Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
-                    delta: 0.5,
-                },
-            )
-            .shortcut("+")
-            .add_leave_menu(msgs, ui);
+            if waves_loaded {
+                b(
+                    "Zoom in",
+                    Message::CanvasZoom {
+                        mouse_ptr_timestamp: None,
+                        delta: 0.5,
+                        viewport_idx: 0,
+                    },
+                )
+                .shortcut("+")
+                .add_leave_menu(msgs, ui);
 
-            b(
-                "Zoom out",
-                Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
-                    delta: 2.0,
-                },
-            )
-            .shortcut("-")
-            .add_leave_menu(msgs, ui);
+                b(
+                    "Zoom out",
+                    Message::CanvasZoom {
+                        mouse_ptr_timestamp: None,
+                        delta: 2.0,
+                        viewport_idx: 0,
+                    },
+                )
+                .shortcut("-")
+                .add_leave_menu(msgs, ui);
 
-            b("Zoom to fit", Message::ZoomToFit).add_closing_menu(msgs, ui);
+                b("Zoom to fit", Message::ZoomToFit { viewport_idx: 0 }).add_closing_menu(msgs, ui);
 
-            ui.separator();
+                ui.separator();
 
-            b("Go to start", Message::GoToStart)
-                .shortcut("s")
-                .add_closing_menu(msgs, ui);
-            b("Go to end", Message::GoToEnd)
-                .shortcut("e")
-                .add_closing_menu(msgs, ui);
-
-            ui.separator();
+                b("Go to start", Message::GoToStart { viewport_idx: 0 })
+                    .shortcut("s")
+                    .add_closing_menu(msgs, ui);
+                b("Go to end", Message::GoToEnd { viewport_idx: 0 })
+                    .shortcut("e")
+                    .add_closing_menu(msgs, ui);
+                ui.separator();
+                b("Add viewport", Message::AddViewport).add_closing_menu(msgs, ui);
+                b("Remove viewport", Message::RemoveViewport).add_closing_menu(msgs, ui);
+                ui.separator();
+            }
 
             b("Toggle side panel", Message::ToggleSidePanel)
                 .shortcut("b")
@@ -129,7 +137,7 @@ impl State {
                 .shortcut("m")
                 .add_closing_menu(msgs, ui);
             b("Toggle toolbar", Message::ToggleToolbar)
-                .shortcut("t")
+                .shortcut("m")
                 .add_closing_menu(msgs, ui);
             b("Toggle overview", Message::ToggleOverview).add_closing_menu(msgs, ui);
             b("Toggle statusbar", Message::ToggleStatusbar).add_closing_menu(msgs, ui);
@@ -138,6 +146,7 @@ impl State {
                 .shortcut("F11")
                 .add_closing_menu(msgs, ui);
         });
+
         ui.menu_button("Settings", |ui| {
             ui.menu_button("Clock highlighting", |ui| {
                 clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
