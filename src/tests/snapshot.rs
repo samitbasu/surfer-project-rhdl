@@ -584,7 +584,7 @@ snapshot_ui_with_file_and_msgs! {goto_markers, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::GoToMarkerPosition(2)
+    Message::GoToMarkerPosition(2, 0)
 ]}
 
 snapshot_ui_with_file_and_msgs! {
@@ -643,32 +643,32 @@ snapshot_ui_with_file_and_msgs! {command_prompt, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::GoToTime(Some(BigInt::from(-50))),
+    Message::GoToTime(Some(BigInt::from(-50)), 0),
     Message::CursorSet(BigInt::from(-100)),
 ]}
 
 snapshot_ui_with_file_and_msgs! {goto_start, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2},
-    Message::GoToStart
+    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2, viewport_idx: 0},
+    Message::GoToStart{viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {goto_end, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2},
-    Message::GoToEnd
+    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2, viewport_idx: 0},
+    Message::GoToEnd{viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2},
-    Message::GoToEnd,
-    Message::ZoomToFit
+    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2, viewport_idx: 0},
+    Message::GoToEnd{viewport_idx: 0},
+    Message::ZoomToFit{viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::ZoomToRange { start: 100.0, end: 250.0 }
+    Message::ZoomToRange { start: 100.0, end: 250.0 , viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
@@ -701,7 +701,7 @@ snapshot_ui_with_file_and_msgs! {remove_item_after_focus, "examples/counter.vcd"
 
 snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::CanvasScroll { delta: Vec2 { x: 0., y: 100.} }
+    Message::CanvasScroll { delta: Vec2 { x: 0., y: 100.}, viewport_idx: 0 }
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focused_item_up, "examples/counter.vcd", [
@@ -1080,9 +1080,17 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
 });
 
 snapshot_ui_with_file_and_msgs! {alignment_right_works, "examples/counter.vcd", [
-    Message::ToggleOverview,
-    Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::SetNameAlignRight(true)
+Message::ToggleOverview,
+Message::AddScope(ScopeRef::from_strs(&["tb"])),
+Message::SetNameAlignRight(true)
+]}
+
+snapshot_ui_with_file_and_msgs! {add_viewport_works, "examples/counter.vcd", [
+    Message::AddViewport, Message::AddViewport, Message::SetActiveScope(ScopeRef::from_strs(&["tb"])), Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")), Message::AddTimeLine(None),
+]}
+
+snapshot_ui_with_file_and_msgs! {remove_viewport_works, "examples/counter.vcd", [
+    Message::AddViewport, Message::AddViewport, Message::SetActiveScope(ScopeRef::from_strs(&["tb"])), Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")), Message::AddTimeLine(None), Message::RemoveViewport
 ]}
 
 snapshot_ui_with_file_and_msgs! {hierarchy_tree, "examples/counter.vcd", [

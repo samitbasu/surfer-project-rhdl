@@ -53,14 +53,17 @@ pub enum Message {
     ResetVariableFormat(FieldRef),
     CanvasScroll {
         delta: Vec2,
+        viewport_idx: usize,
     },
     CanvasZoom {
         mouse_ptr_timestamp: Option<f64>,
         delta: f32,
+        viewport_idx: usize,
     },
     ZoomToRange {
         start: f64,
         end: f64,
+        viewport_idx: usize,
     },
     CursorSet(BigInt),
     RightCursorSet(Option<BigInt>),
@@ -84,10 +87,16 @@ pub enum Message {
     ReloadConfig,
     ReloadWaveform(bool),
     RemovePlaceholders,
-    ZoomToFit,
-    GoToStart,
-    GoToEnd,
-    GoToTime(Option<BigInt>),
+    ZoomToFit {
+        viewport_idx: usize,
+    },
+    GoToStart {
+        viewport_idx: usize,
+    },
+    GoToEnd {
+        viewport_idx: usize,
+    },
+    GoToTime(Option<BigInt>, usize),
     ToggleMenu,
     ToggleToolbar,
     ToggleOverview,
@@ -134,11 +143,12 @@ pub enum Message {
         time: BigInt,
     },
     MoveMarkerToCursor(u8),
-    GoToMarkerPosition(u8),
+    GoToMarkerPosition(u8, usize),
     SaveState(PathBuf),
-
     /// Run more than one message in sequence
     Batch(Vec<Message>),
+    AddViewport,
+    RemoveViewport,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
