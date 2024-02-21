@@ -2,7 +2,7 @@ use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
 use eframe::egui::{self, style::Margin, Align, Layout, Painter, RichText};
-use eframe::egui::{FontSelection, ScrollArea, Sense, Style, TextStyle, WidgetText};
+use eframe::egui::{FontSelection, Frame, ScrollArea, Sense, Style, TextStyle, WidgetText};
 use eframe::emath::RectTransform;
 use eframe::epaint::text::LayoutJob;
 use eframe::epaint::{Color32, Pos2, Rect, Rounding, Vec2};
@@ -327,6 +327,24 @@ impl State {
                         )
                     });
 
+                let number_of_viewports = self.waves.as_ref().unwrap().viewports.len();
+                if number_of_viewports > 1 {
+                    // Draw additional viewports
+                    let max_width = ctx.available_rect().width();
+                    let default_width = max_width / (number_of_viewports as f32);
+                    for viewport_idx in 1..number_of_viewports {
+                        egui::SidePanel::right(format! {"view port {viewport_idx}"})
+                            .default_width(default_width)
+                            .width_range(30.0..=max_width)
+                            .frame(Frame {
+                                inner_margin: Margin::same(0.0),
+                                outer_margin: Margin::same(0.0),
+                                ..Default::default()
+                            })
+                            .show(ctx, |ui| self.draw_items(&mut msgs, ui, viewport_idx));
+                    }
+                }
+
                 egui::CentralPanel::default()
                     .frame(egui::Frame {
                         inner_margin: Margin::same(0.0),
@@ -334,7 +352,7 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_items(&mut msgs, ui);
+                        self.draw_items(&mut msgs, ui, 0);
                     });
             }
         };
