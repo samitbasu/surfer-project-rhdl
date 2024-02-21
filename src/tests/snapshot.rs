@@ -1094,3 +1094,7 @@ snapshot_ui_with_file_and_msgs! {hierarchy_separate, "examples/counter.vcd", [
     Message::ToggleSidePanel,
     Message::SetHierarchyStyle(HierarchyStyle::Separate),
 ]}
+
+snapshot_ui_with_file_and_msgs! {aliasing_works_on_random_3_16, "examples/random_3_16_true.vcd", [
+    Message::AddVariable(VariableRef::from_hierarchy_string("TOP.LEB128Compressor_3_16.adaptedCounterFlagBits")),
+]}
