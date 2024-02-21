@@ -607,11 +607,11 @@ impl State {
         if let (Some(prev_result), Some(new_result)) = (&prev_region.inner, &new_region.inner) {
             let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
 
-            let (mut old_height, old_color, old_bg) =
+            let (old_height, old_color, old_bg) =
                 prev_result
                     .value
                     .bool_drawing_spec(color, &self.config.theme, prev_result.kind);
-            let (mut new_height, _, _) =
+            let (new_height, _, _) =
                 new_result
                     .value
                     .bool_drawing_spec(color, &self.config.theme, new_result.kind);
@@ -622,8 +622,10 @@ impl State {
             };
 
             if force_anti_alias {
-                old_height = 0.;
-                new_height = 1.;
+                ctx.painter.add(PathShape::line(
+                    vec![trace_coords(*new_x, 0.0), trace_coords(*new_x, 1.0)],
+                    stroke,
+                ));
             }
 
             ctx.painter.add(PathShape::line(
