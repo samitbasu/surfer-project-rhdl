@@ -332,6 +332,16 @@ impl State {
             msgs.push(Message::InvalidateCount);
             ui.close_menu();
         }
+        if waves.cursor.is_some() {
+            if path.is_some() {
+                ui.separator();
+                if ui.button("Copy variable value").clicked() {
+                    ui.close_menu();
+                    msgs.push(Message::VariableValueToClipbord(Some(vidx)));
+                }
+            }
+        }
+
         ui.separator();
         ui.menu_button("Insert", |ui| {
             if ui.button("Divider").clicked() {

@@ -71,7 +71,16 @@ impl State {
                 wave_loaded,
             );
             ui.separator();
+            add_toolbar_button(
+                ui,
+                msgs,
+                icons::FILE_COPY_FILL,
+                "Copy variable value",
+                Message::VariableValueToClipbord(None),
+                item_selected && cursor_set,
+            );
 
+            ui.separator();
             // Zoom
             add_toolbar_button(
                 ui,

@@ -264,14 +264,13 @@ impl State {
         &self,
         waves: &WaveData,
         ctx: &mut DrawingContext,
-        item_offsets: &[ItemDrawingInfo],
         view_width: f32,
         gap: f32,
         viewport: &Viewport,
     ) {
         let text_size = ctx.cfg.text_size;
 
-        for drawing_info in item_offsets.iter().filter_map(|item| match item {
+        for drawing_info in waves.drawing_infos.iter().filter_map(|item| match item {
             ItemDrawingInfo::Marker(marker) => Some(marker),
             _ => None,
         }) {

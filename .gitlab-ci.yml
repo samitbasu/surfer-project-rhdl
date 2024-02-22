@@ -225,7 +225,7 @@ pages_build:
           # generate relative urls which we want for external pipelines to be able
           # to download our artefacts and put them wherever on their webserver. To fix this,
           # we'll build with a dummy public URL, then replace it with ./
-        - ./trunk build --release --public-url /dist
+        - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build --release --public-url /dist
         - cp -r dist pages_build
         - cp examples/*.vcd pages_build/
           # We have to do this from the source file instead of public/ because sed
