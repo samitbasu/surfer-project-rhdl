@@ -65,20 +65,23 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
     let displayed_items = match &state.waves {
         Some(v) => v
-            .displayed_items
+            .displayed_items_order
             .iter()
             .enumerate()
-            .map(|(idx, item)| match item {
-                DisplayedItem::Variable(var) => format!(
-                    "{}_{}",
-                    uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                    var.variable_ref.full_path_string()
-                ),
-                _ => format!(
-                    "{}_{}",
-                    uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                    item.name()
-                ),
+            .map(|(idx, item_id)| {
+                let item = &v.displayed_items[item_id];
+                match item {
+                    DisplayedItem::Variable(var) => format!(
+                        "{}_{}",
+                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                        var.variable_ref.full_path_string()
+                    ),
+                    _ => format!(
+                        "{}_{}",
+                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                        item.name()
+                    ),
+                }
             })
             .collect_vec(),
         None => vec![],
@@ -122,10 +125,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     let markers = if let Some(waves) = &state.waves {
         waves
-            .displayed_items
+            .displayed_items_order
             .iter()
+            .map(|id| waves.displayed_items.get(id))
             .filter_map(|item| match item {
-                DisplayedItem::Marker(marker) => Some((item.name(), marker.idx)),
+                Some(DisplayedItem::Marker(marker)) => Some((item.unwrap().name(), marker.idx)),
                 _ => None,
             })
             .collect::<BTreeMap<_, _>>()

@@ -4,3 +4,7 @@
 
 snapshots/*.diff.png
 *.profraw
+
+*~
+\#*\#
+.\#*

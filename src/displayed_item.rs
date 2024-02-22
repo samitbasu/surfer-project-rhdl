@@ -1,6 +1,7 @@
 use eframe::egui::{Context, FontSelection, Key, RichText, Style, WidgetText, Window};
 use eframe::emath::Align;
 use eframe::epaint::{text::LayoutJob, Color32};
+use rand::random;
 use serde::{Deserialize, Serialize};
 
 use crate::wave_container::WaveContainer;
@@ -10,6 +11,16 @@ use crate::{
 };
 
 const DEFAULT_DIVIDER_NAME: &str = "";
+
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Copy)]
+pub struct DisplayedItemRef(usize);
+
+impl DisplayedItemRef {
+    pub fn new() -> Self {
+        let id = random::<usize>();
+        DisplayedItemRef(id)
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum DisplayedItem {
