@@ -34,6 +34,9 @@ impl State {
 
     fn draw_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         let wave_loaded = self.waves.is_some();
+        let item_selected = wave_loaded && self.waves.as_ref().unwrap().focused_item.is_some();
+        let cursor_set = wave_loaded && self.waves.as_ref().unwrap().cursor.is_some();
+        let multiple_viewports = wave_loaded && (self.waves.as_ref().unwrap().viewports.len() > 1);
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
             if !self.show_menu() {
                 // Menu
@@ -46,7 +49,7 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                icons::FILE_FILL,
+                icons::FOLDER_OPEN_FILL,
                 "Open file...",
                 Message::OpenFileDialog(OpenMode::Open),
                 true,
@@ -54,7 +57,7 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                icons::FILE_DOWNLOAD_FILL,
+                icons::DOWNLOAD_CLOUD_FILL,
                 "Open URL...",
                 Message::SetUrlEntryVisible(true),
                 true,
@@ -179,6 +182,31 @@ impl State {
             );
             ui.separator();
 
+            // Next transition
+            add_toolbar_button(
+                ui,
+                msgs,
+                icons::CONTRACT_LEFT_FILL,
+                "Set cursor on previous transition of focused signal",
+                Message::MoveCursorToTransition {
+                    next: false,
+                    variable: None,
+                },
+                item_selected && cursor_set,
+            );
+            add_toolbar_button(
+                ui,
+                msgs,
+                icons::CONTRACT_RIGHT_FILL,
+                "Set cursor on next transition of focused signal",
+                Message::MoveCursorToTransition {
+                    next: true,
+                    variable: None,
+                },
+                item_selected && cursor_set,
+            );
+            ui.separator();
+
             // Add items
             add_toolbar_button(
                 ui,
@@ -195,6 +223,25 @@ impl State {
                 "Add timeline",
                 Message::AddTimeLine(None),
                 wave_loaded,
+            );
+            ui.separator();
+
+            // Add items
+            add_toolbar_button(
+                ui,
+                msgs,
+                icons::ADD_BOX_FILL,
+                "Add viewport",
+                Message::AddViewport,
+                wave_loaded,
+            );
+            add_toolbar_button(
+                ui,
+                msgs,
+                icons::CHECKBOX_INDETERMINATE_FILL,
+                "Remove viewport",
+                Message::RemoveViewport,
+                wave_loaded && multiple_viewports,
             );
         });
     }
