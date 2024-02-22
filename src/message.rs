@@ -149,6 +149,7 @@ pub enum Message {
         next: bool,
         variable: Option<usize>,
     },
+    VariableValueToClipbord(Option<usize>),
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),

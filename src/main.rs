@@ -953,7 +953,7 @@ impl State {
                         focused_item: None,
                         default_variable_name_type: self.config.default_variable_name_type,
                         scroll_offset: 0.,
-                        item_offsets: vec![],
+                        drawing_infos: vec![],
                         top_item_draw_offset: 0.,
                         total_height: 0.,
                     }
@@ -1225,6 +1225,28 @@ impl State {
             Message::Batch(messages) => {
                 for message in messages {
                     self.update(message)
+                }
+            }
+            Message::VariableValueToClipbord(vidx) => {
+                if let Some(waves) = &self.waves {
+                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                        if let Some(DisplayedItem::Variable(displayed_variable)) =
+                            waves.displayed_items.get(vidx)
+                        {
+                            let path =
+                                FieldRef::without_fields(displayed_variable.variable_ref.clone());
+                            let variable_value = self.get_variable_value(
+                                waves,
+                                &path,
+                                &waves.cursor.as_ref().and_then(|u| u.to_biguint()),
+                            );
+                            if let Some(variable_value) = variable_value {
+                                if let Some(ctx) = &self.sys.context {
+                                    ctx.output_mut(|o| o.copied_text = variable_value);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
