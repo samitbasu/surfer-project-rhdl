@@ -707,7 +707,7 @@ impl State {
             }
         });
 
-        self.waves.as_mut().unwrap().item_offsets = item_offsets;
+        self.waves.as_mut().unwrap().drawing_infos = item_offsets;
     }
 
     fn get_name_alignment(&self) -> Align {
@@ -727,7 +727,7 @@ impl State {
         vidx: usize,
         name: WidgetText,
         field: FieldRef,
-        item_offsets: &mut Vec<ItemDrawingInfo>,
+        drawing_infos: &mut Vec<ItemDrawingInfo>,
         info: &VariableInfo,
         ui: &mut egui::Ui,
     ) {
@@ -787,14 +787,14 @@ impl State {
                             vidx,
                             WidgetText::RichText(RichText::new(name)),
                             new_path,
-                            item_offsets,
+                            drawing_infos,
                             info,
                             ui,
                         );
                     }
                 });
 
-                item_offsets.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
+                drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     field_ref: field.clone(),
                     item_list_idx: vidx,
                     top: response.0.rect.top(),
@@ -807,7 +807,7 @@ impl State {
             | VariableInfo::String
             | VariableInfo::Real => {
                 let label = draw_label(ui);
-                item_offsets.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
+                drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     field_ref: field.clone(),
                     item_list_idx: vidx,
                     top: label.rect.top(),
@@ -822,7 +822,7 @@ impl State {
         msgs: &mut Vec<Message>,
         vidx: usize,
         displayed_item: &DisplayedItem,
-        item_offsets: &mut Vec<ItemDrawingInfo>,
+        drawing_infos: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
         draw_alpha: bool,
     ) {
@@ -852,14 +852,14 @@ impl State {
         let label = draw_label(ui);
         match displayed_item {
             DisplayedItem::Divider(_) => {
-                item_offsets.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
+                drawing_infos.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
                     item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                 }))
             }
             DisplayedItem::Marker(cursor) => {
-                item_offsets.push(ItemDrawingInfo::Marker(MarkerDrawingInfo {
+                drawing_infos.push(ItemDrawingInfo::Marker(MarkerDrawingInfo {
                     item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
@@ -867,7 +867,7 @@ impl State {
                 }))
             }
             DisplayedItem::TimeLine(_) => {
-                item_offsets.push(ItemDrawingInfo::TimeLine(TimeLineDrawingInfo {
+                drawing_infos.push(ItemDrawingInfo::TimeLine(TimeLineDrawingInfo {
                     item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
@@ -942,14 +942,14 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = self.get_item_gap(&waves.item_offsets, &ctx);
+        let gap = self.get_item_gap(&waves.drawing_infos, &ctx);
         let yzero = to_screen.transform_pos(Pos2::ZERO).y;
         let ucursor = waves.cursor.as_ref().and_then(|u| u.to_biguint());
         ui.allocate_ui_at_rect(response.rect, |ui| {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
             for (vidx, drawing_info) in waves
-                .item_offsets
+                .drawing_infos
                 .iter()
                 .sorted_by_key(|o| o.top() as i32)
                 .enumerate()
@@ -972,51 +972,21 @@ impl State {
                             continue;
                         }
 
-                        let translator = waves
-                            .variable_translator(&drawing_info.field_ref, &self.sys.translators);
-
-                        let variable = &drawing_info.field_ref.root;
-                        let meta = waves.inner.variable_meta(variable);
-                        let translation_result = waves
-                            .inner
-                            .query_variable(variable, ucursor.as_ref().unwrap())
-                            .ok()
-                            .and_then(|q| q.current)
-                            .map(|(_time, value)| {
-                                meta.and_then(|meta| translator.translate(&meta, &value))
+                        let v = self.get_variable_value(waves, &drawing_info.field_ref, &ucursor);
+                        if let Some(v) = v {
+                            ui.label(v).context_menu(|ui| {
+                                self.item_context_menu(
+                                    Some(&FieldRef::without_fields(
+                                        drawing_info.field_ref.root.clone(),
+                                    )),
+                                    msgs,
+                                    ui,
+                                    vidx,
+                                );
                             });
-
-                        if let Some(Ok(s)) = translation_result {
-                            let subfields = s
-                                .flatten(
-                                    FieldRef::without_fields(drawing_info.field_ref.root.clone()),
-                                    &waves.variable_format,
-                                    &self.sys.translators,
-                                )
-                                .as_fields();
-
-                            let subfield = subfields
-                                .iter()
-                                .find(|res| res.names == drawing_info.field_ref.field);
-
-                            if let Some(SubFieldFlatTranslationResult {
-                                names: _,
-                                value: Some(TranslatedValue { value: v, kind: _ }),
-                            }) = subfield
-                            {
-                                ui.label(v).context_menu(|ui| {
-                                    self.item_context_menu(
-                                        Some(&FieldRef::without_fields(variable.clone())),
-                                        msgs,
-                                        ui,
-                                        vidx,
-                                    );
-                                });
-                            } else {
-                                ui.label("-");
-                            }
                         }
                     }
+
                     ItemDrawingInfo::Divider(_) => {
                         ui.label("");
                     }
@@ -1044,15 +1014,56 @@ impl State {
         });
     }
 
-    pub fn get_item_gap(
+    pub fn get_variable_value(
         &self,
-        item_offsets: &Vec<ItemDrawingInfo>,
-        ctx: &DrawingContext<'_>,
-    ) -> f32 {
-        if item_offsets.len() >= 2.max(self.config.theme.alt_frequency) {
+        waves: &WaveData,
+        field_ref: &FieldRef,
+        ucursor: &Option<num::BigUint>,
+    ) -> Option<String> {
+        if let Some(ucursor) = ucursor {
+            let variable = &field_ref.root;
+            let translator = waves.variable_translator(field_ref, &self.sys.translators);
+            let meta = waves.inner.variable_meta(variable);
+            let translation_result = waves
+                .inner
+                .query_variable(variable, ucursor)
+                .ok()
+                .and_then(|q| q.current)
+                .map(|(_time, value)| meta.and_then(|meta| translator.translate(&meta, &value)));
+
+            if let Some(Ok(s)) = translation_result {
+                let subfields = s
+                    .flatten(
+                        FieldRef::without_fields(field_ref.root.clone()),
+                        &waves.variable_format,
+                        &self.sys.translators,
+                    )
+                    .as_fields();
+
+                let subfield = subfields.iter().find(|res| res.names == field_ref.field);
+
+                if let Some(SubFieldFlatTranslationResult {
+                    names: _,
+                    value: Some(TranslatedValue { value: v, kind: _ }),
+                }) = subfield
+                {
+                    Some(v.clone())
+                } else {
+                    Some("-".to_string())
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn get_item_gap(&self, drawing_infos: &[ItemDrawingInfo], ctx: &DrawingContext<'_>) -> f32 {
+        if drawing_infos.len() >= 2.max(self.config.theme.alt_frequency) {
             // Assume that first variable has standard height (for now)
-            (item_offsets.get(1).unwrap().top()
-                - item_offsets.get(0).unwrap().top()
+            (drawing_infos.get(1).unwrap().top()
+                - drawing_infos.first().unwrap().top()
                 - ctx.cfg.line_height)
                 / 2.0
         } else {

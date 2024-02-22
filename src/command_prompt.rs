@@ -180,6 +180,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "viewport_remove",
             "transition_next",
             "transition_previous",
+            "copy_value",
             "exit",
         ]
     } else {
@@ -382,6 +383,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
                                 next: false,
                                 variable: Some(idx),
                             })
+                        })
+                    }),
+                ),
+                "copy_value" => single_word(
+                    displayed_items.clone(),
+                    Box::new(|word| {
+                        // split off the idx which is always followed by an underscore
+                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                        alpha_idx_to_uint_idx(alpha_idx).map(|idx| {
+                            Command::Terminal(Message::VariableValueToClipbord(Some(idx)))
                         })
                     }),
                 ),
