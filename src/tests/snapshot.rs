@@ -1106,3 +1106,45 @@ snapshot_ui_with_file_and_msgs! {hierarchy_separate, "examples/counter.vcd", [
 snapshot_ui_with_file_and_msgs! {aliasing_works_on_random_3_16, "examples/random_3_16_true.vcd", [
     Message::AddVariable(VariableRef::from_hierarchy_string("TOP.LEB128Compressor_3_16.adaptedCounterFlagBits")),
 ]}
+
+snapshot_ui_with_file_and_msgs! {next_transition, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(500)),
+    Message::FocusItem(0),
+    Message::MoveCursorToTransition { next: true, variable: None }
+]}
+
+snapshot_ui_with_file_and_msgs! {next_transition_numbered, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(500)),
+    Message::MoveCursorToTransition { next: true, variable: Some(0) }
+]}
+
+snapshot_ui_with_file_and_msgs! {next_transition_do_not_get_stuck, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(500)),
+    Message::FocusItem(0),
+    Message::MoveCursorToTransition { next: true, variable: None },
+    Message::MoveCursorToTransition { next: true, variable: None }
+]}
+
+snapshot_ui_with_file_and_msgs! {previous_transition, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(500)),
+    Message::FocusItem(0),
+    Message::MoveCursorToTransition { next: false, variable: None }
+]}
+
+snapshot_ui_with_file_and_msgs! {previous_transition_numbered, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(500)),
+    Message::MoveCursorToTransition { next: false, variable: Some(0) }
+]}
+
+snapshot_ui_with_file_and_msgs! {previous_transition_do_not_get_stuck, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::CursorSet(BigInt::from(500)),
+    Message::FocusItem(0),
+    Message::MoveCursorToTransition { next: false, variable: None },
+    Message::MoveCursorToTransition { next: false, variable: None }
+]}
