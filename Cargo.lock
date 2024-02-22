@@ -4573,6 +4573,7 @@ dependencies = [
  "wasm_thread",
  "web-sys",
  "wellen",
+ "winapi",
 ]
 
 [[package]]
