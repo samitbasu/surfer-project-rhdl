@@ -121,8 +121,8 @@ impl State {
                         _ => {}
                     }
                 }
+                msgs.push(Message::SetDragStart(None))
             });
-            msgs.push(Message::SetDragStart(None))
         }
     }
 
