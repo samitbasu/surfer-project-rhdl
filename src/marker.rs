@@ -4,6 +4,7 @@ use eframe::epaint::{FontId, Rounding, Stroke};
 use itertools::Itertools;
 use num::BigInt;
 
+use crate::displayed_item::DisplayedItemRef;
 use crate::State;
 use crate::{
     config::SurferTheme,
@@ -18,6 +19,13 @@ use crate::{
 pub const DEFAULT_MARKER_NAME: &str = "Marker";
 
 impl WaveData {
+    fn add_displayed_item(&mut self, item: DisplayedItem) -> DisplayedItemRef {
+        let id = DisplayedItemRef::new();
+        self.displayed_items_order.push(id.clone());
+        self.displayed_items.insert(id.clone(), item);
+        id
+    }
+
     pub fn draw_cursor(
         &self,
         theme: &SurferTheme,
@@ -51,10 +59,11 @@ impl WaveData {
     ) {
         for (idx, marker) in &self.markers {
             let color = self
-                .displayed_items
+                .displayed_items_order
                 .iter()
+                .map(|id| self.displayed_items.get(id))
                 .find_map(|item| match item {
-                    DisplayedItem::Marker(tmp_marker) => {
+                    Some(DisplayedItem::Marker(tmp_marker)) => {
                         if *idx == tmp_marker.idx {
                             Some(tmp_marker)
                         } else {
@@ -85,10 +94,11 @@ impl WaveData {
     /// it will be created
     pub fn set_marker_position(&mut self, idx: u8, location: &BigInt) {
         if self
-            .displayed_items
+            .displayed_items_order
             .iter()
+            .map(|id| self.displayed_items.get(id))
             .find_map(|item| match item {
-                DisplayedItem::Marker(maker) => {
+                Some(DisplayedItem::Marker(maker)) => {
                     if maker.idx == idx {
                         Some(maker)
                     } else {
@@ -99,13 +109,13 @@ impl WaveData {
             })
             .is_none()
         {
-            let maker = DisplayedMarker {
+            let marker = DisplayedMarker {
                 color: None,
                 background_color: None,
                 name: None,
                 idx,
             };
-            self.displayed_items.push(DisplayedItem::Marker(maker));
+            self.add_displayed_item(DisplayedItem::Marker(marker));
         }
         self.markers.insert(idx, location.clone());
     }
@@ -126,10 +136,15 @@ impl WaveData {
     ) {
         let text_size = ctx.cfg.text_size;
 
-        for displayed_item in self.displayed_items.iter().filter_map(|item| match item {
-            DisplayedItem::Marker(maker) => Some(maker),
-            _ => None,
-        }) {
+        for displayed_item in self
+            .displayed_items_order
+            .iter()
+            .map(|id| self.displayed_items.get(id))
+            .filter_map(|item| match item {
+                Some(DisplayedItem::Marker(maker)) => Some(maker),
+                _ => None,
+            })
+        {
             let background_color = displayed_item
                 .color
                 .as_ref()
@@ -179,11 +194,12 @@ impl State {
         }
 
         let mut numbered_markers = waves
-            .displayed_items
+            .displayed_items_order
             .iter()
+            .map(|id| waves.displayed_items.get(id))
             .filter_map(|displayed_item| match displayed_item {
-                DisplayedItem::Marker(marker) => {
-                    let text_color = self.get_item_text_color(displayed_item);
+                Some(DisplayedItem::Marker(marker)) => {
+                    let text_color = self.get_item_text_color(displayed_item.unwrap());
                     Some((
                         marker.idx,
                         waves.numbered_marker_time(marker.idx),
@@ -275,7 +291,11 @@ impl State {
             ItemDrawingInfo::Marker(marker) => Some(marker),
             _ => None,
         }) {
-            let Some(item) = waves.displayed_items.get(drawing_info.item_list_idx) else {
+            let Some(item) = waves
+                .displayed_items_order
+                .get(drawing_info.item_list_idx)
+                .and_then(|id| waves.displayed_items.get(id))
+            else {
                 return;
             };
 

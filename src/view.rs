@@ -616,100 +616,117 @@ impl State {
 
         let alignment = self.get_name_alignment();
         ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
-            for (vidx, displayed_item) in self
+            for (vidx, displayed_item_id) in self
                 .waves
                 .as_ref()
                 .unwrap()
-                .displayed_items
+                .displayed_items_order
                 .iter()
                 .enumerate()
             {
-                match displayed_item {
-                    DisplayedItem::Variable(displayed_variable) => {
-                        let var = displayed_variable;
-                        let info = &displayed_variable.info;
-                        let index = if self
-                            .show_variable_indices
-                            .unwrap_or_else(|| self.config.layout.show_variable_indices())
-                        {
-                            self.waves
-                                .as_ref()
-                                .unwrap()
-                                .inner
-                                .variable_meta(&var.variable_ref)
-                                .ok()
-                                .as_ref()
-                                .and_then(|meta| meta.index.clone())
-                                .map(|index| format!(" {index}"))
-                        } else {
-                            None
-                        };
-                        let style = Style::default();
-                        let mut layout_job = LayoutJob::default();
-                        self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::LEFT);
-                        displayed_item.add_to_layout_job(
-                            &self.config.theme.foreground,
-                            index,
-                            &style,
-                            &mut layout_job,
-                        );
+                self.waves
+                    .as_ref()
+                    .unwrap()
+                    .displayed_items
+                    .get(displayed_item_id)
+                    .map(|displayed_item| match displayed_item {
+                        DisplayedItem::Variable(displayed_variable) => {
+                            let var = displayed_variable;
+                            let info = &displayed_variable.info;
+                            let index = if self
+                                .show_variable_indices
+                                .unwrap_or_else(|| self.config.layout.show_variable_indices())
+                            {
+                                self.waves
+                                    .as_ref()
+                                    .unwrap()
+                                    .inner
+                                    .variable_meta(&var.variable_ref)
+                                    .ok()
+                                    .as_ref()
+                                    .and_then(|meta| meta.index.clone())
+                                    .map(|index| format!(" {index}"))
+                            } else {
+                                None
+                            };
+                            let style = Style::default();
+                            let mut layout_job = LayoutJob::default();
+                            self.add_alpha_id(
+                                draw_alpha,
+                                vidx,
+                                &style,
+                                &mut layout_job,
+                                Align::LEFT,
+                            );
+                            displayed_item.add_to_layout_job(
+                                &self.config.theme.foreground,
+                                index,
+                                &style,
+                                &mut layout_job,
+                            );
 
-                        self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
+                            self.add_alpha_id(
+                                draw_alpha,
+                                vidx,
+                                &style,
+                                &mut layout_job,
+                                Align::RIGHT,
+                            );
 
-                        self.draw_variable(
-                            msgs,
-                            vidx,
-                            WidgetText::LayoutJob(layout_job),
-                            FieldRef {
-                                root: var.variable_ref.clone(),
-                                field: vec![],
-                            },
-                            &mut item_offsets,
-                            info,
-                            ui,
-                        );
-                    }
-                    DisplayedItem::Divider(_) => {
-                        self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                            draw_alpha,
-                        );
-                    }
-                    DisplayedItem::Marker(_) => {
-                        self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                            draw_alpha,
-                        );
-                    }
-                    DisplayedItem::Placeholder(_) => {
-                        self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                            draw_alpha,
-                        );
-                    }
-                    DisplayedItem::TimeLine(_) => {
-                        self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                            draw_alpha,
-                        );
-                    }
-                }
+                            self.draw_variable(
+                                msgs,
+                                vidx,
+                                WidgetText::LayoutJob(layout_job),
+                                FieldRef {
+                                    root: var.variable_ref.clone(),
+                                    field: vec![],
+                                },
+                                &mut item_offsets,
+                                info,
+                                ui,
+                            );
+                        }
+                        DisplayedItem::Divider(_) => {
+                            self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            );
+                        }
+                        DisplayedItem::Marker(_) => {
+                            self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            );
+                        }
+                        DisplayedItem::Placeholder(_) => {
+                            self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            );
+                        }
+                        DisplayedItem::TimeLine(_) => {
+                            self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            );
+                        }
+                    });
             }
         });
 
@@ -1088,7 +1105,7 @@ impl State {
         // Get background color
         let background_color = *waves
             .displayed_items
-            .get(drawing_info.item_list_idx())
+            .get(&waves.displayed_items_order[drawing_info.item_list_idx()])
             .and_then(|variable| variable.background_color())
             .and_then(|color| self.config.theme.colors.get(&color))
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx));
