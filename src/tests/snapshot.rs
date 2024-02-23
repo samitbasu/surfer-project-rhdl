@@ -539,6 +539,18 @@ snapshot_ui_with_file_and_msgs! {vcd_with_false_changes_correctly, "examples/iss
     Message::AddScope(ScopeRef::from_strs(&["logic"])),
 ]}
 
+// This GHW file was generated with GHDL from a simple VHDL test provided by oscar.
+snapshot_ui_with_file_and_msgs! {simple_ghw_loads, "examples/oscar_test.ghw", [
+    Message::AddScope(ScopeRef::from_strs(&["test"])),
+    Message::AddScope(ScopeRef::from_strs(&["test", "rr"])),
+]}
+
+// This GHW file comes from the GHDL regression suite.
+snapshot_ui_with_file_and_msgs! {ghw_from_ghdl_suite_loads, "examples/tb_recv.ghw", [
+    Message::AddScope(ScopeRef::from_strs(&["tb_recv"])),
+    Message::AddScope(ScopeRef::from_strs(&["tb_recv", "dut"])),
+]}
+
 snapshot_ui_with_file_spade_and_msgs! {
     spade_translation_works,
     "examples/spade.vcd",

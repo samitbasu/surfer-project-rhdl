@@ -303,6 +303,8 @@ fn scope_type_to_string(tpe: ScopeType) -> &'static str {
         ScopeType::VhdlIfGenerate => "if-generate",
         ScopeType::VhdlGenerate => "generate",
         ScopeType::VhdlPackage => "package",
+        ScopeType::GhwGeneric => "generic",
+        ScopeType::VhdlArray => "array",
     }
 }
 

@@ -46,6 +46,7 @@ impl Display for WaveSource {
 pub enum WaveFormat {
     Vcd,
     Fst,
+    Ghw,
 }
 
 impl Display for WaveFormat {
@@ -53,6 +54,7 @@ impl Display for WaveFormat {
         match self {
             WaveFormat::Vcd => write!(f, "VCD"),
             WaveFormat::Fst => write!(f, "FST"),
+            WaveFormat::Ghw => write!(f, "GHW"),
         }
     }
 }
@@ -119,6 +121,7 @@ fn check_format(
     match detected_format {
         wellen::FileFormat::Vcd => Ok(WaveFormat::Vcd),
         wellen::FileFormat::Fst => Ok(WaveFormat::Fst),
+        wellen::FileFormat::Ghw => Ok(WaveFormat::Ghw),
         wellen::FileFormat::Unknown => bail!("Cannot parse {source}! Unknown format."),
     }
 }
@@ -152,6 +155,9 @@ impl State {
                 WaveFormat::Fst => wellen::fst::read(filename.as_str())
                     .map_err(|e| anyhow!("{e:?}"))
                     .with_context(|| format!("Failed to parse FST file: {source}")),
+                WaveFormat::Ghw => wellen::ghw::read(filename.as_str())
+                    .map_err(|e| anyhow!("{e:?}"))
+                    .with_context(|| format!("Failed to parse GHW file: {source}")),
             };
 
             match result {
@@ -270,6 +276,9 @@ impl State {
                 WaveFormat::Fst => wellen::fst::read_from_bytes(bytes)
                     .map_err(|e| anyhow!("{e:?}"))
                     .with_context(|| format!("Failed to parse FST file: {source}")),
+                WaveFormat::Ghw => wellen::ghw::read_from_bytes(bytes)
+                    .map_err(|e| anyhow!("{e:?}"))
+                    .with_context(|| format!("Failed to parse GHW file: {source}")),
             };
 
             match result {
