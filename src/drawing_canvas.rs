@@ -416,9 +416,8 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let item_offsets = &waves.item_offsets;
-        let gap = self.get_item_gap(item_offsets, &ctx);
-        for (idx, drawing_info) in item_offsets.iter().enumerate() {
+        let gap = self.get_item_gap(&waves.drawing_infos, &ctx);
+        for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
             // We draw in absolute coords, but the variable offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
@@ -458,7 +457,7 @@ impl State {
                 }
             }
 
-            for drawing_info in item_offsets {
+            for drawing_info in &waves.drawing_infos {
                 // We draw in absolute coords, but the variable offset in the y
                 // direction is also in absolute coordinates, so we need to
                 // compensate for that
@@ -519,7 +518,6 @@ impl State {
         self.draw_marker_boxes(
             waves,
             &mut ctx,
-            item_offsets,
             response.rect.size().x,
             gap,
             &waves.viewports[viewport_idx],

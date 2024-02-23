@@ -185,6 +185,7 @@ impl State {
                     }
                     _ => {}
                 },
+                Event::Copy => msgs.push(Message::VariableValueToClipbord(None)),
                 _ => {}
             })
         });
