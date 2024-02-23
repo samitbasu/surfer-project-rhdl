@@ -44,7 +44,7 @@ pub struct WaveData {
     pub scroll_offset: f32,
     /// These are just stored during operation, so no need to serialize
     #[serde(skip)]
-    pub item_offsets: Vec<ItemDrawingInfo>,
+    pub drawing_infos: Vec<ItemDrawingInfo>,
     #[serde(skip)]
     pub top_item_draw_offset: f32,
     #[serde(skip)]
@@ -116,7 +116,7 @@ impl WaveData {
             focused_item: self.focused_item,
             default_variable_name_type: self.default_variable_name_type,
             scroll_offset: self.scroll_offset,
-            item_offsets: vec![],
+            drawing_infos: vec![],
             top_item_draw_offset: 0.,
             total_height: 0.,
         };
@@ -131,13 +131,7 @@ impl WaveData {
             };
             let meta = new_wave.inner.variable_meta(&nested.root).unwrap();
             new_wave
-                .variable_translator(
-                    &FieldRef {
-                        root: variable_ref.clone(),
-                        field: vec![],
-                    },
-                    translators,
-                )
+                .variable_translator(&FieldRef::without_fields(variable_ref.clone()), translators)
                 .variable_info(&meta)
                 .map(|info| info.has_subpath(&nested.field))
                 .unwrap_or(false)
@@ -384,12 +378,12 @@ impl WaveData {
     }
 
     pub fn get_top_item(&self) -> usize {
-        let default = if self.item_offsets.is_empty() {
+        let default = if self.drawing_infos.is_empty() {
             0
         } else {
-            self.item_offsets.len() - 1
+            self.drawing_infos.len() - 1
         };
-        self.item_offsets
+        self.drawing_infos
             .iter()
             .enumerate()
             .find(|(_, di)| di.top() >= self.top_item_draw_offset - 1.) // Subtract a bit of margin to avoid floating-point errors
@@ -398,16 +392,16 @@ impl WaveData {
     }
 
     pub fn get_item_at_y(&self, y: f32) -> Option<usize> {
-        if self.item_offsets.is_empty() {
+        if self.drawing_infos.is_empty() {
             return None;
         }
-        let first_element_top = self.item_offsets.first().unwrap().top();
-        let first_element_bottom = self.item_offsets.last().unwrap().bottom();
+        let first_element_top = self.drawing_infos.first().unwrap().top();
+        let first_element_bottom = self.drawing_infos.last().unwrap().bottom();
         let threshold = y + first_element_top + self.scroll_offset;
         if first_element_bottom <= threshold {
             return None;
         }
-        self.item_offsets
+        self.drawing_infos
             .iter()
             .enumerate()
             .rev()
@@ -416,15 +410,15 @@ impl WaveData {
     }
 
     pub fn scroll_to_item(&mut self, idx: usize) {
-        if self.item_offsets.is_empty() {
+        if self.drawing_infos.is_empty() {
             return;
         }
         // Set scroll_offset to different between requested element and first element
-        let first_element_y = self.item_offsets.first().unwrap().top();
+        let first_element_y = self.drawing_infos.first().unwrap().top();
         let item_y = self
-            .item_offsets
+            .drawing_infos
             .get(idx)
-            .unwrap_or_else(|| self.item_offsets.last().unwrap())
+            .unwrap_or_else(|| self.drawing_infos.last().unwrap())
             .top();
         self.scroll_offset = item_y - first_element_y;
     }
