@@ -309,6 +309,12 @@ impl State {
                     });
 
                 egui::SidePanel::left("variable values")
+                    // Remove margin so that we can draw background
+                    .frame(Frame {
+                        inner_margin: Margin::same(0.0),
+                        outer_margin: Margin::same(0.0),
+                        ..Default::default()
+                    })
                     .default_width(100.)
                     .width_range(10.0..=max_width)
                     .show(ctx, |ui| {
@@ -928,11 +934,17 @@ impl State {
     fn draw_var_values(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         let Some(waves) = &self.waves else { return };
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
-        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
-        let to_screen = RectTransform::from_to(container_rect, response.rect);
-        let cfg = DrawConfig::new(response.rect.size().y);
-        let frame_width = response.rect.width();
+        let rect = response.rect;
+        let container_rect = Rect::from_min_size(Pos2::ZERO, rect.size());
+        let to_screen = RectTransform::from_to(container_rect, rect);
+        let cfg = DrawConfig::new(rect.height());
+        let frame_width = rect.width();
 
+        painter.rect_filled(
+            rect,
+            Rounding::ZERO,
+            self.config.theme.canvas_colors.background,
+        );
         let ctx = DrawingContext {
             painter: &mut painter,
             cfg: &cfg,
@@ -945,7 +957,13 @@ impl State {
         let gap = self.get_item_gap(&waves.drawing_infos, &ctx);
         let yzero = to_screen.transform_pos(Pos2::ZERO).y;
         let ucursor = waves.cursor.as_ref().and_then(|u| u.to_biguint());
-        ui.allocate_ui_at_rect(response.rect, |ui| {
+
+        // Add default margin as it was removed when creating the frame
+        let rect_with_margin = Rect {
+            min: rect.min + ui.style().spacing.item_spacing,
+            max: rect.max,
+        };
+        ui.allocate_ui_at_rect(rect_with_margin, |ui| {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
             for (vidx, drawing_info) in waves
