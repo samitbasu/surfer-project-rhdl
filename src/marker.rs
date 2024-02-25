@@ -281,7 +281,9 @@ impl State {
             // We draw in absolute coords, but the variable offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
-            let y_offset = drawing_info.top - (ctx.to_screen)(0., 0.).y;
+            let y_zero = (ctx.to_screen)(0., 0.).y;
+            let y_offset = drawing_info.top - y_zero;
+            let y_bottom = drawing_info.bottom - y_zero;
 
             let background_color = item
                 .color()
@@ -311,7 +313,7 @@ impl State {
             );
             // Background rectangle
             let min = (ctx.to_screen)(rect.min.x, y_offset - gap);
-            let max = (ctx.to_screen)(rect.max.x, y_offset + ctx.cfg.line_height + gap);
+            let max = (ctx.to_screen)(rect.max.x, y_bottom + gap);
             let min = Pos2::new(rect.min.x - gap, min.y);
             let max = Pos2::new(rect.max.x + gap, max.y);
 
