@@ -409,13 +409,13 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = self.get_item_gap(&waves.drawing_infos, &ctx);
+        let gap = ui.spacing().item_spacing.y * 0.5;
+        // We draw in absolute coords, but the variable offset in the y
+        // direction is also in absolute coordinates, so we need to
+        // compensate for that
+        let y_zero = to_screen.transform_pos(Pos2::ZERO).y;
         for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
-            // We draw in absolute coords, but the variable offset in the y
-            // direction is also in absolute coordinates, so we need to
-            // compensate for that
-            let y_offset = drawing_info.top() - to_screen.transform_pos(Pos2::ZERO).y;
-            self.draw_background(idx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
+            self.draw_background(idx, waves, drawing_info, y_zero, &ctx, gap, frame_width);
         }
 
         #[cfg(feature = "performance_plot")]
@@ -449,12 +449,12 @@ impl State {
                     last_edge = *current_edge;
                 }
             }
-
+            let zero_y = to_screen.transform_pos(Pos2::ZERO).y;
             for drawing_info in &waves.drawing_infos {
                 // We draw in absolute coords, but the variable offset in the y
                 // direction is also in absolute coordinates, so we need to
                 // compensate for that
-                let y_offset = drawing_info.top() - to_screen.transform_pos(Pos2::ZERO).y;
+                let y_offset = drawing_info.top() - zero_y;
 
                 let color = waves
                     .displayed_items
@@ -514,6 +514,7 @@ impl State {
             response.rect.size().x,
             gap,
             &waves.viewports[viewport_idx],
+            y_zero,
         );
 
         self.draw_mouse_gesture_widget(
@@ -658,7 +659,7 @@ impl State {
     ) {
         let size = response.rect.size().clone();
         response.context_menu(|ui| {
-            let offset = ui.style().as_ref().spacing.menu_margin.left;
+            let offset = ui.spacing().menu_margin.left;
             let top_left = to_screen.inverse().transform_rect(ui.min_rect()).left_top()
                 - Pos2 {
                     x: offset,
