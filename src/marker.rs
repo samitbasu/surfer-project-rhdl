@@ -267,6 +267,7 @@ impl State {
         view_width: f32,
         gap: f32,
         viewport: &Viewport,
+        y_zero: f32,
     ) {
         let text_size = ctx.cfg.text_size;
 
@@ -281,7 +282,8 @@ impl State {
             // We draw in absolute coords, but the variable offset in the y
             // direction is also in absolute coordinates, so we need to
             // compensate for that
-            let y_offset = drawing_info.top - (ctx.to_screen)(0., 0.).y;
+            let y_offset = drawing_info.top - y_zero;
+            let y_bottom = drawing_info.bottom - y_zero;
 
             let background_color = item
                 .color()
@@ -301,29 +303,28 @@ impl State {
                 &self.get_time_format(),
             );
 
-            // Determine size of text
-            let rect = ctx.painter.text(
-                (ctx.to_screen)(x, y_offset),
-                Align2::CENTER_TOP,
-                time.clone(),
+            // Create galley
+            let galley = ctx.painter.layout_no_wrap(
+                time,
                 FontId::proportional(text_size),
-                self.config.theme.foreground,
+                self.config.theme.alt_text_color,
             );
+            let offset_width = galley.rect.width() * 0.5 + 2. * gap;
+
             // Background rectangle
-            let min = (ctx.to_screen)(rect.min.x, y_offset - gap);
-            let max = (ctx.to_screen)(rect.max.x, y_offset + ctx.cfg.line_height + gap);
-            let min = Pos2::new(rect.min.x - gap, min.y);
-            let max = Pos2::new(rect.max.x + gap, max.y);
+            let min = (ctx.to_screen)(x - offset_width, y_offset - gap);
+            let max = (ctx.to_screen)(x + offset_width, y_bottom + gap);
 
             ctx.painter
                 .rect_filled(Rect { min, max }, Rounding::default(), *background_color);
 
             // Draw actual text on top of rectangle
-            ctx.painter.text(
-                (ctx.to_screen)(x, y_offset),
-                Align2::CENTER_TOP,
-                time,
-                FontId::proportional(text_size),
+            ctx.painter.galley(
+                (ctx.to_screen)(
+                    x - galley.rect.width() * 0.5,
+                    (y_offset + y_bottom - galley.rect.height()) * 0.5,
+                ),
+                galley,
                 self.config.theme.alt_text_color,
             );
         }
