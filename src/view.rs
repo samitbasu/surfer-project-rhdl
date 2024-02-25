@@ -309,6 +309,12 @@ impl State {
                     });
 
                 egui::SidePanel::left("variable values")
+                    // Remove margin so that we can draw background
+                    .frame(Frame {
+                        inner_margin: Margin::ZERO,
+                        outer_margin: Margin::ZERO,
+                        ..Default::default()
+                    })
                     .default_width(100.)
                     .width_range(10.0..=max_width)
                     .show(ctx, |ui| {
@@ -343,8 +349,8 @@ impl State {
                             .default_width(default_width)
                             .width_range(30.0..=max_width)
                             .frame(Frame {
-                                inner_margin: Margin::same(0.0),
-                                outer_margin: Margin::same(0.0),
+                                inner_margin: Margin::ZERO,
+                                outer_margin: Margin::ZERO,
                                 ..Default::default()
                             })
                             .show(ctx, |ui| self.draw_items(&mut msgs, ui, viewport_idx));
@@ -353,8 +359,8 @@ impl State {
 
                 egui::CentralPanel::default()
                     .frame(egui::Frame {
-                        inner_margin: Margin::same(0.0),
-                        outer_margin: Margin::same(0.0),
+                        inner_margin: Margin::ZERO,
+                        outer_margin: Margin::ZERO,
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
@@ -928,11 +934,17 @@ impl State {
     fn draw_var_values(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         let Some(waves) = &self.waves else { return };
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
-        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
-        let to_screen = RectTransform::from_to(container_rect, response.rect);
-        let cfg = DrawConfig::new(response.rect.size().y);
-        let frame_width = response.rect.width();
+        let rect = response.rect;
+        let container_rect = Rect::from_min_size(Pos2::ZERO, rect.size());
+        let to_screen = RectTransform::from_to(container_rect, rect);
+        let cfg = DrawConfig::new(rect.height());
+        let frame_width = rect.width();
 
+        painter.rect_filled(
+            rect,
+            Rounding::ZERO,
+            self.config.theme.canvas_colors.background,
+        );
         let ctx = DrawingContext {
             painter: &mut painter,
             cfg: &cfg,
@@ -942,10 +954,16 @@ impl State {
             theme: &self.config.theme,
         };
 
-        let gap = self.get_item_gap(&waves.drawing_infos, &ctx);
+        let gap = ui.spacing().item_spacing.y * 0.5;
         let yzero = to_screen.transform_pos(Pos2::ZERO).y;
         let ucursor = waves.cursor.as_ref().and_then(|u| u.to_biguint());
-        ui.allocate_ui_at_rect(response.rect, |ui| {
+
+        // Add default margin as it was removed when creating the frame
+        let rect_with_margin = Rect {
+            min: rect.min + ui.spacing().item_spacing,
+            max: rect.max,
+        };
+        ui.allocate_ui_at_rect(rect_with_margin, |ui| {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
             for (vidx, drawing_info) in waves
@@ -963,8 +981,17 @@ impl State {
                 }
 
                 let y_offset = drawing_info.top() - yzero;
-
-                self.draw_background(vidx, waves, drawing_info, y_offset, &ctx, gap, frame_width);
+                let y_bottom = drawing_info.bottom() - yzero;
+                self.draw_background(
+                    vidx,
+                    waves,
+                    drawing_info,
+                    y_offset,
+                    y_bottom,
+                    &ctx,
+                    gap,
+                    frame_width,
+                );
                 match drawing_info {
                     ItemDrawingInfo::Variable(drawing_info) => {
                         if ucursor.as_ref().is_none() {
@@ -1059,24 +1086,13 @@ impl State {
         }
     }
 
-    pub fn get_item_gap(&self, drawing_infos: &[ItemDrawingInfo], ctx: &DrawingContext<'_>) -> f32 {
-        if drawing_infos.len() >= 2.max(self.config.theme.alt_frequency) {
-            // Assume that first variable has standard height (for now)
-            (drawing_infos.get(1).unwrap().top()
-                - drawing_infos.first().unwrap().top()
-                - ctx.cfg.line_height)
-                / 2.0
-        } else {
-            0.0
-        }
-    }
-
     pub fn draw_background(
         &self,
         vidx: usize,
         waves: &WaveData,
         drawing_info: &ItemDrawingInfo,
         y_offset: f32,
+        y_bottom: f32,
         ctx: &DrawingContext<'_>,
         gap: f32,
         frame_width: f32,
@@ -1090,7 +1106,7 @@ impl State {
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx));
         // Draw background
         let min = (ctx.to_screen)(0.0, y_offset - gap);
-        let max = (ctx.to_screen)(frame_width, y_offset + ctx.cfg.line_height + gap);
+        let max = (ctx.to_screen)(frame_width, y_bottom + gap);
         ctx.painter
             .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
     }
