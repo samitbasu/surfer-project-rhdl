@@ -1,5 +1,5 @@
 #![cfg(feature = "spade")]
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::sync::mpsc::Sender;
 
 use camino::{Utf8Path, Utf8PathBuf};
 use eframe::epaint::Color32;
@@ -175,7 +175,6 @@ fn not_present_value(ty: &ConcreteType) -> TranslationResult {
         val: ValueRepr::NotPresent,
         subfields,
         kind: ValueKind::Normal,
-        durations: HashMap::new(),
     }
 }
 
@@ -199,7 +198,6 @@ fn not_present_enum_options(
                 val: ValueRepr::NotPresent,
                 subfields: not_present_enum_fields(opt_fields),
                 kind: ValueKind::Normal,
-                durations: HashMap::new(),
             },
         })
         .collect()
@@ -244,7 +242,6 @@ fn translate_concrete(
                 val: ValueRepr::Tuple,
                 subfields,
                 kind: handle_problematic!(),
-                durations: HashMap::new(),
             }
         }
         ConcreteType::Struct { name: _, members } => {
@@ -267,7 +264,6 @@ fn translate_concrete(
                 val: ValueRepr::Tuple,
                 subfields,
                 kind: handle_problematic!(),
-                durations: HashMap::new(),
             }
         }
         ConcreteType::Array { inner, size } => {
@@ -294,7 +290,6 @@ fn translate_concrete(
                 val: ValueRepr::Array,
                 subfields,
                 kind: handle_problematic!(),
-                durations: HashMap::new(),
             }
         }
         ConcreteType::Enum { options } => {
@@ -306,7 +301,6 @@ fn translate_concrete(
                     val: ValueRepr::String(format!("xTAG(0b{tag_section})")),
                     subfields: not_present_enum_options(options),
                     kind: ValueKind::Undef,
-                    durations: HashMap::new(),
                 }
             } else if tag_section.contains('z') {
                 *problematic = true;
@@ -314,7 +308,6 @@ fn translate_concrete(
                     val: ValueRepr::String(format!("zTAG(0b{tag_section})")),
                     subfields: not_present_enum_options(options),
                     kind: ValueKind::HighImp,
-                    durations: HashMap::new(),
                 }
             } else {
                 let tag = usize::from_str_radix(tag_section, 2)
@@ -326,7 +319,6 @@ fn translate_concrete(
                         val: ValueRepr::String(format!("?TAG(0b{tag_section})")),
                         subfields: not_present_enum_options(options),
                         kind: ValueKind::Undef,
-                        durations: HashMap::new(),
                     }
                 } else {
                     let mut kind = ValueKind::Normal;
@@ -374,7 +366,6 @@ fn translate_concrete(
                                         },
                                         subfields,
                                         kind: handle_problematic!(),
-                                        durations: HashMap::new(),
                                     },
                                 }
                             } else {
@@ -384,7 +375,6 @@ fn translate_concrete(
                                         val: ValueRepr::NotPresent,
                                         subfields: not_present_enum_fields(fields),
                                         kind: handle_problematic!(),
-                                        durations: HashMap::new(),
                                     },
                                 }
                             };
@@ -399,7 +389,6 @@ fn translate_concrete(
                         },
                         kind,
                         subfields,
-                        durations: HashMap::new(),
                     }
                 }
             }
@@ -411,7 +400,6 @@ fn translate_concrete(
             val: ValueRepr::Bit(val.chars().next().unwrap()),
             kind: ValueKind::Normal,
             subfields: vec![],
-            durations: HashMap::new(),
         },
         ConcreteType::Single { base: _, params: _ } | ConcreteType::Integer(_) => {
             TranslationResult {
@@ -421,14 +409,12 @@ fn translate_concrete(
                 ),
                 kind: ValueKind::Normal,
                 subfields: vec![],
-                durations: HashMap::new(),
             }
         }
         ConcreteType::Backward(_) => TranslationResult {
             val: ValueRepr::String("*backward*".to_string()),
             kind: ValueKind::Custom(Color32::from_gray(128)),
             subfields: vec![],
-            durations: HashMap::new(),
         },
         ConcreteType::Wire(inner) => translate_concrete(val, inner, problematic)?,
     };

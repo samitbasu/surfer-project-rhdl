@@ -221,9 +221,6 @@ pub struct TranslationResult {
     pub val: ValueRepr,
     pub subfields: Vec<SubFieldTranslationResult>,
     pub kind: ValueKind,
-    /// Durations of different steps that were performed by the translator.
-    /// Used for benchmarks
-    pub durations: HashMap<String, f64>,
 }
 
 impl TranslationResult {
@@ -489,7 +486,6 @@ impl Translator for Box<dyn BasicTranslator> {
             val: ValueRepr::String(val),
             kind,
             subfields: vec![],
-            durations: HashMap::new(),
         })
     }
 
@@ -520,7 +516,6 @@ impl Translator for StringTranslator {
                 val: ValueRepr::String((*s).to_string()),
                 kind: ValueKind::Normal,
                 subfields: vec![],
-                durations: HashMap::new(),
             }),
         }
     }
