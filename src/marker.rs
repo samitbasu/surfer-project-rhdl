@@ -98,9 +98,9 @@ impl WaveData {
             .iter()
             .map(|id| self.displayed_items.get(id))
             .find_map(|item| match item {
-                Some(DisplayedItem::Marker(maker)) => {
-                    if maker.idx == idx {
-                        Some(maker)
+                Some(DisplayedItem::Marker(marker)) => {
+                    if marker.idx == idx {
+                        Some(marker)
                     } else {
                         None
                     }
@@ -141,7 +141,7 @@ impl WaveData {
             .iter()
             .map(|id| self.displayed_items.get(id))
             .filter_map(|item| match item {
-                Some(DisplayedItem::Marker(maker)) => Some(maker),
+                Some(DisplayedItem::Marker(marker)) => Some(marker),
                 _ => None,
             })
         {
