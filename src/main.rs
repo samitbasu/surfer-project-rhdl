@@ -1256,8 +1256,10 @@ impl State {
             Message::VariableValueToClipbord(vidx) => {
                 if let Some(waves) = &self.waves {
                     if let Some(vidx) = vidx.or(waves.focused_item) {
-                        if let Some(DisplayedItem::Variable(displayed_variable)) =
-                            waves.displayed_items.get(vidx)
+                        if let Some(DisplayedItem::Variable(displayed_variable)) = waves
+                            .displayed_items_order
+                            .get(vidx)
+                            .and_then(|id| waves.displayed_items.get(id))
                         {
                             let path =
                                 FieldRef::without_fields(displayed_variable.variable_ref.clone());
