@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Surfer
+GenericName=Electronic Waveform Viewer
+Comment=A waveform viewer with a focus on a snappy usable interface, and extensibility.
+TryExec=surfer
+Exec=surfer
+Terminal=false
+Categories=Utility;Electronics;Engineering;
+StartupNotify=true
+StartupWMClass=surfer
+MimeType=application/vnd.gtkwave-vcd;application/vnd.gtkwave-fst;application/vnd.gtkwave-ghw;
