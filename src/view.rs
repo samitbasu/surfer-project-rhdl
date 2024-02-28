@@ -677,10 +677,7 @@ impl State {
                                 msgs,
                                 vidx,
                                 WidgetText::LayoutJob(layout_job),
-                                FieldRef {
-                                    root: var.variable_ref.clone(),
-                                    field: vec![],
-                                },
+                                FieldRef::without_fields(var.variable_ref.clone()),
                                 &mut item_offsets,
                                 info,
                                 ui,
