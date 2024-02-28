@@ -475,6 +475,10 @@ impl State {
                 filter,
             );
         }
+        if draw_variables {
+            let scope = ScopeRef::empty();
+            self.draw_variable_list(msgs, wave, ui, &scope, filter);
+        }
     }
 
     fn add_scope_selectable_label(

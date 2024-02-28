@@ -1,5 +1,6 @@
 use eframe::egui::{Align, Layout, Margin, ScrollArea};
 
+use crate::wave_container::ScopeRef;
 use crate::State;
 use crate::{egui, message::Message};
 
@@ -43,9 +44,10 @@ pub fn separate(state: &mut State, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
                         .id_source("variables")
                         .show(ui, |ui| {
                             if let Some(waves) = &state.waves {
-                                if let Some(active_scope) = waves.active_scope.as_ref() {
-                                    state.draw_variable_list(msgs, waves, ui, active_scope, filter);
-                                }
+                                let empty_scope = ScopeRef::empty();
+                                let active_scope =
+                                    waves.active_scope.as_ref().unwrap_or(&empty_scope);
+                                state.draw_variable_list(msgs, waves, ui, active_scope, filter);
                             }
                         });
                 });

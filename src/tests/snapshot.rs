@@ -1114,6 +1114,27 @@ snapshot_ui_with_file_and_msgs! {hierarchy_tree, "examples/counter.vcd", [
     Message::SetHierarchyStyle(HierarchyStyle::Tree),
 ]}
 
+// makes sure that variables that are not part of a scope are properly displayed in the hierarchy tree view
+snapshot_ui_with_file_and_msgs! {hierarchy_tree_with_root_vars, "examples/atxmega256a3u-bmda-jtag_short.vcd", [
+    Message::ToggleSidePanel,
+    Message::SetHierarchyStyle(HierarchyStyle::Tree),
+    Message::AddVariable(VariableRef::from_strs(&["tck"])),
+    Message::AddVariable(VariableRef::from_strs(&["tms"])),
+    Message::AddVariable(VariableRef::from_strs(&["tdi"])),
+    Message::AddVariable(VariableRef::from_strs(&["tdo"])),
+    Message::AddVariable(VariableRef::from_strs(&["srst"])),
+]}
+
+// makes sure that variables that are not part of a scope are properly displayed in the separate hierarchy view
+snapshot_ui_with_file_and_msgs! {hierarchy_separate_with_root_vars, "examples/atxmega256a3u-bmda-jtag_short.vcd", [
+    Message::ToggleSidePanel,
+    Message::AddVariable(VariableRef::from_strs(&["tck"])),
+    Message::AddVariable(VariableRef::from_strs(&["tms"])),
+    Message::AddVariable(VariableRef::from_strs(&["tdi"])),
+    Message::AddVariable(VariableRef::from_strs(&["tdo"])),
+    Message::AddVariable(VariableRef::from_strs(&["srst"])),
+]}
+
 snapshot_ui_with_file_and_msgs! {hierarchy_separate, "examples/counter.vcd", [
     Message::ToggleSidePanel,
     Message::SetHierarchyStyle(HierarchyStyle::Separate),

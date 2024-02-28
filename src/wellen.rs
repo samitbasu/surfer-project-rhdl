@@ -81,19 +81,36 @@ impl WellenContainer {
 
     pub fn variables_in_scope(&self, scope_ref: &ScopeRef) -> Vec<VariableRef> {
         let h = self.inner.hierarchy();
-        let scope = match self.lookup_scope(scope_ref) {
-            Some(id) => h.get(id),
-            None => {
-                warn!("Found no scope '{scope_ref}'. Defaulting to no variables");
-                return vec![];
-            }
-        };
-        scope
-            .vars(h)
-            .map(|id| {
-                VariableRef::new_with_wave_id(scope_ref.clone(), h.get(id).name(h).to_string(), id)
-            })
-            .collect::<Vec<_>>()
+        // special case of an empty scope means that we want to variables that are part of the toplevel
+        if scope_ref.strs().is_empty() {
+            h.vars()
+                .map(|id| {
+                    VariableRef::new_with_wave_id(
+                        scope_ref.clone(),
+                        h.get(id).name(h).to_string(),
+                        id,
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            let scope = match self.lookup_scope(scope_ref) {
+                Some(id) => h.get(id),
+                None => {
+                    warn!("Found no scope '{scope_ref}'. Defaulting to no variables");
+                    return vec![];
+                }
+            };
+            scope
+                .vars(h)
+                .map(|id| {
+                    VariableRef::new_with_wave_id(
+                        scope_ref.clone(),
+                        h.get(id).name(h).to_string(),
+                        id,
+                    )
+                })
+                .collect::<Vec<_>>()
+        }
     }
 
     pub fn update_variable_ref(&self, variable: &VariableRef) -> Option<VariableRef> {
