@@ -639,8 +639,9 @@ impl State {
                     if let Some(idx) = idx {
                         self.rename_target = Some(idx);
                         *self.sys.item_renaming_string.borrow_mut() = waves
-                            .displayed_items
+                            .displayed_items_order
                             .get(idx)
+                            .and_then(|id| waves.displayed_items.get(id))
                             .map(|item| item.name())
                             .unwrap_or_default();
                     }
@@ -722,13 +723,13 @@ impl State {
                                     ..=idx)
                                     .rev()
                                 {
-                                    waves.displayed_items.swap(i, i - 1);
+                                    waves.displayed_items_order.swap(i, i - 1);
                                     waves.focused_item = Some(i - 1);
                                 }
                             }
                             MoveDir::Down => {
                                 for i in idx..(idx + count).clamp(0, visible_items_len - 1) {
-                                    waves.displayed_items.swap(i, i + 1);
+                                    waves.displayed_items_order.swap(i, i + 1);
                                     waves.focused_item = Some(i + 1);
                                 }
                             }
@@ -825,19 +826,21 @@ impl State {
                         let translator = waves.variable_translator(&field, &self.sys.translators);
                         let new_info = translator.variable_info(&meta).unwrap();
 
-                        for item in &mut waves.displayed_items {
-                            match item {
-                                DisplayedItem::Variable(disp) => {
-                                    if disp.variable_ref == field.root {
-                                        disp.info = new_info;
-                                        break;
+                        for id in &waves.displayed_items_order {
+                            waves
+                                .displayed_items
+                                .entry(*id)
+                                .and_modify(|item| match item {
+                                    DisplayedItem::Variable(disp) => {
+                                        if disp.variable_ref == field.root {
+                                            disp.info = new_info.clone();
+                                        }
                                     }
-                                }
-                                DisplayedItem::Marker(_) => {}
-                                DisplayedItem::Divider(_) => {}
-                                DisplayedItem::TimeLine(_) => {}
-                                DisplayedItem::Placeholder(_) => {}
-                            }
+                                    DisplayedItem::Marker(_) => {}
+                                    DisplayedItem::Divider(_) => {}
+                                    DisplayedItem::TimeLine(_) => {}
+                                    DisplayedItem::Placeholder(_) => {}
+                                });
                         }
                     }
                     self.invalidate_draw_commands();
@@ -848,21 +851,36 @@ impl State {
             Message::ItemColorChange(vidx, color_name) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(idx) = vidx.or(waves.focused_item) {
-                        waves.displayed_items[idx].set_color(color_name);
+                        waves.displayed_items_order.get(idx).map(|id| {
+                            waves
+                                .displayed_items
+                                .entry(*id)
+                                .and_modify(|item| item.set_color(color_name))
+                        });
                     }
                 };
             }
             Message::ItemNameChange(vidx, name) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(idx) = vidx.or(waves.focused_item) {
-                        waves.displayed_items[idx].set_name(name);
+                        waves.displayed_items_order.get(idx).map(|id| {
+                            waves
+                                .displayed_items
+                                .entry(*id)
+                                .and_modify(|item| item.set_name(name))
+                        });
                     }
                 };
             }
             Message::ItemBackgroundColorChange(vidx, color_name) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(idx) = vidx.or(waves.focused_item) {
-                        waves.displayed_items[idx].set_background_color(color_name)
+                        waves.displayed_items_order.get(idx).map(|id| {
+                            waves
+                                .displayed_items
+                                .entry(*id)
+                                .and_modify(|item| item.set_background_color(color_name))
+                        });
                     }
                 };
             }
@@ -943,7 +961,8 @@ impl State {
                         source: filename,
                         format,
                         active_scope: None,
-                        displayed_items: vec![],
+                        displayed_items_order: vec![],
+                        displayed_items: HashMap::new(),
                         viewports,
                         variable_format: HashMap::new(),
                         num_timestamps,
@@ -956,6 +975,7 @@ impl State {
                         drawing_infos: vec![],
                         top_item_draw_offset: 0.,
                         total_height: 0.,
+                        display_item_ref_counter: 0,
                     }
                 };
                 self.invalidate_draw_commands();
@@ -1139,8 +1159,15 @@ impl State {
                 // checks if vidx is Some then use that, else try focused variable
                 if let Some(idx) = vidx.or(waves.focused_item) {
                     if waves.displayed_items.len() > idx {
-                        if let DisplayedItem::Variable(variable) = &mut waves.displayed_items[idx] {
-                            variable.display_name_type = name_type;
+                        let id = waves.displayed_items_order[idx];
+                        let mut recompute_names = false;
+                        waves.displayed_items.entry(id).and_modify(|item| {
+                            if let DisplayedItem::Variable(variable) = item {
+                                variable.display_name_type = name_type;
+                                recompute_names = true;
+                            }
+                        });
+                        if recompute_names {
                             waves.compute_variable_display_names();
                         }
                     }
@@ -1230,8 +1257,10 @@ impl State {
             Message::VariableValueToClipbord(vidx) => {
                 if let Some(waves) = &self.waves {
                     if let Some(vidx) = vidx.or(waves.focused_item) {
-                        if let Some(DisplayedItem::Variable(displayed_variable)) =
-                            waves.displayed_items.get(vidx)
+                        if let Some(DisplayedItem::Variable(displayed_variable)) = waves
+                            .displayed_items_order
+                            .get(vidx)
+                            .and_then(|id| waves.displayed_items.get(id))
                         {
                             let path =
                                 FieldRef::without_fields(displayed_variable.variable_ref.clone());
