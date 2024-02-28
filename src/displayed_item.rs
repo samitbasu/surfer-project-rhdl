@@ -11,6 +11,8 @@ use crate::{
 
 const DEFAULT_DIVIDER_NAME: &str = "";
 
+pub type DisplayedItemRef = usize;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub enum DisplayedItem {
     Variable(DisplayedVariable),

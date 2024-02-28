@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::wave_source::WaveFormat;
 use crate::{
-    displayed_item::{DisplayedDivider, DisplayedItem, DisplayedTimeLine, DisplayedVariable},
+    displayed_item::{
+        DisplayedDivider, DisplayedItem, DisplayedItemRef, DisplayedTimeLine, DisplayedVariable,
+    },
     translation::{TranslationPreference, Translator, TranslatorList},
     variable_name_type::VariableNameType,
     view::ItemDrawingInfo,
@@ -29,7 +31,10 @@ pub struct WaveData {
     pub format: WaveFormat,
     pub active_scope: Option<ScopeRef>,
     /// Root items (variables, dividers, ...) to display
-    pub displayed_items: Vec<DisplayedItem>,
+    pub displayed_items_order: Vec<DisplayedItemRef>,
+    pub displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
+    /// Tracks the consecutive displayed item refs
+    pub display_item_ref_counter: DisplayedItemRef,
     pub viewports: Vec<Viewport>,
     pub num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
@@ -83,7 +88,7 @@ impl WaveData {
             .variable_format
             .drain()
             .filter(|(field_ref, candidate)| {
-                display_items.iter().any(|di| match di {
+                display_items.values().any(|di| match di {
                     DisplayedItem::Variable(DisplayedVariable { variable_ref, .. }) => {
                         let Ok(meta) = new_waves.variable_meta(variable_ref) else {
                             return false;
@@ -101,7 +106,9 @@ impl WaveData {
             source,
             format,
             active_scope,
+            displayed_items_order: self.displayed_items_order,
             displayed_items: display_items,
+            display_item_ref_counter: 0,
             viewports: self
                 .viewports
                 .into_iter()
@@ -121,7 +128,7 @@ impl WaveData {
             total_height: 0.,
         };
         nested_format.retain(|nested, _| {
-            let Some(variable_ref) = new_wave.displayed_items.iter().find_map(|di| match di {
+            let Some(variable_ref) = new_wave.displayed_items.values().find_map(|di| match di {
                 DisplayedItem::Variable(DisplayedVariable { variable_ref, .. }) => {
                     Some(variable_ref)
                 }
@@ -141,7 +148,7 @@ impl WaveData {
         // load variables that need to be displayed
         let variables = new_wave
             .displayed_items
-            .iter()
+            .values()
             .filter_map(|item| match item {
                 DisplayedItem::Variable(r) => Some(&r.variable_ref),
                 _ => None,
@@ -157,48 +164,55 @@ impl WaveData {
     fn update_displayed_items(
         &self,
         new_waves: &WaveContainer,
-        current_items: &[DisplayedItem],
+        current_items: &HashMap<DisplayedItemRef, DisplayedItem>,
         keep_unavailable: bool,
         translators: &TranslatorList,
-    ) -> Vec<DisplayedItem> {
+    ) -> HashMap<DisplayedItemRef, DisplayedItem> {
         current_items
             .iter()
-            .filter_map(|i| match i {
-                // keep without a change
-                DisplayedItem::Divider(_)
-                | DisplayedItem::Marker(_)
-                | DisplayedItem::TimeLine(_) => Some(i.clone()),
-                DisplayedItem::Variable(s) => s.update(new_waves, keep_unavailable),
-                DisplayedItem::Placeholder(p) => {
-                    match new_waves.update_variable_ref(&p.variable_ref) {
-                        None => {
-                            if keep_unavailable {
-                                Some(DisplayedItem::Placeholder(p.clone()))
-                            } else {
-                                None
+            .filter_map(|(id, i)| {
+                match i {
+                    // keep without a change
+                    DisplayedItem::Divider(_)
+                    | DisplayedItem::Marker(_)
+                    | DisplayedItem::TimeLine(_) => Some((*id, i.clone())),
+                    DisplayedItem::Variable(s) => {
+                        s.update(new_waves, keep_unavailable).map(|r| (*id, r))
+                    }
+                    DisplayedItem::Placeholder(p) => {
+                        match new_waves.update_variable_ref(&p.variable_ref) {
+                            None => {
+                                if keep_unavailable {
+                                    Some((*id, DisplayedItem::Placeholder(p.clone())))
+                                } else {
+                                    None
+                                }
                             }
-                        }
-                        Some(new_variable_ref) => {
-                            let Ok(meta) = new_waves
-                                .variable_meta(&new_variable_ref)
-                                .context("When updating")
-                                .map_err(|e| error!("{e:#?}"))
-                            else {
-                                return Some(DisplayedItem::Placeholder(p.clone()));
-                            };
-                            let translator = self.variable_translator(
-                                &FieldRef::without_fields(p.variable_ref.clone()),
-                                translators,
-                            );
-                            let info = translator.variable_info(&meta).unwrap();
-                            Some(DisplayedItem::Variable(
-                                p.clone().to_variable(info, new_variable_ref),
-                            ))
+                            Some(new_variable_ref) => {
+                                let Ok(meta) = new_waves
+                                    .variable_meta(&new_variable_ref)
+                                    .context("When updating")
+                                    .map_err(|e| error!("{e:#?}"))
+                                else {
+                                    return Some((*id, DisplayedItem::Placeholder(p.clone())));
+                                };
+                                let translator = self.variable_translator(
+                                    &FieldRef::without_fields(p.variable_ref.clone()),
+                                    translators,
+                                );
+                                let info = translator.variable_info(&meta).unwrap();
+                                Some((
+                                    *id,
+                                    DisplayedItem::Variable(
+                                        p.clone().to_variable(info, new_variable_ref),
+                                    ),
+                                ))
+                            }
                         }
                     }
                 }
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn select_preferred_translator(
@@ -278,12 +292,18 @@ impl WaveData {
 
     pub fn remove_displayed_item(&mut self, count: usize, idx: usize) {
         for _ in 0..count {
-            let visible_items_len = self.displayed_items.len();
-            if let Some(DisplayedItem::Marker(marker)) = self.displayed_items.get(idx) {
+            let visible_items_len = self.displayed_items_order.len();
+            if let Some(DisplayedItem::Marker(marker)) = self
+                .displayed_items_order
+                .get(idx)
+                .and_then(|id| self.displayed_items.get(id))
+            {
                 self.markers.remove(&marker.idx);
             }
             if visible_items_len > 0 && idx <= (visible_items_len - 1) {
-                self.displayed_items.remove(idx);
+                let displayed_item_id = self.displayed_items_order[idx];
+                self.displayed_items_order.remove(idx);
+                self.displayed_items.remove(&displayed_item_id);
                 if let Some(focused) = self.focused_item {
                     if focused == idx {
                         if (idx > 0) && (idx == (visible_items_len - 1)) {
@@ -330,13 +350,19 @@ impl WaveData {
     fn insert_item(&mut self, new_item: DisplayedItem, vidx: Option<usize>) {
         if let Some(current_idx) = vidx {
             let insert_idx = current_idx + 1;
-            self.displayed_items.insert(insert_idx, new_item);
+            let id = self.next_displayed_item_ref();
+            self.displayed_items_order.insert(insert_idx, id);
+            self.displayed_items.insert(id, new_item);
         } else if let Some(focus_idx) = self.focused_item {
             let insert_idx = focus_idx + 1;
-            self.displayed_items.insert(insert_idx, new_item);
+            let id = self.next_displayed_item_ref();
+            self.displayed_items_order.insert(insert_idx, id);
+            self.displayed_items.insert(id, new_item);
             self.focused_item = Some(insert_idx);
         } else {
-            self.displayed_items.push(new_item);
+            let id = self.next_displayed_item_ref();
+            self.displayed_items_order.push(id);
+            self.displayed_items.insert(id, new_item);
         }
     }
 
@@ -366,10 +392,13 @@ impl WaveData {
     }
 
     pub fn remove_placeholders(&mut self) {
-        self.displayed_items.retain(|i| match i {
+        self.displayed_items.retain(|_, item| match item {
             DisplayedItem::Placeholder(_) => false,
             _ => true,
-        })
+        });
+        let remaining_ids = self.displayed_items_order.clone();
+        self.displayed_items_order
+            .retain(|i| remaining_ids.contains(i));
     }
 
     #[inline]
@@ -425,7 +454,11 @@ impl WaveData {
     pub fn set_cursor_at_transition(&mut self, next: bool, variable: Option<usize>) {
         if let Some(vidx) = variable.or(self.focused_item) {
             if let Some(cursor) = &self.cursor {
-                if let DisplayedItem::Variable(variable) = &self.displayed_items[vidx] {
+                if let Some(DisplayedItem::Variable(variable)) = &self
+                    .displayed_items_order
+                    .get(vidx)
+                    .and_then(|id| self.displayed_items.get(id))
+                {
                     if let Ok(res) = self.inner.query_variable(
                         &variable.variable_ref,
                         &cursor.to_biguint().unwrap_or_default(),
@@ -465,5 +498,10 @@ impl WaveData {
                 }
             }
         }
+    }
+
+    pub fn next_displayed_item_ref(&mut self) -> usize {
+        self.display_item_ref_counter += 1;
+        self.display_item_ref_counter
     }
 }

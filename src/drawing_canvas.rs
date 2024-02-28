@@ -270,10 +270,11 @@ impl State {
 
             let translators = &self.sys.translators;
             let commands = waves
-                .displayed_items
+                .displayed_items_order
                 .par_iter()
+                .map(|id| waves.displayed_items.get(id))
                 .filter_map(|item| match item {
-                    DisplayedItem::Variable(variable_ref) => Some(variable_ref),
+                    Some(DisplayedItem::Variable(variable_ref)) => Some(variable_ref),
                     _ => None,
                 })
                 // Iterate over the variables, generating draw commands for all the
@@ -457,8 +458,9 @@ impl State {
                 let y_offset = drawing_info.top() - zero_y;
 
                 let color = waves
-                    .displayed_items
+                    .displayed_items_order
                     .get(drawing_info.item_list_idx())
+                    .and_then(|id| waves.displayed_items.get(id))
                     .and_then(|variable| variable.color())
                     .and_then(|color| self.config.theme.colors.get(&color));
 
@@ -718,22 +720,24 @@ impl State {
         let timestamp = viewport.to_time_bigint(pos.x, frame_width);
         if let Some(utimestamp) = timestamp.to_biguint() {
             if let Some(vidx) = waves.get_item_at_y(pos.y) {
-                if let DisplayedItem::Variable(variable) = &waves.displayed_items[vidx] {
-                    if let Ok(res) = waves
-                        .inner
-                        .query_variable(&variable.variable_ref, &utimestamp)
-                    {
-                        let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
-                        let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
-                        let prev = viewport.from_time(prev_time, frame_width);
-                        let next = viewport.from_time(next_time, frame_width);
-                        if (prev - pos.x).abs() < (next - pos.x).abs() {
-                            if (prev - pos.x).abs() <= self.config.snap_distance {
-                                return Some(prev_time.clone());
-                            }
-                        } else {
-                            if (next - pos.x).abs() <= self.config.snap_distance {
-                                return Some(next_time.clone());
+                if let Some(id) = waves.displayed_items_order.get(vidx) {
+                    if let DisplayedItem::Variable(variable) = &waves.displayed_items[id] {
+                        if let Ok(res) = waves
+                            .inner
+                            .query_variable(&variable.variable_ref, &utimestamp)
+                        {
+                            let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
+                            let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
+                            let prev = viewport.from_time(prev_time, frame_width);
+                            let next = viewport.from_time(next_time, frame_width);
+                            if (prev - pos.x).abs() < (next - pos.x).abs() {
+                                if (prev - pos.x).abs() <= self.config.snap_distance {
+                                    return Some(prev_time.clone());
+                                }
+                            } else {
+                                if (next - pos.x).abs() <= self.config.snap_distance {
+                                    return Some(next_time.clone());
+                                }
                             }
                         }
                     }
