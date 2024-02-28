@@ -20,9 +20,9 @@ pub const DEFAULT_MARKER_NAME: &str = "Marker";
 
 impl WaveData {
     fn add_displayed_item(&mut self, item: DisplayedItem) -> DisplayedItemRef {
-        let id = DisplayedItemRef::new();
-        self.displayed_items_order.push(id.clone());
-        self.displayed_items.insert(id.clone(), item);
+        let id = self.next_displayed_item_ref();
+        self.displayed_items_order.push(id);
+        self.displayed_items.insert(id, item);
         id
     }
 
@@ -124,7 +124,7 @@ impl WaveData {
         let Some(location) = &self.cursor.clone() else {
             return;
         };
-        self.set_marker_position(idx, &location)
+        self.set_marker_position(idx, location)
     }
 
     pub fn draw_marker_number_boxes(

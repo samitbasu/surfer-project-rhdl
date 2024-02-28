@@ -975,6 +975,7 @@ impl State {
                         drawing_infos: vec![],
                         top_item_draw_offset: 0.,
                         total_height: 0.,
+                        display_item_ref_counter: 0,
                     }
                 };
                 self.invalidate_draw_commands();

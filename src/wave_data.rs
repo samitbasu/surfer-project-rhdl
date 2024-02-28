@@ -33,6 +33,8 @@ pub struct WaveData {
     /// Root items (variables, dividers, ...) to display
     pub displayed_items_order: Vec<DisplayedItemRef>,
     pub displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
+    /// Tracks the consecutive displayed item refs
+    pub display_item_ref_counter: DisplayedItemRef,
     pub viewports: Vec<Viewport>,
     pub num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
@@ -106,6 +108,7 @@ impl WaveData {
             active_scope,
             displayed_items_order: self.displayed_items_order,
             displayed_items: display_items,
+            display_item_ref_counter: 0,
             viewports: self
                 .viewports
                 .into_iter()
@@ -347,17 +350,17 @@ impl WaveData {
     fn insert_item(&mut self, new_item: DisplayedItem, vidx: Option<usize>) {
         if let Some(current_idx) = vidx {
             let insert_idx = current_idx + 1;
-            let id = DisplayedItemRef::new();
+            let id = self.next_displayed_item_ref();
             self.displayed_items_order.insert(insert_idx, id);
             self.displayed_items.insert(id, new_item);
         } else if let Some(focus_idx) = self.focused_item {
             let insert_idx = focus_idx + 1;
-            let id = DisplayedItemRef::new();
+            let id = self.next_displayed_item_ref();
             self.displayed_items_order.insert(insert_idx, id);
             self.displayed_items.insert(id, new_item);
             self.focused_item = Some(insert_idx);
         } else {
-            let id = DisplayedItemRef::new();
+            let id = self.next_displayed_item_ref();
             self.displayed_items_order.push(id);
             self.displayed_items.insert(id, new_item);
         }
@@ -495,5 +498,10 @@ impl WaveData {
                 }
             }
         }
+    }
+
+    pub fn next_displayed_item_ref(&mut self) -> usize {
+        self.display_item_ref_counter += 1;
+        self.display_item_ref_counter
     }
 }

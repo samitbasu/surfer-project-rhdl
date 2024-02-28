@@ -54,7 +54,7 @@ impl WaveData {
 
         for id in &self.displayed_items_order {
             self.displayed_items
-                .entry(id.clone())
+                .entry(*id)
                 .and_modify(|item| match item {
                     DisplayedItem::Variable(variable) => {
                         let local_name = variable.variable_ref.name.clone();
@@ -114,7 +114,7 @@ impl WaveData {
 
     pub fn force_variable_name_type(&mut self, name_type: VariableNameType) {
         for id in &self.displayed_items_order {
-            self.displayed_items.entry(id.clone()).and_modify(|item| {
+            self.displayed_items.entry(*id).and_modify(|item| {
                 if let DisplayedItem::Variable(variable) = item {
                     variable.display_name_type = name_type;
                 }
