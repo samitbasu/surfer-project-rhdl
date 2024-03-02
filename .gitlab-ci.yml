@@ -40,7 +40,7 @@ test:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always
+        - cargo test --color=always --locked
     cache:
         key: test
         paths:
@@ -60,7 +60,7 @@ test-beta:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always
+        - cargo test --color=always --locked
     cache:
         key: test-beta
         paths:
@@ -81,7 +81,7 @@ test-nightly:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always
+        - cargo test --color=always --locked
     cache:
         key: test-nightly
         paths:
@@ -162,7 +162,7 @@ linux_build:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
         - git fetch --tags
-        - cargo build --release
+        - cargo build --release --locked
         - cp target/release/surfer surfer
         - zip surfer_linux.zip surfer
     artifacts:
@@ -188,7 +188,7 @@ windows_build:
         - apt-get install -y mingw-w64 zip
         - git fetch --tags
         - rustup target add x86_64-pc-windows-gnu
-        - cargo build --target x86_64-pc-windows-gnu --release
+        - cargo build --target x86_64-pc-windows-gnu --release --locked
         - cp target/x86_64-pc-windows-gnu/release/surfer.exe surfer.exe
         - zip surfer_win.zip surfer.exe
     artifacts:
