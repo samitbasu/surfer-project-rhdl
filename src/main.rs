@@ -978,13 +978,12 @@ impl State {
                         display_item_ref_counter: 0,
                     }
                 };
-                self.invalidate_draw_commands();
 
                 // Set time unit to the file time unit before consuming new_wave
                 self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
                 self.waves = Some(new_wave);
+                self.invalidate_draw_commands();
                 self.sys.vcd_progress = None;
-                info!("Done setting up VCD file");
                 self.run_startup_commands();
             }
             Message::BlacklistTranslator(idx, translator) => {
