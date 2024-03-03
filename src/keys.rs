@@ -83,6 +83,16 @@ impl State {
                     (Key::R, true, false, false) => msgs.push(Message::ReloadWaveform(
                         self.config.behavior.keep_during_reload,
                     )),
+                    (Key::H, true, false, false) => msgs.push(Message::MoveCursorToTransition {
+                        next: false,
+                        variable: None,
+                        skip_zero: modifiers.ctrl,
+                    }),
+                    (Key::L, true, false, false) => msgs.push(Message::MoveCursorToTransition {
+                        next: true,
+                        variable: None,
+                        skip_zero: modifiers.ctrl,
+                    }),
                     (Key::Minus, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
                         delta: 2.0,
@@ -109,20 +119,20 @@ impl State {
                         },
                         viewport_idx: 0,
                     }),
-                    (Key::ArrowRight, true, false, false) => msgs.push(Message::CanvasScroll {
-                        delta: Vec2 {
-                            x: 0.,
-                            y: -PER_SCROLL_EVENT,
-                        },
-                        viewport_idx: 0,
-                    }),
-                    (Key::ArrowLeft, true, false, false) => msgs.push(Message::CanvasScroll {
-                        delta: Vec2 {
-                            x: 0.,
-                            y: PER_SCROLL_EVENT,
-                        },
-                        viewport_idx: 0,
-                    }),
+                    (Key::ArrowRight, true, false, false) => {
+                        msgs.push(Message::MoveCursorToTransition {
+                            next: true,
+                            variable: None,
+                            skip_zero: modifiers.ctrl,
+                        })
+                    }
+                    (Key::ArrowLeft, true, false, false) => {
+                        msgs.push(Message::MoveCursorToTransition {
+                            next: false,
+                            variable: None,
+                            skip_zero: modifiers.ctrl,
+                        })
+                    }
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
