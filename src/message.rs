@@ -148,6 +148,7 @@ pub enum Message {
     MoveCursorToTransition {
         next: bool,
         variable: Option<usize>,
+        skip_zero: bool,
     },
     VariableValueToClipbord(Option<usize>),
 
