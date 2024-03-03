@@ -373,6 +373,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             Command::Terminal(Message::MoveCursorToTransition {
                                 next: true,
                                 variable: Some(idx),
+                                skip_zero: false,
                             })
                         })
                     }),
@@ -386,6 +387,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             Command::Terminal(Message::MoveCursorToTransition {
                                 next: false,
                                 variable: Some(idx),
+                                skip_zero: false,
                             })
                         })
                     }),

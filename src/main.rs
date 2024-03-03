@@ -884,9 +884,31 @@ impl State {
                     }
                 };
             }
-            Message::MoveCursorToTransition { next, variable } => {
+            Message::MoveCursorToTransition {
+                next,
+                variable,
+                skip_zero,
+            } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.set_cursor_at_transition(next, variable);
+                    // if no cursor is set, move it to
+                    // start of visible area transition for next transition
+                    // end of visible area for previous transition
+                    if waves.cursor.is_none() && waves.focused_item.is_some() {
+                        if next {
+                            waves
+                                .viewports
+                                .first()
+                                .and_then(|vp| vp.curr_left.to_i64())
+                                .map(|time| waves.cursor = Some(time.into()));
+                        } else {
+                            waves
+                                .viewports
+                                .first()
+                                .and_then(|vp| vp.curr_right.to_i64())
+                                .map(|time| waves.cursor = Some(time.into()));
+                        }
+                    }
+                    waves.set_cursor_at_transition(next, variable, skip_zero);
                     let moved = waves.go_to_cursor_if_not_in_view();
                     if moved {
                         self.invalidate_draw_commands();
