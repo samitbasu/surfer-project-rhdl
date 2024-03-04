@@ -10,7 +10,7 @@ use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
 use itertools::Itertools;
 
 use crate::config::HierarchyStyle;
-use crate::wave_source::{LoadOptions, WaveFormat};
+use crate::wave_source::LoadOptions;
 use crate::{
     clock_highlighting::ClockHighlightType,
     displayed_item::DisplayedItem,
@@ -116,9 +116,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
         }
     }
 
-    fn vcd_files() -> Vec<String> {
-        files_with_ext(is_vcd_extension)
-    }
     fn all_wave_files() -> Vec<String> {
         files_with_ext(is_wave_file_extension)
     }
@@ -140,8 +137,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
     let keep_during_reload = state.config.behavior.keep_during_reload;
     let mut commands = if state.waves.is_some() {
         vec![
-            "load_vcd",
             "load_file",
+            "switch_file",
             "variable_add",
             "item_focus",
             "item_set_color",
@@ -189,7 +186,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
         ]
     } else {
         vec![
-            "load_vcd",
             "load_file",
             "load_url",
             "config_reload",
@@ -213,21 +209,25 @@ pub fn get_parser(state: &State) -> Command<Message> {
             let scopes = scopes.clone();
             let active_scope = active_scope.clone();
             match query {
-                "load_vcd" => single_word_delayed_suggestions(
-                    Box::new(vcd_files),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::LoadWaveformFile(
-                            word.into(),
-                            LoadOptions::clean_with_expected_format(WaveFormat::Vcd),
-                        )))
-                    }),
-                ),
                 "load_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::LoadWaveformFile(
                             word.into(),
                             LoadOptions::clean(),
+                        )))
+                    }),
+                ),
+                "switch_file" => single_word_delayed_suggestions(
+                    Box::new(all_wave_files),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::LoadWaveformFile(
+                            word.into(),
+                            LoadOptions {
+                                keep_variables: true,
+                                keep_unavailable: false,
+                                expect_format: None,
+                            },
                         )))
                     }),
                 ),
@@ -475,11 +475,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
     )
 }
 
-fn is_vcd_extension(ext: &str) -> bool {
-    ext == "vcd"
-}
 fn is_wave_file_extension(ext: &str) -> bool {
-    ext == "vcd" || ext == "fst"
+    ext == "vcd" || ext == "fst" || ext == "ghw"
 }
 
 pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {

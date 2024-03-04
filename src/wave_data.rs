@@ -108,7 +108,7 @@ impl WaveData {
             active_scope,
             displayed_items_order: self.displayed_items_order,
             displayed_items: display_items,
-            display_item_ref_counter: 0,
+            display_item_ref_counter: self.display_item_ref_counter,
             viewports: self
                 .viewports
                 .into_iter()
