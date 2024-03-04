@@ -31,7 +31,6 @@ impl CxxrtlTimestamp {
 
     pub fn from_femtoseconds(femto: BigUint) -> Self {
         Self {
-            // TODO: Stop using the spade function here
             seconds: &femto / BigUint::from(1_000_000_000_000_000u64),
             femtoseconds: &femto % BigUint::from(1_000_000_000_000_000u64),
         }

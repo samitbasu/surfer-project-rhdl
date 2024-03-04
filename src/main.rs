@@ -937,10 +937,7 @@ impl State {
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_vcd_from_data(data, load_options).ok();
             }
-            Message::ConnectToCxxrtl(url) => {
-                // TODO: Set keep_variables?
-                self.connect_to_cxxrtl(url, false)
-            }
+            Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
             Message::FileDropped(dropped_file) => {
                 self.load_vcd_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))

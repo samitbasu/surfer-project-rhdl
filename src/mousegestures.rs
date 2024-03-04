@@ -98,7 +98,7 @@ impl State {
                                 (start_location.x, end_location.x)
                             };
                             msgs.push(Message::ZoomToRange {
-                                // TODO: No need to go via bigint here, this could all be relative
+                                // FIXME: No need to go via bigint here, this could all be relative
                                 start: waves.viewports[viewport_idx].to_time_bigint(
                                     minx,
                                     frame_width,
