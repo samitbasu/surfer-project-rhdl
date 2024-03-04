@@ -56,13 +56,13 @@ pub enum Message {
         viewport_idx: usize,
     },
     CanvasZoom {
-        mouse_ptr_timestamp: Option<f64>,
+        mouse_ptr: Option<BigInt>,
         delta: f32,
         viewport_idx: usize,
     },
     ZoomToRange {
-        start: f64,
-        end: f64,
+        start: BigInt,
+        end: BigInt,
         viewport_idx: usize,
     },
     CursorSet(BigInt),

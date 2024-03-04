@@ -72,7 +72,6 @@ use message::Message;
 use num::bigint::ToBigInt;
 use num::BigInt;
 use num::FromPrimitive;
-use num::ToPrimitive;
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
@@ -766,24 +765,27 @@ impl State {
             }
             Message::CanvasZoom {
                 delta,
-                mouse_ptr_timestamp,
+                mouse_ptr,
                 viewport_idx,
             } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.viewports[viewport_idx]
-                        .handle_canvas_zoom(mouse_ptr_timestamp, delta as f64);
+                    waves.viewports[viewport_idx].handle_canvas_zoom(
+                        mouse_ptr,
+                        delta as f64,
+                        &waves.num_timestamps,
+                    );
                     self.invalidate_draw_commands();
                 }
             }
             Message::ZoomToFit { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].zoom_to_fit(&waves.num_timestamps);
+                    waves.viewports[viewport_idx].zoom_to_fit();
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToEnd { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].go_to_end(&waves.num_timestamps);
+                    waves.viewports[viewport_idx].go_to_end();
                     self.invalidate_draw_commands();
                 }
             }
@@ -796,7 +798,8 @@ impl State {
             Message::GoToTime(time, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(time) = time {
-                        waves.viewports[viewport_idx].go_to_time(&time.clone());
+                        waves.viewports[viewport_idx]
+                            .go_to_time(&time.clone(), &waves.num_timestamps);
                         self.invalidate_draw_commands();
                     }
                 };
@@ -815,7 +818,11 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].zoom_to_range(start, end);
+                    waves.viewports[viewport_idx].zoom_to_range(
+                        &start,
+                        &end,
+                        &waves.num_timestamps,
+                    );
                     self.invalidate_draw_commands();
                 }
             }
@@ -1108,7 +1115,7 @@ impl State {
             Message::GoToMarkerPosition(idx, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.markers.get(&idx) {
-                        waves.viewports[viewport_idx].go_to_time(&cursor);
+                        waves.viewports[viewport_idx].go_to_time(&cursor, &waves.num_timestamps);
                         self.invalidate_draw_commands();
                     }
                 };
@@ -1253,8 +1260,7 @@ impl State {
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {
                 if let Some(waves) = &mut self.waves {
-                    let viewport =
-                        Viewport::new(0., waves.num_timestamps.clone().to_f64().unwrap());
+                    let viewport = Viewport::new();
                     waves.viewports.push(viewport);
                     self.sys.draw_data.borrow_mut().push(None);
                 }
@@ -1283,28 +1289,24 @@ impl State {
             .as_ref()
             .map(|t| t.to_bigint().unwrap())
             .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
-        let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
+        let viewport = Viewport::new();
         let viewports = [viewport].to_vec();
 
         let new_wave = if load_options.keep_variables && self.waves.is_some() {
-            let old_viewport_count = self.waves.as_ref().unwrap().viewports.len();
             self.waves.take().unwrap().update_with(
                 new_waves,
                 filename,
                 format,
                 num_timestamps,
-                viewports.repeat(old_viewport_count),
                 &self.sys.translators,
                 load_options.keep_unavailable,
             )
         } else if let Some(old) = self.previous_waves.take() {
-            let viewport_count = old.viewports.len();
             old.update_with(
                 new_waves,
                 filename,
                 format,
                 num_timestamps,
-                viewports.repeat(viewport_count),
                 &self.sys.translators,
                 load_options.keep_unavailable,
             )

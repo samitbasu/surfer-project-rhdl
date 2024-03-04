@@ -4,7 +4,7 @@ use color_eyre::eyre::WrapErr;
 use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::ToBigInt;
-use num::{BigInt, ToPrimitive};
+use num::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
 
 use crate::wave_source::WaveFormat;
@@ -63,7 +63,6 @@ impl WaveData {
         source: WaveSource,
         format: WaveFormat,
         num_timestamps: BigInt,
-        wave_viewport: Vec<Viewport>,
         translators: &TranslatorList,
         keep_unavailable: bool,
     ) -> WaveData {
@@ -101,6 +100,24 @@ impl WaveData {
                 })
             })
             .collect();
+
+        let viewports = self
+            .viewports
+            .into_iter()
+            // FIXME: I'm not sure if Defaulting to 1 time step is the right thing to do if we
+            // have none, but it does avoid some potentially nasty division by zero problems
+            .map(|viewport| {
+                viewport.clip_to(
+                    &self.num_timestamps,
+                    &new_waves
+                        .max_timestamp()
+                        .unwrap_or_else(|| BigUint::from(1u32))
+                        .to_bigint()
+                        .unwrap(),
+                )
+            })
+            .collect_vec();
+
         let mut new_wave = WaveData {
             inner: *new_waves,
             source,
@@ -109,12 +126,7 @@ impl WaveData {
             displayed_items_order: self.displayed_items_order,
             displayed_items: display_items,
             display_item_ref_counter: 0,
-            viewports: self
-                .viewports
-                .into_iter()
-                .enumerate()
-                .map(|(idx, viewport)| viewport.clip_to(&wave_viewport[idx]))
-                .collect_vec(),
+            viewports,
             variable_format,
             num_timestamps,
             cursor: self.cursor.clone(),
@@ -369,7 +381,7 @@ impl WaveData {
 
     pub fn go_to_cursor_if_not_in_view(&mut self) -> bool {
         if let Some(cursor) = &self.cursor {
-            self.viewports[0].go_to_cursor_if_not_in_view(cursor)
+            self.viewports[0].go_to_cursor_if_not_in_view(cursor, &self.num_timestamps)
         } else {
             false
         }
@@ -377,7 +389,11 @@ impl WaveData {
 
     #[inline]
     pub fn numbered_marker_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
-        viewport.from_time(self.numbered_marker_time(idx), view_width)
+        viewport.pixel_from_time(
+            self.numbered_marker_time(idx),
+            view_width,
+            &self.num_timestamps,
+        )
     }
 
     #[inline]
@@ -386,10 +402,7 @@ impl WaveData {
     }
 
     pub fn viewport_all(&self) -> Viewport {
-        Viewport {
-            curr_left: 0.,
-            curr_right: self.num_timestamps.to_f64().unwrap_or(1.0),
-        }
+        Viewport::new()
     }
 
     pub fn remove_placeholders(&mut self) {

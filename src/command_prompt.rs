@@ -261,12 +261,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Some(Command::Terminal(Message::GoToEnd { viewport_idx: 0 }))
                 }
                 "zoom_in" => Some(Command::Terminal(Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
+                    mouse_ptr: None,
                     delta: 0.5,
                     viewport_idx: 0,
                 })),
                 "zoom_out" => Some(Command::Terminal(Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
+                    mouse_ptr: None,
                     delta: 2.0,
                     viewport_idx: 0,
                 })),

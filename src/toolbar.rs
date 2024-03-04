@@ -121,7 +121,7 @@ impl State {
                 icons::ZOOM_IN_FILL,
                 "Zoom in",
                 Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
+                    mouse_ptr: None,
                     delta: 0.5,
                     viewport_idx: 0,
                 },
@@ -133,7 +133,7 @@ impl State {
                 icons::ZOOM_OUT_FILL,
                 "Zoom out",
                 Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
+                    mouse_ptr: None,
                     delta: 2.0,
                     viewport_idx: 0,
                 },

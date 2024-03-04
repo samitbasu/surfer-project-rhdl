@@ -2,7 +2,6 @@ use std::sync::Mutex;
 
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
-use num::bigint::ToBigUint;
 use num::BigUint;
 use serde::{Deserialize, Serialize};
 use wellen::{self, VarRef, Waveform};

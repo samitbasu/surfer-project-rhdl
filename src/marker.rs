@@ -34,7 +34,7 @@ impl WaveData {
         viewport: &Viewport,
     ) {
         if let Some(marker) = &self.cursor {
-            let x = viewport.from_time(marker, size.x);
+            let x = viewport.pixel_from_time(marker, size.x, &self.num_timestamps);
 
             let stroke = Stroke {
                 color: theme.cursor.color,
@@ -79,7 +79,7 @@ impl WaveData {
                 color: *color,
                 width: theme.cursor.width,
             };
-            let x = viewport.from_time(marker, size.x);
+            let x = viewport.pixel_from_time(marker, size.x, &self.num_timestamps);
             ctx.painter.line_segment(
                 [
                     (ctx.to_screen)(x + 0.5, -0.5),
