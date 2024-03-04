@@ -50,6 +50,8 @@ Then, install [Rust via Rustup](https://rustup.rs) and run
 cargo install --git https://gitlab.com/surfer-project/surfer surfer
 ```
 
+You can also install the latest version of `surfer` via the [AUR](https://wiki.archlinux.org/title/Arch_User_Repository) package [`surfer-waveform-git`](https://aur.archlinux.org/packages/surfer-waveform-git).
+
 To compile a version in your local repo without installing it anywhere:
 
 ```bash
