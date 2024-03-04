@@ -200,6 +200,7 @@ impl State {
                 Message::MoveCursorToTransition {
                     next: false,
                     variable: None,
+                    skip_zero: false,
                 },
                 item_selected && cursor_set,
             );
@@ -211,6 +212,7 @@ impl State {
                 Message::MoveCursorToTransition {
                     next: true,
                     variable: None,
+                    skip_zero: false,
                 },
                 item_selected && cursor_set,
             );
