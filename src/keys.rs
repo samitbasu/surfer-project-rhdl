@@ -1,6 +1,7 @@
 use eframe::egui::{Context, Event, Key, Modifiers};
 use eframe::emath::Vec2;
 
+use crate::config::ArrowKeyBindings;
 use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
@@ -120,17 +121,35 @@ impl State {
                         viewport_idx: 0,
                     }),
                     (Key::ArrowRight, true, false, false) => {
-                        msgs.push(Message::MoveCursorToTransition {
-                            next: true,
-                            variable: None,
-                            skip_zero: modifiers.shift,
+                        msgs.push(match self.config.behavior.arrow_key_bindings {
+                            ArrowKeyBindings::Edge => Message::MoveCursorToTransition {
+                                next: true,
+                                variable: None,
+                                skip_zero: modifiers.shift,
+                            },
+                            ArrowKeyBindings::Scroll => Message::CanvasScroll {
+                                delta: Vec2 {
+                                    x: 0.,
+                                    y: -PER_SCROLL_EVENT,
+                                },
+                                viewport_idx: 0,
+                            },
                         })
                     }
                     (Key::ArrowLeft, true, false, false) => {
-                        msgs.push(Message::MoveCursorToTransition {
-                            next: false,
-                            variable: None,
-                            skip_zero: modifiers.shift,
+                        msgs.push(match self.config.behavior.arrow_key_bindings {
+                            ArrowKeyBindings::Edge => Message::MoveCursorToTransition {
+                                next: false,
+                                variable: None,
+                                skip_zero: modifiers.shift,
+                            },
+                            ArrowKeyBindings::Scroll => Message::CanvasScroll {
+                                delta: Vec2 {
+                                    x: 0.,
+                                    y: PER_SCROLL_EVENT,
+                                },
+                                viewport_idx: 0,
+                            },
                         })
                     }
                     (Key::J, true, false, false) => {

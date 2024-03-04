@@ -205,12 +205,12 @@ fn key_listing(ui: &mut Ui) {
         (
             icons::PLAY_FILL,
             "➡/l",
-            "Go to next transition of focused signal",
+            "Go to next transition of focused signal/Scroll viewport",
         ),
         (
             icons::PLAY_REVERSE_FILL,
             "⬅/h",
-            "Go to previous transition of focused item",
+            "Go to previous transition of focused item/Scroll viewport",
         ),
         (
             "",
