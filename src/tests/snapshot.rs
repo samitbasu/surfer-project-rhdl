@@ -1185,3 +1185,58 @@ snapshot_ui_with_file_and_msgs! {previous_transition_do_not_get_stuck, "examples
     Message::MoveCursorToTransition { next: false, variable: None },
     Message::MoveCursorToTransition { next: false, variable: None }
 ]}
+
+snapshot_ui!(signals_can_be_added_after_file_switch, || {
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/counter.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+
+    loop {
+        state.handle_async_messages();
+        if state.waves.is_some() {
+            break;
+        }
+    }
+
+    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
+        "tb.dut.counter",
+    )));
+    state.update(Message::LoadWaveformFile(
+        "examples/counter2.vcd".into(),
+        LoadOptions {
+            keep_variables: true,
+            keep_unavailable: false,
+            expect_format: None,
+        },
+    ));
+
+    loop {
+        state.handle_async_messages();
+        if state
+            .waves
+            .as_ref()
+            .is_some_and(|w| w.source.to_string() == "examples/counter2.vcd")
+        {
+            break;
+        }
+    }
+
+    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
+        "tb.clk",
+    )));
+    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
+        "tb.reset",
+    )));
+    state
+});
