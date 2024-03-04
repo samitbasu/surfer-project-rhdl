@@ -1270,6 +1270,9 @@ impl State {
                 );
             }
             Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
+            Message::SetArrowKeyBindings(bindings) => {
+                self.config.behavior.arrow_key_bindings = bindings
+            }
             Message::Batch(messages) => {
                 for message in messages {
                     self.update(message)
