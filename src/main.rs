@@ -69,9 +69,6 @@ use log::trace;
 use log::warn;
 use logs::EGUI_LOGGER;
 use message::Message;
-use num::bigint::ToBigInt;
-use num::BigInt;
-use num::FromPrimitive;
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
@@ -769,10 +766,11 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = self.waves.as_mut() {
+                    let num_timestamps = waves.num_timestamps();
                     waves.viewports[viewport_idx].handle_canvas_zoom(
                         mouse_ptr,
                         delta as f64,
-                        &waves.num_timestamps,
+                        &num_timestamps,
                     );
                     self.invalidate_draw_commands();
                 }
@@ -798,8 +796,8 @@ impl State {
             Message::GoToTime(time, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(time) = time {
-                        waves.viewports[viewport_idx]
-                            .go_to_time(&time.clone(), &waves.num_timestamps);
+                        let num_timestamps = waves.num_timestamps();
+                        waves.viewports[viewport_idx].go_to_time(&time.clone(), &num_timestamps);
                         self.invalidate_draw_commands();
                     }
                 };
@@ -818,11 +816,8 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].zoom_to_range(
-                        &start,
-                        &end,
-                        &waves.num_timestamps,
-                    );
+                    let num_timestamps = waves.num_timestamps();
+                    waves.viewports[viewport_idx].zoom_to_range(&start, &end, &num_timestamps);
                     self.invalidate_draw_commands();
                 }
             }
@@ -1115,7 +1110,8 @@ impl State {
             Message::GoToMarkerPosition(idx, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.markers.get(&idx) {
-                        waves.viewports[viewport_idx].go_to_time(&cursor, &waves.num_timestamps);
+                        let num_timestamps = waves.num_timestamps();
+                        waves.viewports[viewport_idx].go_to_time(&cursor, &num_timestamps);
                         self.invalidate_draw_commands();
                     }
                 };
@@ -1284,11 +1280,6 @@ impl State {
         load_options: LoadOptions,
     ) {
         info!("{format} file loaded");
-        let num_timestamps = new_waves
-            .max_timestamp()
-            .as_ref()
-            .map(|t| t.to_bigint().unwrap())
-            .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
         let viewport = Viewport::new();
         let viewports = [viewport].to_vec();
 
@@ -1297,7 +1288,6 @@ impl State {
                 new_waves,
                 filename,
                 format,
-                num_timestamps,
                 &self.sys.translators,
                 load_options.keep_unavailable,
             )
@@ -1306,7 +1296,6 @@ impl State {
                 new_waves,
                 filename,
                 format,
-                num_timestamps,
                 &self.sys.translators,
                 load_options.keep_unavailable,
             )
@@ -1320,7 +1309,6 @@ impl State {
                 displayed_items: HashMap::new(),
                 viewports,
                 variable_format: HashMap::new(),
-                num_timestamps,
                 cursor: None,
                 right_cursor: None,
                 markers: HashMap::new(),

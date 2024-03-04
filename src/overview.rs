@@ -40,16 +40,16 @@ impl State {
             let minx = viewport_all.pixel_from_time_f64(
                 waves.viewports[vidx]
                     .curr_left
-                    .absolute(&waves.num_timestamps),
+                    .absolute(&waves.num_timestamps()),
                 frame_width,
-                &waves.num_timestamps,
+                &waves.num_timestamps(),
             );
             let maxx = viewport_all.pixel_from_time_f64(
                 waves.viewports[vidx]
                     .curr_right
-                    .absolute(&waves.num_timestamps),
+                    .absolute(&waves.num_timestamps()),
                 frame_width,
-                &waves.num_timestamps,
+                &waves.num_timestamps(),
             );
             let min = (ctx.to_screen)(minx, 0.);
             let max = (ctx.to_screen)(maxx, container_rect.max.y);
@@ -112,7 +112,8 @@ impl State {
             let pos = pointer_pos_global
                 .map(|p| to_screen.inverse().transform_pos(p))
                 .unwrap();
-            let timestamp = viewport_all.to_time_bigint(pos.x, frame_width, &waves.num_timestamps);
+            let timestamp =
+                viewport_all.to_time_bigint(pos.x, frame_width, &waves.num_timestamps());
             msgs.push(Message::GoToTime(Some(timestamp), 0));
         });
     }
