@@ -99,7 +99,7 @@ async fn fill_signal_values(
         let mut ranges = vec![];
         for variable in &variables {
             let this_size_bits = &item_info[variable].width;
-            let this_size_u32 = 1 + (this_size_bits / 32);
+            let this_size_u32 = 1 + ((this_size_bits - 1) / 32);
             ranges.push((offset * 4) as usize..((offset + this_size_u32) * 4) as usize);
             offset += this_size_u32
         }
