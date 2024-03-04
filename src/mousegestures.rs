@@ -102,12 +102,12 @@ impl State {
                                 start: waves.viewports[viewport_idx].to_time_bigint(
                                     minx,
                                     frame_width,
-                                    &waves.num_timestamps,
+                                    &waves.num_timestamps(),
                                 ),
                                 end: waves.viewports[viewport_idx].to_time_bigint(
                                     maxx,
                                     frame_width,
-                                    &waves.num_timestamps,
+                                    &waves.num_timestamps(),
                                 ),
                                 viewport_idx,
                             })
@@ -214,7 +214,7 @@ impl State {
                     &(waves.viewports[viewport_idx].to_time_bigint(
                         minx,
                         width,
-                        &waves.num_timestamps
+                        &waves.num_timestamps()
                     )),
                     &waves.inner.metadata().timescale,
                     &self.wanted_timeunit,
@@ -224,7 +224,7 @@ impl State {
                     &(waves.viewports[viewport_idx].to_time_bigint(
                         maxx,
                         width,
-                        &waves.num_timestamps
+                        &waves.num_timestamps()
                     )),
                     &waves.inner.metadata().timescale,
                     &self.wanted_timeunit,

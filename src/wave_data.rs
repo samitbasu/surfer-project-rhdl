@@ -4,7 +4,7 @@ use color_eyre::eyre::WrapErr;
 use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::ToBigInt;
-use num::{BigInt, BigUint};
+use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
 use crate::wave_container::VariableValue;
@@ -37,7 +37,6 @@ pub struct WaveData {
     /// Tracks the consecutive displayed item refs
     pub display_item_ref_counter: DisplayedItemRef,
     pub viewports: Vec<Viewport>,
-    pub num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
     pub variable_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
@@ -63,7 +62,6 @@ impl WaveData {
         new_waves: Box<WaveContainer>,
         source: WaveSource,
         format: WaveFormat,
-        num_timestamps: BigInt,
         translators: &TranslatorList,
         keep_unavailable: bool,
     ) -> WaveData {
@@ -102,6 +100,7 @@ impl WaveData {
             })
             .collect();
 
+        let current_num_timestamps = self.num_timestamps();
         let viewports = self
             .viewports
             .into_iter()
@@ -109,7 +108,7 @@ impl WaveData {
             // have none, but it does avoid some potentially nasty division by zero problems
             .map(|viewport| {
                 viewport.clip_to(
-                    &self.num_timestamps,
+                    &current_num_timestamps,
                     &new_waves
                         .max_timestamp()
                         .unwrap_or_else(|| BigUint::from(1u32))
@@ -129,7 +128,6 @@ impl WaveData {
             display_item_ref_counter: self.display_item_ref_counter,
             viewports,
             variable_format,
-            num_timestamps,
             cursor: self.cursor.clone(),
             right_cursor: None,
             markers: self.markers.clone(),
@@ -382,7 +380,8 @@ impl WaveData {
 
     pub fn go_to_cursor_if_not_in_view(&mut self) -> bool {
         if let Some(cursor) = &self.cursor {
-            self.viewports[0].go_to_cursor_if_not_in_view(cursor, &self.num_timestamps)
+            let num_timestamps = self.num_timestamps();
+            self.viewports[0].go_to_cursor_if_not_in_view(cursor, &num_timestamps)
         } else {
             false
         }
@@ -393,7 +392,7 @@ impl WaveData {
         viewport.pixel_from_time(
             self.numbered_marker_time(idx),
             view_width,
-            &self.num_timestamps,
+            &self.num_timestamps(),
         )
     }
 
@@ -491,7 +490,7 @@ impl WaveData {
                                 }
                             } else {
                                 // No next transition, go to end
-                                self.cursor = Some(self.num_timestamps.clone());
+                                self.cursor = Some(self.num_timestamps().clone());
                             }
                         } else {
                             if let Some(stime) = res.current.unwrap().0.to_bigint() {
@@ -543,5 +542,18 @@ impl WaveData {
     pub fn next_displayed_item_ref(&mut self) -> usize {
         self.display_item_ref_counter += 1;
         self.display_item_ref_counter
+    }
+
+    /// Returns the number of timestamps in the current waves. For now, this adjusts the
+    /// number of timestamps as returned by wave sources if they specify 0 timestams. This is
+    /// done to avoid having to consider what happens with the viewport. In the future,
+    /// we should probably make this an Option<BigInt>
+    pub fn num_timestamps(&self) -> BigInt {
+        self.inner
+            .max_timestamp()
+            .and_then(|r| if r == BigUint::zero() { None } else { Some(r) })
+            .unwrap_or(BigUint::from(1u32))
+            .to_bigint()
+            .unwrap()
     }
 }

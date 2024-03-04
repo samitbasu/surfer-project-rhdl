@@ -445,15 +445,11 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.max_timestamp(),
             WaveContainer::Empty => None,
-            /*WaveContainer::Cxxrtl(c) => c
-            .lock()
-            .unwrap()
-            .max_timestamp()
-            .map(|t| {
-                println!("max timestamp is {t}");
-                t.into_femtoseconds()
-            })*/
-            WaveContainer::Cxxrtl(_) => Some(BigUint::from(65000000000u64)),
+            WaveContainer::Cxxrtl(c) => c
+                .lock()
+                .unwrap()
+                .max_timestamp()
+                .map(|t| t.into_femtoseconds()),
         }
     }
 
