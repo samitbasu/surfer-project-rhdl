@@ -202,8 +202,26 @@ fn key_listing(ui: &mut Ui) {
         (icons::REFRESH_LINE, "r", "Reload waveform"),
         (icons::SPEED_FILL, "Page up", "Go one page/screen right"),
         (icons::REWIND_FILL, "Page down", "Go one page/screen left"),
-        (icons::PLAY_FILL, "➡", "Go right"),
-        (icons::PLAY_REVERSE_FILL, "⬅", "Go left"),
+        (
+            icons::PLAY_FILL,
+            "➡/l",
+            "Go to next transition of focused signal",
+        ),
+        (
+            icons::PLAY_REVERSE_FILL,
+            "⬅/h",
+            "Go to previous transition of focused item",
+        ),
+        (
+            "",
+            "Ctrl+➡/l",
+            "Go to next non-zero transition of focused item",
+        ),
+        (
+            "",
+            "Ctrl+⬅/h",
+            "Go to previous non-zero transition of focused signal",
+        ),
         (icons::DELETE_BIN_2_FILL, "x/Delete", "Delete focused item"),
         #[cfg(not(target_arch = "wasm32"))]
         (icons::FULLSCREEN_LINE, "F11", "Toggle full screen"),
