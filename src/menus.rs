@@ -3,7 +3,7 @@ use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
 
 use crate::{
     clock_highlighting::clock_highlight_type_menu,
-    config::HierarchyStyle,
+    config::{ArrowKeyBindings, HierarchyStyle},
     displayed_item::DisplayedItem,
     message::Message,
     time::{timeformat_menu, timeunit_menu},
@@ -207,6 +207,20 @@ impl State {
                     .then(|| {
                         ui.close_menu();
                         msgs.push(Message::SetHierarchyStyle(style));
+                    });
+                }
+            });
+
+            ui.menu_button("Arrow Keys", |ui| {
+                for binding in enum_iterator::all::<ArrowKeyBindings>() {
+                    ui.radio(
+                        self.config.behavior.arrow_key_bindings == binding,
+                        binding.to_string(),
+                    )
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::SetArrowKeyBindings(binding));
                     });
                 }
             });

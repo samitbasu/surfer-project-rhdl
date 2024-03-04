@@ -41,6 +41,31 @@ impl From<String> for HierarchyStyle {
     }
 }
 
+#[derive(Debug, Deserialize, PartialEq, Eq, Sequence)]
+pub enum ArrowKeyBindings {
+    Edge,
+    Scroll,
+}
+
+impl fmt::Display for ArrowKeyBindings {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ArrowKeyBindings::Edge => write!(f, "Edge"),
+            ArrowKeyBindings::Scroll => write!(f, "Scroll"),
+        }
+    }
+}
+
+impl From<String> for ArrowKeyBindings {
+    fn from(string: String) -> Self {
+        match string.as_str() {
+            "Edge" => Self::Edge,
+            "Scroll" => Self::Scroll,
+            _ => Self::Edge,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {
     pub layout: SurferLayout,
@@ -120,6 +145,8 @@ impl SurferLayout {
 pub struct SurferBehavior {
     /// Keep or remove variables if unavailable during reload
     pub keep_during_reload: bool,
+    /// Select the functionality bound to the arrow keys
+    pub arrow_key_bindings: ArrowKeyBindings,
 }
 
 #[derive(Debug, Deserialize)]
