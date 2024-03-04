@@ -884,9 +884,25 @@ impl State {
                     }
                 };
             }
-            Message::MoveCursorToTransition { next, variable } => {
+            Message::MoveCursorToTransition {
+                next,
+                variable,
+                skip_zero,
+            } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.set_cursor_at_transition(next, variable);
+                    // if no cursor is set, move it to waveform
+                    // start for next transition
+                    // end for previous transition
+                    if waves.cursor.is_none() && waves.focused_item.is_some() {
+                        if next {
+                            waves.cursor = Some(BigInt::from(0));
+                        } else {
+                            if let Some(max_timestamp) = waves.inner.max_timestamp() {
+                                waves.cursor = Some(max_timestamp.into());
+                            }
+                        }
+                    }
+                    waves.set_cursor_at_transition(next, variable, skip_zero);
                     let moved = waves.go_to_cursor_if_not_in_view();
                     if moved {
                         self.invalidate_draw_commands();
