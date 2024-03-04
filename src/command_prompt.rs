@@ -476,7 +476,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
 }
 
 fn is_wave_file_extension(ext: &str) -> bool {
-    ext == "vcd" || ext == "fst"
+    ext == "vcd" || ext == "fst" || ext == "ghw"
 }
 
 pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
