@@ -315,7 +315,7 @@ impl WaveContainer {
             WaveContainer::Wellen(f) => f.variable_names(),
             WaveContainer::Empty => vec![],
             // I don't know if we can do
-            WaveContainer::Cxxrtl(_) => vec![], // TODO: List signals
+            WaveContainer::Cxxrtl(_) => vec![], // FIXME: List signals
         }
     }
 
@@ -436,8 +436,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.child_scopes(scope),
             WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
-            // TODO: Rename to child_scopes
-            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().child_modules(scope)),
+            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().child_scopes(scope)),
         }
     }
 
@@ -467,7 +466,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.get_scope_tooltip_data(scope),
             WaveContainer::Empty => "".to_string(),
-            // TODO: Tooltip
+            // FIXME: Tooltip
             WaveContainer::Cxxrtl(_) => "".to_string(),
         }
     }
