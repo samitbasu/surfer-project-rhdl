@@ -138,7 +138,6 @@ impl CxxrtlWorker {
                 trace!("Got event {e:?} from cxxrtl");
                 match e {
                     Event::simulation_paused { time, cause: _ } => {
-                        // TODO: Solve cache invalidation
                         self.data.write().await.simulation_status =
                             CachedData::Filled(Arc::new(CxxrtlSimulationStatus {
                                 status: SimulationStatusType::paused,
@@ -457,7 +456,6 @@ impl CxxrtlContainer {
                                     .collect::<Vec<_>>(),
                             ),
                             name: sp.last().unwrap().to_string(),
-                            // TODO
                             id: WaveContainerVarId::None,
                         },
                         v,
@@ -497,7 +495,7 @@ impl CxxrtlContainer {
             .unwrap_or(false)
     }
 
-    pub fn child_modules(&mut self, parent: &ScopeRef) -> Vec<ScopeRef> {
+    pub fn child_scopes(&mut self, parent: &ScopeRef) -> Vec<ScopeRef> {
         self.scopes()
             .map(|scopes| {
                 scopes
@@ -656,7 +654,6 @@ impl CxxrtlContainer {
         self.run_command(cmd, |_, data| {
             data.simulation_status = CachedData::filled(CxxrtlSimulationStatus {
                 status: SimulationStatusType::running,
-                // TODO
                 latest_time: CxxrtlTimestamp::zero(),
             });
             info!("Unpausing simulation")
