@@ -86,12 +86,12 @@ impl State {
                     (Key::H, true, false, false) => msgs.push(Message::MoveCursorToTransition {
                         next: false,
                         variable: None,
-                        skip_zero: modifiers.ctrl,
+                        skip_zero: modifiers.shift,
                     }),
                     (Key::L, true, false, false) => msgs.push(Message::MoveCursorToTransition {
                         next: true,
                         variable: None,
-                        skip_zero: modifiers.ctrl,
+                        skip_zero: modifiers.shift,
                     }),
                     (Key::Minus, true, false, false) => msgs.push(Message::CanvasZoom {
                         mouse_ptr_timestamp: None,
@@ -123,14 +123,14 @@ impl State {
                         msgs.push(Message::MoveCursorToTransition {
                             next: true,
                             variable: None,
-                            skip_zero: modifiers.ctrl,
+                            skip_zero: modifiers.shift,
                         })
                     }
                     (Key::ArrowLeft, true, false, false) => {
                         msgs.push(Message::MoveCursorToTransition {
                             next: false,
                             variable: None,
-                            skip_zero: modifiers.ctrl,
+                            skip_zero: modifiers.shift,
                         })
                     }
                     (Key::J, true, false, false) => {
