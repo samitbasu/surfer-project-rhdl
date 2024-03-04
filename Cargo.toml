@@ -17,6 +17,7 @@ clap = { version = "4.4.10", features = ['derive'] }
 color-eyre = "0.6.2"
 config = "0.13.4"
 derivative = "2.2.0"
+derive_more = "0.99.17"
 directories = "5.0"
 eframe = "0.25.0"
 egui-remixicon = "0.2"
