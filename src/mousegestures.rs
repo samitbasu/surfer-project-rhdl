@@ -98,10 +98,17 @@ impl State {
                                 (start_location.x, end_location.x)
                             };
                             msgs.push(Message::ZoomToRange {
-                                start: waves.viewports[viewport_idx]
-                                    .to_time_f64(minx as f64, frame_width),
-                                end: waves.viewports[viewport_idx]
-                                    .to_time_f64(maxx as f64, frame_width),
+                                // TODO: No need to go via bigint here, this could all be relative
+                                start: waves.viewports[viewport_idx].to_time_bigint(
+                                    minx,
+                                    frame_width,
+                                    &waves.num_timestamps,
+                                ),
+                                end: waves.viewports[viewport_idx].to_time_bigint(
+                                    maxx,
+                                    frame_width,
+                                    &waves.num_timestamps,
+                                ),
                                 viewport_idx,
                             })
                         }
@@ -113,7 +120,7 @@ impl State {
                         }
                         Some(GestureKind::ZoomOut) => {
                             msgs.push(Message::CanvasZoom {
-                                mouse_ptr_timestamp: None,
+                                mouse_ptr: None,
                                 delta: 2.0,
                                 viewport_idx,
                             });
@@ -204,13 +211,21 @@ impl State {
             format!(
                 "Zoom in: {} to {}",
                 time_string(
-                    &(waves.viewports[viewport_idx].to_time_bigint(minx, width)),
+                    &(waves.viewports[viewport_idx].to_time_bigint(
+                        minx,
+                        width,
+                        &waves.num_timestamps
+                    )),
                     &waves.inner.metadata().timescale,
                     &self.wanted_timeunit,
                     &self.get_time_format()
                 ),
                 time_string(
-                    &(waves.viewports[viewport_idx].to_time_bigint(maxx, width)),
+                    &(waves.viewports[viewport_idx].to_time_bigint(
+                        maxx,
+                        width,
+                        &waves.num_timestamps
+                    )),
                     &waves.inner.metadata().timescale,
                     &self.wanted_timeunit,
                     &self.get_time_format()
