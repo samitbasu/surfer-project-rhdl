@@ -26,21 +26,29 @@ pub enum WaveSource {
     CxxrtlTcp(String),
 }
 
-pub fn string_to_wavesource(path: String) -> WaveSource {
-    if path.starts_with("https://") || path.starts_with("http://") {
+pub fn url_to_wavesource(url: &str) -> Option<WaveSource> {
+    if url.starts_with("https://") || url.starts_with("http://") {
         info!("Wave source is url");
-        WaveSource::Url(path)
-    } else if path.starts_with("cxxrtl+tcp://") {
+        Some(WaveSource::Url(url.to_string()))
+    } else if url.starts_with("cxxrtl+tcp://") {
         #[cfg(not(target_arch = "wasm32"))]
         {
             info!("Wave source is cxxrtl");
-            WaveSource::CxxrtlTcp(path.replace("cxxrtl+tcp://", ""))
+            Some(WaveSource::CxxrtlTcp(url.replace("cxxrtl+tcp://", "")))
         }
         #[cfg(target_arch = "wasm32")]
         {
             log::warn!("Loading waves from cxxrtl is unsupported in WASM builds.");
-            WaveSource::Url(path)
+            None
         }
+    } else {
+        None
+    }
+}
+
+pub fn string_to_wavesource(path: &str) -> WaveSource {
+    if let Some(source) = url_to_wavesource(path) {
+        source
     } else {
         info!("Wave source is file");
         WaveSource::File(path.into())
@@ -249,29 +257,41 @@ impl State {
     }
 
     pub fn load_vcd_from_url(&mut self, url: String, load_options: LoadOptions) {
-        let sender = self.sys.channels.msg_sender.clone();
-        let url_ = url.clone();
-        let task = async move {
-            let bytes = reqwest::get(&url)
-                .map(|e| e.with_context(|| format!("Failed fetch download {url}")))
-                .and_then(|resp| {
-                    resp.bytes()
-                        .map(|e| e.with_context(|| format!("Failed to download {url}")))
-                })
-                .await;
-
-            match bytes {
-                Ok(b) => sender.send(Message::FileDownloaded(url, b, load_options)),
-                Err(e) => sender.send(Message::Error(e)),
+        match url_to_wavesource(&url) {
+            // We want to support opening cxxrtl urls using open url and friends,
+            // so we'll special case
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(WaveSource::CxxrtlTcp(url)) => {
+                self.connect_to_cxxrtl(url, load_options.keep_variables)
             }
-            .unwrap();
-        };
-        #[cfg(not(target_arch = "wasm32"))]
-        tokio::spawn(task);
-        #[cfg(target_arch = "wasm32")]
-        wasm_bindgen_futures::spawn_local(task);
+            // However, if we don't get a cxxrtl url, we want to continue loading this as
+            // a url even if it isn't auto detected as a url.
+            _ => {
+                let sender = self.sys.channels.msg_sender.clone();
+                let url_ = url.clone();
+                let task = async move {
+                    let bytes = reqwest::get(&url)
+                        .map(|e| e.with_context(|| format!("Failed fetch download {url}")))
+                        .and_then(|resp| {
+                            resp.bytes()
+                                .map(|e| e.with_context(|| format!("Failed to download {url}")))
+                        })
+                        .await;
 
-        self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
+                    match bytes {
+                        Ok(b) => sender.send(Message::FileDownloaded(url, b, load_options)),
+                        Err(e) => sender.send(Message::Error(e)),
+                    }
+                    .unwrap();
+                };
+                #[cfg(not(target_arch = "wasm32"))]
+                tokio::spawn(task);
+                #[cfg(target_arch = "wasm32")]
+                wasm_bindgen_futures::spawn_local(task);
+
+                self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
+            }
+        }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
