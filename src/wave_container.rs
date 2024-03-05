@@ -6,9 +6,10 @@ use num::BigUint;
 use serde::{Deserialize, Serialize};
 use wellen::{self, VarRef, Waveform};
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::cxxrtl_container::CxxrtlContainer;
 use crate::wellen::var_to_meta;
 use crate::{
-    cxxrtl_container::CxxrtlContainer,
     time::{TimeScale, TimeUnit},
     variable_type::VariableType,
     wellen::WellenContainer,
@@ -286,6 +287,7 @@ pub enum WaveContainer {
     /// A wave container that contains nothing. Currently, the only practical use for this is
     /// a placehodler when serializing and deserializing wave state.
     Empty,
+    #[cfg(not(target_arch = "wasm32"))]
     Cxxrtl(Mutex<CxxrtlContainer>),
 }
 
@@ -305,6 +307,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(_) => true,
             WaveContainer::Empty => true,
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(_) => false,
         }
     }
@@ -315,6 +318,7 @@ impl WaveContainer {
             WaveContainer::Wellen(f) => f.variable_names(),
             WaveContainer::Empty => vec![],
             // I don't know if we can do
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(_) => vec![], // FIXME: List signals
         }
     }
@@ -323,6 +327,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.variables(),
             WaveContainer::Empty => vec![],
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(_) => vec![],
         }
     }
@@ -331,6 +336,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.variables_in_scope(scope),
             WaveContainer::Empty => vec![],
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().signals_in_module(scope),
         }
     }
@@ -340,6 +346,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.load_variable(r),
             WaveContainer::Empty => bail!("Cannot load variable from empty container."),
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().load_signal(r)),
         }
     }
@@ -352,6 +359,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.load_variables(variables),
             WaveContainer::Empty => bail!("Cannot load variables from empty container."),
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().load_signals(variables)),
         }
     }
@@ -363,6 +371,7 @@ impl WaveContainer {
                 Ok(var_to_meta(var, r))
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().signal_meta(r),
         }
     }
@@ -371,6 +380,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.query_variable(variable, time),
             WaveContainer::Empty => bail!("Querying variable from empty wave container"),
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().query_signal(variable, time)),
         }
     }
@@ -380,6 +390,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.update_variable_ref(variable),
             WaveContainer::Empty => None,
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(_) => None,
         }
     }
@@ -389,6 +400,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.scope_names(),
             WaveContainer::Empty => vec![],
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c
                 .lock()
                 .unwrap()
@@ -410,6 +422,7 @@ impl WaveContainer {
                     multiplier: None,
                 },
             },
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(_) => {
                 MetaData {
                     date: None,
@@ -428,6 +441,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.root_scopes(),
             WaveContainer::Empty => vec![],
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().root_modules(),
         }
     }
@@ -436,6 +450,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.child_scopes(scope),
             WaveContainer::Empty => bail!("Getting child modules from empty wave container"),
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().child_scopes(scope)),
         }
     }
@@ -444,6 +459,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.max_timestamp(),
             WaveContainer::Empty => None,
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c
                 .lock()
                 .unwrap()
@@ -456,6 +472,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => f.scope_exists(scope),
             WaveContainer::Empty => false,
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().module_exists(scope),
         }
     }
@@ -467,6 +484,7 @@ impl WaveContainer {
             WaveContainer::Wellen(f) => f.get_scope_tooltip_data(scope),
             WaveContainer::Empty => "".to_string(),
             // FIXME: Tooltip
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(_) => "".to_string(),
         }
     }
@@ -478,6 +496,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(_) => None,
             WaveContainer::Empty => None,
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().simulation_status(),
         }
     }
@@ -488,6 +507,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(_) => {}
             WaveContainer::Empty => {}
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().unpause(),
         }
     }
@@ -497,6 +517,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(_) => {}
             WaveContainer::Empty => {}
+            #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().pause(),
         }
     }

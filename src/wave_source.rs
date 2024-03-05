@@ -1,10 +1,9 @@
 use std::fmt::{Display, Formatter};
 use std::sync::{atomic::AtomicU64, Arc, Mutex};
 
-use crate::{
-    cxxrtl_container::CxxrtlContainer,
-    wasm_util::{perform_async_work, perform_work},
-};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::cxxrtl_container::CxxrtlContainer;
+use crate::wasm_util::{perform_async_work, perform_work};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{anyhow, bail, WrapErr};
 use color_eyre::Result;
@@ -23,6 +22,7 @@ pub enum WaveSource {
     Data,
     DragAndDrop(Option<Utf8PathBuf>),
     Url(String),
+    #[cfg(not(target_arch = "wasm32"))]
     CxxrtlTcp(String),
 }
 
@@ -31,8 +31,16 @@ pub fn string_to_wavesource(path: String) -> WaveSource {
         info!("Wave source is url");
         WaveSource::Url(path)
     } else if path.starts_with("cxxrtl+tcp://") {
-        info!("Wave source is cxxrtl");
-        WaveSource::CxxrtlTcp(path.replace("cxxrtl+tcp://", ""))
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            info!("Wave source is cxxrtl");
+            WaveSource::CxxrtlTcp(path.replace("cxxrtl+tcp://", ""))
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            log::warn!("Loading waves from cxxrtl is unsupported in WASM builds.");
+            WaveSource::Url(path)
+        }
     } else {
         info!("Wave source is file");
         WaveSource::File(path.into())
@@ -47,6 +55,7 @@ impl Display for WaveSource {
             WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
             WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
             WaveSource::Url(url) => write!(f, "{url}"),
+            #[cfg(not(target_arch = "wasm32"))]
             WaveSource::CxxrtlTcp(url) => write!(f, "{url}"),
         }
     }
@@ -265,6 +274,7 @@ impl State {
         self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn connect_to_cxxrtl(&mut self, url: String, keep_variables: bool) {
         let sender = self.sys.channels.msg_sender.clone();
         let url_ = url.clone();

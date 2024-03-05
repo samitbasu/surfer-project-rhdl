@@ -244,15 +244,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         )))
                     }),
                 )),
-                "connect_tcp" => Some(Command::NonTerminal(
-                    ParamGreed::Rest,
-                    vec![],
-                    Box::new(|query, _| {
-                        Some(Command::Terminal(Message::ConnectToCxxrtl(
-                            query.to_string(),
-                        )))
-                    }),
-                )),
                 "config_reload" => Some(Command::Terminal(Message::ReloadConfig)),
                 "scroll_to_start" | "goto_start" => {
                     Some(Command::Terminal(Message::GoToStart { viewport_idx: 0 }))
