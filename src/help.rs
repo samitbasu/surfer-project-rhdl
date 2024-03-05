@@ -232,6 +232,7 @@ fn key_listing(ui: &mut Ui) {
         .spacing([5., 5.])
         .show(ui, |ui| {
             for (symbol, control, description) in keys {
+                let control = ctrl_to_cmd(control);
                 ui.label(symbol);
                 ui.label(control);
                 ui.label(description);
@@ -264,6 +265,7 @@ fn controls_listing(ui: &mut Ui) {
         .spacing([20., 5.])
         .show(ui, |ui| {
             for (symbol, control, description) in controls {
+                let control = ctrl_to_cmd(control);
                 ui.label(format!("{symbol}  {control}"));
                 ui.label(description);
                 ui.end_row();
@@ -275,4 +277,13 @@ fn controls_listing(ui: &mut Ui) {
 fn add_hint_text(ui: &mut Ui) {
     ui.add_space(20.);
     ui.label(RichText::new("Hint: You can repeat keybinds by typing Alt+0-9 before them. For example, Alt+1 Alt+0 k scrolls 10 steps up."));
+}
+
+// Replace Ctrl with Cmd in case of macos
+fn ctrl_to_cmd(instr: &str) -> String {
+    #[cfg(target_os = "macos")]
+    let instring = instr.to_string().replace("Ctrl", "Cmd");
+    #[cfg(not(target_os = "macos"))]
+    let instring = instr.to_string();
+    instring
 }
