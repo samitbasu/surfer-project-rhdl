@@ -66,7 +66,7 @@ impl State {
                         msgs.push(Message::ShowCommandPrompt(false))
                     }
                     (Key::G, true, true, false) => {
-                        if modifiers.ctrl {
+                        if modifiers.command {
                             msgs.push(Message::ShowCommandPrompt(false))
                         }
                     }
@@ -136,7 +136,7 @@ impl State {
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
-                        } else if modifiers.ctrl {
+                        } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
@@ -146,7 +146,7 @@ impl State {
                     (Key::K, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
-                        } else if modifiers.ctrl {
+                        } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
@@ -156,7 +156,7 @@ impl State {
                     (Key::ArrowDown, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
-                        } else if modifiers.ctrl {
+                        } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
@@ -166,7 +166,7 @@ impl State {
                     (Key::ArrowUp, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
-                        } else if modifiers.ctrl {
+                        } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
                             msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
@@ -183,13 +183,13 @@ impl State {
                     }
                     (Key::ArrowUp, true, true, false) => msgs.push(Message::SelectPrevCommand),
                     (Key::P, true, true, false) => {
-                        if modifiers.ctrl {
+                        if modifiers.command {
                             msgs.push(Message::SelectPrevCommand);
                         }
                     }
                     (Key::ArrowDown, true, true, false) => msgs.push(Message::SelectNextCommand),
                     (Key::N, true, true, false) => {
-                        if modifiers.ctrl {
+                        if modifiers.command {
                             msgs.push(Message::SelectNextCommand);
                         }
                     }
@@ -213,7 +213,7 @@ impl State {
 fn handle_digit(digit: u8, modifiers: &Modifiers, msgs: &mut Vec<Message>) {
     if modifiers.alt {
         msgs.push(Message::AddCount((digit + 48) as char))
-    } else if modifiers.ctrl {
+    } else if modifiers.command {
         msgs.push(Message::MoveMarkerToCursor(digit))
     } else {
         msgs.push(Message::GoToMarkerPosition(digit, 0))
