@@ -3,7 +3,9 @@ mod benchmark;
 mod clock_highlighting;
 mod command_prompt;
 mod config;
+#[cfg(not(target_arch = "wasm32"))]
 mod cxxrtl;
+#[cfg(not(target_arch = "wasm32"))]
 mod cxxrtl_container;
 mod displayed_item;
 mod drawing_canvas;
@@ -564,6 +566,7 @@ impl State {
                 .load_wave_from_file(file, LoadOptions::clean())
                 .unwrap(),
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
+            #[cfg(not(target_arch = "wasm32"))]
             Some(WaveSource::CxxrtlTcp(url)) => {
                 self.connect_to_cxxrtl(url, false);
             }
@@ -937,6 +940,7 @@ impl State {
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_vcd_from_data(data, load_options).ok();
             }
+            #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
             Message::FileDropped(dropped_file) => {
                 self.load_vcd_from_dropped(dropped_file)
@@ -1055,7 +1059,8 @@ impl State {
                         )
                         .ok();
                     }
-                    WaveSource::Data => {}          // can't reload
+                    WaveSource::Data => {} // can't reload
+                    #[cfg(not(target_arch = "wasm32"))]
                     WaveSource::CxxrtlTcp(..) => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename.clone().and_then(|filename| {
