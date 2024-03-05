@@ -111,6 +111,8 @@ impl Viewport {
         time.round().to_integer()
     }
 
+    /// Computes which x-pixel corresponds to the specified time adduming the viewport is rendered
+    /// into a viewport of `view_width`
     pub fn pixel_from_time(&self, time: &BigInt, view_width: f32, num_timestamps: &BigInt) -> f32 {
         let distance_from_left =
             Absolute(time.to_f64().unwrap()) - self.curr_left.absolute(num_timestamps);
