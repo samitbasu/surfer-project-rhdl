@@ -235,6 +235,7 @@ fn key_listing(ui: &mut Ui) {
         .spacing([5., 5.])
         .show(ui, |ui| {
             for (symbol, control, description) in keys {
+                let control = ctrl_to_cmd(control);
                 ui.label(symbol);
                 ui.label(control);
                 ui.label(description);
@@ -267,6 +268,7 @@ fn controls_listing(ui: &mut Ui) {
         .spacing([20., 5.])
         .show(ui, |ui| {
             for (symbol, control, description) in controls {
+                let control = ctrl_to_cmd(control);
                 ui.label(format!("{symbol}  {control}"));
                 ui.label(description);
                 ui.end_row();
@@ -300,4 +302,13 @@ pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
     if !open {
         msgs.push(Message::SetLicenseVisible(false))
     }
+}
+
+// Replace Ctrl with Cmd in case of macos
+fn ctrl_to_cmd(instr: &str) -> String {
+    #[cfg(target_os = "macos")]
+    let instring = instr.to_string().replace("Ctrl", "Cmd");
+    #[cfg(not(target_os = "macos"))]
+    let instring = instr.to_string();
+    instring
 }
