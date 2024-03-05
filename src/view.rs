@@ -23,7 +23,6 @@ use crate::logs::EGUI_LOGGER;
 use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
-use crate::variable_name_filter::filtered_variables;
 use crate::wave_container::{FieldRef, ScopeRef, VariableRef};
 use crate::wave_source::{draw_progress_panel, LoadOptions};
 use crate::{
@@ -591,7 +590,7 @@ impl State {
         scope: &ScopeRef,
         filter: &str,
     ) {
-        for variable in filtered_variables(wave, filter, &self.variable_name_filter_type, scope) {
+        for variable in self.filtered_variables(wave, filter, scope) {
             let index = wave
                 .inner
                 .variable_meta(&variable)
