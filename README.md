@@ -97,7 +97,7 @@ As an indication of the status of the project, here is an incomplete list of sup
 - [x] Snappy zooming, panning and general interaction
 - [x] VCD loading
 - [x] FST loading
-- [ ] GHW loading
+- [x] GHW loading
 - [x] [Fuzzy completion based command line interface](misc/surfer_ui_trimmed.mp4)
 - [x] Bit translation
   - [x] Raw bits
