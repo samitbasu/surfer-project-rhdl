@@ -12,6 +12,7 @@ use serde::Deserialize;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
+    config::ArrowKeyBindings,
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     variable_name_type::VariableNameType,
@@ -129,6 +130,7 @@ pub enum Message {
     SetCursorWindowVisible(bool),
     ToggleFullscreen,
     SetHierarchyStyle(HierarchyStyle),
+    SetArrowKeyBindings(ArrowKeyBindings),
     // Second argument is position to insert after, None inserts after focused item,
     // or last if no focused item
     AddDivider(Option<String>, Option<usize>),
