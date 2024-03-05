@@ -28,6 +28,7 @@ deadzone = 20
 
 [behavior]
 keep_during_reload = true
+arrow_key_bindings = "Edge"
 
 [ticks]
 style = { color="222222", width=2 }
