@@ -169,7 +169,7 @@ impl StartupParams {
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
-            waves: args.vcd_file.map(string_to_wavesource),
+            waves: args.vcd_file.map(|s| string_to_wavesource(&s)),
             startup_commands,
         }
     }
