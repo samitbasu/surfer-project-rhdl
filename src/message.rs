@@ -71,6 +71,7 @@ pub enum Message {
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    #[cfg(not(target_arch = "wasm32"))]
     ConnectToCxxrtl(String),
     #[serde(skip)]
     WavesLoaded(
