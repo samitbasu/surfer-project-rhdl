@@ -67,7 +67,6 @@ pub enum Message {
         viewport_idx: usize,
     },
     CursorSet(BigInt),
-    RightCursorSet(Option<BigInt>),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
