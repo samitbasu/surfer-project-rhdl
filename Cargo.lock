@@ -624,7 +624,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools",
+ "itertools 0.12.1",
  "lazy_static",
  "lazycell",
  "log",
@@ -1213,17 +1213,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive-where"
-version = "1.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62d671cc41a825ebabc75757b62d3d168c577f9149b2d49ece1dad1f72119d25"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.52",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1317,7 +1306,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fafad37c1f4f168243f3ac1b4cae0d358c528ac695670100337314e38d54b486"
 dependencies = [
  "imgref",
- "itertools",
+ "itertools 0.12.1",
  "rayon",
  "rgb",
 ]
@@ -2436,6 +2425,15 @@ dependencies = [
 
 [[package]]
 name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
@@ -2638,8 +2636,7 @@ dependencies = [
 [[package]]
 name = "local-impl"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e36d656622c9ac5c84be07696931c71e483d27daf86914d7011d0fa6370418b"
+source = "git+https://gitlab.com/sornas/local-impl#39accb5d2ccba3832f1f7837d9f0c13adb574a1c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3389,6 +3386,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4117,7 +4138,7 @@ dependencies = [
  "color-eyre",
  "colored 2.1.0",
  "indoc",
- "itertools",
+ "itertools 0.10.5",
  "logos",
  "ron",
  "serde",
@@ -4151,7 +4172,7 @@ dependencies = [
 name = "spade-ast-lowering"
 version = "0.6.0"
 dependencies = [
- "itertools",
+ "itertools 0.10.5",
  "local-impl",
  "num",
  "pretty_assertions",
@@ -4183,7 +4204,6 @@ dependencies = [
  "codespan",
  "codespan-reporting",
  "colored 2.1.0",
- "itertools",
  "local-impl",
  "logos",
  "spade-ast",
@@ -4199,7 +4219,7 @@ version = "0.6.0"
 dependencies = [
  "codespan-reporting",
  "colored 2.1.0",
- "itertools",
+ "itertools 0.10.5",
  "local-impl",
  "num",
  "serde",
@@ -4218,14 +4238,13 @@ dependencies = [
  "codespan",
  "codespan-reporting",
  "indoc",
- "itertools",
+ "itertools 0.10.5",
  "local-impl",
  "num",
  "serde",
  "spade-common",
  "spade-diagnostics",
  "spade-hir",
- "spade-macros",
  "spade-mir",
  "spade-typeinference",
  "spade-types",
@@ -4238,9 +4257,10 @@ dependencies = [
 name = "spade-macros"
 version = "0.6.0"
 dependencies = [
+ "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -4249,9 +4269,9 @@ version = "0.6.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
- "derive-where",
+ "derivative",
  "indoc",
- "itertools",
+ "itertools 0.10.5",
  "logos",
  "nesty",
  "num",
@@ -4268,7 +4288,7 @@ dependencies = [
  "codespan",
  "codespan-reporting",
  "colored 2.1.0",
- "itertools",
+ "itertools 0.10.5",
  "local-impl",
  "logos",
  "num",
@@ -4287,7 +4307,7 @@ dependencies = [
  "codespan",
  "codespan-reporting",
  "colored 2.1.0",
- "itertools",
+ "itertools 0.10.5",
  "local-impl",
  "num",
  "serde",
@@ -4409,7 +4429,7 @@ dependencies = [
  "human-sort",
  "image 0.25.0",
  "imgref",
- "itertools",
+ "itertools 0.12.1",
  "lazy_static",
  "log",
  "num",
@@ -5033,7 +5053,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "color-eyre",
- "itertools",
+ "itertools 0.10.5",
  "num",
  "ron",
  "spade",
@@ -5351,7 +5371,7 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.8.9"
+version = "0.8.5"
 dependencies = [
  "bytesize",
  "fst-native",
