@@ -85,7 +85,9 @@ console_error_panic_hook = "0.1.6"
 toml = "0.8.12"
 wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
+web-sys = { version = "= 0.3.69", features = ["Location", "UrlSearchParams"] }
+futures = "0.3.30"
+tokio = {workspace = true, features = ["sync"]}
 
 [dev-dependencies]
 egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "c13a8bbfc622ae28ee7b7f6d1c576a761e8b8bbe" }

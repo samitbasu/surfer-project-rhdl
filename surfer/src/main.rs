@@ -12,6 +12,7 @@ mod cxxrtl_container;
 mod data_container;
 mod displayed_item;
 mod drawing_canvas;
+mod graphics;
 mod help;
 mod hierarchy;
 mod keys;
@@ -37,7 +38,6 @@ mod variable_name_type;
 mod variable_type;
 mod view;
 mod viewport;
-#[cfg(target_arch = "wasm32")]
 mod wasm_api;
 mod wasm_util;
 mod wave_container;
@@ -58,6 +58,7 @@ use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use derive_more::Display;
+use eframe::App;
 use egui::style::{Selection, WidgetVisuals, Widgets};
 use egui::{FontData, FontDefinitions, FontFamily, Visuals};
 #[cfg(not(target_arch = "wasm32"))]
@@ -1412,11 +1413,6 @@ impl State {
                     waves.cursor = Some(new);
                 }
             }
-            Message::RightCursorSet(new) => {
-                if let Some(waves) = self.waves.as_mut() {
-                    waves.right_cursor = new;
-                }
-            }
             Message::LoadFile(filename, load_options) => {
                 self.load_from_file(filename, load_options).ok();
             }
@@ -1995,6 +1991,11 @@ impl State {
                 }
             }
             Message::AsyncDone(_) => (),
+            Message::AddGraphic(id, g) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.insert(id, g);
+                }
+            }
         }
     }
 
@@ -2036,7 +2037,6 @@ impl State {
                     displayed_items: HashMap::new(),
                     viewports,
                     cursor: None,
-                    right_cursor: None,
                     markers: HashMap::new(),
                     focused_item: None,
                     focused_transaction: (None, None),
@@ -2049,6 +2049,7 @@ impl State {
                     total_height: 0.,
                     display_item_ref_counter: 0,
                     old_num_timestamps: None,
+                    graphics: HashMap::new(),
                 },
                 None,
             )
@@ -2084,7 +2085,6 @@ impl State {
             displayed_items: HashMap::new(),
             viewports,
             cursor: None,
-            right_cursor: None,
             markers: HashMap::new(),
             focused_item: None,
             focused_transaction: (None, None),
@@ -2097,6 +2097,7 @@ impl State {
             total_height: 0.,
             display_item_ref_counter: 0,
             old_num_timestamps: None,
+            graphics: HashMap::new(),
         };
 
         self.invalidate_draw_commands();
@@ -2227,7 +2228,6 @@ impl State {
 
             mem::swap(&mut waves.viewports, &mut new_waves.viewports);
             mem::swap(&mut waves.cursor, &mut new_waves.cursor);
-            mem::swap(&mut waves.right_cursor, &mut new_waves.right_cursor);
             mem::swap(&mut waves.markers, &mut new_waves.markers);
             mem::swap(&mut waves.focused_item, &mut new_waves.focused_item);
             waves.default_variable_name_type = new_waves.default_variable_name_type;
@@ -2337,5 +2337,12 @@ impl State {
             }
             self.sys.redo_stack.clear();
         }
+    }
+}
+
+pub struct StateWrapper(Arc<RwLock<State>>);
+impl App for StateWrapper {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        App::update(&mut *self.0.write().unwrap(), ctx, frame)
     }
 }

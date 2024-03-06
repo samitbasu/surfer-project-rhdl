@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use surver::Status;
 
+use crate::graphics::{Graphic, GraphicId};
 use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
 };
@@ -103,7 +104,6 @@ pub enum Message {
         viewport_idx: usize,
     },
     CursorSet(BigInt),
-    RightCursorSet(Option<BigInt>),
     #[serde(skip)]
     SurferServerStatus(web_time::Instant, String, Status),
     LoadFile(Utf8PathBuf, LoadOptions),
@@ -238,6 +238,7 @@ pub enum Message {
     },
     VariableValueToClipbord(Option<DisplayedItemIndex>),
     InvalidateDrawCommands,
+    AddGraphic(GraphicId, Graphic),
 
     /// Variable dragging messages
     VariableDragStarted(DisplayedItemIndex),

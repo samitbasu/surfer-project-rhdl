@@ -12,6 +12,7 @@ use crate::displayed_item::{
     DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
     DisplayedStream, DisplayedTimeLine, DisplayedVariable,
 };
+use crate::graphics::{Graphic, GraphicId};
 use crate::transaction_container::{StreamScopeRef, TransactionRef, TransactionStreamRef};
 use crate::translation::{DynTranslator, TranslatorList, VariableInfoExt};
 use crate::variable_name_type::VariableNameType;
@@ -56,9 +57,6 @@ pub struct WaveData {
     pub display_item_ref_counter: usize,
     pub viewports: Vec<Viewport>,
     pub cursor: Option<BigInt>,
-    /// When right clicking we'll create a temporary cursor that shows where right click
-    /// actions will apply. This gets cleared when the context menu is closed
-    pub right_cursor: Option<BigInt>,
     pub markers: HashMap<u8, BigInt>,
     pub focused_item: Option<DisplayedItemIndex>,
     pub focused_transaction: (Option<TransactionRef>, Option<Transaction>),
@@ -66,6 +64,7 @@ pub struct WaveData {
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
     pub display_variable_indices: bool,
+    pub graphics: HashMap<GraphicId, Graphic>,
     /// These are just stored during operation, so no need to serialize
     #[serde(skip)]
     pub drawing_infos: Vec<ItemDrawingInfo>,
@@ -183,7 +182,6 @@ impl WaveData {
             display_item_ref_counter: self.display_item_ref_counter,
             viewports: self.viewports,
             cursor: self.cursor.clone(),
-            right_cursor: None,
             markers: self.markers.clone(),
             focused_item: self.focused_item,
             focused_transaction: self.focused_transaction,
@@ -193,6 +191,7 @@ impl WaveData {
             scroll_offset: self.scroll_offset,
             drawing_infos: vec![],
             top_item_draw_offset: 0.,
+            graphics: HashMap::new(),
             total_height: 0.,
             old_num_timestamps,
         };
