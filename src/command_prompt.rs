@@ -183,6 +183,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "transition_next",
             "transition_previous",
             "copy_value",
+            "pause_simulation",
+            "unpause_simulation",
             "exit",
         ]
     } else {
@@ -250,12 +252,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Some(Command::Terminal(Message::GoToEnd { viewport_idx: 0 }))
                 }
                 "zoom_in" => Some(Command::Terminal(Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
+                    mouse_ptr: None,
                     delta: 0.5,
                     viewport_idx: 0,
                 })),
                 "zoom_out" => Some(Command::Terminal(Message::CanvasZoom {
-                    mouse_ptr_timestamp: None,
+                    mouse_ptr: None,
                     delta: 2.0,
                     viewport_idx: 0,
                 })),
@@ -475,12 +477,15 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "show_marker_window" => {
                     Some(Command::Terminal(Message::SetCursorWindowVisible(true)))
                 }
+                "show_logs" => Some(Command::Terminal(Message::SetLogsVisible(true))),
                 "save_state" => single_word(
                     vec![],
                     Box::new(|word| Some(Command::Terminal(Message::SaveState(word.into())))),
                 ),
                 "viewport_add" => Some(Command::Terminal(Message::AddViewport)),
                 "viewport_remove" => Some(Command::Terminal(Message::RemoveViewport)),
+                "pause_simulation" => Some(Command::Terminal(Message::PauseSimulation)),
+                "unpause_simulation" => Some(Command::Terminal(Message::UnpauseSimulation)),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
             }

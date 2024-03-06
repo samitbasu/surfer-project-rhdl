@@ -4,7 +4,7 @@ use color_eyre::eyre::WrapErr;
 use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::ToBigInt;
-use num::{BigInt, BigUint, ToPrimitive};
+use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
 use crate::wave_container::VariableValue;
@@ -37,7 +37,6 @@ pub struct WaveData {
     /// Tracks the consecutive displayed item refs
     pub display_item_ref_counter: DisplayedItemRef,
     pub viewports: Vec<Viewport>,
-    pub num_timestamps: BigInt,
     /// Name of the translator used to translate this trace
     pub variable_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
@@ -63,8 +62,6 @@ impl WaveData {
         new_waves: Box<WaveContainer>,
         source: WaveSource,
         format: WaveFormat,
-        num_timestamps: BigInt,
-        wave_viewport: Vec<Viewport>,
         translators: &TranslatorList,
         keep_unavailable: bool,
     ) -> WaveData {
@@ -102,6 +99,25 @@ impl WaveData {
                 })
             })
             .collect();
+
+        let current_num_timestamps = self.num_timestamps();
+        let viewports = self
+            .viewports
+            .into_iter()
+            // FIXME: I'm not sure if Defaulting to 1 time step is the right thing to do if we
+            // have none, but it does avoid some potentially nasty division by zero problems
+            .map(|viewport| {
+                viewport.clip_to(
+                    &current_num_timestamps,
+                    &new_waves
+                        .max_timestamp()
+                        .unwrap_or_else(|| BigUint::from(1u32))
+                        .to_bigint()
+                        .unwrap(),
+                )
+            })
+            .collect_vec();
+
         let mut new_wave = WaveData {
             inner: *new_waves,
             source,
@@ -110,14 +126,8 @@ impl WaveData {
             displayed_items_order: self.displayed_items_order,
             displayed_items: display_items,
             display_item_ref_counter: self.display_item_ref_counter,
-            viewports: self
-                .viewports
-                .into_iter()
-                .enumerate()
-                .map(|(idx, viewport)| viewport.clip_to(&wave_viewport[idx]))
-                .collect_vec(),
+            viewports,
             variable_format,
-            num_timestamps,
             cursor: self.cursor.clone(),
             right_cursor: None,
             markers: self.markers.clone(),
@@ -267,6 +277,7 @@ impl WaveData {
         let Ok(meta) = self
             .inner
             .load_variable(variable)
+            .and_then(|_| self.inner.variable_meta(variable))
             .context("When adding variable")
             .map_err(|e| error!("{e:#?}"))
         else {
@@ -369,7 +380,8 @@ impl WaveData {
 
     pub fn go_to_cursor_if_not_in_view(&mut self) -> bool {
         if let Some(cursor) = &self.cursor {
-            self.viewports[0].go_to_cursor_if_not_in_view(cursor)
+            let num_timestamps = self.num_timestamps();
+            self.viewports[0].go_to_cursor_if_not_in_view(cursor, &num_timestamps)
         } else {
             false
         }
@@ -377,7 +389,11 @@ impl WaveData {
 
     #[inline]
     pub fn numbered_marker_location(&self, idx: u8, viewport: &Viewport, view_width: f32) -> f32 {
-        viewport.from_time(self.numbered_marker_time(idx), view_width)
+        viewport.pixel_from_time(
+            self.numbered_marker_time(idx),
+            view_width,
+            &self.num_timestamps(),
+        )
     }
 
     #[inline]
@@ -386,10 +402,7 @@ impl WaveData {
     }
 
     pub fn viewport_all(&self) -> Viewport {
-        Viewport {
-            curr_left: 0.,
-            curr_right: self.num_timestamps.to_f64().unwrap_or(1.0),
-        }
+        Viewport::new()
     }
 
     pub fn remove_placeholders(&mut self) {
@@ -477,7 +490,7 @@ impl WaveData {
                                 }
                             } else {
                                 // No next transition, go to end
-                                self.cursor = Some(self.num_timestamps.clone());
+                                self.cursor = Some(self.num_timestamps().clone());
                             }
                         } else {
                             if let Some(stime) = res.current.unwrap().0.to_bigint() {
@@ -529,5 +542,18 @@ impl WaveData {
     pub fn next_displayed_item_ref(&mut self) -> usize {
         self.display_item_ref_counter += 1;
         self.display_item_ref_counter
+    }
+
+    /// Returns the number of timestamps in the current waves. For now, this adjusts the
+    /// number of timestamps as returned by wave sources if they specify 0 timestams. This is
+    /// done to avoid having to consider what happens with the viewport. In the future,
+    /// we should probably make this an Option<BigInt>
+    pub fn num_timestamps(&self) -> BigInt {
+        self.inner
+            .max_timestamp()
+            .and_then(|r| if r == BigUint::zero() { None } else { Some(r) })
+            .unwrap_or(BigUint::from(1u32))
+            .to_bigint()
+            .unwrap()
     }
 }

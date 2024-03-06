@@ -10,7 +10,9 @@ use pure_rust_locales::{locale_match, Locale};
 use serde::{Deserialize, Serialize};
 use sys_locale::get_locale;
 
+use crate::config::SurferConfig;
 use crate::viewport::Viewport;
+use crate::wave_data::WaveData;
 use crate::{translation::group_n_chars, view::DrawingContext, Message, State};
 
 #[derive(Serialize, Deserialize)]
@@ -290,21 +292,39 @@ pub fn time_string(
     )
 }
 
-impl State {
+impl WaveData {
     pub fn get_ticks(
         &self,
         viewport: &Viewport,
         timescale: &TimeScale,
         frame_width: f32,
         text_size: f32,
+        wanted_timeunit: &TimeUnit,
+        time_format: &TimeFormat,
+        config: &SurferConfig,
     ) -> Vec<(String, f32)> {
         let char_width = text_size * (20. / 31.);
-        let rightexp = viewport.curr_right.abs().log10().round() as i16;
-        let leftexp = viewport.curr_left.abs().log10().round() as i16;
+        let rightexp = viewport
+            .curr_right
+            .absolute(&self.num_timestamps())
+            .0
+            .abs()
+            .log10()
+            .round() as i16;
+        let leftexp = viewport
+            .curr_left
+            .absolute(&self.num_timestamps())
+            .0
+            .abs()
+            .log10()
+            .round() as i16;
         let max_labelwidth = (rightexp.max(leftexp) + 3) as f32 * char_width;
-        let max_labels = ((frame_width * self.config.ticks.density) / max_labelwidth).floor() + 2.;
+        let max_labels = ((frame_width * config.ticks.density) / max_labelwidth).floor() + 2.;
         let scale = 10.0f64.powf(
-            ((viewport.curr_right - viewport.curr_left) / max_labels as f64)
+            ((viewport.curr_right - viewport.curr_left)
+                .absolute(&self.num_timestamps())
+                .0
+                / max_labels as f64)
                 .log10()
                 .floor(),
         );
@@ -313,9 +333,14 @@ impl State {
         let mut ticks: Vec<(String, f32)> = [].to_vec();
         for step in steps {
             let scaled_step = scale * step;
-            let rounded_min_label_time = (viewport.curr_left / scaled_step).floor() * scaled_step;
-            let high =
-                ((viewport.curr_right - rounded_min_label_time) / scaled_step).ceil() as f32 + 1.;
+            let rounded_min_label_time =
+                (viewport.curr_left.absolute(&self.num_timestamps()).0 / scaled_step).floor()
+                    * scaled_step;
+            let high = ((viewport.curr_right.absolute(&self.num_timestamps()).0
+                - rounded_min_label_time)
+                / scaled_step)
+                .ceil() as f32
+                + 1.;
             if high <= max_labels {
                 ticks = (0..high as i16)
                     .map(|v| {
@@ -325,13 +350,8 @@ impl State {
                     .map(|tick| {
                         (
                             // Time string
-                            time_string(
-                                &tick,
-                                timescale,
-                                &self.wanted_timeunit,
-                                &self.get_time_format(),
-                            ),
-                            viewport.from_time(&tick, frame_width),
+                            time_string(&tick, timescale, &wanted_timeunit, time_format),
+                            viewport.pixel_from_time(&tick, frame_width, &self.num_timestamps()),
                         )
                     })
                     .collect::<Vec<(String, f32)>>();
@@ -360,8 +380,9 @@ impl State {
         ctx: &DrawingContext<'_>,
         y_offset: f32,
         align: Align2,
+        config: &SurferConfig,
     ) {
-        let color = *color.unwrap_or(&self.config.theme.foreground);
+        let color = *color.unwrap_or(&config.theme.foreground);
 
         for (tick_text, x) in ticks {
             ctx.painter.text(
@@ -373,7 +394,9 @@ impl State {
             );
         }
     }
+}
 
+impl State {
     pub fn get_time_format(&self) -> TimeFormat {
         self.config
             .default_time_format

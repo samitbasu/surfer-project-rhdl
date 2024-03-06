@@ -9,6 +9,7 @@ build = "build.rs"
 
 [dependencies]
 asm_riscv = "0.2.0"
+base64 = "0.21.4"
 bytes = "1.5.0"
 camino = { version = "1.1.6", features = ["serde1"] }
 chrono = "0.4.31"
@@ -16,6 +17,7 @@ clap = { version = "4.4.10", features = ['derive'] }
 color-eyre = "0.6.2"
 config = "0.13.4"
 derivative = "2.2.0"
+derive_more = "0.99.17"
 directories = "5.0"
 eframe = "0.25.0"
 egui-remixicon = "0.2"
@@ -24,6 +26,7 @@ egui_plot = { version = "0.25", optional = true }
 enum-iterator = "1.5.0"
 f128 = { path = "f128", optional = true }
 fern = { version = "0.6.2", features = ["colored"] }
+futures = { version = "0.3.29", features = ["executor"] }
 futures-core = "0.3.29"
 futures-util = "0.3.29"
 fuzzy-matcher = "0.3.7"
@@ -51,7 +54,7 @@ spade-hir-lowering = { path = "spade/spade-hir-lowering", optional = true }
 spade-mir = { path = "spade/spade-mir", optional = true }
 spade-types = { path = "spade/spade-types", optional = true }
 sys-locale = "0.3.1"
-tokio = { version = "1.35.1", features = ["rt", "time"] }
+tokio = { version = "1.35.1", features = ["rt", "time", "macros"] }
 toml = "0.8.8"
 vcd-translate = { path = "spade/vcd-translate", optional = true }
 web-sys = { version = "0.3.66", features = ["Location", "UrlSearchParams"] }

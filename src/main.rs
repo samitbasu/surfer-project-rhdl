@@ -3,6 +3,10 @@ mod benchmark;
 mod clock_highlighting;
 mod command_prompt;
 mod config;
+#[cfg(not(target_arch = "wasm32"))]
+mod cxxrtl;
+#[cfg(not(target_arch = "wasm32"))]
+mod cxxrtl_container;
 mod displayed_item;
 mod drawing_canvas;
 mod help;
@@ -60,16 +64,13 @@ use egui_remixicon;
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
 use fzcmd::parse_command;
+use lazy_static::lazy_static;
 use log::error;
 use log::info;
 use log::trace;
 use log::warn;
 use logs::EGUI_LOGGER;
 use message::Message;
-use num::bigint::ToBigInt;
-use num::BigInt;
-use num::FromPrimitive;
-use num::ToPrimitive;
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
@@ -85,10 +86,12 @@ use wasm_util::perform_work;
 use wasm_util::UrlArgs;
 use wave_container::FieldRef;
 use wave_container::VariableRef;
+use wave_container::WaveContainer;
 use wave_data::WaveData;
 use wave_source::string_to_wavesource;
 use wave_source::LoadOptions;
 use wave_source::LoadProgress;
+use wave_source::WaveFormat;
 use wave_source::WaveSource;
 
 use std::cell::RefCell;
@@ -98,6 +101,11 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::RwLock;
+
+lazy_static! {
+    pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);
+}
 
 #[derive(clap::Parser, Default)]
 struct Args {
@@ -161,7 +169,7 @@ impl StartupParams {
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
-            waves: args.vcd_file.map(string_to_wavesource),
+            waves: args.vcd_file.map(|s| string_to_wavesource(&s)),
             startup_commands,
         }
     }
@@ -170,6 +178,7 @@ impl StartupParams {
 fn setup_logging(platform_logger: Dispatch) -> Result<()> {
     let egui_log_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
+        .level_for("surfer", log::LevelFilter::Trace)
         .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
         .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
 
@@ -192,6 +201,7 @@ fn main() -> Result<()> {
 
     let stdout_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
+        .level_for("surfer", log::LevelFilter::Trace)
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{}] {}",
@@ -254,7 +264,9 @@ fn main() -> Result<()> {
         "Surfer",
         options,
         Box::new(|cc| {
-            state.sys.context = Some(Arc::new(cc.egui_ctx.clone()));
+            let ctx_arc = Arc::new(cc.egui_ctx.clone());
+            *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
+            state.sys.context = Some(ctx_arc.clone());
             cc.egui_ctx.set_visuals(state.get_visuals());
             setup_custom_font(&cc.egui_ctx);
             Box::new(state)
@@ -293,7 +305,7 @@ fn main() -> Result<()> {
                 web_options,
                 Box::new(|cc| {
                     let ctx_arc = Arc::new(cc.egui_ctx.clone());
-                    *wasm_api::EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
+                    *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
                     state.sys.context = Some(ctx_arc.clone());
                     cc.egui_ctx.set_visuals(state.get_visuals());
                     setup_custom_font(&cc.egui_ctx);
@@ -554,6 +566,10 @@ impl State {
                 .load_wave_from_file(file, LoadOptions::clean())
                 .unwrap(),
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(WaveSource::CxxrtlTcp(url)) => {
+                self.connect_to_cxxrtl(url, false);
+            }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
             }
@@ -749,24 +765,28 @@ impl State {
             }
             Message::CanvasZoom {
                 delta,
-                mouse_ptr_timestamp,
+                mouse_ptr,
                 viewport_idx,
             } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.viewports[viewport_idx]
-                        .handle_canvas_zoom(mouse_ptr_timestamp, delta as f64);
+                    let num_timestamps = waves.num_timestamps();
+                    waves.viewports[viewport_idx].handle_canvas_zoom(
+                        mouse_ptr,
+                        delta as f64,
+                        &num_timestamps,
+                    );
                     self.invalidate_draw_commands();
                 }
             }
             Message::ZoomToFit { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].zoom_to_fit(&waves.num_timestamps);
+                    waves.viewports[viewport_idx].zoom_to_fit();
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToEnd { viewport_idx } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].go_to_end(&waves.num_timestamps);
+                    waves.viewports[viewport_idx].go_to_end();
                     self.invalidate_draw_commands();
                 }
             }
@@ -779,7 +799,8 @@ impl State {
             Message::GoToTime(time, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(time) = time {
-                        waves.viewports[viewport_idx].go_to_time(&time.clone());
+                        let num_timestamps = waves.num_timestamps();
+                        waves.viewports[viewport_idx].go_to_time(&time.clone(), &num_timestamps);
                         self.invalidate_draw_commands();
                     }
                 };
@@ -798,7 +819,8 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = &mut self.waves {
-                    waves.viewports[viewport_idx].zoom_to_range(start, end);
+                    let num_timestamps = waves.num_timestamps();
+                    waves.viewports[viewport_idx].zoom_to_range(&start, &end, &num_timestamps);
                     self.invalidate_draw_commands();
                 }
             }
@@ -894,18 +916,17 @@ impl State {
                     // start of visible area transition for next transition
                     // end of visible area for previous transition
                     if waves.cursor.is_none() && waves.focused_item.is_some() {
+                        let num_timestamps = waves.num_timestamps();
                         if next {
                             waves
                                 .viewports
                                 .first()
-                                .and_then(|vp| vp.curr_left.to_i64())
-                                .map(|time| waves.cursor = Some(time.into()));
+                                .map(|vp| waves.cursor = Some(vp.left_edge_time(&num_timestamps)));
                         } else {
                             waves
                                 .viewports
                                 .first()
-                                .and_then(|vp| vp.curr_right.to_i64())
-                                .map(|time| waves.cursor = Some(time.into()));
+                                .map(|vp| waves.cursor = Some(vp.right_edge_time(&num_timestamps)));
                         }
                     }
                     waves.set_cursor_at_transition(next, variable, skip_zero);
@@ -940,73 +961,15 @@ impl State {
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_vcd_from_data(data, load_options).ok();
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
             Message::FileDropped(dropped_file) => {
                 self.load_vcd_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
             Message::WavesLoaded(filename, format, new_waves, load_options) => {
-                info!("{format} file loaded");
-                let num_timestamps = new_waves
-                    .max_timestamp()
-                    .as_ref()
-                    .map(|t| t.to_bigint().unwrap())
-                    .unwrap_or_else(|| BigInt::from_u32(1).unwrap());
-                let viewport = Viewport::new(0., num_timestamps.clone().to_f64().unwrap());
-                let viewports = [viewport].to_vec();
-
-                let new_wave = if load_options.keep_variables && self.waves.is_some() {
-                    let old_viewport_count = self.waves.as_ref().unwrap().viewports.len();
-                    self.waves.take().unwrap().update_with(
-                        new_waves,
-                        filename,
-                        format,
-                        num_timestamps,
-                        viewports.repeat(old_viewport_count),
-                        &self.sys.translators,
-                        load_options.keep_unavailable,
-                    )
-                } else if let Some(old) = self.previous_waves.take() {
-                    let viewport_count = old.viewports.len();
-                    old.update_with(
-                        new_waves,
-                        filename,
-                        format,
-                        num_timestamps,
-                        viewports.repeat(viewport_count),
-                        &self.sys.translators,
-                        load_options.keep_unavailable,
-                    )
-                } else {
-                    WaveData {
-                        inner: *new_waves,
-                        source: filename,
-                        format,
-                        active_scope: None,
-                        displayed_items_order: vec![],
-                        displayed_items: HashMap::new(),
-                        viewports,
-                        variable_format: HashMap::new(),
-                        num_timestamps,
-                        cursor: None,
-                        right_cursor: None,
-                        markers: HashMap::new(),
-                        focused_item: None,
-                        default_variable_name_type: self.config.default_variable_name_type,
-                        scroll_offset: 0.,
-                        drawing_infos: vec![],
-                        top_item_draw_offset: 0.,
-                        total_height: 0.,
-                        display_item_ref_counter: 0,
-                    }
-                };
-
-                // Set time unit to the file time unit before consuming new_wave
-                self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
-                self.waves = Some(new_wave);
-                self.invalidate_draw_commands();
-                self.sys.vcd_progress = None;
-                self.run_startup_commands();
+                self.on_waves_loaded(filename, format, new_waves, load_options)
             }
             Message::BlacklistTranslator(idx, translator) => {
                 self.blacklisted_translators.insert((idx, translator));
@@ -1098,7 +1061,7 @@ impl State {
                     SurferConfig::new(false).with_context(|| "Failed to load config file")
                 {
                     self.config = config;
-                    if let Some(ctx) = &self.sys.context {
+                    if let Some(ctx) = &self.sys.context.as_ref() {
                         ctx.set_visuals(self.get_visuals())
                     }
                 }
@@ -1118,6 +1081,8 @@ impl State {
                         .ok();
                     }
                     WaveSource::Data => {} // can't reload
+                    #[cfg(not(target_arch = "wasm32"))]
+                    WaveSource::CxxrtlTcp(..) => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename.clone().and_then(|filename| {
                             self.load_wave_from_file(
@@ -1168,7 +1133,8 @@ impl State {
             Message::GoToMarkerPosition(idx, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.markers.get(&idx) {
-                        waves.viewports[viewport_idx].go_to_time(&cursor);
+                        let num_timestamps = waves.num_timestamps();
+                        waves.viewports[viewport_idx].go_to_time(&cursor, &num_timestamps);
                         self.invalidate_draw_commands();
                     }
                 };
@@ -1251,7 +1217,7 @@ impl State {
                 self.variable_name_filter_type = variable_name_filter_type
             }
             Message::SetUiScale(scale) => {
-                if let Some(ctx) = &mut self.sys.context {
+                if let Some(ctx) = &mut self.sys.context.as_ref() {
                     ctx.set_pixels_per_point(scale)
                 }
                 self.ui_scale = Some(scale)
@@ -1272,6 +1238,17 @@ impl State {
             Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
             Message::SetArrowKeyBindings(bindings) => {
                 self.config.behavior.arrow_key_bindings = bindings
+            }
+            Message::InvalidateDrawCommands => self.invalidate_draw_commands(),
+            Message::UnpauseSimulation => {
+                if let Some(waves) = &self.waves {
+                    waves.inner.unpause_simulation()
+                }
+            }
+            Message::PauseSimulation => {
+                if let Some(waves) = &self.waves {
+                    waves.inner.pause_simulation()
+                }
             }
             Message::Batch(messages) => {
                 for message in messages {
@@ -1305,8 +1282,7 @@ impl State {
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {
                 if let Some(waves) = &mut self.waves {
-                    let viewport =
-                        Viewport::new(0., waves.num_timestamps.clone().to_f64().unwrap());
+                    let viewport = Viewport::new();
                     waves.viewports.push(viewport);
                     self.sys.draw_data.borrow_mut().push(None);
                 }
@@ -1320,6 +1296,65 @@ impl State {
                 }
             }
         }
+    }
+
+    fn on_waves_loaded(
+        &mut self,
+        filename: WaveSource,
+        format: WaveFormat,
+        new_waves: Box<WaveContainer>,
+        load_options: LoadOptions,
+    ) {
+        info!("{format} file loaded");
+        let viewport = Viewport::new();
+        let viewports = [viewport].to_vec();
+
+        let new_wave = if load_options.keep_variables && self.waves.is_some() {
+            self.waves.take().unwrap().update_with(
+                new_waves,
+                filename,
+                format,
+                &self.sys.translators,
+                load_options.keep_unavailable,
+            )
+        } else if let Some(old) = self.previous_waves.take() {
+            old.update_with(
+                new_waves,
+                filename,
+                format,
+                &self.sys.translators,
+                load_options.keep_unavailable,
+            )
+        } else {
+            WaveData {
+                inner: *new_waves,
+                source: filename,
+                format,
+                active_scope: None,
+                displayed_items_order: vec![],
+                displayed_items: HashMap::new(),
+                viewports,
+                variable_format: HashMap::new(),
+                cursor: None,
+                right_cursor: None,
+                markers: HashMap::new(),
+                focused_item: None,
+                default_variable_name_type: self.config.default_variable_name_type,
+                scroll_offset: 0.,
+                drawing_infos: vec![],
+                top_item_draw_offset: 0.,
+                total_height: 0.,
+                display_item_ref_counter: 0,
+            }
+        };
+        self.invalidate_draw_commands();
+
+        // Set time unit to the file time unit before consuming new_wave
+        self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
+        self.waves = Some(new_wave);
+        self.sys.vcd_progress = None;
+        info!("Done setting up VCD file");
+        self.run_startup_commands();
     }
 
     fn handle_async_messages(&mut self) {

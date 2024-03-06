@@ -665,26 +665,26 @@ snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd"
 
 snapshot_ui_with_file_and_msgs! {goto_start, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2, viewport_idx: 0},
+    Message::CanvasZoom {mouse_ptr: None, delta:0.2, viewport_idx: 0},
     Message::GoToStart{viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {goto_end, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2, viewport_idx: 0},
+    Message::CanvasZoom {mouse_ptr: None, delta:0.2, viewport_idx: 0},
     Message::GoToEnd{viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {zoom_to_fit, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::CanvasZoom {mouse_ptr_timestamp: None, delta:0.2, viewport_idx: 0},
+    Message::CanvasZoom {mouse_ptr: None, delta:0.2, viewport_idx: 0},
     Message::GoToEnd{viewport_idx: 0},
     Message::ZoomToFit{viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::ZoomToRange { start: 100.0, end: 250.0 , viewport_idx: 0}
+    Message::ZoomToRange { start: BigInt::from(100), end: BigInt::from(250) , viewport_idx: 0}
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [

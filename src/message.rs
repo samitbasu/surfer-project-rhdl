@@ -57,13 +57,13 @@ pub enum Message {
         viewport_idx: usize,
     },
     CanvasZoom {
-        mouse_ptr_timestamp: Option<f64>,
+        mouse_ptr: Option<BigInt>,
         delta: f32,
         viewport_idx: usize,
     },
     ZoomToRange {
-        start: f64,
-        end: f64,
+        start: BigInt,
+        end: BigInt,
         viewport_idx: usize,
     },
     CursorSet(BigInt),
@@ -71,8 +71,15 @@ pub enum Message {
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    #[cfg(not(target_arch = "wasm32"))]
+    ConnectToCxxrtl(String),
     #[serde(skip)]
-    WavesLoaded(WaveSource, WaveFormat, Box<WaveContainer>, LoadOptions),
+    WavesLoaded(
+        WaveSource,
+        WaveFormat,
+        #[derivative(Debug = "ignore")] Box<WaveContainer>,
+        LoadOptions,
+    ),
     #[serde(skip)]
     Error(color_eyre::eyre::Error),
     #[serde(skip)]
@@ -153,6 +160,14 @@ pub enum Message {
         skip_zero: bool,
     },
     VariableValueToClipbord(Option<usize>),
+    InvalidateDrawCommands,
+
+    /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
+    /// does nothing
+    UnpauseSimulation,
+    /// Pause the simulation if the wave source supports this kind of interactivity. Otherwise
+    /// does nothing
+    PauseSimulation,
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),

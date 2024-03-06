@@ -37,8 +37,20 @@ impl State {
 
         let viewport_all = waves.viewport_all();
         for vidx in 0..waves.viewports.len() {
-            let minx = viewport_all.from_time_f64(waves.viewports[vidx].curr_left, frame_width);
-            let maxx = viewport_all.from_time_f64(waves.viewports[vidx].curr_right, frame_width);
+            let minx = viewport_all.pixel_from_time_f64(
+                waves.viewports[vidx]
+                    .curr_left
+                    .absolute(&waves.num_timestamps()),
+                frame_width,
+                &waves.num_timestamps(),
+            );
+            let maxx = viewport_all.pixel_from_time_f64(
+                waves.viewports[vidx]
+                    .curr_right
+                    .absolute(&waves.num_timestamps()),
+                frame_width,
+                &waves.num_timestamps(),
+            );
             let min = (ctx.to_screen)(minx, 0.);
             let max = (ctx.to_screen)(maxx, container_rect.max.y);
             ctx.painter.rect_filled(
@@ -59,22 +71,26 @@ impl State {
             &viewport_all,
         );
 
-        let mut ticks = self.get_ticks(
+        let mut ticks = waves.get_ticks(
             &viewport_all,
             &waves.inner.metadata().timescale,
             frame_width,
             cfg.text_size,
+            &self.wanted_timeunit,
+            &self.get_time_format(),
+            &self.config,
         );
 
         if ticks.len() >= 2 {
             ticks.pop();
             ticks.remove(0);
-            self.draw_ticks(
+            waves.draw_ticks(
                 None,
                 &ticks,
                 &ctx,
                 frame_height * 0.5,
                 Align2::CENTER_CENTER,
+                &self.config,
             );
         }
 
@@ -96,7 +112,8 @@ impl State {
             let pos = pointer_pos_global
                 .map(|p| to_screen.inverse().transform_pos(p))
                 .unwrap();
-            let timestamp = viewport_all.to_time_bigint(pos.x, frame_width);
+            let timestamp =
+                viewport_all.to_time_bigint(pos.x, frame_width, &waves.num_timestamps());
             msgs.push(Message::GoToTime(Some(timestamp), 0));
         });
     }

@@ -123,9 +123,11 @@ fn variable_draw_commands(
             Ok(QueryResult {
                 next: Some(timestamp),
                 ..
-            }) => {
-                waves.viewports[viewport_idx].from_time(&timestamp.to_bigint().unwrap(), view_width)
-            }
+            }) => waves.viewports[viewport_idx].pixel_from_time(
+                &timestamp.to_bigint().unwrap(),
+                view_width,
+                &waves.num_timestamps(),
+            ),
             // If we don't have a next timestamp, we don't need to recheck until the last time
             // step
             Ok(_) => timestamps.last().map(|t| t.0).unwrap_or_default(),
@@ -184,7 +186,8 @@ fn variable_draw_commands(
             // only want to do this for root variables, because resolving when a
             // sub-field change is tricky without more information from the
             // translators
-            let anti_alias = &change_time > prev_time && names.is_empty();
+            let anti_alias =
+                &change_time > prev_time && names.is_empty() && waves.inner.wants_anti_aliasing();
             let new_value = prev != Some(&value);
 
             // This is not the value we drew last time
@@ -250,7 +253,7 @@ impl State {
         self.sys.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
-            let max_time = waves.num_timestamps.clone().to_f64().unwrap_or(f64::MAX);
+            let max_time = waves.num_timestamps().clone().to_f64().unwrap_or(f64::MAX);
             let mut clock_edges = vec![];
             // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
             // width + transition_width in order to draw initial transitions outside the screen
@@ -258,7 +261,9 @@ impl State {
                 ..(frame_width as i32 + cfg.max_transition_width))
                 .par_bridge()
                 .filter_map(|x| {
-                    let time = waves.viewports[viewport_idx].to_time_f64(x as f64, frame_width);
+                    let time = waves.viewports[viewport_idx]
+                        .to_time_f64(x as f64, frame_width, &waves.num_timestamps())
+                        .0;
                     if time < 0. || time > max_time {
                         None
                     } else {
@@ -310,11 +315,14 @@ impl State {
                 }
                 clock_edges.append(&mut new_clock_edges)
             }
-            let ticks = self.get_ticks(
+            let ticks = waves.get_ticks(
                 &waves.viewports[viewport_idx],
                 &waves.inner.metadata().timescale,
                 frame_width,
                 cfg.text_size,
+                &self.wanted_timeunit,
+                &self.get_time_format(),
+                &self.config,
             );
 
             self.sys.draw_data.borrow_mut()[viewport_idx] = Some(CachedDrawData {
@@ -358,12 +366,14 @@ impl State {
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr_timestamp = Some(
-                    waves.viewports[viewport_idx].to_time_f64(mouse_ptr_pos.x as f64, frame_width),
-                );
+                let mouse_ptr = Some(waves.viewports[viewport_idx].to_time_bigint(
+                    mouse_ptr_pos.x,
+                    frame_width,
+                    &waves.num_timestamps(),
+                ));
 
                 msgs.push(Message::CanvasZoom {
-                    mouse_ptr_timestamp,
+                    mouse_ptr,
                     delta: ui.input(|i| i.zoom_delta()),
                     viewport_idx,
                 })
@@ -437,7 +447,7 @@ impl State {
                 };
 
                 for (_, x) in ticks {
-                    self.draw_tick_line(*x, &mut ctx, &stroke)
+                    waves.draw_tick_line(*x, &mut ctx, &stroke)
                 }
             }
 
@@ -488,7 +498,14 @@ impl State {
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Marker(_) => {}
                     ItemDrawingInfo::TimeLine(_) => {
-                        self.draw_ticks(color, ticks, &ctx, y_offset, Align2::CENTER_TOP);
+                        waves.draw_ticks(
+                            color,
+                            ticks,
+                            &ctx,
+                            y_offset,
+                            Align2::CENTER_TOP,
+                            &self.config,
+                        );
                     }
                 }
             }
@@ -671,7 +688,7 @@ impl State {
             let snap_pos = self.snap_to_edge(Some(top_left.to_pos2()), waves, size.x, viewport_idx);
 
             if let Some(time) = snap_pos {
-                self.draw_line(&time, ctx, size, &waves.viewports[viewport_idx]);
+                self.draw_line(&time, ctx, size, &waves.viewports[viewport_idx], waves);
                 ui.menu_button("Set marker", |ui| {
                     macro_rules! close_menu {
                         () => {{
@@ -717,7 +734,7 @@ impl State {
             return None;
         };
         let viewport = &waves.viewports[viewport_idx];
-        let timestamp = viewport.to_time_bigint(pos.x, frame_width);
+        let timestamp = viewport.to_time_bigint(pos.x, frame_width, &waves.num_timestamps());
         if let Some(utimestamp) = timestamp.to_biguint() {
             if let Some(vidx) = waves.get_item_at_y(pos.y) {
                 if let Some(id) = waves.displayed_items_order.get(vidx) {
@@ -728,8 +745,16 @@ impl State {
                         {
                             let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
                             let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
-                            let prev = viewport.from_time(prev_time, frame_width);
-                            let next = viewport.from_time(next_time, frame_width);
+                            let prev = viewport.pixel_from_time(
+                                prev_time,
+                                frame_width,
+                                &waves.num_timestamps(),
+                            );
+                            let next = viewport.pixel_from_time(
+                                next_time,
+                                frame_width,
+                                &waves.num_timestamps(),
+                            );
                             if (prev - pos.x).abs() < (next - pos.x).abs() {
                                 if (prev - pos.x).abs() <= self.config.snap_distance {
                                     return Some(prev_time.clone());
@@ -753,8 +778,9 @@ impl State {
         ctx: &mut DrawingContext,
         size: Vec2,
         viewport: &Viewport,
+        waves: &WaveData,
     ) {
-        let x = viewport.from_time(time, size.x);
+        let x = viewport.pixel_from_time(time, size.x, &waves.num_timestamps());
 
         let stroke = Stroke {
             color: self.config.theme.cursor.color,
