@@ -16,6 +16,7 @@ use crate::{
 const DEFAULT_DIVIDER_NAME: &str = "";
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen::prelude::wasm_bindgen)]
 pub struct DisplayedItemRef(pub usize);
 
 impl From<usize> for DisplayedItemRef {

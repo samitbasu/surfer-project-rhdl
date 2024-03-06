@@ -9,13 +9,11 @@ use egui_skia_renderer::draw_onto_surface;
 use emath::Vec2;
 use image::{DynamicImage, ImageFormat};
 use log::info;
-use num::BigInt;
+use num::{bigint::ToBigInt, BigInt};
 use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
 use test_log::test;
 
-use crate::transaction_container::TransactionStreamRef;
-use crate::wave_container::{ScopeRefExt, VariableRefExt};
 use crate::wave_data::ScopeType;
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -27,6 +25,14 @@ use crate::{
     wave_container::{ScopeRef, VariableRef},
     wave_source::LoadOptions,
     Message, MoveDir, StartupParams, State, WaveSource,
+};
+use crate::{
+    graphics::Direction,
+    wave_container::{ScopeRefExt, VariableRefExt},
+};
+use crate::{
+    graphics::{GrPoint, Graphic, GraphicId},
+    transaction_container::TransactionStreamRef,
 };
 
 fn print_image(img: &DynamicImage) {
@@ -1946,3 +1952,157 @@ snapshot_ui_with_file_and_msgs! {tx_stream_multiple_viewport_works, "examples/my
     Message::CanvasScroll {delta: Vec2::new(-300., 0.),viewport_idx: 1},
     Message::FocusTransaction(Some(transaction_container::TransactionRef { id: 34 }), None),
 ]}
+
+snapshot_ui!(arrow_drawing, || {
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/counter.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+    loop {
+        state.handle_async_messages();
+        state.handle_batch_commands();
+        if state.waves_fully_loaded() {
+            break;
+        }
+    }
+    state.config.theme.clock_rising_marker = true;
+    wait_for_waves_fully_loaded(&mut state, 10);
+    state.update(Message::AddScope(ScopeRef::from_strs(&["tb"])));
+    state.update(Message::ToggleToolbar);
+    state.update(Message::ToggleMenu);
+    state.update(Message::ToggleSidePanel);
+    state.update(Message::ToggleOverview);
+    state.update(Message::ZoomToRange {
+        start: 0u32.to_bigint().unwrap(),
+        end: 100u32.to_bigint().unwrap(),
+        viewport_idx: 0,
+    });
+
+    let mut idxes = state
+        .waves
+        .as_ref()
+        .unwrap()
+        .displayed_items
+        .keys()
+        .cloned()
+        .collect::<Vec<_>>();
+
+    idxes.sort_by_key(|r| r.0);
+
+    state.update(Message::AddGraphic(
+        GraphicId(0),
+        Graphic::TextArrow {
+            from: (
+                GrPoint {
+                    x: 5u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[0],
+                        anchor: crate::graphics::Anchor::Top,
+                    },
+                },
+                Direction::East,
+            ),
+            to: (
+                GrPoint {
+                    x: 10u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[1],
+                        anchor: crate::graphics::Anchor::Top,
+                    },
+                },
+                Direction::West,
+            ),
+            text: "A".to_string(),
+        },
+    ));
+    state.update(Message::AddGraphic(
+        GraphicId(1),
+        Graphic::TextArrow {
+            from: (
+                GrPoint {
+                    x: 15u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[0],
+                        anchor: crate::graphics::Anchor::Top,
+                    },
+                },
+                Direction::East,
+            ),
+            to: (
+                GrPoint {
+                    x: 20u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[1],
+                        anchor: crate::graphics::Anchor::Bottom,
+                    },
+                },
+                Direction::West,
+            ),
+            text: "B".to_string(),
+        },
+    ));
+    state.update(Message::AddGraphic(
+        GraphicId(2),
+        Graphic::TextArrow {
+            from: (
+                GrPoint {
+                    x: 30u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[0],
+                        anchor: crate::graphics::Anchor::Top,
+                    },
+                },
+                Direction::West,
+            ),
+            to: (
+                GrPoint {
+                    x: 25u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[1],
+                        anchor: crate::graphics::Anchor::Center,
+                    },
+                },
+                Direction::East,
+            ),
+            text: "C".to_string(),
+        },
+    ));
+    state.update(Message::AddGraphic(
+        GraphicId(3),
+        Graphic::TextArrow {
+            from: (
+                GrPoint {
+                    x: 40u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[1],
+                        anchor: crate::graphics::Anchor::Top,
+                    },
+                },
+                Direction::South,
+            ),
+            to: (
+                GrPoint {
+                    x: 35u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[3],
+                        anchor: crate::graphics::Anchor::Center,
+                    },
+                },
+                Direction::North,
+            ),
+            text: "D".to_string(),
+        },
+    ));
+    wait_for_waves_fully_loaded(&mut state, 10);
+    state
+});
