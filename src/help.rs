@@ -9,20 +9,22 @@ impl State {
     pub fn help_message(&self, ui: &mut Ui) {
         if self.waves.is_none() {
             ui.label(RichText::new(
-                "Drag and drop a VCD or FST file here to open it",
+                "Drag and drop a VCD, FST, or GHW file here to open it",
             ));
 
             #[cfg(target_arch = "wasm32")]
             ui.label(RichText::new("Or press space and type load_url"));
             #[cfg(not(target_arch = "wasm32"))]
             ui.label(RichText::new(
-                "Or press space and type load_vcd or load_url",
+                "Or press space and type load_file or load_url",
             ));
             #[cfg(target_arch = "wasm32")]
-            ui.label(RichText::new("Or use the file menu to open a URL"));
+            ui.label(RichText::new(
+                "Or use the file menu or toolbar to open a URL",
+            ));
             #[cfg(not(target_arch = "wasm32"))]
             ui.label(RichText::new(
-                "Or use the file menu to open a file or a URL",
+                "Or use the file menu or toolbar to open a file or a URL",
             ));
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Or click"));
@@ -136,12 +138,13 @@ pub fn draw_quickstart_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
                 ui.label(RichText::new("Opening files").size(20.));
                 ui.add_space(5.);
                 ui.label("Open a new file by");
-                ui.label("- dragging a vcd file");
+                ui.label("- dragging a VCD, FST, or GHW file");
                 #[cfg(target_arch = "wasm32")]
                 ui.label("- typing load_url in the command palette");
                 #[cfg(not(target_arch = "wasm32"))]
-                ui.label("- typing load_url or load_vcd in the command palette");
+                ui.label("- typing load_url or load_file in the command palette");
                 ui.label("- using the file menu");
+                ui.label("- using the toolbar");
                 ui.add_space(10.);
             });
             ui.vertical_centered(|ui| {
