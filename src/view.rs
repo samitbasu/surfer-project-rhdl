@@ -585,7 +585,13 @@ impl State {
         scope: &ScopeRef,
         filter: &str,
     ) {
-        for variable in filtered_variables(wave, filter, &self.variable_name_filter_type, scope) {
+        for variable in filtered_variables(
+            wave,
+            filter,
+            &self.variable_name_filter_type,
+            scope,
+            self.variable_name_filter_case_insensitive,
+        ) {
             let index = wave
                 .inner
                 .variable_meta(&variable)

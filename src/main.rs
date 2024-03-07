@@ -463,6 +463,7 @@ pub struct State {
     show_url_entry: bool,
     variable_name_filter_focused: bool,
     variable_name_filter_type: VariableNameFilterType,
+    variable_name_filter_case_insensitive: bool,
     rename_target: Option<usize>,
 
     /// UI Scale if set by the user
@@ -507,6 +508,7 @@ impl State {
             show_wave_source: true,
             variable_name_filter_focused: false,
             variable_name_filter_type: VariableNameFilterType::Fuzzy,
+            variable_name_filter_case_insensitive: true,
             ui_scale: None,
             show_hierarchy: None,
             show_menu: None,
@@ -1249,6 +1251,9 @@ impl State {
             Message::SetFilterFocused(s) => self.variable_name_filter_focused = s,
             Message::SetVariableNameFilterType(variable_name_filter_type) => {
                 self.variable_name_filter_type = variable_name_filter_type
+            }
+            Message::SetVariableNameFilterCaseInsensitive(s) => {
+                self.variable_name_filter_case_insensitive = s
             }
             Message::SetUiScale(scale) => {
                 if let Some(ctx) = &mut self.sys.context {

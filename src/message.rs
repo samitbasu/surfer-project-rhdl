@@ -124,6 +124,7 @@ pub enum Message {
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
     SetVariableNameFilterType(VariableNameFilterType),
+    SetVariableNameFilterCaseInsensitive(bool),
     SetUiScale(f32),
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),

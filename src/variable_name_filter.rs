@@ -1,9 +1,10 @@
-use eframe::egui::{Layout, TextEdit, Ui};
-use eframe::emath::Align;
+use eframe::egui::{Button, Layout, TextEdit, Ui};
+use eframe::emath::{Align, Vec2};
+use egui_remixicon::icons;
 use enum_iterator::Sequence;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::Itertools;
-use regex::Regex;
+use regex::{escape, Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::wave_container::ScopeRef;
@@ -29,16 +30,37 @@ impl std::fmt::Display for VariableNameFilterType {
 }
 
 impl VariableNameFilterType {
-    pub fn is_match(&self, variable_name: &str, filter: &str) -> bool {
+    pub fn is_match(&self, variable_name: &str, filter: &str, case_insensitive: bool) -> bool {
         match self {
             VariableNameFilterType::Fuzzy => {
                 let matcher = SkimMatcherV2::default();
                 matcher.fuzzy_match(variable_name, filter).is_some()
             }
-            VariableNameFilterType::Contain => variable_name.contains(filter),
-            VariableNameFilterType::Start => variable_name.starts_with(filter),
+            VariableNameFilterType::Contain => {
+                if let Ok(regex) = RegexBuilder::new(&escape(filter))
+                    .case_insensitive(case_insensitive)
+                    .build()
+                {
+                    regex.is_match(variable_name)
+                } else {
+                    false
+                }
+            }
+            VariableNameFilterType::Start => {
+                if let Ok(regex) = RegexBuilder::new(&format!("^{}", escape(filter)))
+                    .case_insensitive(case_insensitive)
+                    .build()
+                {
+                    regex.is_match(variable_name)
+                } else {
+                    false
+                }
+            }
             VariableNameFilterType::Regex => {
-                if let Ok(regex) = Regex::new(filter) {
+                if let Ok(regex) = RegexBuilder::new(filter)
+                    .case_insensitive(case_insensitive)
+                    .build()
+                {
                     regex.is_match(variable_name)
                 } else {
                     false
@@ -56,7 +78,12 @@ impl State {
         msgs: &mut Vec<Message>,
     ) {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-            ui.button("➕")
+            let default_padding = ui.spacing().button_padding;
+            ui.spacing_mut().button_padding = Vec2 {
+                x: 0.,
+                y: default_padding.y,
+            };
+            ui.button(icons::ADD_FILL)
                 .on_hover_text("Add all variables from active Scope")
                 .clicked()
                 .then(|| {
@@ -70,6 +97,7 @@ impl State {
                                 filter,
                                 &self.variable_name_filter_type,
                                 active_scope,
+                                self.variable_name_filter_case_insensitive,
                             )
                             .into_iter()
                             .rev()
@@ -79,7 +107,23 @@ impl State {
                         }
                     }
                 });
-            ui.button("❌")
+            if self.variable_name_filter_type != VariableNameFilterType::Fuzzy {
+                ui.add(
+                    Button::new(icons::FONT_SIZE)
+                        .selected(!self.variable_name_filter_case_insensitive),
+                )
+                .on_hover_text("Case sensitive filter")
+                .clicked()
+                .then(|| {
+                    msgs.push(Message::SetVariableNameFilterCaseInsensitive(
+                        !self.variable_name_filter_case_insensitive,
+                    ))
+                });
+            }
+            ui.menu_button(icons::FILTER_FILL, |ui| {
+                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type)
+            });
+            ui.add_enabled(!filter.is_empty(), Button::new(icons::CLOSE_FILL))
                 .on_hover_text("Clear filter")
                 .clicked()
                 .then(|| filter.clear());
@@ -103,6 +147,7 @@ impl State {
             if response.lost_focus() {
                 msgs.push(Message::SetFilterFocused(false));
             }
+            ui.spacing_mut().button_padding = default_padding;
         });
     }
 }
@@ -130,12 +175,13 @@ pub fn filtered_variables(
     filter: &str,
     variable_name_filter_type: &VariableNameFilterType,
     scope: &ScopeRef,
+    case_insensitive: bool,
 ) -> Vec<VariableRef> {
     let listed = waves
         .inner
         .variables_in_scope(scope)
         .iter()
-        .filter(|var| variable_name_filter_type.is_match(&var.name, filter))
+        .filter(|var| variable_name_filter_type.is_match(&var.name, filter, case_insensitive))
         .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
         .cloned()
         .collect_vec();
