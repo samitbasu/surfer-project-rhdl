@@ -392,7 +392,10 @@ impl State {
         perform_async_work(async move {
             if let Some(file) = AsyncFileDialog::new()
                 .set_title("Open waveform file")
-                .add_filter("Waveform-files (*.vcd, *.fst)", &["vcd", "fst"])
+                .add_filter(
+                    "Waveform-files (*.vcd, *.fst, *.ghw)",
+                    &["vcd", "fst", "ghw"],
+                )
                 .add_filter("All files", &["*"])
                 .pick_file()
                 .await
