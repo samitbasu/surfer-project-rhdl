@@ -4,6 +4,7 @@ use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
 use log::warn;
 use num::{BigUint, ToPrimitive};
+use std::collections::HashMap;
 use std::fmt::Write;
 use wellen::{
     self, GetItem, ScopeType, Time, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
@@ -134,6 +135,17 @@ impl WellenContainer {
     pub fn get_var(&self, r: &VariableRef) -> Result<&Var> {
         let h = self.inner.hierarchy();
         self.get_var_ref(r).map(|r| h.get(r))
+    }
+
+    pub fn get_enum_map(&self, v: &Var) -> HashMap<String, String> {
+        match v.enum_type(self.inner.hierarchy()) {
+            None => HashMap::new(),
+            Some((_, mapping)) => HashMap::from_iter(
+                mapping
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string())),
+            ),
+        }
     }
 
     fn get_var_ref(&self, r: &VariableRef) -> Result<VarRef> {
@@ -338,12 +350,17 @@ fn convert_variable_value(value: wellen::SignalValue) -> VariableValue {
     }
 }
 
-pub(crate) fn var_to_meta<'a>(var: &Var, r: &VariableRef) -> VariableMeta {
+pub(crate) fn var_to_meta<'a>(
+    var: &Var,
+    enum_map: HashMap<String, String>,
+    r: &VariableRef,
+) -> VariableMeta {
     VariableMeta {
         var: r.clone(),
         num_bits: var.length(),
         variable_type: Some(var.var_type().into()),
         index: var.index().map(index_to_string),
+        enum_map,
     }
 }
 
