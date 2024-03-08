@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use chrono::prelude::{DateTime, Utc};
@@ -368,7 +369,7 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(f) => {
                 let var = f.get_var(r)?;
-                Ok(var_to_meta(var, r))
+                Ok(var_to_meta(var, f.get_enum_map(var), r))
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
             #[cfg(not(target_arch = "wasm32"))]
@@ -528,4 +529,5 @@ pub struct VariableMeta {
     pub num_bits: Option<u32>,
     pub variable_type: Option<VariableType>,
     pub index: Option<String>,
+    pub enum_map: HashMap<String, String>,
 }

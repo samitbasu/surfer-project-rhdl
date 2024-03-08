@@ -5,6 +5,7 @@ use eframe::epaint::Color32;
 
 mod basic_translators;
 pub mod clock;
+mod enum_translator;
 pub mod numeric_translators;
 pub mod spade;
 
@@ -49,6 +50,7 @@ pub fn all_translators() -> TranslatorList {
         vec![
             Box::new(clock::ClockTranslator::new()),
             Box::new(StringTranslator {}),
+            Box::new(enum_translator::EnumTranslator {}),
         ],
     )
 }
