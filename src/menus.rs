@@ -389,12 +389,12 @@ impl State {
         // Should not call this unless a variable is selected, and, hence, a VCD is loaded
         let Some(waves) = &self.waves else { return };
 
-        let mut available_translators = if path.field.is_empty() {
+        let (mut preferred_translators, mut bad_translators) = if path.field.is_empty() {
             self.sys
                 .translators
                 .all_translator_names()
                 .into_iter()
-                .filter(|translator_name| {
+                .partition(|translator_name| {
                     let t = self.sys.translators.get_translator(translator_name);
 
                     if self
@@ -425,34 +425,40 @@ impl State {
                         }
                     }
                 })
-                .collect()
         } else {
-            self.sys.translators.basic_translator_names()
+            (self.sys.translators.basic_translator_names(), vec![])
         };
 
-        available_translators.sort_by(|a, b| human_sort::compare(a, b));
-        let format_menu = available_translators
-            .iter()
-            .map(|t| {
-                (
-                    *t,
-                    Message::VariableFormatChange(path.clone(), t.to_string()),
-                )
-            })
-            .collect::<Vec<_>>();
+        preferred_translators.sort_by(|a, b| human_sort::compare(a, b));
+        bad_translators.sort_by(|a, b| human_sort::compare(a, b));
 
         let selected_translator = waves
             .variable_translator(path, &self.sys.translators)
             .name();
 
+        let mut menu_entry = |ui: &mut Ui, name: &String| {
+            ui.radio(selected_translator == *name, name)
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::VariableFormatChange(
+                        path.clone(),
+                        name.to_string(),
+                    ));
+                });
+        };
+
         ui.menu_button("Format", |ui| {
-            for (name, msg) in format_menu {
-                ui.radio(selected_translator == *name, name)
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(msg);
-                    });
+            for name in preferred_translators {
+                menu_entry(ui, name);
+            }
+            if !bad_translators.is_empty() {
+                ui.separator();
+                ui.menu_button("Not recommended", |ui| {
+                    for name in bad_translators {
+                        menu_entry(ui, name);
+                    }
+                });
             }
         });
     }
