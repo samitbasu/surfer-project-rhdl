@@ -30,7 +30,12 @@ impl std::fmt::Display for VariableNameFilterType {
 }
 
 impl VariableNameFilterType {
-    pub fn is_match(&self, variable_name: &str, filter: &str, case_insensitive: bool) -> bool {
+    pub fn matching_variables(
+        &self,
+        variables: &[VariableRef],
+        filter: &str,
+        case_insensitive: bool,
+    ) -> Vec<VariableRef> {
         match self {
             VariableNameFilterType::Fuzzy => {
                 let matcher = if case_insensitive {
@@ -38,7 +43,11 @@ impl VariableNameFilterType {
                 } else {
                     SkimMatcherV2::default().respect_case()
                 };
-                matcher.fuzzy_match(variable_name, filter).is_some()
+                variables
+                    .iter()
+                    .filter(|var| matcher.fuzzy_match(&var.name, filter).is_some())
+                    .cloned()
+                    .collect_vec()
             }
             VariableNameFilterType::Contain => {
                 if case_insensitive {
@@ -46,12 +55,20 @@ impl VariableNameFilterType {
                         .case_insensitive(true)
                         .build()
                     {
-                        regex.is_match(variable_name)
+                        variables
+                            .iter()
+                            .filter(|var| regex.is_match(&var.name))
+                            .cloned()
+                            .collect_vec()
                     } else {
-                        false
+                        Vec::new()
                     }
                 } else {
-                    variable_name.contains(filter)
+                    variables
+                        .iter()
+                        .filter(|var| var.name.contains(filter))
+                        .cloned()
+                        .collect_vec()
                 }
             }
             VariableNameFilterType::Start => {
@@ -60,12 +77,20 @@ impl VariableNameFilterType {
                         .case_insensitive(true)
                         .build()
                     {
-                        regex.is_match(variable_name)
+                        variables
+                            .iter()
+                            .filter(|var| regex.is_match(&var.name))
+                            .cloned()
+                            .collect_vec()
                     } else {
-                        false
+                        Vec::new()
                     }
                 } else {
-                    variable_name.starts_with(filter)
+                    variables
+                        .iter()
+                        .filter(|var| var.name.starts_with(filter))
+                        .cloned()
+                        .collect_vec()
                 }
             }
             VariableNameFilterType::Regex => {
@@ -73,9 +98,13 @@ impl VariableNameFilterType {
                     .case_insensitive(case_insensitive)
                     .build()
                 {
-                    regex.is_match(variable_name)
+                    variables
+                        .iter()
+                        .filter(|var| regex.is_match(&var.name))
+                        .cloned()
+                        .collect_vec()
                 } else {
-                    false
+                    Vec::new()
                 }
             }
         }
@@ -161,22 +190,26 @@ impl State {
         filter: &str,
         scope: &ScopeRef,
     ) -> Vec<VariableRef> {
-        let listed = waves
-            .inner
-            .variables_in_scope(scope)
-            .iter()
-            .filter(|var| {
-                self.variable_name_filter_type.is_match(
-                    &var.name,
+        if filter.is_empty() {
+            waves
+                .inner
+                .variables_in_scope(scope)
+                .iter()
+                .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
+                .cloned()
+                .collect_vec()
+        } else {
+            self.variable_name_filter_type
+                .matching_variables(
+                    &waves.inner.variables_in_scope(scope),
                     filter,
                     self.variable_name_filter_case_insensitive,
                 )
-            })
-            .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
-            .cloned()
-            .collect_vec();
-
-        listed
+                .iter()
+                .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
+                .cloned()
+                .collect_vec()
+        }
     }
 }
 
