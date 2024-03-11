@@ -85,10 +85,16 @@ pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
                     "Cargo version: {ver}",
                     ver = env!("CARGO_PKG_VERSION")
                 ));
-                ui.label(format!(
-                    "Git version: {ver}",
-                    ver = env!("VERGEN_GIT_DESCRIBE")
-                ));
+                if ui
+                    .small_button(format!(
+                        "Git version: {ver}",
+                        ver = env!("VERGEN_GIT_DESCRIBE")
+                    ))
+                    .on_hover_text("Click to copy git version")
+                    .clicked()
+                {
+                    ctx.output_mut(|o| o.copied_text = env!("VERGEN_GIT_DESCRIBE").to_string());
+                }
                 ui.label(format!(
                     "Build date: {date}",
                     date = env!("VERGEN_BUILD_DATE")
@@ -102,7 +108,7 @@ pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
                 if ui.button("Close").clicked() {
                     msgs.push(Message::SetAboutVisible(false))
                 }
-            });
+            })
         });
     if !open {
         msgs.push(Message::SetAboutVisible(false))
@@ -235,6 +241,7 @@ fn key_listing(ui: &mut Ui) {
         .spacing([5., 5.])
         .show(ui, |ui| {
             for (symbol, control, description) in keys {
+                let control = ctrl_to_cmd(control);
                 ui.label(symbol);
                 ui.label(control);
                 ui.label(description);
@@ -267,6 +274,7 @@ fn controls_listing(ui: &mut Ui) {
         .spacing([20., 5.])
         .show(ui, |ui| {
             for (symbol, control, description) in controls {
+                let control = ctrl_to_cmd(control);
                 ui.label(format!("{symbol}  {control}"));
                 ui.label(description);
                 ui.end_row();
@@ -300,4 +308,13 @@ pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
     if !open {
         msgs.push(Message::SetLicenseVisible(false))
     }
+}
+
+// Replace Ctrl with Cmd in case of macos
+fn ctrl_to_cmd(instr: &str) -> String {
+    #[cfg(target_os = "macos")]
+    let instring = instr.to_string().replace("Ctrl", "Cmd");
+    #[cfg(not(target_os = "macos"))]
+    let instring = instr.to_string();
+    instring
 }
