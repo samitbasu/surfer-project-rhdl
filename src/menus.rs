@@ -137,7 +137,7 @@ impl State {
                 .shortcut("m")
                 .add_closing_menu(msgs, ui);
             b("Toggle toolbar", Message::ToggleToolbar)
-                .shortcut("m")
+                .shortcut("t")
                 .add_closing_menu(msgs, ui);
             b("Toggle overview", Message::ToggleOverview).add_closing_menu(msgs, ui);
             b("Toggle statusbar", Message::ToggleStatusbar).add_closing_menu(msgs, ui);
