@@ -9,6 +9,7 @@ mod cxxrtl;
 mod cxxrtl_container;
 mod displayed_item;
 mod drawing_canvas;
+mod graphics;
 mod help;
 mod hierarchy;
 mod keys;
@@ -59,6 +60,7 @@ use eframe::emath;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
+use eframe::App;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
@@ -1531,5 +1533,12 @@ impl State {
             .as_ref()
             .map(|w| w.inner.is_fully_loaded())
             .unwrap_or(false)
+    }
+}
+
+pub struct StateWrapper(Arc<RwLock<State>>);
+impl App for StateWrapper {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        App::update(&mut *self.0.write().unwrap(), ctx, frame)
     }
 }
