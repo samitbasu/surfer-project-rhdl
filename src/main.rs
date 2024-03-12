@@ -59,7 +59,6 @@ use eframe::emath;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
-use egui_remixicon;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
@@ -1138,7 +1137,7 @@ impl State {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.markers.get(&idx) {
                         let num_timestamps = waves.num_timestamps();
-                        waves.viewports[viewport_idx].go_to_time(&cursor, &num_timestamps);
+                        waves.viewports[viewport_idx].go_to_time(cursor, &num_timestamps);
                         self.invalidate_draw_commands();
                     }
                 };

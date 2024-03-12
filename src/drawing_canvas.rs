@@ -472,7 +472,7 @@ impl State {
                     .get(drawing_info.item_list_idx())
                     .and_then(|id| waves.displayed_items.get(id))
                     .and_then(|variable| variable.color())
-                    .and_then(|color| self.config.theme.colors.get(&color));
+                    .and_then(|color| self.config.theme.get_color(&color));
 
                 match drawing_info {
                     ItemDrawingInfo::Variable(drawing_info) => {
@@ -676,7 +676,7 @@ impl State {
         msgs: &mut Vec<Message>,
         viewport_idx: usize,
     ) {
-        let size = response.rect.size().clone();
+        let size = response.rect.size();
         response.context_menu(|ui| {
             let offset = ui.spacing().menu_margin.left;
             let top_left = to_screen.inverse().transform_rect(ui.min_rect()).left_top()

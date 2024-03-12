@@ -1113,7 +1113,7 @@ impl State {
             .displayed_items
             .get(&waves.displayed_items_order[drawing_info.item_list_idx()])
             .and_then(|variable| variable.background_color())
-            .and_then(|color| self.config.theme.colors.get(&color))
+            .and_then(|color| self.config.theme.get_color(&color))
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx));
         // Draw background
         let min = (ctx.to_screen)(0.0, drawing_info.top() - y_zero - gap);

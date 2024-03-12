@@ -19,7 +19,7 @@ impl CxxrtlTimestamp {
     }
 
     fn from_str(s: &str) -> Result<Self> {
-        let split = s.split(".").collect::<Vec<_>>();
+        let split = s.split('.').collect::<Vec<_>>();
 
         Ok(CxxrtlTimestamp {
             seconds: BigUint::from_str(split[0])

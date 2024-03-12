@@ -525,7 +525,7 @@ impl WaveData {
                                 );
                                 if next_value.is_ok_and(|r| {
                                     r.current.is_some_and(|v| match v.1 {
-                                        VariableValue::BigUint(v) => v == BigUint::from(0 as u8),
+                                        VariableValue::BigUint(v) => v == BigUint::from(0u8),
                                         _ => false,
                                     })
                                 }) {
