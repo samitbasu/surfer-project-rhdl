@@ -350,7 +350,7 @@ impl WaveData {
                     .map(|tick| {
                         (
                             // Time string
-                            time_string(&tick, timescale, &wanted_timeunit, time_format),
+                            time_string(&tick, timescale, wanted_timeunit, time_format),
                             viewport.pixel_from_time(&tick, frame_width, &self.num_timestamps()),
                         )
                     })

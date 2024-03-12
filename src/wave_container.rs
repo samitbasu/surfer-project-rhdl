@@ -343,7 +343,7 @@ impl WaveContainer {
     }
 
     /// Loads a variable into memory. Needs to be called before using `query_variable` on the variable.
-    pub fn load_variable<'a>(&mut self, r: &'a VariableRef) -> Result<()> {
+    pub fn load_variable(&mut self, r: &VariableRef) -> Result<()> {
         match self {
             WaveContainer::Wellen(f) => f.load_variable(r),
             WaveContainer::Empty => bail!("Cannot load variable from empty container."),

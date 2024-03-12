@@ -676,7 +676,7 @@ impl State {
         msgs: &mut Vec<Message>,
         viewport_idx: usize,
     ) {
-        let size = response.rect.size().clone();
+        let size = response.rect.size();
         response.context_menu(|ui| {
             let offset = ui.spacing().menu_margin.left;
             let top_left = to_screen.inverse().transform_rect(ui.min_rect()).left_top()

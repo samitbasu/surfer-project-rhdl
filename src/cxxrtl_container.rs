@@ -301,7 +301,7 @@ impl CxxrtlContainer {
 
         let greeting = serde_json::to_string(&CSMessage::greeting { version: 0 })
             .with_context(|| format!("Failed to encode greeting message"))?;
-        stream.write_all(&greeting.as_bytes())?;
+        stream.write_all(greeting.as_bytes())?;
         stream.write_all(&[b'\0'])?;
 
         trace!("C>S: {greeting}");
@@ -357,7 +357,7 @@ impl CxxrtlContainer {
                         .map(|(name, s)| {
                             (
                                 ScopeRef {
-                                    strs: name.split(" ").map(|s| s.to_string()).collect(),
+                                    strs: name.split(' ').map(|s| s.to_string()).collect(),
                                     id: WaveContainerScopeId::None,
                                 },
                                 s,
@@ -389,7 +389,7 @@ impl CxxrtlContainer {
                     },
                 )
             })
-            .and_then(|d| d.get(&var).cloned())
+            .and_then(|d| d.get(var).cloned())
     }
 
     fn fetch_all_items(&mut self) -> Option<Arc<HashMap<VariableRef, CxxrtlItem>>> {
@@ -441,7 +441,7 @@ impl CxxrtlContainer {
         items
             .into_iter()
             .filter_map(|(k, v)| {
-                let sp = k.split(" ").collect::<Vec<_>>();
+                let sp = k.split(' ').collect::<Vec<_>>();
 
                 if sp.is_empty() {
                     error!("Found an empty signal name and scope");
@@ -451,7 +451,7 @@ impl CxxrtlContainer {
                         VariableRef {
                             path: ScopeRef::from_strs(
                                 &sp[0..sp.len() - 1]
-                                    .into_iter()
+                                    .iter()
                                     .map(|s| s.to_string())
                                     .collect::<Vec<_>>(),
                             ),
@@ -479,7 +479,7 @@ impl CxxrtlContainer {
 
     pub fn root_modules(&mut self) -> Vec<ScopeRef> {
         // In the cxxrtl protocol, the root scope is always ""
-        if let Some(_) = &self.scopes() {
+        if self.scopes().is_some() {
             vec![ScopeRef {
                 strs: vec![],
                 id: WaveContainerScopeId::None,

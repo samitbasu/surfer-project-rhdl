@@ -350,7 +350,7 @@ fn convert_variable_value(value: wellen::SignalValue) -> VariableValue {
     }
 }
 
-pub(crate) fn var_to_meta<'a>(
+pub(crate) fn var_to_meta(
     var: &Var,
     enum_map: HashMap<String, String>,
     r: &VariableRef,

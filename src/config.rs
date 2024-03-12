@@ -249,7 +249,7 @@ impl SurferTheme {
         if case_insensitive.is_some() {
             return case_insensitive;
         }
-        return None;
+        None
     }
 }
 #[derive(Debug, Deserialize)]
