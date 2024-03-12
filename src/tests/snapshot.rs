@@ -565,8 +565,8 @@ snapshot_ui_with_file_and_msgs! {divider_works, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::AddDivider(Some("Divider".to_string()), None),
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::ItemBackgroundColorChange(Some(4), Some("Blue".to_string())),
-    Message::ItemColorChange(Some(4), Some("Green".to_string()))
+    Message::ItemBackgroundColorChange(Some(4), Some("blue".to_string())),
+    Message::ItemColorChange(Some(4), Some("green".to_string()))
 ]}
 
 snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
@@ -574,10 +574,10 @@ snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(4), Some("Blue".to_string())),
+    Message::ItemColorChange(Some(4), Some("blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(5), Some("Green".to_string())),
+    Message::ItemColorChange(Some(5), Some("green".to_string())),
     Message::CursorSet(BigInt::from(500)),
 ]}
 
@@ -586,10 +586,10 @@ snapshot_ui_with_file_and_msgs! {markers_dialog_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(4), Some("Blue".to_string())),
+    Message::ItemColorChange(Some(4), Some("blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(5), Some("Green".to_string())),
+    Message::ItemColorChange(Some(5), Some("green".to_string())),
     Message::CursorSet(BigInt::from(500)),
     Message::SetCursorWindowVisible(true)
 ]}
