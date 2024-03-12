@@ -472,7 +472,7 @@ impl State {
                     .get(drawing_info.item_list_idx())
                     .and_then(|id| waves.displayed_items.get(id))
                     .and_then(|variable| variable.color())
-                    .and_then(|color| self.config.theme.colors.get(&color));
+                    .and_then(|color| self.config.theme.get_color(&color));
 
                 match drawing_info {
                     ItemDrawingInfo::Variable(drawing_info) => {

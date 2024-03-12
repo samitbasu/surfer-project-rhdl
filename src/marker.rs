@@ -73,7 +73,7 @@ impl WaveData {
                     _ => None,
                 })
                 .and_then(|displayed_maker| displayed_maker.color.clone())
-                .and_then(|color| theme.colors.get(&color))
+                .and_then(|color| theme.get_color(&color))
                 .unwrap_or(&theme.cursor.color);
             let stroke = Stroke {
                 color: *color,
@@ -148,7 +148,7 @@ impl WaveData {
             let background_color = displayed_item
                 .color
                 .as_ref()
-                .and_then(|color| theme.colors.get(color))
+                .and_then(|color| theme.get_color(color))
                 .unwrap_or(&theme.cursor.color);
 
             let x = self.numbered_marker_location(displayed_item.idx, viewport, size.x);
@@ -307,7 +307,7 @@ impl State {
 
             let background_color = item
                 .color()
-                .and_then(|color| self.config.theme.colors.get(&color))
+                .and_then(|color| self.config.theme.get_color(&color))
                 .unwrap_or(&self.config.theme.cursor.color);
 
             let x = waves.numbered_marker_location(drawing_info.idx, viewport, view_width);

@@ -8,7 +8,7 @@ impl State {
     #[inline]
     pub fn get_item_text_color(&self, item: &DisplayedItem) -> &Color32 {
         item.color()
-            .and_then(|color| self.config.theme.colors.get(&color))
+            .and_then(|color| self.config.theme.get_color(&color))
             .unwrap_or(&self.config.theme.foreground)
     }
 
