@@ -8,7 +8,7 @@ use base64::{engine::general_purpose, Engine};
 use dssim::Dssim;
 use eframe::epaint::Vec2;
 use egui_skia::draw_onto_surface;
-use image::{DynamicImage, ImageOutputFormat, RgbImage};
+use image::{DynamicImage, ImageFormat, RgbImage};
 use log::info;
 use num::BigInt;
 use project_root::get_project_root;
@@ -28,11 +28,8 @@ use crate::{
 fn print_image(img: &DynamicImage) {
     if std::io::stdout().is_terminal() {
         let mut bytes = vec![];
-        img.write_to(
-            &mut std::io::Cursor::new(&mut bytes),
-            ImageOutputFormat::Png,
-        )
-        .unwrap();
+        img.write_to(&mut std::io::Cursor::new(&mut bytes), ImageFormat::Png)
+            .unwrap();
         let b64 = general_purpose::STANDARD.encode(&bytes);
         println!(
             "\x1b]1337;File=size={size};width=auto;height=auto;inline=1:{b64}\x1b]\x1b[1E",
@@ -150,7 +147,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
         std::fs::create_dir_all("snapshots").expect("Failed to create snapshots dir");
         new.write_to(
             &mut File::create(&new_file).expect(&format!("Failed to create {new_file:?}")),
-            ImageOutputFormat::Png,
+            ImageFormat::Png,
         )
         .expect(&format!("Failed to write new image to {new_file:?}"));
     }
@@ -568,8 +565,8 @@ snapshot_ui_with_file_and_msgs! {divider_works, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::AddDivider(Some("Divider".to_string()), None),
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::ItemBackgroundColorChange(Some(4), Some("Blue".to_string())),
-    Message::ItemColorChange(Some(4), Some("Green".to_string()))
+    Message::ItemBackgroundColorChange(Some(4), Some("blue".to_string())),
+    Message::ItemColorChange(Some(4), Some("green".to_string()))
 ]}
 
 snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
@@ -577,10 +574,10 @@ snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(4), Some("Blue".to_string())),
+    Message::ItemColorChange(Some(4), Some("blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(5), Some("Green".to_string())),
+    Message::ItemColorChange(Some(5), Some("green".to_string())),
     Message::CursorSet(BigInt::from(500)),
 ]}
 
@@ -589,10 +586,10 @@ snapshot_ui_with_file_and_msgs! {markers_dialog_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(4), Some("Blue".to_string())),
+    Message::ItemColorChange(Some(4), Some("blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(5), Some("Green".to_string())),
+    Message::ItemColorChange(Some(5), Some("green".to_string())),
     Message::CursorSet(BigInt::from(500)),
     Message::SetCursorWindowVisible(true)
 ]}

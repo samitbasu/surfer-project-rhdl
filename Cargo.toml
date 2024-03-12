@@ -9,13 +9,13 @@ build = "build.rs"
 
 [dependencies]
 asm_riscv = "0.2.0"
-base64 = "0.21.4"
+base64 = "0.22"
 bytes = "1.5.0"
 camino = { version = "1.1.6", features = ["serde1"] }
 chrono = "0.4.31"
 clap = { version = "4.4.10", features = ['derive'] }
 color-eyre = "0.6.2"
-config = "0.13.4"
+config = { version = "0.14", default_features = false, features = ["toml"] }
 derivative = "2.2.0"
 derive_more = "0.99.17"
 directories = "5.0"
@@ -23,7 +23,7 @@ eframe = "0.25.0"
 egui-remixicon = "0.2"
 egui_extras = "0.25.0"
 egui_plot = { version = "0.25", optional = true }
-enum-iterator = "1.5.0"
+enum-iterator = "2.0"
 f128 = { path = "f128", optional = true }
 fern = { version = "0.6.2", features = ["colored"] }
 futures = { version = "0.3.29", features = ["executor"] }
@@ -38,11 +38,11 @@ lazy_static = "1.4.0"
 log = "0.4"
 num = { version = "0.4", features = ["serde"] }
 progress-streams = "1.1.0"
-pure-rust-locales = "0.7.0"
+pure-rust-locales = "0.8.1"
 rayon = "1.8.0"
 regex = "1.10.2"
 reqwest = { version = "0.11.22", features = ["stream"] }
-rfd = { version = "0.12.1", default-features = false, features = ["xdg-portal"] }
+rfd = { version = "0.14.0", default-features = false, features = ["tokio", "xdg-portal"] }
 ron = { version = "0.8.1", features = ["integer128"] }
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.113"
@@ -78,12 +78,11 @@ wasm_thread = { version = "0.2.0", features = ["es_modules"] }
 winapi = { version = "0.3.9", features = ["winuser"] }
 
 [dev-dependencies]
-base64 = "0.21.4"
 dssim = "3.3.0"
 # egui_skia = {version = "0.4.0", features = ["cpu_fix"]}
 egui_skia = { git = "https://github.com/TheZoq2/egui_skia.git", features = ["cpu_fix"] }
-env_logger = "0.10.0"
-image = "0.24.7"
+env_logger = "0.11.3"
+image = { version = "0.25", default_features = false, features = ["png"] }
 imgref = "1.9.4"
 project-root = "0.2.2"
 rgb = "0.8.37"
