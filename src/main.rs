@@ -32,7 +32,6 @@ mod variable_name_type;
 mod variable_type;
 mod view;
 mod viewport;
-#[cfg(target_arch = "wasm32")]
 mod wasm_api;
 mod wasm_util;
 mod wave_container;
@@ -1300,6 +1299,16 @@ impl State {
                     }
                 }
             }
+            Message::AddGraphic(id, g) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.insert(id, g);
+                }
+            }
+            Message::AddTestGraphics => {
+                if let Some(waves) = &mut self.waves {
+                    waves.add_test_graphics();
+                }
+            }
         }
     }
 
@@ -1349,6 +1358,7 @@ impl State {
                 top_item_draw_offset: 0.,
                 total_height: 0.,
                 display_item_ref_counter: 0,
+                graphics: HashMap::new(),
             }
         };
         self.invalidate_draw_commands();

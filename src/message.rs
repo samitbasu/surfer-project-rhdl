@@ -13,6 +13,7 @@ use serde::Deserialize;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
+    graphics::{Graphic, GraphicId},
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     variable_name_type::VariableNameType,
@@ -162,6 +163,8 @@ pub enum Message {
     },
     VariableValueToClipbord(Option<usize>),
     InvalidateDrawCommands,
+    AddGraphic(GraphicId, Graphic),
+    AddTestGraphics,
 
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
