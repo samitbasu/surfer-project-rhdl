@@ -514,6 +514,13 @@ impl State {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Wave drawing");
 
+        waves.draw_graphics(
+            &self.config.theme,
+            &mut ctx,
+            response.rect.size(),
+            &waves.viewports[viewport_idx],
+        );
+
         waves.draw_cursor(
             &self.config.theme,
             &mut ctx,
@@ -789,8 +796,6 @@ impl State {
         )
     }
 }
-
-impl WaveData {}
 
 trait VariableExt {
     fn bool_drawing_spec(
