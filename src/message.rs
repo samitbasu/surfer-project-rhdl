@@ -133,7 +133,7 @@ pub enum Message {
     SetFilterFocused(bool),
     SetVariableNameFilterType(VariableNameFilterType),
     SetVariableNameFilterCaseInsensitive(bool),
-    SetUiScale(f32),
+    SetUIZoomFactor(f32),
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),
     SetCursorWindowVisible(bool),
