@@ -478,8 +478,8 @@ pub struct State {
     variable_name_filter_case_insensitive: bool,
     rename_target: Option<usize>,
 
-    /// UI Scale if set by the user
-    ui_scale: Option<f32>,
+    /// UI zoom factor if set by the user
+    ui_zoom_factor: Option<f32>,
 
     /// Internal state that does not persist between sessions and is not serialized
     #[serde(skip, default = "SystemState::new")]
@@ -522,7 +522,7 @@ impl State {
             variable_name_filter_focused: false,
             variable_name_filter_type: VariableNameFilterType::Fuzzy,
             variable_name_filter_case_insensitive: true,
-            ui_scale: None,
+            ui_zoom_factor: None,
             show_hierarchy: None,
             show_menu: None,
             show_ticks: None,
@@ -1223,11 +1223,11 @@ impl State {
             Message::SetVariableNameFilterCaseInsensitive(s) => {
                 self.variable_name_filter_case_insensitive = s
             }
-            Message::SetUiScale(scale) => {
+            Message::SetUIZoomFactor(scale) => {
                 if let Some(ctx) = &mut self.sys.context.as_ref() {
-                    ctx.set_pixels_per_point(scale)
+                    ctx.set_zoom_factor(scale)
                 }
-                self.ui_scale = Some(scale)
+                self.ui_zoom_factor = Some(scale)
             }
             Message::SaveState(filename) => {
                 self.save_state(&filename);
