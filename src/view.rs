@@ -145,9 +145,9 @@ impl eframe::App for State {
 
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("update");
-        if let Some(scale) = self.ui_scale {
-            if ctx.pixels_per_point() != scale {
-                ctx.set_pixels_per_point(scale)
+        if let Some(scale) = self.zoom_factor {
+            if ctx.zoom_factor() != scale {
+                ctx.set_zoom_factor(scale)
             }
         }
 
