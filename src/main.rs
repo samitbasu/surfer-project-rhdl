@@ -108,22 +108,40 @@ lazy_static! {
 
 #[derive(clap::Parser, Default)]
 struct Args {
-    vcd_file: Option<String>,
+    /// Waveform file in VCD, FST, or GHW format.
+    wave_file: Option<String>,
     #[clap(long)]
     spade_state: Option<Utf8PathBuf>,
     #[clap(long)]
     spade_top: Option<String>,
-    /// Path to a file containing 'commands' to run after a waveform has been loaded. The commands
-    /// are the same as those used in the command line interface inside the program.
+    /// Path to a file containing 'commands' to run after a waveform has been loaded.
+    /// The commands are the same as those used in the command line interface inside the program.
     /// Commands are separated by lines or ;. Empty lines are ignored. Line comments starting with
     /// `#` are supported
     /// NOTE: This feature is not permanent, it will be removed once a solid scripting system
     /// is implemented.
     #[clap(long, short)]
     command_file: Option<Utf8PathBuf>,
+    /// Alias for --command_file to mimic GTKWave and support VUnit
+    #[clap(long)]
+    script: Option<Utf8PathBuf>,
 
     #[clap(long, short)]
     state_file: Option<Utf8PathBuf>,
+}
+
+impl Args {
+    pub fn command_file(&self) -> &Option<Utf8PathBuf> {
+        if self.script.is_some() && self.command_file.is_some() {
+            error!("At most one of --command_file and --script can be used");
+            return &None;
+        }
+        if self.command_file.is_some() {
+            &self.command_file
+        } else {
+            &self.script
+        }
+    }
 }
 
 struct StartupParams {
@@ -156,8 +174,8 @@ impl StartupParams {
 
     #[allow(dead_code)] // NOTE: Only used in desktop version
     pub fn from_args(args: Args) -> Self {
-        let startup_commands = if let Some(cmd_file) = args.command_file {
-            std::fs::read_to_string(&cmd_file)
+        let startup_commands = if let Some(cmd_file) = args.command_file() {
+            std::fs::read_to_string(cmd_file)
                 .map_err(|e| error!("Failed to read commands from {cmd_file}. {e:#?}"))
                 .ok()
                 .map(|file_content| file_content.lines().map(|l| l.to_string()).collect())
@@ -168,7 +186,7 @@ impl StartupParams {
         Self {
             spade_state: args.spade_state,
             spade_top: args.spade_top,
-            waves: args.vcd_file.map(|s| string_to_wavesource(&s)),
+            waves: args.wave_file.map(|s| string_to_wavesource(&s)),
             startup_commands,
         }
     }
