@@ -82,6 +82,7 @@ use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use variable_name_filter::VariableNameFilterType;
 use viewport::Viewport;
+use viewport::ViewportStrategy;
 use wasm_util::perform_work;
 use wasm_util::UrlArgs;
 use wave_container::FieldRef;
@@ -479,6 +480,7 @@ pub struct State {
     variable_name_filter_type: VariableNameFilterType,
     variable_name_filter_case_insensitive: bool,
     rename_target: Option<usize>,
+    viewport_movement: ViewportStrategy,
 
     /// UI zoom factor if set by the user
     ui_zoom_factor: Option<f32>,
@@ -534,6 +536,7 @@ impl State {
             show_statusbar: None,
             align_names_right: None,
             show_variable_indices: None,
+            viewport_movement: ViewportStrategy::Instant,
         };
 
         Ok(result)
@@ -1282,6 +1285,9 @@ impl State {
                         }
                     }
                 }
+            }
+            Message::SetViewportStrategy(s) => {
+                self.viewport_movement = s
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {

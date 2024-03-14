@@ -131,13 +131,13 @@ impl WaveData {
                     let to_y = self.get_item_y(&to_point.y);
 
                     if let (Some(from_y), Some(to_y)) = (from_y, to_y) {
-                        let from_dir = from_dir.as_vector() * 30.;
-                        let to_dir = to_dir.as_vector() * 30.;
+                        let from_dir_vec = from_dir.as_vector() * 30.;
+                        let to_dir_vec = to_dir.as_vector() * 30.;
                         let shape = Shape::CubicBezier(CubicBezierShape {
                             points: [
                                 (ctx.to_screen)(from_x, from_y),
-                                (ctx.to_screen)(from_x + from_dir.x, from_y + from_dir.y),
-                                (ctx.to_screen)(to_x + to_dir.x, to_y + to_dir.y),
+                                (ctx.to_screen)(from_x + from_dir_vec.x, from_y + from_dir_vec.y),
+                                (ctx.to_screen)(to_x + to_dir_vec.x, to_y + to_dir_vec.y),
                                 (ctx.to_screen)(to_x, to_y),
                             ],
                             closed: false,
@@ -151,7 +151,12 @@ impl WaveData {
 
                         ctx.painter.text(
                             (ctx.to_screen)(to_x, to_y),
-                            Align2([Align::LEFT, Align::Center]),
+                            match to_dir {
+                                Direction::North => Align2([Align::Center, Align::TOP]),
+                                Direction::East => Align2([Align::LEFT, Align::Center]),
+                                Direction::South => Align2([Align::Center, Align::BOTTOM]),
+                                Direction::West => Align2([Align::RIGHT, Align::Center]),
+                            },
                             text,
                             FontId::monospace(15.),
                             Color32::YELLOW,

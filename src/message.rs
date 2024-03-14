@@ -19,7 +19,7 @@ use crate::{
     variable_name_type::VariableNameType,
     wave_container::{FieldRef, ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
-    MoveDir, VariableNameFilterType, WaveSource,
+    MoveDir, VariableNameFilterType, WaveSource, viewport::ViewportStrategy,
 };
 use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
@@ -173,10 +173,13 @@ pub enum Message {
     /// does nothing
     PauseSimulation,
 
-    /// Run more than one message in sequence
-    Batch(Vec<Message>),
     AddViewport,
     RemoveViewport,
+    SetViewportStrategy(ViewportStrategy),
+
+
+    /// Run more than one message in sequence
+    Batch(Vec<Message>),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
