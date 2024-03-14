@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -27,8 +28,8 @@ struct Callback {
 }
 
 lazy_static! {
-    pub static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
-    static ref QUERY_QUEUE: tokio::sync::Mutex<Vec<Callback>> = tokio::sync::Mutex::new(vec![]);
+    pub static ref MESSAGE_QUEUE: Mutex<VecDeque<Message>> = Mutex::new(VecDeque::new());
+    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> = tokio::sync::Mutex::new(VecDeque::new());
 }
 
 pub fn try_repaint() {
@@ -48,7 +49,7 @@ pub fn inject_message(message: &str) {
 
     match deser {
         Ok(message) => {
-            block_on(MESSAGE_QUEUE.lock()).push(message);
+            block_on(MESSAGE_QUEUE.lock()).push_back(message);
 
             try_repaint()
         }
@@ -63,7 +64,7 @@ pub async fn id_of_name(name: String) -> Option<usize> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let result = Arc::new(tokio::sync::Mutex::new(None));
     let result_clone = result.clone();
-    QUERY_QUEUE.lock().await.push(Callback {
+    QUERY_QUEUE.lock().await.push_back(Callback {
         function: Box::new(move |state| {
             if let Some(waves) = &state.waves {
                 *block_on(result_clone.lock()) = waves
@@ -88,6 +89,24 @@ pub async fn id_of_name(name: String) -> Option<usize> {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub async fn waves_loaded() -> bool {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let result = Arc::new(tokio::sync::Mutex::new(false));
+    let result_clone = result.clone();
+    QUERY_QUEUE.lock().await.push_back(Callback {
+        function: Box::new(move |state| {
+            *block_on(result_clone.lock()) = state.waves.is_some()
+        }),
+        executed: tx,
+    });
+    try_repaint();
+    rx.await.unwrap();
+    let ret = block_on(result.lock());
+    ret.clone()
+}
+
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn draw_text_arrow(
     id: usize,
     from_item: String,
@@ -100,7 +119,7 @@ pub async fn draw_text_arrow(
     let to_id = id_of_name(to_item).await;
 
     if let (Some(from_id), Some(to_id)) = (from_id, to_id) {
-        block_on(MESSAGE_QUEUE.lock()).push(Message::AddGraphic(
+        block_on(MESSAGE_QUEUE.lock()).push_back(Message::AddGraphic(
             GraphicId(id),
             Graphic::TextArrow {
                 from: (
@@ -133,11 +152,11 @@ pub async fn draw_text_arrow(
 
 impl State {
     pub(crate) fn handle_wasm_external_messages(&mut self) {
-        while let Some(msg) = block_on(MESSAGE_QUEUE.lock()).pop() {
+        while let Some(msg) = block_on(MESSAGE_QUEUE.lock()).pop_front() {
             self.update(msg);
         }
 
-        while let Some(cb) = block_on(QUERY_QUEUE.lock()).pop() {
+        while let Some(cb) = block_on(QUERY_QUEUE.lock()).pop_front() {
             (cb.function)(self);
             let _ = cb.executed.send(());
         }

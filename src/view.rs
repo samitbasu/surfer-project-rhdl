@@ -174,6 +174,24 @@ impl eframe::App for State {
         #[cfg(target_arch = "wasm32")]
         self.handle_wasm_external_messages();
 
+        let viewport_is_moving = if let Some(waves) = &mut self.waves {
+            let mut is_moving = false;
+            for vp in &mut waves.viewports {
+                if vp.is_moving() {
+                    vp.move_viewport(ctx.input(|i| i.stable_dt), &self.viewport_movement);
+                    is_moving = true;
+                }
+            }
+            is_moving
+        } else {
+            false
+        };
+
+        if viewport_is_moving {
+            self.invalidate_draw_commands();
+            ctx.request_repaint();
+        }
+
         // We can save some user battery life by not redrawing unless needed. At the moment,
         // we only need to continuously redraw to make surfer interactive during loading, otherwise
         // we'll let egui manage repainting. In practice
