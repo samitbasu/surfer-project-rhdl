@@ -29,7 +29,8 @@ struct Callback {
 
 lazy_static! {
     pub static ref MESSAGE_QUEUE: Mutex<VecDeque<Message>> = Mutex::new(VecDeque::new());
-    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> = tokio::sync::Mutex::new(VecDeque::new());
+    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> =
+        tokio::sync::Mutex::new(VecDeque::new());
 }
 
 pub fn try_repaint() {
@@ -94,9 +95,7 @@ pub async fn waves_loaded() -> bool {
     let result = Arc::new(tokio::sync::Mutex::new(false));
     let result_clone = result.clone();
     QUERY_QUEUE.lock().await.push_back(Callback {
-        function: Box::new(move |state| {
-            *block_on(result_clone.lock()) = state.waves.is_some()
-        }),
+        function: Box::new(move |state| *block_on(result_clone.lock()) = state.waves.is_some()),
         executed: tx,
     });
     try_repaint();
@@ -104,7 +103,6 @@ pub async fn waves_loaded() -> bool {
     let ret = block_on(result.lock());
     ret.clone()
 }
-
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn draw_text_arrow(
