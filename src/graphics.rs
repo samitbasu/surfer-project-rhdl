@@ -64,35 +64,6 @@ pub enum Graphic {
 }
 
 impl WaveData {
-    pub(crate) fn add_test_graphics(&mut self) {
-        self.graphics.insert(
-            GraphicId(0),
-            Graphic::TextArrow {
-                from: (
-                    GrPoint {
-                        x: BigInt::from(1570000),
-                        y: GraphicsY {
-                            item: 2,
-                            anchor: Anchor::Center,
-                        },
-                    },
-                    Direction::East,
-                ),
-                to: (
-                    GrPoint {
-                        x: BigInt::from(1650000),
-                        y: GraphicsY {
-                            item: 3,
-                            anchor: Anchor::Center,
-                        },
-                    },
-                    Direction::West,
-                ),
-                text: String::from("Test arrow"),
-            },
-        );
-    }
-
     // TODO: This function should probably not be here, we should instead update ItemDrawingInfo to
     // have this info
     fn get_item_y(&self, y: &GraphicsY) -> Option<f32> {

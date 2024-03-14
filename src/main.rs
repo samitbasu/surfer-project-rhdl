@@ -1358,9 +1358,9 @@ impl State {
                     waves.graphics.insert(id, g);
                 }
             }
-            Message::AddTestGraphics => {
+            Message::RemoveGraphic(id) => {
                 if let Some(waves) = &mut self.waves {
-                    waves.add_test_graphics();
+                    waves.graphics.retain(|k, _| k != &id)
                 }
             }
         }

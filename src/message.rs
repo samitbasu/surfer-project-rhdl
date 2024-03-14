@@ -177,7 +177,7 @@ pub enum Message {
     VariableValueToClipbord(Option<usize>),
     InvalidateDrawCommands,
     AddGraphic(GraphicId, Graphic),
-    AddTestGraphics,
+    RemoveGraphic(GraphicId),
 
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
