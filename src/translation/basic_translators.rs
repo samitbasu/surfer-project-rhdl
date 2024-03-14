@@ -3,7 +3,9 @@ use super::{
 };
 use crate::wave_container::{VariableMeta, VariableValue};
 
+use asm_riscv::Reg;
 use color_eyre::Result;
+use eframe::epaint::Color32;
 use itertools::Itertools;
 use num::Zero;
 
@@ -342,7 +344,18 @@ impl BasicTranslator for RiscvTranslator {
         .unwrap_or(0);
 
         match asm_riscv::I::try_from(u32_value) {
-            Ok(insn) => (riscv_to_string(&insn).to_string(), ValueKind::Normal),
+            Ok(insn) => {
+                let kind = match insn {
+                    // Highlight cannonical nops
+                    asm_riscv::I::ADDI { d, s, im }
+                        if d == Reg::ZERO && s == Reg::ZERO && im == 0 =>
+                    {
+                        ValueKind::Custom(Color32::DARK_GRAY)
+                    }
+                    _ => ValueKind::Normal,
+                };
+                (riscv_to_string(&insn).to_string(), kind)
+            }
             Err(_) => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
         }
     }
