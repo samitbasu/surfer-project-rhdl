@@ -64,7 +64,7 @@ pub enum Graphic {
 }
 
 impl WaveData {
-    // TODO: This function should probably not be here, we should instead update ItemDrawingInfo to
+    // FIXME: This function should probably not be here, we should instead update ItemDrawingInfo to
     // have this info
     fn get_item_y(&self, y: &GraphicsY) -> Option<f32> {
         self.displayed_items_order
