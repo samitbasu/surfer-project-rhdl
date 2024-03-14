@@ -310,11 +310,11 @@ pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
     }
 }
 
-// Replace Ctrl with Cmd in case of macos
+// Replace Ctrl with Cmd in case of macos, unless we are running tests
 fn ctrl_to_cmd(instr: &str) -> String {
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", not(test)))]
     let instring = instr.to_string().replace("Ctrl", "Cmd");
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(any(not(target_os = "macos"), test))]
     let instring = instr.to_string();
     instring
 }
