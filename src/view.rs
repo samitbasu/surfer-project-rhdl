@@ -178,7 +178,7 @@ impl eframe::App for State {
             let mut is_moving = false;
             for vp in &mut waves.viewports {
                 if vp.is_moving() {
-                    vp.move_viewport(ctx.input(|i| i.stable_dt), &self.viewport_movement);
+                    vp.move_viewport(ctx.input(|i| i.stable_dt));
                     is_moving = true;
                 }
             }

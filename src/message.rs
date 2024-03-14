@@ -17,9 +17,10 @@ use crate::{
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     variable_name_type::VariableNameType,
+    viewport::ViewportStrategy,
     wave_container::{FieldRef, ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
-    MoveDir, VariableNameFilterType, WaveSource, viewport::ViewportStrategy,
+    MoveDir, VariableNameFilterType, WaveSource,
 };
 use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
@@ -176,7 +177,6 @@ pub enum Message {
     AddViewport,
     RemoveViewport,
     SetViewportStrategy(ViewportStrategy),
-
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),
