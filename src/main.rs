@@ -9,6 +9,7 @@ mod cxxrtl;
 mod cxxrtl_container;
 mod displayed_item;
 mod drawing_canvas;
+mod graphics;
 mod help;
 mod hierarchy;
 mod keys;
@@ -31,7 +32,6 @@ mod variable_name_type;
 mod variable_type;
 mod view;
 mod viewport;
-#[cfg(target_arch = "wasm32")]
 mod wasm_api;
 mod wasm_util;
 mod wave_container;
@@ -59,6 +59,7 @@ use eframe::emath;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
+use eframe::App;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
@@ -81,6 +82,7 @@ use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use variable_name_filter::VariableNameFilterType;
 use viewport::Viewport;
+use viewport::ViewportStrategy;
 use wasm_util::perform_work;
 use wasm_util::UrlArgs;
 use wave_container::FieldRef;
@@ -93,6 +95,7 @@ use wave_source::LoadProgress;
 use wave_source::WaveFormat;
 use wave_source::WaveSource;
 
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -477,6 +480,7 @@ pub struct State {
     variable_name_filter_type: VariableNameFilterType,
     variable_name_filter_case_insensitive: bool,
     rename_target: Option<usize>,
+    viewport_movement: ViewportStrategy,
 
     /// UI zoom factor if set by the user
     ui_zoom_factor: Option<f32>,
@@ -532,6 +536,7 @@ impl State {
             show_statusbar: None,
             align_names_right: None,
             show_variable_indices: None,
+            viewport_movement: ViewportStrategy::Instant,
         };
 
         Ok(result)
@@ -950,11 +955,6 @@ impl State {
                     waves.cursor = Some(new)
                 }
             }
-            Message::RightCursorSet(new) => {
-                if let Some(waves) = self.waves.as_mut() {
-                    waves.right_cursor = new
-                }
-            }
             Message::LoadWaveformFile(filename, load_options) => {
                 self.load_wave_from_file(filename, load_options).ok();
             }
@@ -1286,6 +1286,9 @@ impl State {
                     }
                 }
             }
+            Message::SetViewportStrategy(s) => {
+                self.viewport_movement = s
+            }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {
                 if let Some(waves) = &mut self.waves {
@@ -1300,6 +1303,16 @@ impl State {
                         waves.viewports.pop();
                         self.sys.draw_data.borrow_mut().pop();
                     }
+                }
+            }
+            Message::AddGraphic(id, g) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.insert(id, g);
+                }
+            }
+            Message::RemoveGraphic(id) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.retain(|k, _| k != &id)
                 }
             }
         }
@@ -1343,7 +1356,6 @@ impl State {
                 viewports,
                 variable_format: HashMap::new(),
                 cursor: None,
-                right_cursor: None,
                 markers: HashMap::new(),
                 focused_item: None,
                 default_variable_name_type: self.config.default_variable_name_type,
@@ -1352,6 +1364,7 @@ impl State {
                 top_item_draw_offset: 0.,
                 total_height: 0.,
                 display_item_ref_counter: 0,
+                graphics: HashMap::new(),
             }
         };
         self.invalidate_draw_commands();
@@ -1479,5 +1492,12 @@ impl State {
                 .map_err(|e| error!("Failed to write state. {e:#?}"))
                 .ok()
         });
+    }
+}
+
+pub struct StateWrapper(Arc<RwLock<State>>);
+impl App for StateWrapper {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        App::update(&mut *self.0.write().unwrap(), ctx, frame)
     }
 }
