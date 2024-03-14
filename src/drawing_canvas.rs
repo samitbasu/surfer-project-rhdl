@@ -356,11 +356,11 @@ impl State {
 
         if ui.ui_contains_pointer() {
             let pointer_pos = pointer_pos_global.unwrap();
-            let scroll_delta = ui.input(|i| i.scroll_delta);
+            let smooth_scroll_delta = ui.input(|i| i.smooth_scroll_delta);
             let mouse_ptr_pos = to_screen.inverse().transform_pos(pointer_pos);
-            if scroll_delta != Vec2::ZERO {
+            if smooth_scroll_delta != Vec2::ZERO {
                 msgs.push(Message::CanvasScroll {
-                    delta: ui.input(|i| i.scroll_delta),
+                    delta: ui.input(|i| i.smooth_scroll_delta),
                     viewport_idx,
                 })
             }
@@ -792,7 +792,7 @@ impl State {
                 (ctx.to_screen)(x + 0.5, size.y),
             ],
             stroke,
-        )
+        );
     }
 }
 

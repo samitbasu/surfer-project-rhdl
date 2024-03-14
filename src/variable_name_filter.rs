@@ -174,11 +174,13 @@ impl State {
                     variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type)
                 });
             // Handle focus
-            if response.gained_focus() {
-                msgs.push(Message::SetFilterFocused(true));
-            }
-            if response.lost_focus() {
-                msgs.push(Message::SetFilterFocused(false));
+            if let Some(inner) = response {
+                if inner.response.gained_focus() {
+                    msgs.push(Message::SetFilterFocused(true));
+                }
+                if inner.response.lost_focus() {
+                    msgs.push(Message::SetFilterFocused(false));
+                }
             }
             ui.spacing_mut().button_padding = default_padding;
         });

@@ -451,11 +451,11 @@ impl State {
 
     fn handle_pointer_in_ui(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         if ui.ui_contains_pointer() {
-            let scroll_delta = ui.input(|i| i.scroll_delta);
-            if scroll_delta.y > 0.0 {
+            let smooth_scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+            if smooth_scroll_delta.y > 0.0 {
                 msgs.push(Message::InvalidateCount);
                 msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
-            } else if scroll_delta.y < 0.0 {
+            } else if smooth_scroll_delta.y < 0.0 {
                 msgs.push(Message::InvalidateCount);
                 msgs.push(Message::VerticalScroll(MoveDir::Down, self.get_count()));
             }
@@ -765,7 +765,9 @@ impl State {
                 .selectable_label(self.item_is_selected(vidx), name)
                 .context_menu(|ui| {
                     self.item_context_menu(Some(&field), msgs, ui, vidx);
-                });
+                })
+                .unwrap()
+                .response;
 
             if self.show_tooltip() {
                 let tooltip = if let Some(waves) = &self.waves {
@@ -871,7 +873,9 @@ impl State {
                 )
                 .context_menu(|ui| {
                     self.item_context_menu(None, msgs, ui, vidx);
-                });
+                })
+                .unwrap()
+                .response;
             if item_label.clicked() {
                 msgs.push(Message::FocusItem(vidx))
             }
