@@ -86,6 +86,7 @@ pub struct Viewport {
 
     // Number of seconds since the the last time a movement happened
     move_duration: Option<f32>,
+    pub move_strategy: ViewportStrategy,
 }
 
 impl Viewport {
@@ -98,6 +99,7 @@ impl Viewport {
             move_start_left: Relative(0.0),
             move_start_right: Relative(1.0),
             move_duration: None,
+            move_strategy: ViewportStrategy::Instant,
         }
     }
 
@@ -177,6 +179,7 @@ impl Viewport {
                 move_start_left: left,
                 move_start_right: right,
                 move_duration: None,
+                move_strategy: self.move_strategy,
             }
         } else {
             *self
@@ -199,6 +202,7 @@ impl Viewport {
                 move_start_left: left,
                 move_start_right: right,
                 move_duration: None,
+                move_strategy: self.move_strategy,
             }
         } else if corr_left < Relative(0.0) {
             let left = zoom_fixed.curr_left + corr_left;
@@ -211,6 +215,7 @@ impl Viewport {
                 move_start_left: left,
                 move_start_right: right,
                 move_duration: None,
+                move_strategy: self.move_strategy,
             }
         } else {
             zoom_fixed
@@ -341,15 +346,17 @@ impl Viewport {
         self.target_left = target_left;
         self.move_start_left = self.curr_left;
         self.move_duration = Some(0.);
+        self.move_viewport(0.)
     }
     pub fn set_target_right(&mut self, target_right: Relative) {
         self.target_right = target_right;
         self.move_start_right = self.curr_right;
         self.move_duration = Some(0.);
+        self.move_viewport(0.)
     }
 
-    pub fn move_viewport(&mut self, frame_time: f32, strategy: &ViewportStrategy) {
-        match strategy {
+    pub fn move_viewport(&mut self, frame_time: f32) {
+        match &self.move_strategy {
             ViewportStrategy::Instant => {
                 self.curr_left = self.target_left;
                 self.curr_right = self.target_right;
@@ -383,7 +390,7 @@ impl Viewport {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ViewportStrategy {
     Instant,
     LinearMove { duration: f32 },
