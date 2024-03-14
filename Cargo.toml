@@ -19,10 +19,10 @@ config = { version = "0.14", default_features = false, features = ["toml"] }
 derivative = "2.2.0"
 derive_more = "0.99.17"
 directories = "5.0"
-eframe = "0.25.0"
-egui-remixicon = "0.2"
-egui_extras = "0.25.0"
-egui_plot = { version = "0.25", optional = true }
+eframe = "0.26.2"
+egui-remixicon = "0.26.2"
+egui_extras = "0.26.2"
+egui_plot = { version = "0.26.2", optional = true }
 enum-iterator = "2.0"
 f128 = { path = "f128", optional = true }
 fern = { version = "0.6.2", features = ["colored"] }
