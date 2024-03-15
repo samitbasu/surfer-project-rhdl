@@ -1,7 +1,9 @@
+use std::ops::RangeInclusive;
+
 use derive_more::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 use eframe::emath::lerp;
 use log::info;
-use num::{BigInt, BigRational, FromPrimitive, ToPrimitive};
+use num::{iter::Range, BigInt, BigRational, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -369,7 +371,7 @@ impl Viewport {
                 self.curr_right = self.target_right;
                 self.move_duration = None;
             }
-            ViewportStrategy::LinearMove { duration } => {
+            ViewportStrategy::EaseInOut { duration } => {
                 if let Some(move_duration) = &mut self.move_duration {
                     if *move_duration + frame_time >= *duration {
                         self.move_duration = None;
@@ -378,11 +380,11 @@ impl Viewport {
                     } else {
                         *move_duration = frame_time + *move_duration;
 
-                        self.curr_left = Relative(lerp(
+                        self.curr_left = Relative(ease_in_out_size(
                             self.move_start_left.0..=self.target_left.0,
                             (*move_duration as f64) / (*duration as f64),
                         ));
-                        self.curr_right = Relative(lerp(
+                        self.curr_right = Relative(ease_in_out_size(
                             self.move_start_right.0..=self.target_right.0,
                             (*move_duration as f64) / (*duration as f64),
                         ));
@@ -397,8 +399,12 @@ impl Viewport {
     }
 }
 
+pub fn ease_in_out_size(r: RangeInclusive<f64>, t: f64) -> f64 {
+    r.start() + ((r.end() - r.start()) * -((std::f64::consts::PI * t).cos() - 1.) / 2.)
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ViewportStrategy {
     Instant,
-    LinearMove { duration: f32 },
+    EaseInOut { duration: f32 },
 }
