@@ -7,6 +7,7 @@ use num::bigint::ToBigInt;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
+use crate::graphics::{Graphic, GraphicId};
 use crate::wave_container::VariableValue;
 use crate::wave_source::WaveFormat;
 use crate::{
@@ -40,13 +41,11 @@ pub struct WaveData {
     /// Name of the translator used to translate this trace
     pub variable_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
-    /// When right clicking we'll create a temporary cursor that shows where right click
-    /// actions will apply. This gets cleared when the context menu is closed
-    pub right_cursor: Option<BigInt>,
     pub markers: HashMap<u8, BigInt>,
     pub focused_item: Option<usize>,
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
+    pub graphics: HashMap<GraphicId, Graphic>,
     /// These are just stored during operation, so no need to serialize
     #[serde(skip)]
     pub drawing_infos: Vec<ItemDrawingInfo>,
@@ -129,13 +128,13 @@ impl WaveData {
             viewports,
             variable_format,
             cursor: self.cursor.clone(),
-            right_cursor: None,
             markers: self.markers.clone(),
             focused_item: self.focused_item,
             default_variable_name_type: self.default_variable_name_type,
             scroll_offset: self.scroll_offset,
             drawing_infos: vec![],
             top_item_draw_offset: 0.,
+            graphics: HashMap::new(),
             total_height: 0.,
         };
         nested_format.retain(|nested, _| {
