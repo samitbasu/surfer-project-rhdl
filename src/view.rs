@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+
 use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
@@ -150,6 +152,8 @@ impl eframe::App for State {
                 ctx.set_zoom_factor(scale)
             }
         }
+
+        self.sys.items_to_expand.borrow_mut().clear();
 
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
@@ -703,6 +707,17 @@ impl State {
                                 Align::RIGHT,
                             );
 
+                            let levels_to_force_expand =
+                                self.sys.items_to_expand.borrow().iter().find_map(
+                                    |(id, levels)| {
+                                        if displayed_item_id == id {
+                                            Some(*levels)
+                                        } else {
+                                            None
+                                        }
+                                    },
+                                );
+
                             self.draw_variable(
                                 msgs,
                                 vidx,
@@ -711,6 +726,7 @@ impl State {
                                 &mut item_offsets,
                                 info,
                                 ui,
+                                levels_to_force_expand,
                             );
                         }
                         DisplayedItem::Divider(_) => {
@@ -780,6 +796,7 @@ impl State {
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         info: &VariableInfo,
         ui: &mut egui::Ui,
+        levels_to_force_expand: Option<usize>,
     ) {
         let draw_label = |ui: &mut egui::Ui| {
             let mut variable_label = ui
@@ -817,32 +834,39 @@ impl State {
 
         match info {
             VariableInfo::Compound { subfields } => {
-                let response = egui::collapsing_header::CollapsingState::load_with_default_open(
+                let mut header = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
                     egui::Id::new(&field),
                     false,
-                )
-                .show_header(ui, |ui| {
-                    ui.with_layout(
-                        Layout::top_down(Align::LEFT).with_cross_justify(true),
-                        draw_label,
-                    );
-                })
-                .body(|ui| {
-                    for (name, info) in subfields {
-                        let mut new_path = field.clone();
-                        new_path.field.push(name.clone());
-                        self.draw_variable(
-                            msgs,
-                            vidx,
-                            WidgetText::RichText(RichText::new(name)),
-                            new_path,
-                            drawing_infos,
-                            info,
-                            ui,
+                );
+
+                if let Some(level) = levels_to_force_expand {
+                    header.set_open(level > 0);
+                }
+
+                let response = header
+                    .show_header(ui, |ui| {
+                        ui.with_layout(
+                            Layout::top_down(Align::LEFT).with_cross_justify(true),
+                            draw_label,
                         );
-                    }
-                });
+                    })
+                    .body(|ui| {
+                        for (name, info) in subfields {
+                            let mut new_path = field.clone();
+                            new_path.field.push(name.clone());
+                            self.draw_variable(
+                                msgs,
+                                vidx,
+                                WidgetText::RichText(RichText::new(name)),
+                                new_path,
+                                drawing_infos,
+                                info,
+                                ui,
+                                levels_to_force_expand.clone().map(|l| l.saturating_sub(1)),
+                            );
+                        }
+                    });
 
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     field_ref: field.clone(),

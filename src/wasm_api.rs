@@ -60,77 +60,88 @@ pub fn inject_message(message: &str) {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-pub async fn id_of_name(name: String) -> Option<usize> {
+async fn perform_query<T>(query: Box<dyn FnOnce(&State) -> Option<T> + Send + Sync>) -> Option<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
     let (tx, rx) = tokio::sync::oneshot::channel();
     let result = Arc::new(tokio::sync::Mutex::new(None));
     let result_clone = result.clone();
     QUERY_QUEUE.lock().await.push_back(Callback {
-        function: Box::new(move |state| {
-            if let Some(waves) = &state.waves {
-                *block_on(result_clone.lock()) = waves
-                    .displayed_items
-                    .iter()
-                    .find(|(id, item)| {
-                        let item_name = match item {
-                            DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
-                            _ => format!("{}", item.name()),
-                        };
-                        item_name == name
-                    })
-                    .map(|(id, _)| *id)
-            }
-        }),
+        function: Box::new(move |state| *block_on(result_clone.lock()) = query(state)),
         executed: tx,
     });
     try_repaint();
     rx.await.unwrap();
     let ret = block_on(result.lock());
     ret.clone()
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub async fn id_of_name(name: String) -> Option<usize> {
+    perform_query(Box::new(|state| {
+        state.waves.as_ref().and_then(move |waves| {
+            waves
+                .displayed_items
+                .iter()
+                .find(|(id, item)| {
+                    let item_name = match item {
+                        DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
+                        _ => format!("{}", item.name()),
+                    };
+                    item_name == name
+                })
+                .map(|(id, _)| *id)
+        })
+    }))
+    .await
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn index_of_name(name: String) -> Option<usize> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let result = Arc::new(tokio::sync::Mutex::new(None));
-    let result_clone = result.clone();
-    QUERY_QUEUE.lock().await.push_back(Callback {
-        function: Box::new(move |state| {
-            if let Some(waves) = &state.waves {
-                for (idx, itemref) in waves.displayed_items_order.iter().enumerate() {
-                    if let Some(item) = waves.displayed_items.get(itemref) {
-                        let item_name = match item {
-                            DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
-                            _ => format!("{}", item.name()),
-                        };
-                        if item_name == name {
-                            *block_on(result_clone.lock()) = Some(idx);
-                        }
+    perform_query(Box::new(move |state| {
+        if let Some(waves) = &state.waves {
+            let mut result = None;
+            for (idx, itemref) in waves.displayed_items_order.iter().enumerate() {
+                if let Some(item) = waves.displayed_items.get(itemref) {
+                    let item_name = match item {
+                        DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
+                        _ => format!("{}", item.name()),
+                    };
+                    if item_name == name {
+                        result = Some(idx);
                     }
                 }
             }
-        }),
-        executed: tx,
-    });
-    try_repaint();
-    rx.await.unwrap();
-    let ret = block_on(result.lock());
-    ret.clone()
+            result
+        } else {
+            None
+        }
+    }))
+    .await
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn waves_loaded() -> bool {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let result = Arc::new(tokio::sync::Mutex::new(false));
-    let result_clone = result.clone();
-    QUERY_QUEUE.lock().await.push_back(Callback {
-        function: Box::new(move |state| *block_on(result_clone.lock()) = state.waves.is_some()),
-        executed: tx,
-    });
-    try_repaint();
-    rx.await.unwrap();
-    let ret = block_on(result.lock());
-    ret.clone()
+    perform_query(Box::new(move |state| Some(state.waves.is_some())))
+        .await
+        .unwrap_or(false)
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub async fn spade_loaded() -> bool {
+    perform_query(Box::new(move |state| {
+        Some(
+            state
+                .sys
+                .translators
+                .all_translator_names()
+                .iter()
+                .any(|n| *n == "spade"),
+        )
+    }))
+    .await
+    .unwrap_or(false)
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
