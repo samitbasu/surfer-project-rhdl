@@ -13,6 +13,7 @@ use serde::Deserialize;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
+    displayed_item::DisplayedItemRef,
     graphics::{Graphic, GraphicId},
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
@@ -172,6 +173,7 @@ pub enum Message {
     InvalidateDrawCommands,
     AddGraphic(GraphicId, Graphic),
     RemoveGraphic(GraphicId),
+    RemoveDisplayedItem(DisplayedItemRef),
 
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
@@ -179,6 +181,13 @@ pub enum Message {
     /// Pause the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
     PauseSimulation,
+
+    /// Expand the displayed item into subfields. Levels controls how many layers of subfields
+    /// are expanded. 0 unexpands it completely
+    ExpandDrawnItem {
+        item: DisplayedItemRef,
+        levels: usize,
+    },
 
     AddViewport,
     RemoveViewport,

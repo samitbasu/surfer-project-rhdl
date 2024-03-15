@@ -49,6 +49,7 @@ use color_eyre::Result;
 use command_prompt::get_parser;
 use config::SurferConfig;
 use displayed_item::DisplayedItem;
+use displayed_item::DisplayedItemRef;
 use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
@@ -391,6 +392,10 @@ pub struct SystemState {
     variable_name_filter: RefCell<String>,
     item_renaming_string: RefCell<String>,
 
+    /// These items should be expanded into subfields in the next frame. Cleared after each
+    /// frame
+    items_to_expand: RefCell<Vec<(DisplayedItemRef, usize)>>,
+
     // Benchmarking stuff
     /// Invalidate draw commands every frame to make performance comparison easier
     continuous_redraw: bool,
@@ -426,6 +431,7 @@ impl SystemState {
             last_canvas_rect: RefCell::new(None),
             variable_name_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
+            items_to_expand: RefCell::new(vec![]),
 
             continuous_redraw: false,
             #[cfg(feature = "performance_plot")]
@@ -1330,6 +1336,16 @@ impl State {
                 if let Some(waves) = &mut self.waves {
                     waves.graphics.retain(|k, _| k != &id)
                 }
+            }
+            Message::RemoveDisplayedItem(item) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.displayed_items.retain(|k, _| *k != item);
+                    waves.displayed_items_order.retain(|k| *k != item);
+                    self.invalidate_draw_commands();
+                }
+            }
+            Message::ExpandDrawnItem { item, levels } => {
+                self.sys.items_to_expand.borrow_mut().push((item, levels))
             }
         }
     }
