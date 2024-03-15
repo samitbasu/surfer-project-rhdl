@@ -90,6 +90,35 @@ pub async fn id_of_name(name: String) -> Option<usize> {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+pub async fn index_of_name(name: String) -> Option<usize> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let result = Arc::new(tokio::sync::Mutex::new(None));
+    let result_clone = result.clone();
+    QUERY_QUEUE.lock().await.push_back(Callback {
+        function: Box::new(move |state| {
+            if let Some(waves) = &state.waves {
+                for (idx, itemref) in waves.displayed_items_order.iter().enumerate() {
+                    if let Some(item) = waves.displayed_items.get(itemref) {
+                        let item_name = match item {
+                            DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
+                            _ => format!("{}", item.name()),
+                        };
+                        if item_name == name {
+                            *block_on(result_clone.lock()) = Some(idx);
+                        }
+                    }
+                }
+            }
+        }),
+        executed: tx,
+    });
+    try_repaint();
+    rx.await.unwrap();
+    let ret = block_on(result.lock());
+    ret.clone()
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn waves_loaded() -> bool {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let result = Arc::new(tokio::sync::Mutex::new(false));

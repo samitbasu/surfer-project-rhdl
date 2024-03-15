@@ -565,11 +565,9 @@ impl State {
         self.waves = None;
 
         // Long running translators which we load in a thread
+        #[cfg(feature = "spade")]
         {
-            #[cfg(feature = "spade")]
             let sender = self.sys.channels.msg_sender.clone();
-            #[cfg(not(feature = "spade"))]
-            let _ = self.sys.channels.msg_sender.clone();
             perform_work(move || {
                 #[cfg(feature = "spade")]
                 if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
@@ -979,6 +977,22 @@ impl State {
             }
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
+            }
+            Message::LoadSpadeTranslator { top, state } => {
+                #[cfg(feature = "spade")]
+                {
+                    let sender = self.sys.channels.msg_sender.clone();
+                    perform_work(move || {
+                        #[cfg(feature = "spade")]
+                        SpadeTranslator::init(&top, &state, sender);
+                    });
+                };
+                #[cfg(not(feature = "spade"))]
+                {
+                    info!(
+                        "Surfer is not compiled with spade support, ignoring LoadSpadeTranslator"
+                    );
+                }
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),

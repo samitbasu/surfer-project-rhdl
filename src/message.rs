@@ -72,6 +72,12 @@ pub enum Message {
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    /// Load a spade translator using the specified top and the specified state encoded as ron.
+    LoadSpadeTranslator {
+        top: String,
+        #[derivative(Debug = "ignore")]
+        state: String,
+    },
     #[cfg(not(target_arch = "wasm32"))]
     ConnectToCxxrtl(String),
     #[serde(skip)]
