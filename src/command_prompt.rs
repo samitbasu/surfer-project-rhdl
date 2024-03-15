@@ -599,7 +599,6 @@ pub fn show_command_prompt(
 
                 let set_cursor_to_pos = |pos, ui: &mut egui::Ui| {
                     if let Some(mut state) = TextEdit::load_state(ui.ctx(), response.id) {
-                        let pos = if new_c.is_some() { pos + 1 } else { pos };
                         let ccursor = CCursor::new(pos);
                         state.set_ccursor_range(Some(CCursorRange::one(ccursor)));
                         state.store(ui.ctx(), response.id);
@@ -607,7 +606,7 @@ pub fn show_command_prompt(
                     }
                 };
 
-                if response.ctx.input(|i| i.key_pressed(Key::ArrowUp)) {
+                if response.ctx.input(|i| i.key_pressed(Key::ArrowUp)) || new_c.is_some() {
                     set_cursor_to_pos(input.chars().count(), ui);
                 }
 
