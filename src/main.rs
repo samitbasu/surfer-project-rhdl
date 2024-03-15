@@ -396,6 +396,11 @@ pub struct SystemState {
     /// frame
     items_to_expand: RefCell<Vec<(DisplayedItemRef, usize)>>,
 
+    /// Character to add to the command prompt if it is visible. This is only needed for
+    /// presentations at them moment. Unless we have good reasons to keep it, we should
+    /// get rid of it
+    char_to_add_to_prompt: RefCell<Option<char>>,
+
     // Benchmarking stuff
     /// Invalidate draw commands every frame to make performance comparison easier
     continuous_redraw: bool,
@@ -432,6 +437,7 @@ impl SystemState {
             variable_name_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
             items_to_expand: RefCell::new(vec![]),
+            char_to_add_to_prompt: RefCell::new(None),
 
             continuous_redraw: false,
             #[cfg(feature = "performance_plot")]
@@ -1337,6 +1343,7 @@ impl State {
                     waves.graphics.retain(|k, _| k != &id)
                 }
             }
+            Message::AddCharToPrompt(c) => *self.sys.char_to_add_to_prompt.borrow_mut() = Some(c),
             Message::RemoveDisplayedItem(item) => {
                 if let Some(waves) = &mut self.waves {
                     waves.displayed_items.retain(|k, _| *k != item);
