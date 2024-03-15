@@ -202,6 +202,8 @@ pub enum Message {
         levels: usize,
     },
 
+    AddCharToPrompt(char),
+
     AddViewport,
     RemoveViewport,
     SetViewportStrategy(ViewportStrategy),

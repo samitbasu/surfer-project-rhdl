@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::collections::{BTreeMap, HashMap};
 use std::iter::zip;
 use std::{fs, str::FromStr};
@@ -577,18 +578,28 @@ pub fn show_command_prompt(
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
                 let input = &mut *state.sys.command_prompt_text.borrow_mut();
+                let new_c = *state.sys.char_to_add_to_prompt.borrow();
+                if let Some(c) = new_c {
+                    input.push(c);
+                    *state.sys.char_to_add_to_prompt.borrow_mut() = None;
+                }
+
                 let response = ui.add(
                     TextEdit::singleline(input)
                         .desired_width(f32::INFINITY)
                         .lock_focus(true),
                 );
 
-                if response.changed() || state.sys.command_prompt.suggestions.is_empty() {
+                if response.changed()
+                    || state.sys.command_prompt.suggestions.is_empty()
+                    || new_c.is_some()
+                {
                     run_fuzzy_parser(input, state, msgs);
                 }
 
                 let set_cursor_to_pos = |pos, ui: &mut egui::Ui| {
                     if let Some(mut state) = TextEdit::load_state(ui.ctx(), response.id) {
+                        let pos = if new_c.is_some() { pos + 1 } else { pos };
                         let ccursor = CCursor::new(pos);
                         state.set_ccursor_range(Some(CCursorRange::one(ccursor)));
                         state.store(ui.ctx(), response.id);
