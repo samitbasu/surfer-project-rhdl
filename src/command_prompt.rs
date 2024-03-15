@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use std::borrow::BorrowMut;
+use std::collections::{BTreeMap, HashMap};
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
@@ -97,6 +98,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
         })
         .unwrap_or_default();
 
+    let index_to_displayed_item = match &state.waves {
+        Some(v) => v
+            .displayed_items_order
+            .iter()
+            .map(|id| *id)
+            .enumerate()
+            .collect::<HashMap<_, _>>(),
+        None => HashMap::new(),
+    };
+
     let color_names = state.config.theme.colors.keys().cloned().collect_vec();
 
     let active_scope = state.waves.as_ref().and_then(|w| w.active_scope.clone());
@@ -147,6 +158,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "item_unset_background_color",
             "item_unfocus",
             "item_rename",
+            "expand_variable",
+            "collapse_variable",
             "zoom_fit",
             "scope_add",
             "scope_select",
@@ -211,6 +224,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             let markers = markers.clone();
             let scopes = scopes.clone();
             let active_scope = active_scope.clone();
+            let index_to_displayed_item = index_to_displayed_item.clone();
             match query {
                 "load_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
@@ -395,6 +409,40 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         })
                     }),
                 ),
+                "expand_variable" => single_word(
+                    displayed_items.clone(),
+                    Box::new(move |word| {
+                        // split off the idx which is always followed by an underscore
+                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                        alpha_idx_to_uint_idx(alpha_idx).map(|idx| {
+                            let item_idx = index_to_displayed_item[&idx];
+                            Command::Terminal(Message::ExpandDrawnItem {
+                                item: item_idx,
+                                // For now, we'll fully expand signals by using
+                                // a large constant here. User selectable expansion
+                                // wold probably be better
+                                levels: 10,
+                            })
+                        })
+                    }),
+                ),
+                "collapse_variable" => single_word(
+                    displayed_items.clone(),
+                    Box::new(move |word| {
+                        // split off the idx which is always followed by an underscore
+                        let alpha_idx: String = word.chars().take_while(|c| *c != '_').collect();
+                        alpha_idx_to_uint_idx(alpha_idx).map(|idx| {
+                            let item_idx = index_to_displayed_item[&idx];
+                            Command::Terminal(Message::ExpandDrawnItem {
+                                item: item_idx,
+                                // For now, we'll fully expand signals by using
+                                // a large constant here. User selectable expansion
+                                // wold probably be better
+                                levels: 0,
+                            })
+                        })
+                    }),
+                ),
                 "copy_value" => single_word(
                     displayed_items.clone(),
                     Box::new(|word| {
@@ -531,18 +579,28 @@ pub fn show_command_prompt(
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
                 let input = &mut *state.sys.command_prompt_text.borrow_mut();
+                let new_c = *state.sys.char_to_add_to_prompt.borrow();
+                if let Some(c) = new_c {
+                    input.push(c);
+                    *state.sys.char_to_add_to_prompt.borrow_mut() = None;
+                }
+
                 let response = ui.add(
                     TextEdit::singleline(input)
                         .desired_width(f32::INFINITY)
                         .lock_focus(true),
                 );
 
-                if response.changed() || state.sys.command_prompt.suggestions.is_empty() {
+                if response.changed()
+                    || state.sys.command_prompt.suggestions.is_empty()
+                    || new_c.is_some()
+                {
                     run_fuzzy_parser(input, state, msgs);
                 }
 
                 let set_cursor_to_pos = |pos, ui: &mut egui::Ui| {
                     if let Some(mut state) = TextEdit::load_state(ui.ctx(), response.id) {
+                        let pos = if new_c.is_some() { pos + 1 } else { pos };
                         let ccursor = CCursor::new(pos);
                         state.set_ccursor_range(Some(CCursorRange::one(ccursor)));
                         state.store(ui.ctx(), response.id);
