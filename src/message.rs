@@ -13,9 +13,11 @@ use serde::Deserialize;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
+    graphics::{Graphic, GraphicId},
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     variable_name_type::VariableNameType,
+    viewport::ViewportStrategy,
     wave_container::{FieldRef, ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
     MoveDir, VariableNameFilterType, WaveSource,
@@ -67,10 +69,15 @@ pub enum Message {
         viewport_idx: usize,
     },
     CursorSet(BigInt),
-    RightCursorSet(Option<BigInt>),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    /// Load a spade translator using the specified top and the specified state encoded as ron.
+    LoadSpadeTranslator {
+        top: String,
+        #[derivative(Debug = "ignore")]
+        state: String,
+    },
     #[cfg(not(target_arch = "wasm32"))]
     ConnectToCxxrtl(String),
     #[serde(skip)]
@@ -163,6 +170,8 @@ pub enum Message {
     },
     VariableValueToClipbord(Option<usize>),
     InvalidateDrawCommands,
+    AddGraphic(GraphicId, Graphic),
+    RemoveGraphic(GraphicId),
 
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
@@ -171,10 +180,12 @@ pub enum Message {
     /// does nothing
     PauseSimulation,
 
-    /// Run more than one message in sequence
-    Batch(Vec<Message>),
     AddViewport,
     RemoveViewport,
+    SetViewportStrategy(ViewportStrategy),
+
+    /// Run more than one message in sequence
+    Batch(Vec<Message>),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
