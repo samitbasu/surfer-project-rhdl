@@ -1,5 +1,6 @@
 use derive_more::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 use eframe::emath::lerp;
+use log::info;
 use num::{BigInt, BigRational, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -343,16 +344,22 @@ impl Viewport {
     }
 
     pub fn set_target_left(&mut self, target_left: Relative) {
-        self.target_left = target_left;
-        self.move_start_left = self.curr_left;
-        self.move_duration = Some(0.);
-        self.move_viewport(0.)
+        if let ViewportStrategy::Instant = self.move_strategy {
+            self.curr_left = target_left
+        } else {
+            self.target_left = target_left;
+            self.move_start_left = self.curr_left;
+            self.move_duration = Some(0.);
+        }
     }
     pub fn set_target_right(&mut self, target_right: Relative) {
-        self.target_right = target_right;
-        self.move_start_right = self.curr_right;
-        self.move_duration = Some(0.);
-        self.move_viewport(0.)
+        if let ViewportStrategy::Instant = self.move_strategy {
+            self.curr_right = target_right
+        } else {
+            self.target_right = target_right;
+            self.move_start_right = self.curr_right;
+            self.move_duration = Some(0.);
+        }
     }
 
     pub fn move_viewport(&mut self, frame_time: f32) {

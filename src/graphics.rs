@@ -2,7 +2,6 @@ use eframe::{
     emath::{Align, Align2},
     epaint::{Color32, CubicBezierShape, FontId, Pos2, Shape, Stroke, Vec2},
 };
-use log::info;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
