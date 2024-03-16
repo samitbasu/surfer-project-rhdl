@@ -513,7 +513,11 @@ impl Translator for StringTranslator {
         value: &VariableValue,
     ) -> Result<TranslationResult> {
         match value {
-            VariableValue::BigUint(_) => panic!(),
+            VariableValue::BigUint(b) => Ok(TranslationResult {
+                val: ValueRepr::String(format!("ERROR (0x{:x})", b)),
+                kind: ValueKind::Warn,
+                subfields: vec![],
+            }),
             VariableValue::String(s) => Ok(TranslationResult {
                 val: ValueRepr::String((*s).to_string()),
                 kind: ValueKind::Normal,

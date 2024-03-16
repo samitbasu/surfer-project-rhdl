@@ -199,8 +199,10 @@ impl BasicTranslator for BitTranslator {
             VariableValue::BigUint(v) => (
                 if (*v).is_zero() {
                     "0".to_string()
-                } else {
+                } else if (*v) == 1u8.into() {
                     "1".to_string()
+                } else {
+                    "-".to_string()
                 },
                 ValueKind::Normal,
             ),
@@ -681,6 +683,13 @@ mod test {
                 .0,
             "UNDEF"
         );
+        // string too short for 2 characters, pads with 0
+        assert_eq!(
+            ASCIITranslator {}
+                .basic_translate(15, &VariableValue::String("11000001001011".to_string()))
+                .0,
+            "0K"
+        );
     }
 
     #[test]
@@ -718,6 +727,16 @@ mod test {
                 .basic_translate(1, &VariableValue::String("x".to_string()))
                 .0,
             "x"
+        );
+    }
+
+    #[test]
+    fn bit_translator_with_invalid_data() {
+        assert_eq!(
+            BitTranslator {}
+                .basic_translate(2, &VariableValue::BigUint(BigUint::from(3u8)))
+                .0,
+            "-"
         );
     }
 
@@ -764,6 +783,17 @@ mod test {
                 .basic_translate(16, &VariableValue::BigUint(0b0111111101111111u16.into()))
                 .0,
             "invalid flag: 0111 1111 0111 1111"
+        )
+    }
+
+    #[test]
+    fn leb_tranlator_input_not_multiple_of_8() {
+        // act as if padded with 0s
+        assert_eq!(
+            LebTranslator {}
+                .basic_translate(16, &VariableValue::BigUint(0b00001111111u16.into()))
+                .0,
+            "127"
         )
     }
 

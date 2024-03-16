@@ -27,13 +27,7 @@ impl Translator for ClockTranslator {
         variable: &VariableMeta,
         value: &VariableValue,
     ) -> color_eyre::Result<super::TranslationResult> {
-        if variable.num_bits == Some(1) {
-            self.inner.translate(variable, value)
-        } else {
-            Err(anyhow!(
-                "Clock translator translates a variable which is not 1 bit wide"
-            ))
-        }
+        self.inner.translate(variable, value)
     }
 
     fn variable_info(&self, _variable: &VariableMeta) -> color_eyre::Result<super::VariableInfo> {
