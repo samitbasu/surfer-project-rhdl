@@ -39,9 +39,9 @@ foreground = "d4d4d4"
 alt_text_color = "2b2b2b" # negated foreground
 border_color = "282b2d"
 selected_elements_colors = { background = "444444", foreground = "d4d4d4" }
-canvas_colors = { background = "0b151d", alt_background = "1b252d", foreground = "d4d4d4" }
-primary_ui_color = { background = "171717", foreground = "d4d4d4" }
-secondary_ui_color = { background = "0d1317", foreground = "d4d4d4" }
+canvas_colors = { background = "000000", alt_background = "000000", foreground = "ffffff" }
+primary_ui_color = { background = "000000", foreground = "ffffff" }
+secondary_ui_color = { background = "000000", foreground = "ffffff" }
 accent_info = { background = "007acc", foreground = "d4d4d4" }
 accent_warn = { background = "32302f", foreground = "d4d4d4" }
 accent_error = { background = "d2302f", foreground = "d4d4d4" }
