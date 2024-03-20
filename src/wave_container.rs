@@ -5,7 +5,7 @@ use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
 use num::BigUint;
 use serde::{Deserialize, Serialize};
-use wellen::{self, VarRef, Waveform};
+use wellen::{self, VarRef};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
@@ -49,7 +49,7 @@ impl std::hash::Hash for ScopeRef {
     }
 }
 
-impl std::cmp::PartialEq for ScopeRef {
+impl PartialEq for ScopeRef {
     fn eq(&self, other: &Self) -> bool {
         // id is intentionally not compared, since it is only a performance hint
         self.strs.eq(&other.strs)
@@ -293,8 +293,8 @@ pub enum WaveContainer {
 }
 
 impl WaveContainer {
-    pub fn new_waveform(waveform: Waveform) -> Self {
-        WaveContainer::Wellen(WellenContainer::new(waveform))
+    pub fn new_waveform(hierarchy: std::sync::Arc<wellen::Hierarchy>) -> Self {
+        WaveContainer::Wellen(WellenContainer::new(hierarchy))
     }
 
     /// Creates a new empty wave container. Should only be used as a default for serde. If
@@ -310,6 +310,18 @@ impl WaveContainer {
             WaveContainer::Empty => true,
             #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(_) => false,
+        }
+    }
+
+    /// Returns true if all requested signals have been loaded.
+    /// Used for testing to make sure the GUI is at its final state before taking a
+    /// snapshot.
+    pub fn is_fully_loaded(&self) -> bool {
+        match self {
+            WaveContainer::Wellen(f) => f.is_fully_loaded(),
+            WaveContainer::Empty => true,
+            #[cfg(not(target_arch = "wasm32"))]
+            WaveContainer::Cxxrtl(_) => true,
         }
     }
 
@@ -342,16 +354,6 @@ impl WaveContainer {
         }
     }
 
-    /// Loads a variable into memory. Needs to be called before using `query_variable` on the variable.
-    pub fn load_variable(&mut self, r: &VariableRef) -> Result<()> {
-        match self {
-            WaveContainer::Wellen(f) => f.load_variable(r),
-            WaveContainer::Empty => bail!("Cannot load variable from empty container."),
-            #[cfg(not(target_arch = "wasm32"))]
-            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().load_signal(r)),
-        }
-    }
-
     /// Loads multiple variables at once. This is useful when we want to add multiple variables in one go.
     pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
@@ -377,7 +379,14 @@ impl WaveContainer {
         }
     }
 
-    pub fn query_variable(&self, variable: &VariableRef, time: &BigUint) -> Result<QueryResult> {
+    /// Query the value of the variable at a certain time step.
+    /// Returns `None` if we do not have any values for the variable.
+    /// That generally happens if the corresponding signal is still being loaded.
+    pub fn query_variable(
+        &self,
+        variable: &VariableRef,
+        time: &BigUint,
+    ) -> Result<Option<QueryResult>> {
         match self {
             WaveContainer::Wellen(f) => f.query_variable(variable, time),
             WaveContainer::Empty => bail!("Querying variable from empty wave container"),
@@ -520,6 +529,20 @@ impl WaveContainer {
             WaveContainer::Empty => {}
             #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().pause(),
+        }
+    }
+
+    /// Called for `wellen` container, when the body of the waveform file has been parsed.
+    pub fn wellen_add_body(
+        &mut self,
+        time_table: wellen::TimeTable,
+        source: wellen::SignalSource,
+    ) -> Result<()> {
+        match self {
+            WaveContainer::Wellen(inner) => inner.add_body(time_table, source),
+            _ => {
+                bail!("Should never call this function on a non wellen container!")
+            }
         }
     }
 }

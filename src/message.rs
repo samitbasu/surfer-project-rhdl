@@ -74,6 +74,19 @@ pub enum Message {
     #[cfg(not(target_arch = "wasm32"))]
     ConnectToCxxrtl(String),
     #[serde(skip)]
+    WaveHeaderLoaded(
+        web_time::Instant,
+        WaveSource,
+        LoadOptions,
+        #[derivative(Debug = "ignore")] wellen::viewers::HeaderResult,
+    ),
+    #[serde(skip)]
+    WaveBodyLoaded(
+        web_time::Instant,
+        WaveSource,
+        #[derivative(Debug = "ignore")] wellen::viewers::BodyResult,
+    ),
+    #[serde(skip)]
     WavesLoaded(
         WaveSource,
         WaveFormat,

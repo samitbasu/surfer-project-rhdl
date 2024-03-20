@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
-use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::ToBigInt;
 use num::{BigInt, BigUint, Zero};
@@ -54,6 +53,9 @@ pub struct WaveData {
     pub top_item_draw_offset: f32,
     #[serde(skip)]
     pub total_height: f32,
+    /// used by the `update_viewports` method after loading a new file
+    #[serde(skip)]
+    pub old_num_timestamps: Option<BigInt>,
 }
 
 impl WaveData {
@@ -100,24 +102,7 @@ impl WaveData {
             })
             .collect();
 
-        let current_num_timestamps = self.num_timestamps();
-        let viewports = self
-            .viewports
-            .into_iter()
-            // FIXME: I'm not sure if Defaulting to 1 time step is the right thing to do if we
-            // have none, but it does avoid some potentially nasty division by zero problems
-            .map(|viewport| {
-                viewport.clip_to(
-                    &current_num_timestamps,
-                    &new_waves
-                        .max_timestamp()
-                        .unwrap_or_else(|| BigUint::from(1u32))
-                        .to_bigint()
-                        .unwrap(),
-                )
-            })
-            .collect_vec();
-
+        let old_num_timestamps = Some(self.num_timestamps());
         let mut new_wave = WaveData {
             inner: *new_waves,
             source,
@@ -126,7 +111,7 @@ impl WaveData {
             displayed_items_order: self.displayed_items_order,
             displayed_items: display_items,
             display_item_ref_counter: self.display_item_ref_counter,
-            viewports,
+            viewports: self.viewports,
             variable_format,
             cursor: self.cursor.clone(),
             right_cursor: None,
@@ -137,6 +122,7 @@ impl WaveData {
             drawing_infos: vec![],
             top_item_draw_offset: 0.,
             total_height: 0.,
+            old_num_timestamps,
         };
         nested_format.retain(|nested, _| {
             let Some(variable_ref) = new_wave.displayed_items.values().find_map(|di| match di {
@@ -170,6 +156,26 @@ impl WaveData {
             .expect("internal error: failed to load variables");
 
         new_wave
+    }
+
+    /// Needs to be called after update_with, once the new number of timestamps is available in
+    /// the inner WaveContainer.
+    pub fn update_viewports(&mut self) {
+        if let Some(old_num_timestamps) = std::mem::take(&mut self.old_num_timestamps) {
+            // FIXME: I'm not sure if Defaulting to 1 time step is the right thing to do if we
+            // have none, but it does avoid some potentially nasty division by zero problems
+            let new_num_timestamps = self
+                .inner
+                .max_timestamp()
+                .unwrap_or_else(|| BigUint::from(1u32))
+                .to_bigint()
+                .unwrap();
+            if new_num_timestamps != old_num_timestamps {
+                for viewport in self.viewports.iter_mut() {
+                    *viewport = viewport.clip_to(&old_num_timestamps, &new_num_timestamps);
+                }
+            }
+        }
     }
 
     fn update_displayed_items(
@@ -276,7 +282,7 @@ impl WaveData {
     pub fn add_variable(&mut self, translators: &TranslatorList, variable: &VariableRef) {
         let Ok(meta) = self
             .inner
-            .load_variable(variable)
+            .load_variables([variable].into_iter())
             .and_then(|_| self.inner.variable_meta(variable))
             .context("When adding variable")
             .map_err(|e| error!("{e:#?}"))
@@ -478,7 +484,7 @@ impl WaveData {
                     .get(vidx)
                     .and_then(|id| self.displayed_items.get(id))
                 {
-                    if let Ok(res) = self.inner.query_variable(
+                    if let Ok(Some(res)) = self.inner.query_variable(
                         &variable.variable_ref,
                         &cursor.to_biguint().unwrap_or_default(),
                     ) {
@@ -498,7 +504,7 @@ impl WaveData {
                                 // Check if we are on a transition
                                 if stime == *cursor && *cursor >= bigone {
                                     // If so, subtract cursor position by one
-                                    if let Ok(newres) = self.inner.query_variable(
+                                    if let Ok(Some(newres)) = self.inner.query_variable(
                                         &variable.variable_ref,
                                         &(cursor - bigone).to_biguint().unwrap_or_default(),
                                     ) {
@@ -524,9 +530,11 @@ impl WaveData {
                                     &time.to_biguint().unwrap_or_default(),
                                 );
                                 if next_value.is_ok_and(|r| {
-                                    r.current.is_some_and(|v| match v.1 {
-                                        VariableValue::BigUint(v) => v == BigUint::from(0u8),
-                                        _ => false,
+                                    r.is_some_and(|r| {
+                                        r.current.is_some_and(|v| match v.1 {
+                                            VariableValue::BigUint(v) => v == BigUint::from(0u8),
+                                            _ => false,
+                                        })
                                     })
                                 }) {
                                     self.set_cursor_at_transition(next, Some(vidx), false);
@@ -545,7 +553,7 @@ impl WaveData {
     }
 
     /// Returns the number of timestamps in the current waves. For now, this adjusts the
-    /// number of timestamps as returned by wave sources if they specify 0 timestams. This is
+    /// number of timestamps as returned by wave sources if they specify 0 timestamps. This is
     /// done to avoid having to consider what happens with the viewport. In the future,
     /// we should probably make this an Option<BigInt>
     pub fn num_timestamps(&self) -> BigInt {

@@ -229,7 +229,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             LoadOptions {
                                 keep_variables: true,
                                 keep_unavailable: false,
-                                expect_format: None,
                             },
                         )))
                     }),

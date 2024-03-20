@@ -177,7 +177,10 @@ impl eframe::App for State {
         // We can save some user battery life by not redrawing unless needed. At the moment,
         // we only need to continuously redraw to make surfer interactive during loading, otherwise
         // we'll let egui manage repainting. In practice
-        if self.sys.continuous_redraw || self.sys.vcd_progress.is_some() || self.show_performance {
+        if self.sys.continuous_redraw
+            || self.sys.progress_tracker.is_some()
+            || self.show_performance
+        {
             ctx.request_repaint();
         }
 
@@ -287,7 +290,7 @@ impl State {
             show_command_prompt(self, ctx, window_size, &mut msgs);
         }
 
-        if let Some(vcd_progress_data) = &self.sys.vcd_progress {
+        if let Some(vcd_progress_data) = &self.sys.progress_tracker {
             draw_progress_panel(ctx, vcd_progress_data);
         }
 
@@ -1067,6 +1070,7 @@ impl State {
                 .inner
                 .query_variable(variable, ucursor)
                 .ok()
+                .flatten()
                 .and_then(|q| q.current)
                 .map(|(_time, value)| meta.and_then(|meta| translator.translate(&meta, &value)));
 

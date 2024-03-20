@@ -545,21 +545,22 @@ impl CxxrtlContainer {
         self.raw_simulation_status().map(|s| s.latest_time)
     }
 
-    pub fn query_signal(&mut self, signal: &VariableRef, time: &BigUint) -> QueryResult {
+    pub fn query_signal(&mut self, signal: &VariableRef, time: &BigUint) -> Option<QueryResult> {
         // Before we can query any signals, we need some other data available. If we don't have
         // that we'll early return with no value
         let Some(max_timestamp) = self.max_timestamp() else {
-            return QueryResult::default();
+            return None;
         };
         let Some(info) = self.fetch_all_items() else {
-            return QueryResult::default();
+            return None;
         };
         let loaded_signals = block_on(self.data.read()).loaded_signals.clone();
 
         let s = &self;
 
         let mut data = block_on(self.data.write());
-        data.query_result
+        let res = data
+            .query_result
             .fetch_if_needed(move || {
                 info!("Running query signal");
 
@@ -590,7 +591,8 @@ impl CxxrtlContainer {
                 data.interval_query_cache
                     .query(signal, time.to_bigint().unwrap())
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        Some(res)
     }
 
     pub fn load_signals<S: AsRef<VariableRef>, T: Iterator<Item = S>>(&mut self, signals: T) {
@@ -619,10 +621,6 @@ impl CxxrtlContainer {
                 data.invalidate_query_result()
             },
         )
-    }
-
-    pub fn load_signal(&mut self, r: &VariableRef) {
-        self.load_signals([r].into_iter())
     }
 
     fn raw_simulation_status(&self) -> Option<CxxrtlSimulationStatus> {

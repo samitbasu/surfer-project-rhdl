@@ -275,7 +275,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                     true
                 };
 
-                if state.waves.is_some() && spade_loaded {
+                if state.waves_fully_loaded() && spade_loaded {
                     break;
                 }
 
@@ -352,7 +352,7 @@ snapshot_ui!(overview_can_be_hidden, || {
 
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -382,7 +382,7 @@ snapshot_ui!(statusbar_can_be_hidden, || {
 
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -404,7 +404,7 @@ snapshot_ui! {example_vcd_renders, || {
 
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -453,7 +453,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -783,7 +783,7 @@ snapshot_ui!(regex_error_indication, || {
         });
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -824,7 +824,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -861,7 +861,7 @@ snapshot_ui!(contain_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -898,7 +898,7 @@ snapshot_ui!(regex_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -939,7 +939,7 @@ snapshot_ui!(start_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -976,7 +976,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
-        if state.waves.is_some() {
+        if state.waves_fully_loaded() {
             break;
         }
     }
@@ -1013,12 +1013,7 @@ snapshot_ui!(load_keep_all_works, || {
             spade_state: None,
             startup_commands: vec![],
         });
-    loop {
-        state.handle_async_messages();
-        if state.waves.is_some() {
-            break;
-        }
-    }
+    wait_for_waves_fully_loaded(&mut state);
 
     let msgs = [
         Message::ToggleMenu,
@@ -1037,7 +1032,6 @@ snapshot_ui!(load_keep_all_works, || {
             LoadOptions {
                 keep_variables: true,
                 keep_unavailable: true,
-                expect_format: None,
             },
         ),
     ];
@@ -1061,6 +1055,7 @@ snapshot_ui!(load_keep_all_works, || {
             }
         }
     }
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -1080,12 +1075,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             spade_state: None,
             startup_commands: vec![],
         });
-    loop {
-        state.handle_async_messages();
-        if state.waves.is_some() {
-            break;
-        }
-    }
+    wait_for_waves_fully_loaded(&mut state);
 
     let msgs = [
         Message::ToggleMenu,
@@ -1104,7 +1094,6 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             LoadOptions {
                 keep_variables: true,
                 keep_unavailable: false,
-                expect_format: None,
             },
         ),
     ];
@@ -1128,6 +1117,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             }
         }
     }
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -1264,12 +1254,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
             startup_commands: vec![],
         });
 
-    loop {
-        state.handle_async_messages();
-        if state.waves.is_some() {
-            break;
-        }
-    }
+    wait_for_waves_fully_loaded(&mut state);
 
     state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
         "tb.dut.counter",
@@ -1279,7 +1264,6 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
         LoadOptions {
             keep_variables: true,
             keep_unavailable: false,
-            expect_format: None,
         },
     ));
 
@@ -1300,5 +1284,16 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
     state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
         "tb.reset",
     )));
+
+    wait_for_waves_fully_loaded(&mut state);
+
     state
 });
+
+/// wait for GUI to converge
+#[inline]
+fn wait_for_waves_fully_loaded(state: &mut State) {
+    while !state.waves_fully_loaded() {
+        state.handle_async_messages();
+    }
+}

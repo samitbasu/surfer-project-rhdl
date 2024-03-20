@@ -120,10 +120,10 @@ fn variable_draw_commands(
             .inner
             .query_variable(&displayed_variable.variable_ref, time);
         next_change = match &query_result {
-            Ok(QueryResult {
+            Ok(Some(QueryResult {
                 next: Some(timestamp),
                 ..
-            }) => waves.viewports[viewport_idx].pixel_from_time(
+            })) => waves.viewports[viewport_idx].pixel_from_time(
                 &timestamp.to_bigint().unwrap(),
                 view_width,
                 &waves.num_timestamps(),
@@ -137,11 +137,11 @@ fn variable_draw_commands(
         };
 
         let (change_time, val) = match query_result {
-            Ok(QueryResult {
+            Ok(Some(QueryResult {
                 current: Some((change_time, val)),
                 ..
-            }) => (change_time, val),
-            Ok(QueryResult { current: None, .. }) => continue,
+            })) => (change_time, val),
+            Ok(Some(QueryResult { current: None, .. })) | Ok(None) => continue,
             Err(e) => {
                 error!("Variable query error {e:#?}");
                 continue;
@@ -253,7 +253,8 @@ impl State {
         self.sys.timing.borrow_mut().start("Generate draw commands");
         let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
-            let max_time = waves.num_timestamps().clone().to_f64().unwrap_or(f64::MAX);
+            let num_timestamps = waves.num_timestamps().clone();
+            let max_time = num_timestamps.to_f64().unwrap_or(f64::MAX);
             let mut clock_edges = vec![];
             // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
             // width + transition_width in order to draw initial transitions outside the screen
@@ -262,7 +263,7 @@ impl State {
                 .par_bridge()
                 .filter_map(|x| {
                     let time = waves.viewports[viewport_idx]
-                        .to_time_f64(x as f64, frame_width, &waves.num_timestamps())
+                        .to_time_f64(x as f64, frame_width, &num_timestamps)
                         .0;
                     if time < 0. || time > max_time {
                         None
@@ -739,7 +740,7 @@ impl State {
             if let Some(vidx) = waves.get_item_at_y(pos.y) {
                 if let Some(id) = waves.displayed_items_order.get(vidx) {
                     if let DisplayedItem::Variable(variable) = &waves.displayed_items[id] {
-                        if let Ok(res) = waves
+                        if let Ok(Some(res)) = waves
                             .inner
                             .query_variable(&variable.variable_ref, &utimestamp)
                         {

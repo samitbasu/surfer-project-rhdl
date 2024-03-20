@@ -2,30 +2,45 @@ use crate::time::{TimeScale, TimeUnit};
 use crate::variable_type::VariableType;
 use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
+use derivative::Derivative;
 use log::warn;
 use num::{BigUint, ToPrimitive};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
-use wellen::{
-    self, GetItem, ScopeType, Time, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
-    Waveform,
-};
+use wellen::*;
 
 use crate::wave_container::{
     MetaData, QueryResult, ScopeRef, VariableMeta, VariableRef, VariableValue,
 };
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct WellenContainer {
-    inner: Waveform,
+    #[derivative(Debug = "ignore")]
+    hierarchy: std::sync::Arc<Hierarchy>,
     scopes: Vec<String>,
     vars: Vec<String>,
+    signals: HashMap<SignalRef, Signal>,
+    /// keeps track of signals that need to be loaded once the body of the waveform file has been loaded
+    signals_to_be_loaded: HashSet<SignalRef>,
+    time_table: TimeTable,
+    #[derivative(Debug = "ignore")]
+    source: Option<SignalSource>,
+}
+
+pub fn convert_format(format: FileFormat) -> crate::WaveFormat {
+    match format {
+        FileFormat::Vcd => crate::WaveFormat::Vcd,
+        FileFormat::Fst => crate::WaveFormat::Fst,
+        FileFormat::Ghw => crate::WaveFormat::Ghw,
+        FileFormat::Unknown => unreachable!("should never get here"),
+    }
 }
 
 impl WellenContainer {
-    pub fn new(inner: Waveform) -> Self {
+    pub fn new(hierarchy: std::sync::Arc<Hierarchy>) -> Self {
         // generate a list of names for all variables and scopes since they will be requested by the parser
-        let h = inner.hierarchy();
+        let h = &hierarchy;
         let scopes = h
             .iter_scopes()
             .map(|r| r.full_name(h).to_string())
@@ -36,22 +51,43 @@ impl WellenContainer {
             .collect::<Vec<_>>();
 
         Self {
-            inner,
+            hierarchy,
             scopes,
             vars,
+            signals: HashMap::new(),
+            signals_to_be_loaded: HashSet::new(),
+            time_table: vec![],
+            source: None,
         }
+    }
+
+    pub fn add_body(&mut self, time_table: TimeTable, source: SignalSource) -> Result<()> {
+        if self.source.is_some() {
+            bail!("Did we just parse the body twice? That should not happen!");
+        }
+        self.time_table = time_table;
+        self.source = Some(source);
+
+        // we might have to load some signals that the user has already added while the
+        // body of the waveform file was being parser
+        if !self.signals_to_be_loaded.is_empty() {
+            let signals =
+                Vec::from_iter(std::mem::take(&mut self.signals_to_be_loaded).into_iter());
+            self.load_signals(&signals, true);
+        }
+
+        Ok(())
     }
 
     pub fn metadata(&self) -> MetaData {
         let timescale = self
-            .inner
-            .hierarchy()
+            .hierarchy
             .timescale()
             .unwrap_or(Timescale::new(1, TimescaleUnit::Unknown));
         let date = None;
         MetaData {
             date,
-            version: Some(self.inner.hierarchy().version().to_string()),
+            version: Some(self.hierarchy.version().to_string()),
             timescale: TimeScale {
                 unit: TimeUnit::from(timescale.unit),
                 multiplier: Some(timescale.factor),
@@ -60,7 +96,11 @@ impl WellenContainer {
     }
 
     pub fn max_timestamp(&self) -> Option<BigUint> {
-        self.inner.time_table().last().map(|t| BigUint::from(*t))
+        self.time_table.last().map(|t| BigUint::from(*t))
+    }
+
+    pub fn is_fully_loaded(&self) -> bool {
+        self.source.is_some() && self.signals_to_be_loaded.is_empty()
     }
 
     pub fn variable_names(&self) -> Vec<String> {
@@ -70,18 +110,18 @@ impl WellenContainer {
     fn lookup_scope(&self, scope: &ScopeRef) -> Option<wellen::ScopeRef> {
         match scope.get_wellen_id() {
             Some(id) => Some(id),
-            None => self.inner.hierarchy().lookup_scope(scope.strs()),
+            None => self.hierarchy.lookup_scope(scope.strs()),
         }
     }
     pub fn variables(&self) -> Vec<VariableRef> {
-        let h = self.inner.hierarchy();
+        let h = &self.hierarchy;
         h.iter_vars()
             .map(|r| VariableRef::from_hierarchy_string(&r.full_name(h)))
             .collect::<Vec<_>>()
     }
 
     pub fn variables_in_scope(&self, scope_ref: &ScopeRef) -> Vec<VariableRef> {
-        let h = self.inner.hierarchy();
+        let h = &self.hierarchy;
         // special case of an empty scope means that we want to variables that are part of the toplevel
         if scope_ref.strs().is_empty() {
             h.vars()
@@ -116,7 +156,7 @@ impl WellenContainer {
 
     pub fn update_variable_ref(&self, variable: &VariableRef) -> Option<VariableRef> {
         // IMPORTANT: lookup by name!
-        let h = self.inner.hierarchy();
+        let h = &self.hierarchy;
 
         // first we lookup the scope in order to update the scope reference
         let scope = h.lookup_scope(variable.path.strs())?;
@@ -133,12 +173,12 @@ impl WellenContainer {
     }
 
     pub fn get_var(&self, r: &VariableRef) -> Result<&Var> {
-        let h = self.inner.hierarchy();
+        let h = &self.hierarchy;
         self.get_var_ref(r).map(|r| h.get(r))
     }
 
     pub fn get_enum_map(&self, v: &Var) -> HashMap<String, String> {
-        match v.enum_type(self.inner.hierarchy()) {
+        match v.enum_type(&self.hierarchy) {
             None => HashMap::new(),
             Some((_, mapping)) => HashMap::from_iter(
                 mapping
@@ -152,7 +192,7 @@ impl WellenContainer {
         match r.get_wellen_id() {
             Some(id) => Ok(id),
             None => {
-                let h = self.inner.hierarchy();
+                let h = &self.hierarchy;
                 let var = match h.lookup_var(r.path.strs(), &r.name) {
                     None => bail!("Failed to find variable: {r:?}"),
                     Some(id) => id,
@@ -162,31 +202,50 @@ impl WellenContainer {
         }
     }
 
-    pub fn load_variable(&mut self, r: &VariableRef) -> Result<()> {
-        let var_ref = self.get_var_ref(r)?;
-        let signal_ref = self.inner.hierarchy().get(var_ref).signal_ref();
-        self.inner.load_signals(&[signal_ref]);
-        Ok(())
-    }
-
     pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
         variables: T,
     ) -> Result<()> {
-        let h = self.inner.hierarchy();
+        let h = &self.hierarchy;
         let signal_refs = variables
             .flat_map(|s| {
                 let r = s.as_ref();
                 self.get_var_ref(r).map(|v| h.get(v).signal_ref())
             })
             .collect::<Vec<_>>();
-        self.inner.load_signals(&signal_refs);
+        self.load_signals(&signal_refs, true);
         Ok(())
+    }
+
+    fn load_signals(&mut self, ids: &[SignalRef], multi_threaded: bool) {
+        // make sure that we do not load signals that have already been loaded
+        let filtered_ids = ids
+            .iter()
+            .filter(|id| !self.signals.contains_key(id) && !self.signals_to_be_loaded.contains(id))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if filtered_ids.is_empty() {
+            return; // nothing to do here
+        }
+
+        match self.source.as_mut() {
+            Some(source) => {
+                let res = source.load_signals(&filtered_ids, &self.hierarchy, multi_threaded);
+                for (id, signal) in res.into_iter() {
+                    self.signals.insert(id, signal);
+                }
+            }
+            None => {
+                // no source is loaded yet, so we just put the signals in a list
+                self.signals_to_be_loaded.extend(filtered_ids.iter());
+            }
+        }
     }
 
     fn time_to_time_table_idx(&self, time: &BigUint) -> Option<TimeTableIdx> {
         let time: Time = time.to_u64().expect("unsupported time!");
-        let table = self.inner.time_table();
+        let table = &self.time_table;
         if table.is_empty() || table[0] > time {
             None
         } else {
@@ -197,17 +256,24 @@ impl WellenContainer {
         }
     }
 
-    pub fn query_variable(&self, variable: &VariableRef, time: &BigUint) -> Result<QueryResult> {
-        let h = self.inner.hierarchy();
+    pub fn query_variable(
+        &self,
+        variable: &VariableRef,
+        time: &BigUint,
+    ) -> Result<Option<QueryResult>> {
+        let h = &self.hierarchy;
         // find variable from string
         let var_ref = self.get_var_ref(variable)?;
         // map variable to variable ref
         let signal_ref = h.get(var_ref).signal_ref();
-        let sig = match self.inner.get_signal(signal_ref) {
+        let sig = match self.signals.get(&signal_ref) {
             Some(sig) => sig,
-            None => bail!("internal error: variable {variable:?} should have been loaded!"),
+            None => {
+                // if the signal has not been loaded yet, we return an empty result
+                return Ok(None);
+            }
         };
-        let time_table = self.inner.time_table();
+        let time_table = &self.time_table;
 
         // convert time to index
         if let Some(idx) = self.time_to_time_table_idx(time) {
@@ -228,7 +294,7 @@ impl WellenContainer {
                     current: Some((BigUint::from(offset_time), converted_value)),
                     next: next_time.map(|t| BigUint::from(*t)),
                 };
-                return Ok(result);
+                return Ok(Some(result));
             }
         }
 
@@ -239,7 +305,7 @@ impl WellenContainer {
             current: None,
             next: next_time.map(|t| BigUint::from(*t)),
         };
-        Ok(result)
+        Ok(Some(result))
     }
 
     pub fn scope_names(&self) -> Vec<String> {
@@ -247,14 +313,14 @@ impl WellenContainer {
     }
 
     pub fn root_scopes(&self) -> Vec<ScopeRef> {
-        let h = self.inner.hierarchy();
+        let h = &self.hierarchy;
         h.scopes()
             .map(|id| ScopeRef::from_strs_with_wellen_id(&[h.get(id).name(h)], id))
             .collect::<Vec<_>>()
     }
 
     pub fn child_scopes(&self, scope_ref: &ScopeRef) -> Result<Vec<ScopeRef>> {
-        let h = self.inner.hierarchy();
+        let h = &self.hierarchy;
         let scope = match self.lookup_scope(scope_ref) {
             Some(id) => h.get(id),
             None => return Err(anyhow!("Failed to find scope {scope_ref:?}")),
@@ -272,7 +338,7 @@ impl WellenContainer {
     pub fn get_scope_tooltip_data(&self, scope: &ScopeRef) -> String {
         let mut out = String::new();
         if let Some(scope_ref) = self.lookup_scope(scope) {
-            let h = self.inner.hierarchy();
+            let h = &self.hierarchy;
             let scope = h.get(scope_ref);
             writeln!(&mut out, "{}", scope_type_to_string(scope.scope_type())).unwrap();
             if let Some((path, line)) = scope.instantiation_source_loc(h) {

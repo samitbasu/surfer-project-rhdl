@@ -1,22 +1,23 @@
 use std::fmt::{Display, Formatter};
-use std::sync::{atomic::AtomicU64, Arc, Mutex};
+use std::sync::atomic::AtomicU64;
+use std::sync::{Arc, Mutex};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::wasm_util::{perform_async_work, perform_work};
 use camino::Utf8PathBuf;
-use color_eyre::eyre::{anyhow, bail, WrapErr};
+use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
 use eframe::egui::{self, DroppedFile};
 use futures_util::FutureExt;
 use futures_util::TryFutureExt;
-use log::{error, info};
+use log::{error, info, warn};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 
 use crate::{message::Message, wave_container::WaveContainer, State};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum WaveSource {
     File(Utf8PathBuf),
     Data,
@@ -92,8 +93,6 @@ impl Display for WaveFormat {
 pub struct LoadOptions {
     pub keep_variables: bool,
     pub keep_unavailable: bool,
-    /// Auto-detect if None, otherwise, we error when we get the wrong format.
-    pub expect_format: Option<WaveFormat>,
 }
 
 impl LoadOptions {
@@ -101,15 +100,6 @@ impl LoadOptions {
         Self {
             keep_variables: false,
             keep_unavailable: false,
-            expect_format: None,
-        }
-    }
-
-    pub fn clean_with_expected_format(format: WaveFormat) -> Self {
-        Self {
-            keep_variables: false,
-            keep_unavailable: false,
-            expect_format: Some(format),
         }
     }
 }
@@ -122,38 +112,14 @@ pub enum OpenMode {
 
 pub enum LoadProgress {
     Downloading(String),
-    Loading(Option<u64>, Arc<AtomicU64>),
+    ReadingHeader(WaveSource),
+    ReadingBody(WaveSource, u64, Arc<AtomicU64>),
 }
 
-const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::vcd::LoadOptions = wellen::vcd::LoadOptions {
+const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::LoadOptions = wellen::LoadOptions {
     multi_thread: true,
     remove_scopes_with_empty_name: true,
 };
-
-fn check_format(
-    load_options: &LoadOptions,
-    detected_format: wellen::FileFormat,
-    source: &WaveSource,
-) -> Result<WaveFormat> {
-    // check format restrictions
-    match load_options.expect_format {
-        Some(WaveFormat::Vcd) if detected_format != wellen::FileFormat::Vcd => {
-            bail!("{} does not appear to be a VCD file.", source)
-        }
-        Some(WaveFormat::Fst) if detected_format != wellen::FileFormat::Fst => {
-            bail!("{} does not appear to be a FST file.", source)
-        }
-        _ => {} // OK
-    }
-
-    // convert detected file type to Surfer type
-    match detected_format {
-        wellen::FileFormat::Vcd => Ok(WaveFormat::Vcd),
-        wellen::FileFormat::Fst => Ok(WaveFormat::Fst),
-        wellen::FileFormat::Ghw => Ok(WaveFormat::Ghw),
-        wellen::FileFormat::Unknown => bail!("Cannot parse {source}! Unknown format."),
-    }
-}
 
 impl State {
     pub fn load_wave_from_file(
@@ -162,74 +128,40 @@ impl State {
         load_options: LoadOptions,
     ) -> Result<()> {
         info!("Loading a waveform file: {filename}");
+        let start = web_time::Instant::now();
         let source = WaveSource::File(filename.clone());
+        let source_copy = source.clone();
         let sender = self.sys.channels.msg_sender.clone();
 
         perform_work(move || {
-            let detected_format = wellen::open_and_detect_file_format(filename.as_str());
-            let format = match check_format(&load_options, detected_format, &source) {
-                Ok(format) => format,
-                Err(e) => {
-                    sender.send(Message::Error(e)).unwrap();
-                    return;
-                }
-            };
-
-            let result = match format {
-                WaveFormat::Vcd => {
-                    wellen::vcd::read_with_options(filename.as_str(), WELLEN_SURFER_DEFAULT_OPTIONS)
-                        .map_err(|e| anyhow!("{e:?}"))
-                        .with_context(|| format!("Failed to parse VCD file: {source}"))
-                }
-                WaveFormat::Fst => wellen::fst::read(filename.as_str())
+            let header_result =
+                wellen::viewers::read_header(filename.as_str(), &WELLEN_SURFER_DEFAULT_OPTIONS)
                     .map_err(|e| anyhow!("{e:?}"))
-                    .with_context(|| format!("Failed to parse FST file: {source}")),
-                WaveFormat::Ghw => wellen::ghw::read(filename.as_str())
-                    .map_err(|e| anyhow!("{e:?}"))
-                    .with_context(|| format!("Failed to parse GHW file: {source}")),
-                WaveFormat::CxxRtl => {
-                    sender
-                        .send(Message::Error(anyhow!(
-                            "load_wave_from_file called with CxxRtl as the wave format"
-                        )))
-                        .unwrap();
-                    return;
-                }
-            };
+                    .with_context(|| format!("Failed to parse wave file: {source}"));
 
-            match result {
-                Ok(waves) => sender
-                    .send(Message::WavesLoaded(
-                        source,
-                        format,
-                        Box::new(WaveContainer::new_waveform(waves)),
-                        load_options,
-                    ))
-                    .unwrap(),
+            match header_result {
+                Ok(header) => {
+                    let msg = Message::WaveHeaderLoaded(start, source, load_options, header);
+                    sender.send(msg).unwrap()
+                }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
         });
 
+        self.sys.progress_tracker = Some(LoadProgress::ReadingHeader(source_copy));
         Ok(())
     }
 
-    pub fn load_vcd_from_data(
+    pub fn load_wave_from_data(
         &mut self,
         vcd_data: Vec<u8>,
         load_options: LoadOptions,
     ) -> Result<()> {
-        let total_bytes = vcd_data.len();
-
-        self.load_vcd_from_bytes(
-            WaveSource::Data,
-            vcd_data,
-            Some(total_bytes as u64),
-            load_options,
-        );
+        self.load_wave_from_bytes(WaveSource::Data, vcd_data, load_options);
         Ok(())
     }
 
-    pub fn load_vcd_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
+    pub fn load_wave_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
         info!("Got a dropped file");
 
         let path = file.path.and_then(|x| Utf8PathBuf::try_from(x).ok());
@@ -238,11 +170,9 @@ impl State {
             if bytes.len() == 0 {
                 Err(anyhow!("Dropped an empty file"))
             } else {
-                let total_bytes = bytes.len();
-                self.load_vcd_from_bytes(
+                self.load_wave_from_bytes(
                     WaveSource::DragAndDrop(path),
                     bytes.to_vec(),
-                    Some(total_bytes as u64),
                     LoadOptions::clean(),
                 );
                 Ok(())
@@ -256,7 +186,7 @@ impl State {
         }
     }
 
-    pub fn load_vcd_from_url(&mut self, url: String, load_options: LoadOptions) {
+    pub fn load_wave_from_url(&mut self, url: String, load_options: LoadOptions) {
         match url_to_wavesource(&url) {
             // We want to support opening cxxrtl urls using open url and friends,
             // so we'll special case
@@ -289,7 +219,7 @@ impl State {
                 #[cfg(target_arch = "wasm32")]
                 wasm_bindgen_futures::spawn_local(task);
 
-                self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
+                self.sys.progress_tracker = Some(LoadProgress::Downloading(url_))
             }
         }
     }
@@ -310,7 +240,6 @@ impl State {
                     LoadOptions {
                         keep_variables,
                         keep_unavailable: false,
-                        expect_format: None,
                     },
                 )),
                 Err(e) => sender.send(Message::Error(e)),
@@ -321,68 +250,84 @@ impl State {
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(task);
 
-        self.sys.vcd_progress = Some(LoadProgress::Downloading(url_))
+        self.sys.progress_tracker = Some(LoadProgress::Downloading(url_))
     }
 
-    pub fn load_vcd_from_bytes(
+    pub fn load_wave_from_bytes(
         &mut self,
         source: WaveSource,
         bytes: Vec<u8>,
-        total_bytes: Option<u64>,
         load_options: LoadOptions,
     ) {
-        // Progress tracking in bytes
-        let progress_bytes = Arc::new(AtomicU64::new(0));
-
+        let start = web_time::Instant::now();
         let sender = self.sys.channels.msg_sender.clone();
-
+        let source_copy = source.clone();
         perform_work(move || {
-            let detected_format = wellen::detect_file_format(&mut std::io::Cursor::new(&bytes));
-            let format = match check_format(&load_options, detected_format, &source) {
-                Ok(format) => format,
-                Err(e) => {
-                    sender.send(Message::Error(e)).unwrap();
-                    return;
-                }
-            };
-
-            let result = match format {
-                WaveFormat::Vcd => {
-                    wellen::vcd::read_from_bytes_with_options(&bytes, WELLEN_SURFER_DEFAULT_OPTIONS)
-                        .map_err(|e| anyhow!("{e:?}"))
-                        .with_context(|| format!("Failed to parse VCD file: {source}"))
-                }
-                WaveFormat::Fst => wellen::fst::read_from_bytes(bytes)
+            let header_result =
+                wellen::viewers::read_header_from_bytes(bytes, &WELLEN_SURFER_DEFAULT_OPTIONS)
                     .map_err(|e| anyhow!("{e:?}"))
-                    .with_context(|| format!("Failed to parse FST file: {source}")),
-                WaveFormat::Ghw => wellen::ghw::read_from_bytes(bytes)
-                    .map_err(|e| anyhow!("{e:?}"))
-                    .with_context(|| format!("Failed to parse GHW file: {source}")),
-                WaveFormat::CxxRtl => {
-                    sender
-                        .send(Message::Error(anyhow!(
-                            "load_vcd_from_bytes called with CxxRtl as the wave format"
-                        )))
-                        .unwrap();
-                    return;
-                }
-            };
+                    .with_context(|| format!("Failed to parse wave file: {source}"));
 
-            match result {
-                Ok(waves) => sender
-                    .send(Message::WavesLoaded(
-                        source,
-                        format,
-                        Box::new(WaveContainer::new_waveform(waves)),
-                        load_options,
-                    ))
-                    .unwrap(),
+            match header_result {
+                Ok(header) => {
+                    let msg = Message::WaveHeaderLoaded(start, source, load_options, header);
+                    sender.send(msg).unwrap()
+                }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
         });
 
-        info!("Setting VCD progress");
-        self.sys.vcd_progress = Some(LoadProgress::Loading(total_bytes, progress_bytes));
+        self.sys.progress_tracker = Some(LoadProgress::ReadingHeader(source_copy));
+    }
+
+    pub fn load_wave_body(
+        &mut self,
+        source: WaveSource,
+        cont: wellen::viewers::ReadBodyContinuation,
+        body_len: u64,
+        hierarchy: Arc<wellen::Hierarchy>,
+    ) {
+        let start = web_time::Instant::now();
+        let sender = self.sys.channels.msg_sender.clone();
+        let source_copy = source.clone();
+        let progress = Arc::new(AtomicU64::new(0));
+        let progress_copy = progress.clone();
+
+        // try to create a new rayon thread pool so that we do not block drawing functionality
+        // which might be blocked by the waveform reader using up all the threads in the global pool
+        let pool = match rayon::ThreadPoolBuilder::new().build() {
+            Ok(pool) => Some(pool),
+            Err(e) => {
+                // on wasm this will always fail
+                warn!("failed to create thread pool: {e:?}");
+                None
+            }
+        };
+
+        perform_work(move || {
+            let action = || {
+                let p = Some(progress_copy);
+                let body_result = wellen::viewers::read_body(cont, &hierarchy, p)
+                    .map_err(|e| anyhow!("{e:?}"))
+                    .with_context(|| format!("Failed to parse body of wave file: {source}"));
+
+                match body_result {
+                    Ok(body) => {
+                        let msg = Message::WaveBodyLoaded(start, source, body);
+                        sender.send(msg).unwrap()
+                    }
+                    Err(e) => sender.send(Message::Error(e)).unwrap(),
+                }
+            };
+            if let Some(pool) = pool {
+                pool.install(action);
+            } else {
+                action();
+            }
+        });
+
+        self.sys.progress_tracker =
+            Some(LoadProgress::ReadingBody(source_copy, body_len, progress));
     }
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
@@ -412,7 +357,6 @@ impl State {
                         LoadOptions {
                             keep_variables,
                             keep_unavailable,
-                            expect_format: None,
                         },
                     ))
                     .unwrap();
@@ -426,7 +370,6 @@ impl State {
                             LoadOptions {
                                 keep_variables,
                                 keep_unavailable,
-                                expect_format: None,
                             },
                         ))
                         .unwrap();
@@ -465,21 +408,26 @@ pub fn draw_progress_panel(ctx: &egui::Context, vcd_progress_data: &LoadProgress
                 ui.spinner();
                 ui.monospace(format!("Downloading {url}"));
             }
-            LoadProgress::Loading(total_bytes, bytes_done) => {
-                let num_bytes = bytes_done.load(std::sync::atomic::Ordering::Relaxed);
-
-                if let Some(total) = total_bytes {
-                    ui.monospace(format!("Loading. {num_bytes}/{total} bytes loaded"));
-                    let progress = num_bytes as f32 / *total as f32;
-                    let progress_bar = egui::ProgressBar::new(progress)
-                        .show_percentage()
-                        .desired_width(300.);
-
-                    ui.add(progress_bar);
-                } else {
-                    ui.spinner();
-                    ui.monospace(format!("Loading. {num_bytes} bytes loaded"));
-                };
+            LoadProgress::ReadingHeader(source) => {
+                ui.spinner();
+                ui.monospace(format!("Loading signal names from {source}"));
+            }
+            LoadProgress::ReadingBody(source, 0, _) => {
+                ui.spinner();
+                ui.monospace(format!("Loading signal change data from {source}"));
+            }
+            LoadProgress::ReadingBody(source, total, bytes_done) => {
+                let num_bytes = bytes_done.load(std::sync::atomic::Ordering::SeqCst);
+                let progress = num_bytes as f32 / *total as f32;
+                ui.monospace(format!(
+                    "Loading signal change data from {source}. {} / {}",
+                    bytesize::ByteSize::b(num_bytes),
+                    bytesize::ByteSize::b(*total),
+                ));
+                let progress_bar = egui::ProgressBar::new(progress)
+                    .show_percentage()
+                    .desired_width(300.);
+                ui.add(progress_bar);
             }
         });
     });
