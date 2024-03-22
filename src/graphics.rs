@@ -2,6 +2,7 @@ use eframe::{
     emath::{Align, Align2},
     epaint::{Color32, CubicBezierShape, FontId, Shape, Stroke, Vec2},
 };
+use log::info;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
@@ -21,9 +22,9 @@ impl Direction {
     pub fn as_vector(&self) -> Vec2 {
         match self {
             Direction::North => Vec2::new(0., -1.),
-            Direction::East => Vec2::new(1., 0.),
+            Direction::East => Vec2::new(-1., 0.),
             Direction::South => Vec2::new(0., 1.),
-            Direction::West => Vec2::new(-1., 0.),
+            Direction::West => Vec2::new(1., 0.),
         }
     }
 }
@@ -59,6 +60,11 @@ pub enum Graphic {
         to: (GrPoint, Direction),
         text: String,
     },
+
+    Text {
+        pos: (GrPoint, Direction),
+        text: String,
+    },
 }
 
 impl WaveData {
@@ -74,12 +80,37 @@ impl WaveData {
                 Anchor::Center => info.top() + (info.bottom() - info.top()) / 2.,
                 Anchor::Bottom => info.bottom(),
             })
+            .map(|point| {
+                info!("{:?} -> {:?}", y.anchor, point);
+                point
+            })
             .map(|point| point - self.top_item_draw_offset)
     }
 
     pub(crate) fn draw_graphics(&self, ctx: &mut DrawingContext, size: Vec2, viewport: &Viewport) {
         for (_, g) in &self.graphics {
             match g {
+                Graphic::Text {
+                    pos: (pos, dir),
+                    text,
+                } => {
+                    let to_x = viewport.pixel_from_time(&pos.x, size.x, &self.num_timestamps());
+                    let to_y = self.get_item_y(&pos.y);
+                    if let Some(to_y) = to_y {
+                        ctx.painter.text(
+                            (ctx.to_screen)(to_x, to_y),
+                            match dir {
+                                Direction::North => Align2([Align::Center, Align::TOP]),
+                                Direction::East => Align2([Align::LEFT, Align::Center]),
+                                Direction::South => Align2([Align::Center, Align::BOTTOM]),
+                                Direction::West => Align2([Align::RIGHT, Align::Center]),
+                            },
+                            text,
+                            FontId::monospace(15.),
+                            Color32::YELLOW,
+                        );
+                    }
+                }
                 Graphic::TextArrow {
                     from: (from_point, from_dir),
                     to: (to_point, to_dir),
