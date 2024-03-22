@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use derive_more::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 use num::{BigInt, BigRational, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -76,6 +78,16 @@ impl From<&BigInt> for Absolute {
 pub struct Viewport {
     pub curr_left: Relative,
     pub curr_right: Relative,
+
+    target_left: Relative,
+    target_right: Relative,
+
+    move_start_left: Relative,
+    move_start_right: Relative,
+
+    // Number of seconds since the the last time a movement happened
+    move_duration: Option<f32>,
+    pub move_strategy: ViewportStrategy,
 }
 
 impl Viewport {
@@ -83,6 +95,12 @@ impl Viewport {
         Self {
             curr_left: Relative(0.0),
             curr_right: Relative(1.0),
+            target_left: Relative(0.0),
+            target_right: Relative(1.0),
+            move_start_left: Relative(0.0),
+            move_start_right: Relative(1.0),
+            move_duration: None,
+            move_strategy: ViewportStrategy::Instant,
         }
     }
 
@@ -152,9 +170,17 @@ impl Viewport {
         let fill_limit = Relative(0.1);
         let corr_zoom = fill_limit / (valid_range / curr_range);
         let zoom_fixed = if corr_zoom > Relative(1.0) {
+            let left = self.curr_left / corr_zoom;
+            let right = self.curr_right / corr_zoom;
             Viewport {
-                curr_left: self.curr_left / corr_zoom,
-                curr_right: self.curr_right / corr_zoom,
+                curr_left: left,
+                curr_right: right,
+                target_left: left,
+                target_right: right,
+                move_start_left: left,
+                move_start_right: right,
+                move_duration: None,
+                move_strategy: self.move_strategy,
             }
         } else {
             *self
@@ -167,14 +193,30 @@ impl Viewport {
         let corr_right = ((self.curr_left * resize_factor) + min_overlap) - zoom_fixed.curr_right;
         let corr_left = ((self.curr_right * resize_factor) - min_overlap) - zoom_fixed.curr_left;
         if corr_right > Relative(0.0) {
+            let left = zoom_fixed.curr_left + corr_right;
+            let right = zoom_fixed.curr_right + corr_right;
             Viewport {
-                curr_left: zoom_fixed.curr_left + corr_right,
-                curr_right: zoom_fixed.curr_right + corr_right,
+                curr_left: left,
+                curr_right: right,
+                target_left: left,
+                target_right: right,
+                move_start_left: left,
+                move_start_right: right,
+                move_duration: None,
+                move_strategy: self.move_strategy,
             }
         } else if corr_left < Relative(0.0) {
+            let left = zoom_fixed.curr_left + corr_left;
+            let right = zoom_fixed.curr_right + corr_left;
             Viewport {
-                curr_left: zoom_fixed.curr_left + corr_left,
-                curr_right: zoom_fixed.curr_right + corr_left,
+                curr_left: left,
+                curr_right: right,
+                target_left: left,
+                target_right: right,
+                move_start_left: left,
+                move_start_right: right,
+                move_duration: None,
+                move_strategy: self.move_strategy,
             }
         } else {
             zoom_fixed
@@ -195,24 +237,24 @@ impl Viewport {
         let center_point: Absolute = center.into();
         let half_width = self.half_width_absolute(num_timestamps);
 
-        self.curr_left = (center_point - half_width).relative(num_timestamps);
-        self.curr_right = (center_point + half_width).relative(num_timestamps);
+        self.set_target_left((center_point - half_width).relative(num_timestamps));
+        self.set_target_right((center_point + half_width).relative(num_timestamps));
     }
 
     pub fn zoom_to_fit(&mut self) {
-        self.curr_left = Relative(0.0);
-        self.curr_right = Relative(1.0);
+        self.set_target_left(Relative(0.0));
+        self.set_target_right(Relative(1.0));
     }
 
     pub fn go_to_start(&mut self) {
         let old_width = self.width();
-        self.curr_left = Relative(0.0);
-        self.curr_right = old_width;
+        self.set_target_left(Relative(0.0));
+        self.set_target_right(old_width);
     }
 
     pub fn go_to_end(&mut self) {
-        self.curr_left = Relative(1.0) - self.width();
-        self.curr_right = Relative(1.0);
+        self.set_target_left(Relative(1.0) - self.width());
+        self.set_target_right(Relative(1.0));
     }
 
     pub fn handle_canvas_zoom(
@@ -242,8 +284,8 @@ impl Viewport {
                 }
             };
 
-        self.curr_left = target_left;
-        self.curr_right = target_right;
+        self.set_target_left(target_left);
+        self.set_target_right(target_right);
     }
 
     pub fn handle_canvas_scroll(&mut self, deltay: f64) {
@@ -272,8 +314,8 @@ impl Viewport {
     }
 
     pub fn zoom_to_range(&mut self, left: &BigInt, right: &BigInt, num_timestamps: &BigInt) {
-        self.curr_left = Absolute::from(left).relative(num_timestamps);
-        self.curr_right = Absolute::from(right).relative(num_timestamps);
+        self.set_target_left(Absolute::from(left).relative(num_timestamps));
+        self.set_target_right(Absolute::from(right).relative(num_timestamps));
     }
 
     pub fn go_to_cursor_if_not_in_view(
@@ -297,7 +339,70 @@ impl Viewport {
             - self.curr_left.absolute(num_timestamps))
             / 2.;
 
-        self.curr_left = (center - half_width).relative(num_timestamps);
-        self.curr_right = (center + half_width).relative(num_timestamps);
+        self.set_target_left((center - half_width).relative(num_timestamps));
+        self.set_target_right((center + half_width).relative(num_timestamps));
     }
+
+    pub fn set_target_left(&mut self, target_left: Relative) {
+        if let ViewportStrategy::Instant = self.move_strategy {
+            self.curr_left = target_left
+        } else {
+            self.target_left = target_left;
+            self.move_start_left = self.curr_left;
+            self.move_duration = Some(0.);
+        }
+    }
+    pub fn set_target_right(&mut self, target_right: Relative) {
+        if let ViewportStrategy::Instant = self.move_strategy {
+            self.curr_right = target_right
+        } else {
+            self.target_right = target_right;
+            self.move_start_right = self.curr_right;
+            self.move_duration = Some(0.);
+        }
+    }
+
+    pub fn move_viewport(&mut self, frame_time: f32) {
+        match &self.move_strategy {
+            ViewportStrategy::Instant => {
+                self.curr_left = self.target_left;
+                self.curr_right = self.target_right;
+                self.move_duration = None;
+            }
+            ViewportStrategy::EaseInOut { duration } => {
+                if let Some(move_duration) = &mut self.move_duration {
+                    if *move_duration + frame_time >= *duration {
+                        self.move_duration = None;
+                        self.curr_left = self.target_left;
+                        self.curr_right = self.target_right;
+                    } else {
+                        *move_duration = frame_time + *move_duration;
+
+                        self.curr_left = Relative(ease_in_out_size(
+                            self.move_start_left.0..=self.target_left.0,
+                            (*move_duration as f64) / (*duration as f64),
+                        ));
+                        self.curr_right = Relative(ease_in_out_size(
+                            self.move_start_right.0..=self.target_right.0,
+                            (*move_duration as f64) / (*duration as f64),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn is_moving(&self) -> bool {
+        self.move_duration.is_some()
+    }
+}
+
+pub fn ease_in_out_size(r: RangeInclusive<f64>, t: f64) -> f64 {
+    r.start() + ((r.end() - r.start()) * -((std::f64::consts::PI * t).cos() - 1.) / 2.)
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ViewportStrategy {
+    Instant,
+    EaseInOut { duration: f32 },
 }

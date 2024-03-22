@@ -9,6 +9,7 @@ mod cxxrtl;
 mod cxxrtl_container;
 mod displayed_item;
 mod drawing_canvas;
+mod graphics;
 mod help;
 mod hierarchy;
 mod keys;
@@ -31,7 +32,6 @@ mod variable_name_type;
 mod variable_type;
 mod view;
 mod viewport;
-#[cfg(target_arch = "wasm32")]
 mod wasm_api;
 mod wasm_util;
 mod wave_container;
@@ -49,6 +49,7 @@ use color_eyre::Result;
 use command_prompt::get_parser;
 use config::SurferConfig;
 use displayed_item::DisplayedItem;
+use displayed_item::DisplayedItemRef;
 use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
@@ -59,6 +60,7 @@ use eframe::emath;
 use eframe::epaint::Rect;
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
+use eframe::App;
 #[cfg(not(target_arch = "wasm32"))]
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
@@ -407,6 +409,15 @@ pub struct SystemState {
     variable_name_filter: RefCell<String>,
     item_renaming_string: RefCell<String>,
 
+    /// These items should be expanded into subfields in the next frame. Cleared after each
+    /// frame
+    items_to_expand: RefCell<Vec<(DisplayedItemRef, usize)>>,
+
+    /// Character to add to the command prompt if it is visible. This is only needed for
+    /// presentations at them moment. Unless we have good reasons to keep it, we should
+    /// get rid of it
+    char_to_add_to_prompt: RefCell<Option<char>>,
+
     // Benchmarking stuff
     /// Invalidate draw commands every frame to make performance comparison easier
     continuous_redraw: bool,
@@ -442,6 +453,8 @@ impl SystemState {
             last_canvas_rect: RefCell::new(None),
             variable_name_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
+            items_to_expand: RefCell::new(vec![]),
+            char_to_add_to_prompt: RefCell::new(None),
 
             continuous_redraw: false,
             #[cfg(feature = "performance_plot")]
@@ -563,11 +576,9 @@ impl State {
         self.waves = None;
 
         // Long running translators which we load in a thread
+        #[cfg(feature = "spade")]
         {
-            #[cfg(feature = "spade")]
             let sender = self.sys.channels.msg_sender.clone();
-            #[cfg(not(feature = "spade"))]
-            let _ = self.sys.channels.msg_sender.clone();
             perform_work(move || {
                 #[cfg(feature = "spade")]
                 if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
@@ -969,11 +980,6 @@ impl State {
                     waves.cursor = Some(new)
                 }
             }
-            Message::RightCursorSet(new) => {
-                if let Some(waves) = self.waves.as_mut() {
-                    waves.right_cursor = new
-                }
-            }
             Message::LoadWaveformFile(filename, load_options) => {
                 self.load_wave_from_file(filename, load_options).ok();
             }
@@ -982,6 +988,22 @@ impl State {
             }
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
+            }
+            Message::LoadSpadeTranslator { top, state } => {
+                #[cfg(feature = "spade")]
+                {
+                    let sender = self.sys.channels.msg_sender.clone();
+                    perform_work(move || {
+                        #[cfg(feature = "spade")]
+                        SpadeTranslator::init(&top, &state, sender);
+                    });
+                };
+                #[cfg(not(feature = "spade"))]
+                {
+                    info!(
+                        "Surfer is not compiled with spade support, ignoring LoadSpadeTranslator"
+                    );
+                }
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
@@ -1109,6 +1131,17 @@ impl State {
             }
             Message::FileDownloaded(url, bytes, load_options) => {
                 self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
+            }
+            Message::SetConfigFromString(s) => {
+                // FIXME think about a structured way to collect errors
+                if let Ok(config) =
+                    SurferConfig::new_from_toml(&s).with_context(|| "Failed to load config file")
+                {
+                    self.config = config;
+                    if let Some(ctx) = &self.sys.context.as_ref() {
+                        ctx.set_visuals(self.get_visuals())
+                    }
+                }
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1335,6 +1368,13 @@ impl State {
                     }
                 }
             }
+            Message::SetViewportStrategy(s) => {
+                if let Some(waves) = &mut self.waves {
+                    for vp in &mut waves.viewports {
+                        vp.move_strategy = s
+                    }
+                }
+            }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {
                 if let Some(waves) = &mut self.waves {
@@ -1350,6 +1390,27 @@ impl State {
                         self.sys.draw_data.borrow_mut().pop();
                     }
                 }
+            }
+            Message::AddGraphic(id, g) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.insert(id, g);
+                }
+            }
+            Message::RemoveGraphic(id) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.retain(|k, _| k != &id)
+                }
+            }
+            Message::AddCharToPrompt(c) => *self.sys.char_to_add_to_prompt.borrow_mut() = Some(c),
+            Message::RemoveDisplayedItem(item) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.displayed_items.retain(|k, _| *k != item);
+                    waves.displayed_items_order.retain(|k| *k != item);
+                    self.invalidate_draw_commands();
+                }
+            }
+            Message::ExpandDrawnItem { item, levels } => {
+                self.sys.items_to_expand.borrow_mut().push((item, levels))
             }
         }
     }
@@ -1392,7 +1453,6 @@ impl State {
                 viewports,
                 variable_format: HashMap::new(),
                 cursor: None,
-                right_cursor: None,
                 markers: HashMap::new(),
                 focused_item: None,
                 default_variable_name_type: self.config.default_variable_name_type,
@@ -1402,6 +1462,7 @@ impl State {
                 total_height: 0.,
                 display_item_ref_counter: 0,
                 old_num_timestamps: None,
+                graphics: HashMap::new(),
             }
         };
         self.invalidate_draw_commands();
@@ -1537,5 +1598,12 @@ impl State {
             .as_ref()
             .map(|w| w.inner.is_fully_loaded())
             .unwrap_or(false)
+    }
+}
+
+pub struct StateWrapper(Arc<RwLock<State>>);
+impl App for StateWrapper {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        App::update(&mut *self.0.write().unwrap(), ctx, frame)
     }
 }
