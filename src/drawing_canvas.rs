@@ -514,6 +514,12 @@ impl State {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Wave drawing");
 
+        waves.draw_graphics(
+            &mut ctx,
+            response.rect.size(),
+            &waves.viewports[viewport_idx],
+        );
+
         waves.draw_cursor(
             &self.config.theme,
             &mut ctx,
@@ -691,20 +697,13 @@ impl State {
             if let Some(time) = snap_pos {
                 self.draw_line(&time, ctx, size, &waves.viewports[viewport_idx], waves);
                 ui.menu_button("Set marker", |ui| {
-                    macro_rules! close_menu {
-                        () => {{
-                            ui.close_menu();
-                            msgs.push(Message::RightCursorSet(None))
-                        }};
-                    }
-
                     for id in waves.markers.keys().sorted() {
                         ui.button(format!("{id}")).clicked().then(|| {
                             msgs.push(Message::SetMarker {
                                 id: *id,
                                 time: time.clone(),
                             });
-                            close_menu!()
+                            ui.close_menu();
                         });
                     }
                     // At the moment we only support 255 markers, and the cursor is the 255th
@@ -713,7 +712,7 @@ impl State {
                             // NOTE: Safe unwrap, we have at least one empty slot
                             let id = (0..254).find(|id| !waves.markers.contains_key(id)).unwrap();
                             msgs.push(Message::SetMarker { id, time });
-                            close_menu!()
+                            ui.close_menu();
                         });
                     }
                 });
@@ -796,8 +795,6 @@ impl State {
         )
     }
 }
-
-impl WaveData {}
 
 trait VariableExt {
     fn bool_drawing_spec(
