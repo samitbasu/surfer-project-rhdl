@@ -1,13 +1,12 @@
 use eframe::{
     emath::{Align, Align2},
-    epaint::{Color32, CubicBezierShape, FontId, Pos2, Shape, Stroke, Vec2},
+    epaint::{Color32, CubicBezierShape, FontId, Shape, Stroke, Vec2},
 };
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::SurferTheme, displayed_item::DisplayedItemRef, view::DrawingContext,
-    viewport::Viewport, wave_data::WaveData,
+    displayed_item::DisplayedItemRef, view::DrawingContext, viewport::Viewport, wave_data::WaveData,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -78,13 +77,7 @@ impl WaveData {
             .map(|point| point - self.top_item_draw_offset)
     }
 
-    pub(crate) fn draw_graphics(
-        &self,
-        theme: &SurferTheme,
-        ctx: &mut DrawingContext,
-        size: Vec2,
-        viewport: &Viewport,
-    ) {
+    pub(crate) fn draw_graphics(&self, ctx: &mut DrawingContext, size: Vec2, viewport: &Viewport) {
         for (_, g) in &self.graphics {
             match g {
                 Graphic::TextArrow {

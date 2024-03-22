@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
-use std::sync::{atomic::AtomicU64, Arc, Mutex};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Mutex;
+use std::sync::{atomic::AtomicU64, Arc};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;

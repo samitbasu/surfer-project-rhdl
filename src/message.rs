@@ -100,6 +100,7 @@ pub enum Message {
     FileDropped(DroppedFile),
     #[serde(skip)]
     FileDownloaded(String, Bytes, LoadOptions),
+    SetConfigFromString(String),
     ReloadConfig,
     ReloadWaveform(bool),
     RemovePlaceholders,

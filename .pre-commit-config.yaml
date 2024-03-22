@@ -23,7 +23,6 @@ repos:
     rev: v1.0
     hooks:
     - id: fmt
-    - id: cargo-check
   - repo: https://github.com/shssoichiro/oxipng
     rev: v9.0.0
     hooks:

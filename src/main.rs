@@ -83,7 +83,6 @@ use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use variable_name_filter::VariableNameFilterType;
 use viewport::Viewport;
-use viewport::ViewportStrategy;
 use wasm_util::perform_work;
 use wasm_util::UrlArgs;
 use wave_container::FieldRef;
@@ -96,7 +95,6 @@ use wave_source::LoadProgress;
 use wave_source::WaveFormat;
 use wave_source::WaveSource;
 
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -1081,6 +1079,17 @@ impl State {
                     Some(size),
                     load_options,
                 )
+            }
+            Message::SetConfigFromString(s) => {
+                // FIXME think about a structured way to collect errors
+                if let Ok(config) =
+                    SurferConfig::new_from_toml(&s).with_context(|| "Failed to load config file")
+                {
+                    self.config = config;
+                    if let Some(ctx) = &self.sys.context.as_ref() {
+                        ctx.set_visuals(self.get_visuals())
+                    }
+                }
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
