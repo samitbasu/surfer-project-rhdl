@@ -289,8 +289,16 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
             state.update(Message::ToggleOverview);
 
             for msg in $msgs {
+                if matches!(msg, Message::MoveCursorToTransition { .. }) {
+                    // make sure all the signals added by the proceeding messages are properly
+                    // loaded before attempting to move the cursor to a transition
+                    wait_for_waves_fully_loaded(&mut state);
+                }
                 state.update(msg)
             }
+
+            // make sure all the signals added by the proceeding messages are properly loaded
+            wait_for_waves_fully_loaded(&mut state);
 
             state
         });
@@ -361,6 +369,8 @@ snapshot_ui!(overview_can_be_hidden, || {
     )));
     state.update(Message::CursorSet(BigInt::from(10)));
     state.update(Message::ToggleOverview);
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -391,6 +401,8 @@ snapshot_ui!(statusbar_can_be_hidden, || {
     )));
     state.update(Message::CursorSet(BigInt::from(10)));
     state.update(Message::ToggleStatusbar);
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -415,7 +427,8 @@ snapshot_ui! {example_vcd_renders, || {
     state.update(Message::ToggleOverview);
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"])));
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb", "dut"])));
-
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 }}
 
@@ -463,6 +476,8 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state.update(Message::ToggleOverview);
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"])));
     state.update(Message::CursorSet(BigInt::from(100)));
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
 
     // Render the UI once with the sidebar shown
     let size = Vec2::new(1280., 720.);
@@ -800,6 +815,8 @@ snapshot_ui!(regex_error_indication, || {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("a(");
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -841,6 +858,8 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -878,6 +897,8 @@ snapshot_ui!(contain_signal_filter_works, || {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -919,6 +940,8 @@ snapshot_ui!(regex_signal_filter_works, || {
         .variable_name_filter
         .borrow_mut()
         .push_str("a[dx]");
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -956,6 +979,8 @@ snapshot_ui!(start_signal_filter_works, || {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("a");
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 
@@ -994,6 +1019,8 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("a");
+    // make sure all the signals added by the proceeding messages are properly loaded
+    wait_for_waves_fully_loaded(&mut state);
     state
 });
 

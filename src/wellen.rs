@@ -13,6 +13,8 @@ use crate::wave_container::{
     MetaData, QueryResult, ScopeRef, VariableMeta, VariableRef, VariableValue,
 };
 
+static UNIQUE_ID_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WellenContainer {
@@ -26,6 +28,51 @@ pub struct WellenContainer {
     time_table: TimeTable,
     #[derivative(Debug = "ignore")]
     source: Option<SignalSource>,
+    unique_id: u64,
+}
+
+/// Returned by `load_variables` if we want to load the variables on a background thread.
+/// This struct is currently only used by wellen
+pub struct LoadSignalsCmd {
+    source: SignalSource,
+    signals: Vec<SignalRef>,
+    hierarchy: std::sync::Arc<Hierarchy>,
+    from_unique_id: u64,
+}
+
+impl LoadSignalsCmd {
+    pub fn destruct(self) -> (SignalSource, Vec<SignalRef>, std::sync::Arc<Hierarchy>, u64) {
+        (
+            self.source,
+            self.signals,
+            self.hierarchy,
+            self.from_unique_id,
+        )
+    }
+}
+
+pub struct LoadSignalsResult {
+    source: SignalSource,
+    signals: Vec<(SignalRef, Signal)>,
+    from_unique_id: u64,
+}
+
+impl LoadSignalsResult {
+    pub fn new(
+        source: SignalSource,
+        signals: Vec<(SignalRef, Signal)>,
+        from_unique_id: u64,
+    ) -> Self {
+        Self {
+            source,
+            signals,
+            from_unique_id,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.signals.len()
+    }
 }
 
 pub fn convert_format(format: FileFormat) -> crate::WaveFormat {
@@ -50,6 +97,8 @@ impl WellenContainer {
             .map(|r| r.full_name(h).to_string())
             .collect::<Vec<_>>();
 
+        let unique_id = UNIQUE_ID_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
         Self {
             hierarchy,
             scopes,
@@ -58,10 +107,15 @@ impl WellenContainer {
             signals_to_be_loaded: HashSet::new(),
             time_table: vec![],
             source: None,
+            unique_id,
         }
     }
 
-    pub fn add_body(&mut self, time_table: TimeTable, source: SignalSource) -> Result<()> {
+    pub fn add_body(
+        &mut self,
+        time_table: TimeTable,
+        source: SignalSource,
+    ) -> Result<Option<LoadSignalsCmd>> {
         if self.source.is_some() {
             bail!("Did we just parse the body twice? That should not happen!");
         }
@@ -70,13 +124,7 @@ impl WellenContainer {
 
         // we might have to load some signals that the user has already added while the
         // body of the waveform file was being parser
-        if !self.signals_to_be_loaded.is_empty() {
-            let signals =
-                Vec::from_iter(std::mem::take(&mut self.signals_to_be_loaded).into_iter());
-            self.load_signals(&signals, true);
-        }
-
-        Ok(())
+        Ok(self.load_signals(&[]))
     }
 
     pub fn metadata(&self) -> MetaData {
@@ -205,7 +253,7 @@ impl WellenContainer {
     pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
         variables: T,
-    ) -> Result<()> {
+    ) -> Result<Option<LoadSignalsCmd>> {
         let h = &self.hierarchy;
         let signal_refs = variables
             .flat_map(|s| {
@@ -213,11 +261,26 @@ impl WellenContainer {
                 self.get_var_ref(r).map(|v| h.get(v).signal_ref())
             })
             .collect::<Vec<_>>();
-        self.load_signals(&signal_refs, true);
-        Ok(())
+        Ok(self.load_signals(&signal_refs))
     }
 
-    fn load_signals(&mut self, ids: &[SignalRef], multi_threaded: bool) {
+    pub fn on_signals_loaded(&mut self, res: LoadSignalsResult) -> Result<Option<LoadSignalsCmd>> {
+        // check to see if this command came from out container, or from a previous file that was open
+        if res.from_unique_id == self.unique_id {
+            // return source
+            debug_assert!(self.source.is_none());
+            self.source = Some(res.source);
+            // install signals
+            for (id, signal) in res.signals.into_iter() {
+                self.signals.insert(id, signal);
+            }
+        }
+
+        // see if there are any more signals to dispatch
+        Ok(self.load_signals(&[]))
+    }
+
+    fn load_signals(&mut self, ids: &[SignalRef]) -> Option<LoadSignalsCmd> {
         // make sure that we do not load signals that have already been loaded
         let filtered_ids = ids
             .iter()
@@ -225,21 +288,26 @@ impl WellenContainer {
             .cloned()
             .collect::<Vec<_>>();
 
-        if filtered_ids.is_empty() {
-            return; // nothing to do here
+        // add signals to signals that need to be loaded
+        self.signals_to_be_loaded.extend(filtered_ids.iter());
+
+        if self.signals_to_be_loaded.is_empty() {
+            return None; // nothing to do here
         }
 
-        match self.source.as_mut() {
-            Some(source) => {
-                let res = source.load_signals(&filtered_ids, &self.hierarchy, multi_threaded);
-                for (id, signal) in res.into_iter() {
-                    self.signals.insert(id, signal);
-                }
-            }
-            None => {
-                // no source is loaded yet, so we just put the signals in a list
-                self.signals_to_be_loaded.extend(filtered_ids.iter());
-            }
+        // if we have a source available, let's load all signals!
+        if let Some(source) = std::mem::take(&mut self.source) {
+            let mut signals = Vec::from_iter(self.signals_to_be_loaded.drain());
+            signals.sort(); // for some determinism!
+            let cmd = LoadSignalsCmd {
+                source,
+                signals,
+                hierarchy: self.hierarchy.clone(),
+                from_unique_id: self.unique_id,
+            };
+            Some(cmd)
+        } else {
+            None
         }
     }
 

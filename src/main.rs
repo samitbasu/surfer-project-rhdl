@@ -615,7 +615,9 @@ impl State {
             }
             Message::AddVariable(var) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.add_variable(&self.sys.translators, &var);
+                    if let Some(cmd) = waves.add_variables(&self.sys.translators, vec![var]) {
+                        self.load_signals(cmd);
+                    }
                     self.invalidate_draw_commands();
                 }
             }
@@ -636,8 +638,8 @@ impl State {
                 };
 
                 let variables = waves.inner.variables_in_scope(&scope);
-                for variable in variables {
-                    waves.add_variable(&self.sys.translators, &variable);
+                if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
+                    self.load_signals(cmd);
                 }
                 self.invalidate_draw_commands();
             }
@@ -1017,13 +1019,35 @@ impl State {
                     .as_mut()
                     .expect("Waves should be loaded at this point!");
                 // add source and time table
-                match waves.inner.wellen_add_body(body.time_table, body.source) {
-                    Err(err) => error!("{err:?}"),
-                    Ok(_) => {}
-                }
+                let maybe_cmd = waves
+                    .inner
+                    .wellen_add_body(body.time_table, body.source)
+                    .unwrap_or_else(|err| {
+                        error!("{err:?}");
+                        None
+                    });
                 // update viewports, now that we have the time table
                 waves.update_viewports();
                 // make sure we redraw
+                self.invalidate_draw_commands();
+                // start loading signals
+                if let Some(cmd) = maybe_cmd {
+                    self.load_signals(cmd);
+                }
+            }
+            Message::SignalsLoaded(start, res) => {
+                info!("Loaded {} signals in {:?}", res.len(), start.elapsed());
+                self.sys.progress_tracker = None;
+                let waves = self
+                    .waves
+                    .as_mut()
+                    .expect("Waves should be loaded at this point!");
+                match waves.inner.on_signals_loaded(res) {
+                    Err(err) => error!("{err:?}"),
+                    Ok(Some(cmd)) => self.load_signals(cmd),
+                    _ => {}
+                }
+                // make sure we redraw since now more signal data is available
                 self.invalidate_draw_commands();
             }
             Message::WavesLoaded(filename, format, new_waves, load_options) => {

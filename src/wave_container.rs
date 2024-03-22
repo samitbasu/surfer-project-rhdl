@@ -9,7 +9,7 @@ use wellen::{self, VarRef};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
-use crate::wellen::var_to_meta;
+use crate::wellen::{var_to_meta, LoadSignalsCmd, LoadSignalsResult};
 use crate::{
     time::{TimeScale, TimeUnit},
     variable_type::VariableType,
@@ -358,12 +358,30 @@ impl WaveContainer {
     pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
         variables: T,
-    ) -> Result<()> {
+    ) -> Result<Option<LoadSignalsCmd>> {
         match self {
             WaveContainer::Wellen(f) => f.load_variables(variables),
             WaveContainer::Empty => bail!("Cannot load variables from empty container."),
             #[cfg(not(target_arch = "wasm32"))]
-            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().load_signals(variables)),
+            WaveContainer::Cxxrtl(c) => {
+                c.lock().unwrap().load_signals(variables);
+                Ok(None)
+            }
+        }
+    }
+
+    /// Callback for when wellen signals have been loaded. Might lead to a new load signal
+    /// command since new signals might have been requested in the meantime
+    pub fn on_signals_loaded(&mut self, res: LoadSignalsResult) -> Result<Option<LoadSignalsCmd>> {
+        match self {
+            WaveContainer::Wellen(f) => f.on_signals_loaded(res),
+            WaveContainer::Empty => {
+                bail!("on_load_signals should only be called with the wellen backend.")
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            WaveContainer::Cxxrtl(_) => {
+                bail!("on_load_signals should only be called with the wellen backend.")
+            }
         }
     }
 
@@ -537,7 +555,7 @@ impl WaveContainer {
         &mut self,
         time_table: wellen::TimeTable,
         source: wellen::SignalSource,
-    ) -> Result<()> {
+    ) -> Result<Option<LoadSignalsCmd>> {
         match self {
             WaveContainer::Wellen(inner) => inner.add_body(time_table, source),
             _ => {

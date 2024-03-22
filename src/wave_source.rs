@@ -15,6 +15,7 @@ use log::{error, info, warn};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 
+use crate::wellen::{LoadSignalsCmd, LoadSignalsResult};
 use crate::{message::Message, wave_container::WaveContainer, State};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -114,6 +115,7 @@ pub enum LoadProgress {
     Downloading(String),
     ReadingHeader(WaveSource),
     ReadingBody(WaveSource, u64, Arc<AtomicU64>),
+    LoadingSignals(u64),
 }
 
 const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::LoadOptions = wellen::LoadOptions {
@@ -280,6 +282,20 @@ impl State {
         self.sys.progress_tracker = Some(LoadProgress::ReadingHeader(source_copy));
     }
 
+    fn get_thread_pool() -> Option<rayon::ThreadPool> {
+        // try to create a new rayon thread pool so that we do not block drawing functionality
+        // which might be blocked by the waveform reader using up all the threads in the global pool
+        let pool = match rayon::ThreadPoolBuilder::new().build() {
+            Ok(pool) => Some(pool),
+            Err(e) => {
+                // on wasm this will always fail
+                warn!("failed to create thread pool: {e:?}");
+                None
+            }
+        };
+        pool
+    }
+
     pub fn load_wave_body(
         &mut self,
         source: WaveSource,
@@ -292,17 +308,7 @@ impl State {
         let source_copy = source.clone();
         let progress = Arc::new(AtomicU64::new(0));
         let progress_copy = progress.clone();
-
-        // try to create a new rayon thread pool so that we do not block drawing functionality
-        // which might be blocked by the waveform reader using up all the threads in the global pool
-        let pool = match rayon::ThreadPoolBuilder::new().build() {
-            Ok(pool) => Some(pool),
-            Err(e) => {
-                // on wasm this will always fail
-                warn!("failed to create thread pool: {e:?}");
-                None
-            }
-        };
+        let pool = Self::get_thread_pool();
 
         perform_work(move || {
             let action = || {
@@ -328,6 +334,33 @@ impl State {
 
         self.sys.progress_tracker =
             Some(LoadProgress::ReadingBody(source_copy, body_len, progress));
+    }
+
+    pub fn load_signals(&mut self, cmd: LoadSignalsCmd) {
+        let (mut source, signals, hierarchy, from_unique_id) = cmd.destruct();
+        if signals.is_empty() {
+            return;
+        }
+        let num_signals = signals.len() as u64;
+        let start = web_time::Instant::now();
+        let sender = self.sys.channels.msg_sender.clone();
+        let pool = Self::get_thread_pool();
+
+        perform_work(move || {
+            let action = || {
+                let loaded = source.load_signals(&signals, &hierarchy, true);
+                let res = LoadSignalsResult::new(source, loaded, from_unique_id);
+                let msg = Message::SignalsLoaded(start, res);
+                sender.send(msg).unwrap();
+            };
+            if let Some(pool) = pool {
+                pool.install(action);
+            } else {
+                action();
+            }
+        });
+
+        self.sys.progress_tracker = Some(LoadProgress::LoadingSignals(num_signals));
     }
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
@@ -415,6 +448,10 @@ pub fn draw_progress_panel(ctx: &egui::Context, vcd_progress_data: &LoadProgress
             LoadProgress::ReadingBody(source, 0, _) => {
                 ui.spinner();
                 ui.monospace(format!("Loading signal change data from {source}"));
+            }
+            LoadProgress::LoadingSignals(num) => {
+                ui.spinner();
+                ui.monospace(format!("Loading {num} signals"));
             }
             LoadProgress::ReadingBody(source, total, bytes_done) => {
                 let num_bytes = bytes_done.load(std::sync::atomic::Ordering::SeqCst);

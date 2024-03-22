@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::wave_container::VariableValue;
 use crate::wave_source::WaveFormat;
+use crate::wellen::LoadSignalsCmd;
 use crate::{
     displayed_item::{
         DisplayedDivider, DisplayedItem, DisplayedItemRef, DisplayedTimeLine, DisplayedVariable,
@@ -279,33 +280,50 @@ impl WaveData {
         translator
     }
 
-    pub fn add_variable(&mut self, translators: &TranslatorList, variable: &VariableRef) {
-        let Ok(meta) = self
-            .inner
-            .load_variables([variable].into_iter())
-            .and_then(|_| self.inner.variable_meta(variable))
-            .context("When adding variable")
-            .map_err(|e| error!("{e:#?}"))
-        else {
-            return;
+    pub fn add_variables(
+        &mut self,
+        translators: &TranslatorList,
+        variables: Vec<VariableRef>,
+    ) -> Option<LoadSignalsCmd> {
+        // load variables from waveform
+        let res = match self.inner.load_variables(variables.iter()) {
+            Err(e) => {
+                error!("{e:#?}");
+                return None;
+            }
+            Ok(res) => res,
         };
 
-        let translator =
-            self.variable_translator(&FieldRef::without_fields(variable.clone()), translators);
-        let info = translator.variable_info(&meta).unwrap();
+        // initialize translator and add display item
+        for variable in variables.into_iter() {
+            let Ok(meta) = self
+                .inner
+                .variable_meta(&variable)
+                .context("When adding variable")
+                .map_err(|e| error!("{e:#?}"))
+            else {
+                return res;
+            };
 
-        let new_variable = DisplayedItem::Variable(DisplayedVariable {
-            variable_ref: variable.clone(),
-            info,
-            color: None,
-            background_color: None,
-            display_name: variable.name.clone(),
-            display_name_type: self.default_variable_name_type,
-            manual_name: None,
-        });
+            let translator =
+                self.variable_translator(&FieldRef::without_fields(variable.clone()), translators);
+            let info = translator.variable_info(&meta).unwrap();
 
-        self.insert_item(new_variable, None);
+            let new_variable = DisplayedItem::Variable(DisplayedVariable {
+                variable_ref: variable.clone(),
+                info,
+                color: None,
+                background_color: None,
+                display_name: variable.name.clone(),
+                display_name_type: self.default_variable_name_type,
+                manual_name: None,
+            });
+
+            self.insert_item(new_variable, None);
+        }
+
         self.compute_variable_display_names();
+        res
     }
 
     pub fn remove_displayed_item(&mut self, count: usize, idx: usize) {

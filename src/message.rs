@@ -10,6 +10,7 @@ use eframe::{
 use num::BigInt;
 use serde::Deserialize;
 
+use crate::wellen::LoadSignalsResult;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
@@ -92,6 +93,11 @@ pub enum Message {
         WaveFormat,
         #[derivative(Debug = "ignore")] Box<WaveContainer>,
         LoadOptions,
+    ),
+    #[serde(skip)]
+    SignalsLoaded(
+        web_time::Instant,
+        #[derivative(Debug = "ignore")] LoadSignalsResult,
     ),
     #[serde(skip)]
     Error(color_eyre::eyre::Error),
