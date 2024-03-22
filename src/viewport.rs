@@ -1,9 +1,7 @@
 use std::ops::RangeInclusive;
 
 use derive_more::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
-use eframe::emath::lerp;
-use log::info;
-use num::{iter::Range, BigInt, BigRational, FromPrimitive, ToPrimitive};
+use num::{BigInt, BigRational, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 #[derive(

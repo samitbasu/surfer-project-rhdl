@@ -83,7 +83,6 @@ use translation::spade::SpadeTranslator;
 use translation::TranslatorList;
 use variable_name_filter::VariableNameFilterType;
 use viewport::Viewport;
-use viewport::ViewportStrategy;
 use wasm_util::perform_work;
 use wasm_util::UrlArgs;
 use wave_container::FieldRef;
@@ -1132,6 +1131,17 @@ impl State {
             }
             Message::FileDownloaded(url, bytes, load_options) => {
                 self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
+            }
+            Message::SetConfigFromString(s) => {
+                // FIXME think about a structured way to collect errors
+                if let Ok(config) =
+                    SurferConfig::new_from_toml(&s).with_context(|| "Failed to load config file")
+                {
+                    self.config = config;
+                    if let Some(ctx) = &self.sys.context.as_ref() {
+                        ctx.set_visuals(self.get_visuals())
+                    }
+                }
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors

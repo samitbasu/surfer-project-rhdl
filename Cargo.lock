@@ -1839,14 +1839,15 @@ dependencies = [
 
 [[package]]
 name = "fst-native"
-version = "0.7.4"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f679eeba3125f4284323433b37379532e42d6d5f5e1565ea1184526f6b5adb8f"
+checksum = "25dd6d296401ddf3c26e65a5543a1551b9e7e7f802c464444a1d7b9c0ccc4d9b"
 dependencies = [
  "flate2",
  "lz4_flex",
  "num_enum",
  "tempfile",
+ "thiserror",
 ]
 
 [[package]]
@@ -5360,7 +5361,7 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.8.4"
+version = "0.9.0"
 dependencies = [
  "bytesize",
  "fst-native",

@@ -1,6 +1,7 @@
+#![cfg_attr(not(target_arch = "wasm32"), allow(unused))]
+
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::sync::RwLock;
 
 use futures::executor::block_on;
 use lazy_static::lazy_static;
@@ -19,7 +20,6 @@ use crate::graphics::GraphicsY;
 use crate::DisplayedItem;
 use crate::Message;
 use crate::State;
-use crate::StateWrapper;
 use crate::EGUI_CONTEXT;
 
 struct Callback {
@@ -84,7 +84,7 @@ pub async fn id_of_name(name: String) -> Option<usize> {
             waves
                 .displayed_items
                 .iter()
-                .find(|(id, item)| {
+                .find(|(_, item)| {
                     let item_name = match item {
                         DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
                         _ => format!("{}", item.name()),

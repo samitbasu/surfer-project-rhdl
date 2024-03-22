@@ -515,7 +515,6 @@ impl State {
         self.sys.timing.borrow_mut().end("Wave drawing");
 
         waves.draw_graphics(
-            &self.config.theme,
             &mut ctx,
             response.rect.size(),
             &waves.viewports[viewport_idx],

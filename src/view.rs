@@ -1,5 +1,3 @@
-use std::borrow::BorrowMut;
-
 use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
@@ -132,6 +130,7 @@ impl eframe::App for State {
             self.invalidate_draw_commands();
         }
 
+        #[allow(unused_variables)] // NOTE: Used in non-wasm versions
         let (fullscreen, window_size) = ctx.input(|i| {
             (
                 i.viewport().fullscreen.unwrap_or_default(),
