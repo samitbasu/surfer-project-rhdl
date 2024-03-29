@@ -84,6 +84,8 @@ pub struct SurferConfig {
     pub default_clock_highlight_type: ClockHighlightType,
     /// Distance in pixels for cursor snap
     pub snap_distance: f32,
+    /// WCP Configuration
+    pub wcp: WcpConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -275,6 +277,14 @@ pub struct ThemeColorTriple {
     pub background: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub alt_background: Color32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WcpConfig {
+    /// Controls if a server is started after Surfer is launched
+    pub autostart: bool,
+    /// Address to bind to (address:port)
+    pub address: String,
 }
 
 fn default_colors() -> HashMap<String, Color32> {
