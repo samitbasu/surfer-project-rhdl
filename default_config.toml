@@ -65,3 +65,7 @@ Pink = "c586c0"
 Orange = "ce9178"
 Gray = "808080"
 Violet = "646695"
+
+[wcp]
+autostart = true
+address = "127.0.0.1:54321"

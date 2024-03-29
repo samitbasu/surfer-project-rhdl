@@ -185,11 +185,13 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "transition_next",
             "transition_previous",
             "copy_value",
+            "wcp_server_start",
             "exit",
         ]
     } else {
         vec![
             "load_vcd",
+            "wcp_server_start",
             "load_file",
             "load_url",
             "config_reload",
@@ -468,6 +470,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 ),
                 "viewport_add" => Some(Command::Terminal(Message::AddViewport)),
                 "viewport_remove" => Some(Command::Terminal(Message::RemoveViewport)),
+                "wcp_server_start" => Some(Command::Terminal(Message::StartWcpServer(None))),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
             }
