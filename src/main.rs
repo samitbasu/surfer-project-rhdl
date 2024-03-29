@@ -37,6 +37,7 @@ mod wasm_util;
 mod wave_container;
 mod wave_data;
 mod wave_source;
+mod wcp;
 mod wellen;
 
 #[cfg(feature = "performance_plot")]
@@ -92,6 +93,8 @@ use wave_source::LoadOptions;
 use wave_source::LoadProgress;
 use wave_source::WaveFormat;
 use wave_source::WaveSource;
+use wcp::wcp_handler::WcpMessage;
+use wcp::wcp_server::WcpHttpServer;
 
 use crate::wellen::convert_format;
 use std::cell::RefCell;
@@ -102,6 +105,8 @@ use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::thread;
+use std::thread::JoinHandle;
 
 lazy_static! {
     pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);
@@ -268,6 +273,13 @@ fn main() -> Result<()> {
     }
     .with_params(StartupParams::from_args(args));
 
+    if state.config.wcp.autostart {
+        state
+            .sys
+            .startup_commands
+            .push("wcp_server_start".to_string());
+    }
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Surfer")
@@ -364,6 +376,8 @@ struct CachedDrawData {
 struct Channels {
     msg_sender: Sender<Message>,
     msg_receiver: Receiver<Message>,
+    wcp_s2c_receiver: Option<Receiver<WcpMessage>>,
+    wcp_c2s_sender: Option<Sender<WcpMessage>>,
 }
 impl Channels {
     fn new() -> Self {
@@ -371,6 +385,8 @@ impl Channels {
         Self {
             msg_sender,
             msg_receiver,
+            wcp_s2c_receiver: None,
+            wcp_c2s_sender: None,
         }
     }
 }
@@ -389,6 +405,9 @@ pub struct SystemState {
 
     /// The context to egui, we need this to change the visual settings when the config is reloaded
     context: Option<Arc<eframe::egui::Context>>,
+
+    /// The WCP server
+    wcp_server_thread: Option<JoinHandle<()>>,
 
     // List of unparsed commands to run at startup after the first wave has been loaded
     startup_commands: Vec<String>,
@@ -434,6 +453,7 @@ impl SystemState {
                 previous_commands: vec![],
             },
             context: None,
+            wcp_server_thread: None,
             gesture_start_location: None,
             startup_commands: vec![],
             url: RefCell::new(String::new()),
@@ -1335,6 +1355,9 @@ impl State {
                     }
                 }
             }
+            Message::StartWcpServer(address) => {
+                self.start_wcp_server(address);
+            }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {
                 if let Some(waves) = &mut self.waves {
@@ -1537,5 +1560,29 @@ impl State {
             .as_ref()
             .map(|w| w.inner.is_fully_loaded())
             .unwrap_or(false)
+    }
+
+    fn start_wcp_server(&mut self, address: Option<String>) {
+        if let Some(_) = self.sys.wcp_server_thread.as_ref() {
+            info!("WCP HTTP server is already running");
+            return;
+        }
+
+        let (wcp_s2c_sender, wcp_s2c_receiver) = mpsc::channel();
+        let (wcp_c2s_sender, wcp_c2s_receiver) = mpsc::channel();
+        self.sys.channels.wcp_s2c_receiver = Some(wcp_s2c_receiver);
+        self.sys.channels.wcp_c2s_sender = Some(wcp_c2s_sender);
+
+        let ctx = self.sys.context.as_ref().unwrap().clone();
+        let address = address.unwrap_or(self.config.wcp.address.clone());
+        self.sys.wcp_server_thread = Some(thread::spawn(|| {
+            let server = WcpHttpServer::new(address, wcp_s2c_sender, wcp_c2s_receiver, ctx);
+            match server {
+                Ok(mut server) => server.run(),
+                Err(m) => {
+                    error!("Could not start WCP HTTP server. Address already in use. {m:?}")
+                }
+            }
+        }));
     }
 }

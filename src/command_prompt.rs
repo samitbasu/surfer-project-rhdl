@@ -185,6 +185,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "copy_value",
             "pause_simulation",
             "unpause_simulation",
+            "wcp_server_start",
             "exit",
         ]
     } else {
@@ -198,6 +199,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "show_controls",
             "show_mouse_gestures",
             "show_quick_start",
+            "wcp_server_start",
             "exit",
         ]
     };
@@ -485,6 +487,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "viewport_remove" => Some(Command::Terminal(Message::RemoveViewport)),
                 "pause_simulation" => Some(Command::Terminal(Message::PauseSimulation)),
                 "unpause_simulation" => Some(Command::Terminal(Message::UnpauseSimulation)),
+                "wcp_server_start" => Some(Command::Terminal(Message::StartWcpServer(None))),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
             }
