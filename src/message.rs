@@ -25,6 +25,24 @@ use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
 type CommandCount = usize;
 
+pub enum HeaderResult {
+    /// result of locally parsing the header of a waveform file with wellen
+    Local(Box<wellen::viewers::HeaderResult>),
+    /// result of querying a remote surfer server
+    Remote(
+        std::sync::Arc<wellen::Hierarchy>,
+        wellen::FileFormat,
+        String,
+    ),
+}
+
+pub enum BodyResult {
+    /// result of locally parsing the body of a waveform file with wellen
+    Local(wellen::viewers::BodyResult),
+    /// result of querying a remote surfer server
+    Remote(Vec<wellen::Time>, String),
+}
+
 #[derive(Derivative, Deserialize)]
 #[derivative(Debug)]
 pub enum Message {
@@ -69,6 +87,8 @@ pub enum Message {
     },
     CursorSet(BigInt),
     RightCursorSet(Option<BigInt>),
+    #[serde(skip)]
+    SurferServerStatus(web_time::Instant, String, crate::remote::Status),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
@@ -79,13 +99,13 @@ pub enum Message {
         web_time::Instant,
         WaveSource,
         LoadOptions,
-        #[derivative(Debug = "ignore")] wellen::viewers::HeaderResult,
+        #[derivative(Debug = "ignore")] HeaderResult,
     ),
     #[serde(skip)]
     WaveBodyLoaded(
         web_time::Instant,
         WaveSource,
-        #[derivative(Debug = "ignore")] wellen::viewers::BodyResult,
+        #[derivative(Debug = "ignore")] BodyResult,
     ),
     #[serde(skip)]
     WavesLoaded(

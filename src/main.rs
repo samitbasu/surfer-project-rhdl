@@ -18,6 +18,7 @@ mod menus;
 mod message;
 mod mousegestures;
 mod overview;
+mod remote;
 mod state_util;
 mod statusbar;
 #[cfg(test)]
@@ -95,6 +96,7 @@ use wave_source::LoadProgress;
 use wave_source::WaveFormat;
 use wave_source::WaveSource;
 
+use crate::message::HeaderResult;
 use crate::wellen::convert_format;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -131,6 +133,9 @@ struct Args {
 
     #[clap(long, short)]
     state_file: Option<Utf8PathBuf>,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
 }
 
 impl Args {
@@ -145,6 +150,23 @@ impl Args {
             &self.script
         }
     }
+}
+
+#[derive(clap::Subcommand)]
+enum Commands {
+    #[cfg(not(target_arch = "wasm32"))]
+    /// starts surfer in headless mode so that a user can connect to it
+    Server {
+        /// port on which server will listen
+        #[clap(long)]
+        port: Option<u16>,
+        /// token used by the client to authenticate to the server
+        #[clap(long)]
+        token: Option<String>,
+        /// waveform file that we want to serve
+        #[arg(long)]
+        file: String,
+    },
 }
 
 struct StartupParams {
@@ -209,9 +231,10 @@ fn setup_logging(platform_logger: Dispatch) -> Result<()> {
     Ok(())
 }
 
-// When compiling natively:
+/// Starts the logging and error handling. Can be used by unittests to get more insights.
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> Result<()> {
+#[inline]
+pub fn start_logging() -> Result<()> {
     let colors = ColoredLevelConfig::new()
         .error(fern::colors::Color::Red)
         .warn(fern::colors::Color::Yellow)
@@ -233,6 +256,13 @@ fn main() -> Result<()> {
     setup_logging(stdout_config)?;
 
     color_eyre::install()?;
+    Ok(())
+}
+
+// When compiling natively:
+#[cfg(not(target_arch = "wasm32"))]
+fn main() -> Result<()> {
+    start_logging()?;
 
     // https://tokio.rs/tokio/topics/bridging
     // We want to run the gui in the main thread, but some long running tasks like
@@ -244,6 +274,20 @@ fn main() -> Result<()> {
         .build()
         .unwrap();
 
+    // parse arguments
+    let args = Args::parse();
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(Commands::Server { port, token, file }) = args.command {
+        let default_port = 8911; // FIXME: make this more configurable
+        let res = runtime.block_on(remote::server_main(
+            port.unwrap_or(default_port),
+            token,
+            file,
+            None,
+        ));
+        return res;
+    }
+
     let _enter = runtime.enter();
 
     std::thread::spawn(move || {
@@ -254,7 +298,6 @@ fn main() -> Result<()> {
         })
     });
 
-    let args = Args::parse();
     let mut state = match &args.state_file {
         Some(file) => std::fs::read_to_string(file)
             .with_context(|| format!("Failed to read state from {file}"))
@@ -404,6 +447,7 @@ pub struct SystemState {
 
     /// List of batch commands which will executed as soon as possible
     batch_commands: VecDeque<Message>,
+    batch_commands_completed: bool,
 
     /// The draw commands for every variable currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
@@ -455,6 +499,7 @@ impl SystemState {
             context: None,
             gesture_start_location: None,
             batch_commands: VecDeque::new(),
+            batch_commands_completed: false,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(vec![None]),
@@ -610,21 +655,18 @@ impl State {
 
         match args.waves {
             Some(WaveSource::Url(url)) => {
-                self.sys
-                    .batch_commands
-                    .push_back(Message::LoadWaveformFileFromUrl(url, LoadOptions::clean()));
+                self.add_startup_message(Message::LoadWaveformFileFromUrl(
+                    url,
+                    LoadOptions::clean(),
+                ));
             }
             Some(WaveSource::File(file)) => {
-                self.sys
-                    .batch_commands
-                    .push_back(Message::LoadWaveformFile(file, LoadOptions::clean()));
+                self.add_startup_message(Message::LoadWaveformFile(file, LoadOptions::clean()));
             }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             #[cfg(not(target_arch = "wasm32"))]
             Some(WaveSource::CxxrtlTcp(url)) => {
-                self.sys
-                    .batch_commands
-                    .push_back(Message::ConnectToCxxrtl(url));
+                self.add_startup_message(Message::ConnectToCxxrtl(url));
             }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
@@ -637,11 +679,23 @@ impl State {
         self
     }
 
-    pub fn add_startup_commands(&mut self, commands: Vec<String>) {
+    pub fn add_startup_commands<I: IntoIterator<Item = String>>(&mut self, commands: I) {
         let parsed = self.parse_startup_commands(commands);
         for msg in parsed.into_iter() {
             self.sys.batch_commands.push_back(msg);
+            self.sys.batch_commands_completed = false;
         }
+    }
+
+    pub fn add_startup_messages<I: IntoIterator<Item = Message>>(&mut self, messages: I) {
+        for msg in messages.into_iter() {
+            self.sys.batch_commands.push_back(msg);
+            self.sys.batch_commands_completed = false;
+        }
+    }
+
+    pub fn add_startup_message(&mut self, msg: Message) {
+        self.add_startup_messages([msg])
     }
 
     pub fn update(&mut self, message: Message) {
@@ -1026,6 +1080,9 @@ impl State {
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
+            Message::SurferServerStatus(_start, server, status) => {
+                self.server_status_to_progress(server, status);
+            }
             Message::FileDropped(dropped_file) => {
                 self.load_wave_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))
@@ -1037,17 +1094,40 @@ impl State {
                     "Loaded the hierarchy and meta-data of {source} in {:?}",
                     start.elapsed()
                 );
-                // register waveform as loaded (but with no signal info yet!)
-                let shared_hierarchy = Arc::new(header.hierarchy);
-                let new_waves = Box::new(WaveContainer::new_waveform(shared_hierarchy.clone()));
-                self.on_waves_loaded(
-                    source.clone(),
-                    convert_format(header.file_format),
-                    new_waves,
-                    load_options,
-                );
-                // start parsing of the body
-                self.load_wave_body(source, header.body, header.body_len, shared_hierarchy);
+                match header {
+                    HeaderResult::Local(header) => {
+                        // register waveform as loaded (but with no signal info yet!)
+                        let shared_hierarchy = Arc::new(header.hierarchy);
+                        let new_waves =
+                            Box::new(WaveContainer::new_waveform(shared_hierarchy.clone()));
+                        self.on_waves_loaded(
+                            source.clone(),
+                            convert_format(header.file_format),
+                            new_waves,
+                            load_options,
+                        );
+                        // start parsing of the body
+                        self.load_wave_body(source, header.body, header.body_len, shared_hierarchy);
+                    }
+                    HeaderResult::Remote(hierarchy, file_format, server) => {
+                        // register waveform as loaded (but with no signal info yet!)
+                        let new_waves = Box::new(WaveContainer::new_remote_waveform(
+                            server.clone(),
+                            hierarchy.clone(),
+                        ));
+                        self.on_waves_loaded(
+                            source.clone(),
+                            convert_format(file_format),
+                            new_waves,
+                            load_options,
+                        );
+                        // body is already being parsed on the server, we need to request the time table though
+                        Self::get_time_table_from_server(
+                            self.sys.channels.msg_sender.clone(),
+                            server,
+                        );
+                    }
+                }
             }
             Message::WaveBodyLoaded(start, source, body) => {
                 // for files using the `wellen` backend, parse the body in a second step
@@ -1058,13 +1138,10 @@ impl State {
                     .as_mut()
                     .expect("Waves should be loaded at this point!");
                 // add source and time table
-                let maybe_cmd = waves
-                    .inner
-                    .wellen_add_body(body.time_table, body.source)
-                    .unwrap_or_else(|err| {
-                        error!("{err:?}");
-                        None
-                    });
+                let maybe_cmd = waves.inner.wellen_add_body(body).unwrap_or_else(|err| {
+                    error!("{err:?}");
+                    None
+                });
                 // update viewports, now that we have the time table
                 waves.update_viewports();
                 // make sure we redraw
@@ -1562,6 +1639,14 @@ impl State {
                 break; // no more messages
             }
         }
+
+        // if there are no messages and all operations have completed, we are done
+        if !self.sys.batch_commands_completed
+            && self.sys.batch_commands.is_empty()
+            && self.can_start_batch_command()
+        {
+            self.sys.batch_commands_completed = true;
+        }
     }
 
     /// Returns whether it is OK to start a new batch command.
@@ -1643,12 +1728,26 @@ impl State {
             .unwrap_or(false)
     }
 
-    fn parse_startup_commands(&mut self, cmds: Vec<String>) -> Vec<Message> {
-        trace!("Parsing startup commands {:?}", cmds);
+    /// Returns true once all batch commands have been completed and their effects are all executed.
+    pub fn batch_commands_completed(&self) -> bool {
+        debug_assert!(
+            self.sys.batch_commands_completed || !self.sys.batch_commands.is_empty(),
+            "completed implies no commands"
+        );
+        self.sys.batch_commands_completed
+    }
+
+    fn parse_startup_commands<I: IntoIterator<Item = String>>(&mut self, cmds: I) -> Vec<Message> {
+        trace!("Parsing startup commands");
         let parsed = cmds
             .into_iter()
             // Add line numbers
             .enumerate()
+            // trace
+            .map(|(no, line)| {
+                trace!("{no: >2} {line}");
+                (no, line)
+            })
             // Make the line numbers start at 1 as is tradition
             .map(|(no, line)| (no + 1, line))
             .map(|(no, line)| (no, line.trim().to_string()))

@@ -10,6 +10,7 @@ build = "build.rs"
 [dependencies]
 asm_riscv = "0.2.0"
 base64 = "0.22"
+bincode = "1.3.3"
 bytes = "1.6.0"
 bytesize = "1.3.0"
 camino = { version = "1.1.6", features = ["serde1"] }
@@ -37,6 +38,7 @@ human-sort = "0.2.2"
 itertools = "0.12.0"
 lazy_static = "1.4.0"
 log = "0.4"
+lz4_flex = "0.11.3"
 num = { version = "0.4", features = ["serde"] }
 pure-rust-locales = "0.8.1"
 rayon = "1.10.0"
@@ -58,13 +60,21 @@ tokio = { version = "1.37", features = ["rt", "time", "macros"] }
 toml = "0.8.12"
 vcd-translate = { path = "spade/vcd-translate", optional = true }
 web-time = "1.1.0"
-wellen = { path = "wellen" }
+wellen = { path = "wellen", features = ["serde1"] }
 
 [features]
 default = ["spade", "performance_plot"]
 f128 = ["dep:f128"]
 spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-mir", "dep:spade-types", "dep:vcd-translate", "dep:serde_stacker"]
 performance_plot = ["dep:egui_plot"]
+
+# the following crates are only used for the HTTP server in remote/server.rs
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rand = "0.8.5"
+# used together with hyper for the HTTP server
+http-body-util = "0.1"
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"

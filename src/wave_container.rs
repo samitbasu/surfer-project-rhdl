@@ -9,6 +9,7 @@ use wellen::{self, VarRef};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
+use crate::message::BodyResult;
 use crate::wellen::{var_to_meta, LoadSignalsCmd, LoadSignalsResult};
 use crate::{
     time::{TimeScale, TimeUnit},
@@ -284,7 +285,7 @@ pub struct QueryResult {
 }
 
 pub enum WaveContainer {
-    Wellen(WellenContainer),
+    Wellen(Box<WellenContainer>),
     /// A wave container that contains nothing. Currently, the only practical use for this is
     /// a placehodler when serializing and deserializing wave state.
     Empty,
@@ -294,7 +295,14 @@ pub enum WaveContainer {
 
 impl WaveContainer {
     pub fn new_waveform(hierarchy: std::sync::Arc<wellen::Hierarchy>) -> Self {
-        WaveContainer::Wellen(WellenContainer::new(hierarchy))
+        WaveContainer::Wellen(Box::new(WellenContainer::new(hierarchy, None)))
+    }
+
+    pub fn new_remote_waveform(
+        server_url: String,
+        hierarchy: std::sync::Arc<wellen::Hierarchy>,
+    ) -> Self {
+        WaveContainer::Wellen(Box::new(WellenContainer::new(hierarchy, Some(server_url))))
     }
 
     /// Creates a new empty wave container. Should only be used as a default for serde. If
@@ -364,7 +372,7 @@ impl WaveContainer {
             WaveContainer::Empty => bail!("Cannot load variables from empty container."),
             #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => {
-                c.lock().unwrap().load_signals(variables);
+                c.get_mut().unwrap().load_signals(variables);
                 Ok(None)
             }
         }
@@ -551,16 +559,21 @@ impl WaveContainer {
     }
 
     /// Called for `wellen` container, when the body of the waveform file has been parsed.
-    pub fn wellen_add_body(
-        &mut self,
-        time_table: wellen::TimeTable,
-        source: wellen::SignalSource,
-    ) -> Result<Option<LoadSignalsCmd>> {
+    pub fn wellen_add_body(&mut self, body: BodyResult) -> Result<Option<LoadSignalsCmd>> {
         match self {
-            WaveContainer::Wellen(inner) => inner.add_body(time_table, source),
+            WaveContainer::Wellen(inner) => inner.add_body(body),
             _ => {
                 bail!("Should never call this function on a non wellen container!")
             }
+        }
+    }
+
+    pub fn body_loaded(&self) -> bool {
+        match self {
+            WaveContainer::Wellen(inner) => inner.body_loaded(),
+            WaveContainer::Empty => true,
+            #[cfg(not(target_arch = "wasm32"))]
+            WaveContainer::Cxxrtl(_) => true,
         }
     }
 }

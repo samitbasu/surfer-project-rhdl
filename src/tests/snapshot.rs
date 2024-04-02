@@ -48,7 +48,7 @@ fn to_byte(i: f32) -> u8 {
     }
 }
 
-fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
+pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     info!("test up and running");
 
     // https://tokio.rs/tokio/topics/bridging
@@ -284,17 +284,14 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                     panic!("Timeout")
                 }
             }
-            state.update(Message::ToggleMenu);
-            state.update(Message::ToggleSidePanel);
-            state.update(Message::ToggleToolbar);
-            state.update(Message::ToggleOverview);
-
-            for msg in $msgs {
-                state.sys.batch_commands.push_back(msg);
-            }
+            state.add_startup_message(Message::ToggleMenu);
+            state.add_startup_message(Message::ToggleSidePanel);
+            state.add_startup_message(Message::ToggleToolbar);
+            state.add_startup_message(Message::ToggleOverview);
+            state.add_startup_messages($msgs);
 
             // make sure all the signals added by the proceeding messages are properly loaded
-            wait_for_waves_fully_loaded(&mut state);
+            wait_for_waves_fully_loaded(&mut state, 10);
 
             state
         });
@@ -367,7 +364,7 @@ snapshot_ui!(overview_can_be_hidden, || {
     state.update(Message::CursorSet(BigInt::from(10)));
     state.update(Message::ToggleOverview);
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -400,7 +397,7 @@ snapshot_ui!(statusbar_can_be_hidden, || {
     state.update(Message::CursorSet(BigInt::from(10)));
     state.update(Message::ToggleStatusbar);
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -427,7 +424,7 @@ snapshot_ui! {example_vcd_renders, || {
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"])));
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb", "dut"])));
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 }}
 
@@ -477,7 +474,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"])));
     state.update(Message::CursorSet(BigInt::from(100)));
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
 
     // Render the UI once with the sidebar shown
     let size = Vec2::new(1280., 720.);
@@ -866,7 +863,7 @@ snapshot_ui!(regex_error_indication, || {
     }
     state.sys.variable_name_filter.borrow_mut().push_str("a(");
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -910,7 +907,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -950,7 +947,7 @@ snapshot_ui!(contain_signal_filter_works, || {
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -994,7 +991,7 @@ snapshot_ui!(regex_signal_filter_works, || {
         .borrow_mut()
         .push_str("a[dx]");
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -1034,7 +1031,7 @@ snapshot_ui!(start_signal_filter_works, || {
     }
     state.sys.variable_name_filter.borrow_mut().push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -1075,7 +1072,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
     }
     state.sys.variable_name_filter.borrow_mut().push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -1095,7 +1092,7 @@ snapshot_ui!(load_keep_all_works, || {
             spade_state: None,
             startup_commands: vec![],
         });
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
 
     let msgs = [
         Message::ToggleMenu,
@@ -1138,7 +1135,7 @@ snapshot_ui!(load_keep_all_works, || {
             }
         }
     }
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -1158,7 +1155,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             spade_state: None,
             startup_commands: vec![],
         });
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
 
     let msgs = [
         Message::ToggleMenu,
@@ -1201,7 +1198,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             }
         }
     }
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
@@ -1338,7 +1335,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
             startup_commands: vec![],
         });
 
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
 
     state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
         "tb.dut.counter",
@@ -1370,17 +1367,21 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
         "tb.reset",
     )));
 
-    wait_for_waves_fully_loaded(&mut state);
+    wait_for_waves_fully_loaded(&mut state, 10);
 
     state
 });
 
 /// wait for GUI to converge
 #[inline]
-fn wait_for_waves_fully_loaded(state: &mut State) {
-    while !state.waves_fully_loaded() || !state.sys.batch_commands.is_empty() {
+pub fn wait_for_waves_fully_loaded(state: &mut State, timeout_s: u64) {
+    let load_start = std::time::Instant::now();
+    while !(state.waves_fully_loaded() && state.batch_commands_completed()) {
         state.handle_async_messages();
         state.handle_batch_commands();
+        if load_start.elapsed().as_secs() > timeout_s {
+            panic!("Timeout after {timeout_s}s!");
+        }
     }
 }
 

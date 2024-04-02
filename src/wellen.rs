@@ -1,3 +1,4 @@
+use crate::message::BodyResult;
 use crate::time::{TimeScale, TimeUnit};
 use crate::variable_type::VariableType;
 use color_eyre::eyre::bail;
@@ -20,6 +21,8 @@ static UNIQUE_ID_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::Atomic
 pub struct WellenContainer {
     #[derivative(Debug = "ignore")]
     hierarchy: std::sync::Arc<Hierarchy>,
+    /// the url of a remote server, None if waveforms are loaded locally
+    server: Option<String>,
     scopes: Vec<String>,
     vars: Vec<String>,
     signals: HashMap<SignalRef, Signal>,
@@ -29,42 +32,53 @@ pub struct WellenContainer {
     #[derivative(Debug = "ignore")]
     source: Option<SignalSource>,
     unique_id: u64,
+    body_loaded: bool,
 }
 
 /// Returned by `load_variables` if we want to load the variables on a background thread.
 /// This struct is currently only used by wellen
 pub struct LoadSignalsCmd {
-    source: SignalSource,
     signals: Vec<SignalRef>,
-    hierarchy: std::sync::Arc<Hierarchy>,
     from_unique_id: u64,
+    payload: LoadSignalPayload,
+}
+
+pub enum LoadSignalPayload {
+    Local(SignalSource, std::sync::Arc<Hierarchy>),
+    Remote(String),
 }
 
 impl LoadSignalsCmd {
-    pub fn destruct(self) -> (SignalSource, Vec<SignalRef>, std::sync::Arc<Hierarchy>, u64) {
-        (
-            self.source,
-            self.signals,
-            self.hierarchy,
-            self.from_unique_id,
-        )
+    pub fn destruct(self) -> (Vec<SignalRef>, u64, LoadSignalPayload) {
+        (self.signals, self.from_unique_id, self.payload)
     }
 }
 
 pub struct LoadSignalsResult {
-    source: SignalSource,
+    source: Option<SignalSource>,
+    server: Option<String>,
     signals: Vec<(SignalRef, Signal)>,
     from_unique_id: u64,
 }
 
 impl LoadSignalsResult {
-    pub fn new(
+    pub fn local(
         source: SignalSource,
         signals: Vec<(SignalRef, Signal)>,
         from_unique_id: u64,
     ) -> Self {
         Self {
-            source,
+            source: Some(source),
+            server: None,
+            signals,
+            from_unique_id,
+        }
+    }
+
+    pub fn remote(server: String, signals: Vec<(SignalRef, Signal)>, from_unique_id: u64) -> Self {
+        Self {
+            source: None,
+            server: Some(server),
             signals,
             from_unique_id,
         }
@@ -85,7 +99,7 @@ pub fn convert_format(format: FileFormat) -> crate::WaveFormat {
 }
 
 impl WellenContainer {
-    pub fn new(hierarchy: std::sync::Arc<Hierarchy>) -> Self {
+    pub fn new(hierarchy: std::sync::Arc<Hierarchy>, server: Option<String>) -> Self {
         // generate a list of names for all variables and scopes since they will be requested by the parser
         let h = &hierarchy;
         let scopes = h
@@ -101,6 +115,7 @@ impl WellenContainer {
 
         Self {
             hierarchy,
+            server,
             scopes,
             vars,
             signals: HashMap::new(),
@@ -108,19 +123,38 @@ impl WellenContainer {
             time_table: vec![],
             source: None,
             unique_id,
+            body_loaded: false,
         }
     }
 
-    pub fn add_body(
-        &mut self,
-        time_table: TimeTable,
-        source: SignalSource,
-    ) -> Result<Option<LoadSignalsCmd>> {
-        if self.source.is_some() {
+    pub fn body_loaded(&self) -> bool {
+        self.body_loaded
+    }
+
+    pub fn add_body(&mut self, body: BodyResult) -> Result<Option<LoadSignalsCmd>> {
+        if self.body_loaded {
             bail!("Did we just parse the body twice? That should not happen!");
         }
-        self.time_table = time_table;
-        self.source = Some(source);
+        match body {
+            BodyResult::Local(body) => {
+                if self.server.is_some() {
+                    bail!("We are connected to a server, but also received the result of parsing a file locally. Something is going wrong here!");
+                }
+                self.time_table = body.time_table;
+                self.source = Some(body.source);
+            }
+            BodyResult::Remote(time_table, server) => {
+                if let Some(old) = &self.server {
+                    if old != &server {
+                        bail!("Inconsistent server URLs: {old} vs. {server}")
+                    }
+                } else {
+                    bail!("Missing server URL!");
+                }
+                self.time_table = time_table;
+            }
+        }
+        self.body_loaded = true;
 
         // we might have to load some signals that the user has already added while the
         // body of the waveform file was being parser
@@ -148,7 +182,7 @@ impl WellenContainer {
     }
 
     pub fn is_fully_loaded(&self) -> bool {
-        self.source.is_some() && self.signals_to_be_loaded.is_empty()
+        (self.source.is_some() || self.server.is_some()) && self.signals_to_be_loaded.is_empty()
     }
 
     pub fn variable_names(&self) -> Vec<String> {
@@ -265,11 +299,14 @@ impl WellenContainer {
     }
 
     pub fn on_signals_loaded(&mut self, res: LoadSignalsResult) -> Result<Option<LoadSignalsCmd>> {
-        // check to see if this command came from out container, or from a previous file that was open
+        // check to see if this command came from our container, or from a previous file that was open
         if res.from_unique_id == self.unique_id {
-            // return source
+            // return source or server
             debug_assert!(self.source.is_none());
-            self.source = Some(res.source);
+            debug_assert!(self.server.is_none());
+            self.source = res.source;
+            self.server = res.server;
+            debug_assert!(self.server.is_some() || self.source.is_some());
             // install signals
             for (id, signal) in res.signals.into_iter() {
                 self.signals.insert(id, signal);
@@ -295,14 +332,28 @@ impl WellenContainer {
             return None; // nothing to do here
         }
 
-        // if we have a source available, let's load all signals!
-        if let Some(source) = std::mem::take(&mut self.source) {
+        if !self.body_loaded {
+            return None; // it only makes sense to load signals after we have loaded the body
+        }
+
+        // we remove the server name in order to ensure that we do not load the same signal twice
+        if let Some(server) = std::mem::take(&mut self.server) {
+            // load remote signals
             let mut signals = Vec::from_iter(self.signals_to_be_loaded.drain());
             signals.sort(); // for some determinism!
             let cmd = LoadSignalsCmd {
-                source,
                 signals,
-                hierarchy: self.hierarchy.clone(),
+                payload: LoadSignalPayload::Remote(server),
+                from_unique_id: self.unique_id,
+            };
+            Some(cmd)
+        } else if let Some(source) = std::mem::take(&mut self.source) {
+            // if we have a source available, let's load all signals!
+            let mut signals = Vec::from_iter(self.signals_to_be_loaded.drain());
+            signals.sort(); // for some determinism!
+            let cmd = LoadSignalsCmd {
+                signals,
+                payload: LoadSignalPayload::Local(source, self.hierarchy.clone()),
                 from_unique_id: self.unique_id,
             };
             Some(cmd)

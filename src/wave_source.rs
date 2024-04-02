@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicU64;
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -10,12 +11,13 @@ use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
 use eframe::egui::{self, DroppedFile};
 use futures_util::FutureExt;
-use futures_util::TryFutureExt;
 use log::{error, info, warn};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 
-use crate::wellen::{LoadSignalsCmd, LoadSignalsResult};
+use crate::message::{BodyResult, HeaderResult};
+use crate::remote::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER};
+use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
 use crate::{message::Message, wave_container::WaveContainer, State};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -118,10 +120,19 @@ pub enum LoadProgress {
     LoadingSignals(u64),
 }
 
-const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::LoadOptions = wellen::LoadOptions {
+pub(crate) const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::LoadOptions = wellen::LoadOptions {
     multi_thread: true,
     remove_scopes_with_empty_name: true,
 };
+
+macro_rules! spawn {
+    ($task:expr) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn($task);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local($task);
+    };
+}
 
 impl State {
     pub fn load_wave_from_file(
@@ -143,7 +154,12 @@ impl State {
 
             match header_result {
                 Ok(header) => {
-                    let msg = Message::WaveHeaderLoaded(start, source, load_options, header);
+                    let msg = Message::WaveHeaderLoaded(
+                        start,
+                        source,
+                        load_options,
+                        HeaderResult::Local(Box::new(header)),
+                    );
                     sender.send(msg).unwrap()
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -202,12 +218,36 @@ impl State {
                 let sender = self.sys.channels.msg_sender.clone();
                 let url_ = url.clone();
                 let task = async move {
-                    let bytes = reqwest::get(&url)
+                    let maybe_response = reqwest::get(&url)
                         .map(|e| e.with_context(|| format!("Failed fetch download {url}")))
-                        .and_then(|resp| {
-                            resp.bytes()
-                                .map(|e| e.with_context(|| format!("Failed to download {url}")))
-                        })
+                        .await;
+                    let response: reqwest::Response = match maybe_response {
+                        Ok(r) => r,
+                        Err(e) => {
+                            sender.send(Message::Error(e)).unwrap();
+                            return;
+                        }
+                    };
+
+                    // check to see if the response came from a Surfer running in server mode
+                    if let Some(value) = response.headers().get(HTTP_SERVER_KEY) {
+                        if matches!(value.to_str(), Ok(HTTP_SERVER_VALUE_SURFER)) {
+                            info!("Connecting to a surfer server at: {url}");
+                            // request status and hierarchy
+                            Self::get_server_status(sender.clone(), url.clone(), 0);
+                            Self::get_hierarchy_from_server(
+                                sender.clone(),
+                                url.clone(),
+                                load_options,
+                            );
+                            return;
+                        }
+                    }
+
+                    // otherwise we load the body to get at the file
+                    let bytes = response
+                        .bytes()
+                        .map(|e| e.with_context(|| format!("Failed to download {url}")))
                         .await;
 
                     match bytes {
@@ -216,13 +256,103 @@ impl State {
                     }
                     .unwrap();
                 };
-                #[cfg(not(target_arch = "wasm32"))]
-                tokio::spawn(task);
-                #[cfg(target_arch = "wasm32")]
-                wasm_bindgen_futures::spawn_local(task);
+                spawn!(task);
 
                 self.sys.progress_tracker = Some(LoadProgress::Downloading(url_))
             }
+        }
+    }
+    fn get_hierarchy_from_server(
+        sender: Sender<Message>,
+        server: String,
+        load_options: LoadOptions,
+    ) {
+        let start = web_time::Instant::now();
+        let source = WaveSource::Url(server.clone());
+
+        let task = async move {
+            let res = crate::remote::get_hierarchy(server.clone())
+                .await
+                .map_err(|e| anyhow!("{e:?}"))
+                .with_context(|| {
+                    format!("Failed to retrieve hierarchy from remote server {server}")
+                });
+
+            match res {
+                Ok(h) => {
+                    let header = HeaderResult::Remote(Arc::new(h.hierarchy), h.file_format, server);
+                    let msg = Message::WaveHeaderLoaded(start, source, load_options, header);
+                    sender.send(msg).unwrap()
+                }
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
+            }
+        };
+        spawn!(task);
+    }
+
+    pub fn get_time_table_from_server(sender: Sender<Message>, server: String) {
+        let start = web_time::Instant::now();
+        let source = WaveSource::Url(server.clone());
+
+        let task = async move {
+            let res = crate::remote::get_time_table(server.clone())
+                .await
+                .map_err(|e| anyhow!("{e:?}"))
+                .with_context(|| {
+                    format!("Failed to retrieve time table from remote server {server}")
+                });
+
+            match res {
+                Ok(table) => {
+                    let msg =
+                        Message::WaveBodyLoaded(start, source, BodyResult::Remote(table, server));
+                    sender.send(msg).unwrap()
+                }
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
+            }
+        };
+        spawn!(task);
+    }
+
+    fn get_server_status(sender: Sender<Message>, server: String, delay_ms: u64) {
+        let start = web_time::Instant::now();
+        let task = async move {
+            tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+            let res = crate::remote::get_status(server.clone())
+                .await
+                .map_err(|e| anyhow!("{e:?}"))
+                .with_context(|| format!("Failed to retrieve status from remote server {server}"));
+
+            match res {
+                Ok(status) => {
+                    let msg = Message::SurferServerStatus(start, server, status);
+                    sender.send(msg).unwrap()
+                }
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
+            }
+        };
+        spawn!(task);
+    }
+
+    /// uses the server status in order to display a loading bar
+    pub fn server_status_to_progress(&mut self, server: String, status: Status) {
+        // once the body is loaded, we are no longer interested in the status
+        let body_loaded = self
+            .waves
+            .as_ref()
+            .map(|w| w.inner.body_loaded())
+            .unwrap_or(false);
+        if !body_loaded {
+            // the progress tracker will be cleared once the hierarchy is returned from the server
+            let source = WaveSource::Url(server.clone());
+            let sender = self.sys.channels.msg_sender.clone();
+            self.sys.progress_tracker = Some(LoadProgress::ReadingBody(
+                source,
+                status.bytes,
+                Arc::new(AtomicU64::new(status.bytes_loaded)),
+            ));
+            // get another status update
+            Self::get_server_status(sender, server, 250);
         }
     }
 
@@ -247,10 +377,7 @@ impl State {
                 Err(e) => sender.send(Message::Error(e)),
             }
         };
-        #[cfg(not(target_arch = "wasm32"))]
-        tokio::spawn(task);
-        #[cfg(target_arch = "wasm32")]
-        wasm_bindgen_futures::spawn_local(task);
+        spawn!(task);
 
         self.sys.progress_tracker = Some(LoadProgress::Downloading(url_))
     }
@@ -272,7 +399,12 @@ impl State {
 
             match header_result {
                 Ok(header) => {
-                    let msg = Message::WaveHeaderLoaded(start, source, load_options, header);
+                    let msg = Message::WaveHeaderLoaded(
+                        start,
+                        source,
+                        load_options,
+                        HeaderResult::Local(Box::new(header)),
+                    );
                     sender.send(msg).unwrap()
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -285,7 +417,6 @@ impl State {
     fn get_thread_pool() -> Option<rayon::ThreadPool> {
         // try to create a new rayon thread pool so that we do not block drawing functionality
         // which might be blocked by the waveform reader using up all the threads in the global pool
-
         match rayon::ThreadPoolBuilder::new().build() {
             Ok(pool) => Some(pool),
             Err(e) => {
@@ -319,7 +450,7 @@ impl State {
 
                 match body_result {
                     Ok(body) => {
-                        let msg = Message::WaveBodyLoaded(start, source, body);
+                        let msg = Message::WaveBodyLoaded(start, source, BodyResult::Local(body));
                         sender.send(msg).unwrap()
                     }
                     Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -337,28 +468,53 @@ impl State {
     }
 
     pub fn load_signals(&mut self, cmd: LoadSignalsCmd) {
-        let (mut source, signals, hierarchy, from_unique_id) = cmd.destruct();
+        let (signals, from_unique_id, payload) = cmd.destruct();
         if signals.is_empty() {
             return;
         }
         let num_signals = signals.len() as u64;
         let start = web_time::Instant::now();
         let sender = self.sys.channels.msg_sender.clone();
-        let pool = Self::get_thread_pool();
 
-        perform_work(move || {
-            let action = || {
-                let loaded = source.load_signals(&signals, &hierarchy, true);
-                let res = LoadSignalsResult::new(source, loaded, from_unique_id);
-                let msg = Message::SignalsLoaded(start, res);
-                sender.send(msg).unwrap();
-            };
-            if let Some(pool) = pool {
-                pool.install(action);
-            } else {
-                action();
+        match payload {
+            LoadSignalPayload::Local(mut source, hierarchy) => {
+                let pool = Self::get_thread_pool();
+
+                perform_work(move || {
+                    let action = || {
+                        let loaded = source.load_signals(&signals, &hierarchy, true);
+                        let res = LoadSignalsResult::local(source, loaded, from_unique_id);
+                        let msg = Message::SignalsLoaded(start, res);
+                        sender.send(msg).unwrap();
+                    };
+                    if let Some(pool) = pool {
+                        pool.install(action);
+                    } else {
+                        action();
+                    }
+                });
             }
-        });
+            LoadSignalPayload::Remote(server) => {
+                let task = async move {
+                    let res = crate::remote::get_signals(server.clone(), &signals)
+                        .await
+                        .map_err(|e| anyhow!("{e:?}"))
+                        .with_context(|| {
+                            format!("Failed to retrieve signals from remote server {server}")
+                        });
+
+                    match res {
+                        Ok(loaded) => {
+                            let res = LoadSignalsResult::remote(server, loaded, from_unique_id);
+                            let msg = Message::SignalsLoaded(start, res);
+                            sender.send(msg).unwrap()
+                        }
+                        Err(e) => sender.send(Message::Error(e)).unwrap(),
+                    }
+                };
+                spawn!(task);
+            }
+        }
 
         self.sys.progress_tracker = Some(LoadProgress::LoadingSignals(num_signals));
     }
