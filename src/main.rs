@@ -390,8 +390,8 @@ pub struct SystemState {
     /// The context to egui, we need this to change the visual settings when the config is reloaded
     context: Option<Arc<eframe::egui::Context>>,
 
-    // List of unparsed commands to run at startup after the first wave has been loaded
-    startup_commands: Vec<String>,
+    /// List of batch commands which will executed as soon as possible
+    batch_commands: VecDeque<Message>,
 
     /// The draw commands for every variable currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
@@ -435,7 +435,7 @@ impl SystemState {
             },
             context: None,
             gesture_start_location: None,
-            startup_commands: vec![],
+            batch_commands: VecDeque::new(),
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(vec![None]),
@@ -557,8 +557,6 @@ impl State {
     }
 
     fn with_params(mut self, args: StartupParams) -> Self {
-        self.sys.startup_commands = args.startup_commands;
-
         self.previous_waves = self.waves;
         self.waves = None;
 
@@ -582,15 +580,26 @@ impl State {
             });
         }
 
+        // we turn the waveform argument and any startup command file into batch commands
+        self.sys.batch_commands = VecDeque::new();
+
         match args.waves {
-            Some(WaveSource::Url(url)) => self.load_wave_from_url(url, LoadOptions::clean()),
-            Some(WaveSource::File(file)) => self
-                .load_wave_from_file(file, LoadOptions::clean())
-                .unwrap(),
+            Some(WaveSource::Url(url)) => {
+                self.sys
+                    .batch_commands
+                    .push_back(Message::LoadWaveformFileFromUrl(url, LoadOptions::clean()));
+            }
+            Some(WaveSource::File(file)) => {
+                self.sys
+                    .batch_commands
+                    .push_back(Message::LoadWaveformFile(file, LoadOptions::clean()));
+            }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             #[cfg(not(target_arch = "wasm32"))]
             Some(WaveSource::CxxrtlTcp(url)) => {
-                self.connect_to_cxxrtl(url, false);
+                self.sys
+                    .batch_commands
+                    .push_back(Message::ConnectToCxxrtl(url));
             }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)")
@@ -598,7 +607,16 @@ impl State {
             None => {}
         }
 
+        self.add_startup_commands(args.startup_commands);
+
         self
+    }
+
+    pub fn add_startup_commands(&mut self, commands: Vec<String>) {
+        let parsed = self.parse_startup_commands(commands);
+        for msg in parsed.into_iter() {
+            self.sys.batch_commands.push_back(msg);
+        }
     }
 
     pub fn update(&mut self, message: Message) {
@@ -1433,7 +1451,6 @@ impl State {
         // Set time unit to the file time unit before consuming new_wave
         self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
         self.waves = Some(new_wave);
-        self.run_startup_commands();
     }
 
     fn handle_async_messages(&mut self) {
@@ -1452,6 +1469,25 @@ impl State {
         while let Some(msg) = msgs.pop() {
             self.update(msg);
         }
+    }
+
+    /// After user messages are addressed, we try to execute batch commands as they are ready to run
+    fn handle_batch_commands(&mut self) {
+        // we only execute commands while we aren't waiting for background operations to complete
+        while self.can_start_batch_command() {
+            if let Some(cmd) = self.sys.batch_commands.pop_front() {
+                info!("Applying startup command: {cmd:?}");
+                self.update(cmd);
+            } else {
+                break; // no more messages
+            }
+        }
+    }
+
+    /// Returns whether it is OK to start a new batch command.
+    fn can_start_batch_command(&self) -> bool {
+        // if the progress tracker is none -> all operations have completed
+        self.sys.progress_tracker.is_none()
     }
 
     pub fn get_visuals(&self) -> Visuals {
@@ -1499,42 +1535,6 @@ impl State {
         }
     }
 
-    pub fn run_startup_commands(&mut self) {
-        let startup_commands = &self.sys.startup_commands;
-        trace!("Parsing startup commands {:?}", startup_commands);
-        let parsed = startup_commands
-            .clone()
-            .drain(0..(startup_commands.len()))
-            // Add line numbers
-            .enumerate()
-            // Make the line numbers start at 1 as is tradition
-            .map(|(no, line)| (no + 1, line))
-            .map(|(no, line)| (no, line.trim().to_string()))
-            // NOTE: Safe unwrap. Split will always return one element
-            .map(|(no, line)| (no, line.split('#').next().unwrap().to_string()))
-            .filter(|(_no, line)| !line.is_empty())
-            .flat_map(|(no, line)| {
-                line.split(';')
-                    .map(|cmd| (no, cmd.to_string()))
-                    .collect::<Vec<_>>()
-            })
-            .filter_map(|(no, command)| {
-                parse_command(&command, get_parser(self))
-                    .map_err(|e| {
-                        error!("Error on startup commands line {no}: {e:#?}");
-                        e
-                    })
-                    .map(|message| (message, command))
-                    .ok()
-            })
-            .collect::<Vec<_>>();
-
-        for (message, message_string) in parsed {
-            info!("Applying message {message_string}");
-            self.update(message)
-        }
-    }
-
     fn encode_state(&self) -> Option<String> {
         let opt = ron::Options::default();
         opt.to_string_pretty(self, PrettyConfig::default())
@@ -1561,5 +1561,35 @@ impl State {
             .as_ref()
             .map(|w| w.inner.is_fully_loaded())
             .unwrap_or(false)
+    }
+
+    fn parse_startup_commands(&mut self, cmds: Vec<String>) -> Vec<Message> {
+        trace!("Parsing startup commands {:?}", cmds);
+        let parsed = cmds
+            .into_iter()
+            // Add line numbers
+            .enumerate()
+            // Make the line numbers start at 1 as is tradition
+            .map(|(no, line)| (no + 1, line))
+            .map(|(no, line)| (no, line.trim().to_string()))
+            // NOTE: Safe unwrap. Split will always return one element
+            .map(|(no, line)| (no, line.split('#').next().unwrap().to_string()))
+            .filter(|(_no, line)| !line.is_empty())
+            .flat_map(|(no, line)| {
+                line.split(';')
+                    .map(|cmd| (no, cmd.to_string()))
+                    .collect::<Vec<_>>()
+            })
+            .filter_map(|(no, command)| {
+                parse_command(&command, get_parser(self))
+                    .map_err(|e| {
+                        error!("Error on startup commands line {no}: {e:#?}");
+                        e
+                    })
+                    .ok()
+            })
+            .collect::<Vec<_>>();
+
+        parsed
     }
 }

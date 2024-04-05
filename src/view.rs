@@ -171,6 +171,7 @@ impl eframe::App for State {
         self.sys.timing.borrow_mut().end("handle_async_messages");
 
         self.handle_async_messages();
+        self.handle_batch_commands();
         #[cfg(target_arch = "wasm32")]
         self.handle_wasm_external_messages();
 

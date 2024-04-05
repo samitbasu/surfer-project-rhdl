@@ -264,6 +264,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
 
             loop {
                 state.handle_async_messages();
+                state.handle_batch_commands();
                 let spade_loaded = if spade_top.is_some() {
                     state
                         .sys
@@ -360,6 +361,7 @@ snapshot_ui!(overview_can_be_hidden, || {
 
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -392,6 +394,7 @@ snapshot_ui!(statusbar_can_be_hidden, || {
 
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -416,6 +419,7 @@ snapshot_ui! {example_vcd_renders, || {
 
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -466,6 +470,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -620,7 +625,7 @@ snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",
     state_mods: (|state: &mut State| {
-        state.sys.startup_commands = vec!["scope_add tb".to_string()];
+        state.add_startup_commands(vec!["scope_add tb".to_string()]);
     }),
     []
 }
@@ -633,7 +638,7 @@ snapshot_ui_with_file_and_msgs! {
     yosys_blogpost_startup_commands_work,
     "examples/picorv32.vcd",
     state_mods: (|state: &mut State| {
-        state.sys.startup_commands = vec!["startup_commands=module_add testbench;divider_add .;divider_add top;module_add testbench.top;show_quick_start".to_string()];
+        state.add_startup_commands(vec!["startup_commands=module_add testbench;divider_add .;divider_add top;module_add testbench.top;show_quick_start".to_string()]);
     }),
     []
 }
@@ -798,6 +803,7 @@ snapshot_ui!(regex_error_indication, || {
         });
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -841,6 +847,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -880,6 +887,7 @@ snapshot_ui!(contain_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -919,6 +927,7 @@ snapshot_ui!(regex_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -962,6 +971,7 @@ snapshot_ui!(start_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -1001,6 +1011,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         });
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state.waves_fully_loaded() {
             break;
         }
@@ -1067,6 +1078,7 @@ snapshot_ui!(load_keep_all_works, || {
     }
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if let Some(waves) = &state.waves {
             if waves.source
                 == WaveSource::File(
@@ -1129,6 +1141,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
     }
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if let Some(waves) = &state.waves {
             if waves.source
                 == WaveSource::File(
@@ -1296,6 +1309,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
 
     loop {
         state.handle_async_messages();
+        state.handle_batch_commands();
         if state
             .waves
             .as_ref()
@@ -1322,5 +1336,6 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
 fn wait_for_waves_fully_loaded(state: &mut State) {
     while !state.waves_fully_loaded() {
         state.handle_async_messages();
+        state.handle_batch_commands();
     }
 }
