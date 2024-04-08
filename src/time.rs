@@ -30,6 +30,7 @@ pub enum TimeUnit {
     MilliSeconds,
     Seconds,
     None,
+    Auto,
 }
 
 pub const DEFAULT_TIMELINE_NAME: &str = "Time";
@@ -45,6 +46,7 @@ impl fmt::Display for TimeUnit {
             TimeUnit::MilliSeconds => write!(f, "ms"),
             TimeUnit::Seconds => write!(f, "s"),
             TimeUnit::None => write!(f, "No unit"),
+            TimeUnit::Auto => write!(f, "Auto"),
         }
     }
 }
@@ -73,6 +75,18 @@ impl TimeUnit {
             TimeUnit::MilliSeconds => -3,
             TimeUnit::Seconds => 0,
             TimeUnit::None => 0,
+            TimeUnit::Auto => 0,
+        }
+    }
+    fn from_exponent(exponent: i8) -> Self {
+        match exponent {
+            -15 => TimeUnit::FemtoSeconds,
+            -12 => TimeUnit::PicoSeconds,
+            -9 => TimeUnit::NanoSeconds,
+            -6 => TimeUnit::MicroSeconds,
+            -3 => TimeUnit::MilliSeconds,
+            0 => TimeUnit::Seconds,
+            _ => panic!("Invalid exponent"),
         }
     }
 }
@@ -249,12 +263,32 @@ fn split_and_format_number(time: String, format: &TimeStringFormatting) -> Strin
     }
 }
 
+fn find_auto_scale(time: &BigInt, timescale: &TimeScale) -> TimeUnit {
+    // In case of seconds, nothing to do as it is the largest supported unit
+    // (unless we want to support minutes etc...)
+    if timescale.unit == TimeUnit::Seconds {
+        return TimeUnit::Seconds;
+    }
+    let multiplier_digits = timescale.multiplier.unwrap_or(1).ilog10();
+    let start_digits = -timescale.unit.exponent();
+    for e in (3..=start_digits).step_by(3).rev() {
+        if (time % (10_u32.pow(e as u32 - multiplier_digits))) == BigInt::from(0) {
+            return TimeUnit::from_exponent(e - start_digits);
+        }
+    }
+    timescale.unit
+}
+
 pub fn time_string(
     time: &BigInt,
     timescale: &TimeScale,
     wanted_timeunit: &TimeUnit,
     wanted_time_format: &TimeFormat,
 ) -> String {
+    if wanted_timeunit == &TimeUnit::Auto {
+        let auto_timeunit = find_auto_scale(time, timescale);
+        return time_string(time, timescale, &auto_timeunit, wanted_time_format);
+    }
     if wanted_timeunit == &TimeUnit::None {
         return split_and_format_number(time.to_string(), &wanted_time_format.format);
     }
@@ -558,6 +592,124 @@ mod test {
                 }
             ),
             "22\u{2009}200 μs"
+        );
+    }
+    #[test]
+    fn print_time_auto() {
+        assert_eq!(
+            time_string(
+                &BigInt::from(2200),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::Auto,
+                &TimeFormat {
+                    format: TimeStringFormatting::SI,
+                    show_space: true,
+                    show_unit: true
+                }
+            ),
+            "2200 μs"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(22000),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::Auto,
+                &TimeFormat {
+                    format: TimeStringFormatting::SI,
+                    show_space: true,
+                    show_unit: true
+                }
+            ),
+            "22 ms"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(22000),
+                &TimeScale {
+                    multiplier: Some(10),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::Auto,
+                &TimeFormat {
+                    format: TimeStringFormatting::SI,
+                    show_space: true,
+                    show_unit: true
+                }
+            ),
+            "220 ms"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(220000),
+                &TimeScale {
+                    multiplier: Some(100),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::Auto,
+                &TimeFormat {
+                    format: TimeStringFormatting::SI,
+                    show_space: true,
+                    show_unit: true
+                }
+            ),
+            "22 s"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(22000),
+                &TimeScale {
+                    multiplier: Some(10),
+                    unit: TimeUnit::Seconds
+                },
+                &TimeUnit::Auto,
+                &TimeFormat {
+                    format: TimeStringFormatting::No,
+                    show_space: true,
+                    show_unit: true
+                }
+            ),
+            "220000 s"
+        );
+    }
+    #[test]
+    fn print_time_none() {
+        assert_eq!(
+            time_string(
+                &BigInt::from(2200),
+                &TimeScale {
+                    multiplier: Some(1),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::None,
+                &TimeFormat {
+                    format: TimeStringFormatting::No,
+                    show_space: true,
+                    show_unit: true
+                }
+            ),
+            "2200"
+        );
+        assert_eq!(
+            time_string(
+                &BigInt::from(220),
+                &TimeScale {
+                    multiplier: Some(10),
+                    unit: TimeUnit::MicroSeconds
+                },
+                &TimeUnit::None,
+                &TimeFormat {
+                    format: TimeStringFormatting::No,
+                    show_space: true,
+                    show_unit: true
+                }
+            ),
+            "220"
         );
     }
 }
