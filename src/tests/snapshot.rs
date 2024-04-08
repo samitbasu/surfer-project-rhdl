@@ -290,12 +290,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
             state.update(Message::ToggleOverview);
 
             for msg in $msgs {
-                if matches!(msg, Message::MoveCursorToTransition { .. }) {
-                    // make sure all the signals added by the proceeding messages are properly
-                    // loaded before attempting to move the cursor to a transition
-                    wait_for_waves_fully_loaded(&mut state);
-                }
-                state.update(msg)
+                state.sys.batch_commands.push_back(msg);
             }
 
             // make sure all the signals added by the proceeding messages are properly loaded
@@ -1334,7 +1329,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
 /// wait for GUI to converge
 #[inline]
 fn wait_for_waves_fully_loaded(state: &mut State) {
-    while !state.waves_fully_loaded() {
+    while !state.waves_fully_loaded() || !state.sys.batch_commands.is_empty() {
         state.handle_async_messages();
         state.handle_batch_commands();
     }
