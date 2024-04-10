@@ -5357,7 +5357,7 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.9.0"
+version = "0.9.3"
 dependencies = [
  "bytesize",
  "fst-native",
