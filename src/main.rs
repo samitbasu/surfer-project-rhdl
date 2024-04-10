@@ -431,6 +431,7 @@ impl SystemState {
                 visible: false,
                 suggestions: vec![],
                 selected: 0,
+                selection_changed: false,
                 previous_commands: vec![],
             },
             context: None,
@@ -1260,6 +1261,7 @@ impl State {
                     } else {
                         0
                     };
+                self.sys.command_prompt.selection_changed = true;
             }
             Message::CommandPromptPushPrevious(cmd) => {
                 let len = cmd.len();
@@ -1308,12 +1310,14 @@ impl State {
             Message::SelectPrevCommand => {
                 self.sys.command_prompt.selected =
                     self.sys.command_prompt.selected.saturating_sub(1);
+                self.sys.command_prompt.selection_changed = true;
             }
             Message::SelectNextCommand => {
                 self.sys.command_prompt.selected = std::cmp::min(
                     self.sys.command_prompt.selected + 1,
                     self.sys.command_prompt.suggestions.len().saturating_sub(1),
                 );
+                self.sys.command_prompt.selection_changed = true;
             }
             Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
             Message::SetArrowKeyBindings(bindings) => {
