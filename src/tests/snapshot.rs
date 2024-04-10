@@ -670,6 +670,54 @@ snapshot_ui_with_file_and_msgs! {command_prompt, "examples/counter.vcd", [
     Message::ShowCommandPrompt(true)
 ]}
 
+snapshot_ui_with_file_and_msgs! {command_prompt_next_command, "examples/counter.vcd", [
+    Message::ShowCommandPrompt(true),
+    Message::CommandPromptUpdate { suggestions: vec![("test".to_string(), vec![true, true, false, false]); 10] },
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+]}
+
+snapshot_ui_with_file_and_msgs! {command_prompt_prev_command, "examples/counter.vcd", [
+    Message::ShowCommandPrompt(true),
+    Message::CommandPromptUpdate { suggestions: vec![("test".to_string(), vec![true, true, false, false]); 10] },
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectPrevCommand
+]}
+
+snapshot_ui_with_file_and_msgs! {command_prompt_scrolls, "examples/counter.vcd", [
+    Message::ShowCommandPrompt(true),
+    Message::CommandPromptUpdate { suggestions: vec![("test".to_string(), vec![true, true, false, false]); 50] },
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand,
+    Message::SelectNextCommand
+]}
+
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::GoToTime(Some(BigInt::from(-50)), 0),

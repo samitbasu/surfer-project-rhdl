@@ -431,6 +431,7 @@ impl SystemState {
                 visible: false,
                 suggestions: vec![],
                 selected: 0,
+                new_selection: None,
                 previous_commands: vec![],
             },
             context: None,
@@ -1278,6 +1279,12 @@ impl State {
                     } else {
                         0
                     };
+                self.sys.command_prompt.new_selection =
+                    Some(if self.sys.command_prompt_text.borrow().is_empty() {
+                        self.sys.command_prompt.previous_commands.len().clamp(0, 3)
+                    } else {
+                        0
+                    });
             }
             Message::CommandPromptPushPrevious(cmd) => {
                 let len = cmd.len();
@@ -1324,14 +1331,20 @@ impl State {
                 self.save_state(&filename);
             }
             Message::SelectPrevCommand => {
-                self.sys.command_prompt.selected =
-                    self.sys.command_prompt.selected.saturating_sub(1);
+                self.sys.command_prompt.new_selection = self
+                    .sys
+                    .command_prompt
+                    .new_selection
+                    .or(Some(self.sys.command_prompt.selected))
+                    .map(|idx| idx.saturating_sub(1));
             }
             Message::SelectNextCommand => {
-                self.sys.command_prompt.selected = std::cmp::min(
-                    self.sys.command_prompt.selected + 1,
-                    self.sys.command_prompt.suggestions.len().saturating_sub(1),
-                );
+                self.sys.command_prompt.new_selection = self
+                    .sys
+                    .command_prompt
+                    .new_selection
+                    .or(Some(self.sys.command_prompt.selected))
+                    .map(|idx| idx.saturating_add(1));
             }
             Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
             Message::SetArrowKeyBindings(bindings) => {
