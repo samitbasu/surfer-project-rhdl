@@ -353,7 +353,7 @@ impl SurferConfig {
                 .add_source(File::from(Path::new("surfer.toml")).required(false))
                 .add_source(Environment::with_prefix("surfer"));
 
-            if theme_name != "" {
+            if !theme_name.is_empty() {
                 if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
                     let theme_file = proj_dirs.config_dir().join("themes/").join(theme_name);
                     c = c.add_source(File::from(theme_file).required(false));

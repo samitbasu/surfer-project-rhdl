@@ -246,11 +246,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 )),
                 "config_reload" => Some(Command::Terminal(Message::ReloadConfig)),
                 "theme_select" => single_word(
-                    theme_names.clone(), 
+                    theme_names.clone(),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::SelectTheme(
-                            Some(word.to_owned())
-                        )))
+                        Some(Command::Terminal(Message::SelectTheme(Some(
+                            word.to_owned(),
+                        ))))
                     }),
                 ),
                 "scroll_to_start" | "goto_start" => {
