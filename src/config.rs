@@ -84,6 +84,8 @@ pub struct SurferConfig {
     pub default_clock_highlight_type: ClockHighlightType,
     /// Distance in pixels for cursor snap
     pub snap_distance: f32,
+    /// List of theme names
+    pub theme_names: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -300,12 +302,22 @@ fn default_colors() -> HashMap<String, Color32> {
 impl SurferConfig {
     #[cfg(target_arch = "wasm32")]
     pub fn new(_force_default_config: bool) -> Result<Self> {
+        Self::with_theme("", force_default_config)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new(force_default_config: bool) -> color_eyre::Result<Self> {
+        Self::with_theme("", force_default_config)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn with_theme(theme_name: &str, force_default_config: bool) -> Result<Self> {
         let default_config = String::from(include_str!("../default_config.toml"));
         Ok(toml::from_str(&default_config)?)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new(force_default_config: bool) -> color_eyre::Result<Self> {
+    pub fn with_theme(theme_name: &str, force_default_config: bool) -> color_eyre::Result<Self> {
         use color_eyre::eyre::anyhow;
 
         let default_config = String::from(include_str!("../default_config.toml"));
@@ -314,16 +326,43 @@ impl SurferConfig {
             &default_config,
             config::FileFormat::Toml,
         ));
+
+        let mut vs = Vec::new();
+
         let c = if !force_default_config {
             if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
                 let config_file = proj_dirs.config_dir().join("config.toml");
                 c = c.add_source(File::from(config_file).required(false));
+
+                let theme_dir = proj_dirs.config_dir().join("themes");
+                let entries = std::fs::read_dir(theme_dir);
+
+                if entries.is_ok() {
+                    for entry in entries.unwrap() {
+                        if entry.is_ok() {
+                            let fname = entry.unwrap().file_name().into_string().unwrap();
+                            if fname.ends_with(".toml") {
+                                vs.push(fname);
+                            }
+                        }
+                    }
+                }
             }
 
-            c.add_source(File::from(Path::new("surfer.toml")).required(false))
-                .add_source(Environment::with_prefix("surfer"))
+            c = c
+                .add_source(File::from(Path::new("surfer.toml")).required(false))
+                .add_source(Environment::with_prefix("surfer"));
+
+            if theme_name != "" {
+                if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
+                    let theme_file = proj_dirs.config_dir().join("themes/").join(theme_name);
+                    c = c.add_source(File::from(theme_file).required(false));
+                }
+            }
+
+            c.set_override("theme_names", vs)?
         } else {
-            c
+            c.set_override("theme_names", Vec::<String>::new())?
         };
 
         c.build()?

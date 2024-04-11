@@ -203,6 +203,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
     #[cfg(feature = "performance_plot")]
     commands.push("show_performance");
+    let theme_names = state.config.theme_names.clone();
     Command::NonTerminal(
         ParamGreed::Word,
         commands.into_iter().map(|s| s.into()).collect(),
@@ -244,6 +245,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 )),
                 "config_reload" => Some(Command::Terminal(Message::ReloadConfig)),
+                "theme_select" => single_word(
+                    theme_names.clone(), 
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SelectTheme(
+                            Some(word.to_owned())
+                        )))
+                    }),
+                ),
                 "scroll_to_start" | "goto_start" => {
                     Some(Command::Terminal(Message::GoToStart { viewport_idx: 0 }))
                 }
