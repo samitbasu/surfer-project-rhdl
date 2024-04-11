@@ -301,7 +301,7 @@ fn default_colors() -> HashMap<String, Color32> {
 
 impl SurferConfig {
     #[cfg(target_arch = "wasm32")]
-    pub fn new(_force_default_config: bool) -> Result<Self> {
+    pub fn new(force_default_config: bool) -> Result<Self> {
         Self::with_theme("", force_default_config)
     }
 
@@ -311,7 +311,7 @@ impl SurferConfig {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn with_theme(theme_name: &str, force_default_config: bool) -> Result<Self> {
+    pub fn with_theme(_theme_name: &str, _force_default_config: bool) -> Result<Self> {
         let default_config = String::from(include_str!("../default_config.toml"));
         Ok(toml::from_str(&default_config)?)
     }
