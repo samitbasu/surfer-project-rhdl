@@ -365,7 +365,8 @@ impl SurferConfig {
             config.set_override("theme_names", Vec::<String>::new())?
         };
 
-        config.build()?
+        config
+            .build()?
             .try_deserialize()
             .map_err(|e| anyhow!("Failed to parse config {e}"))
     }
