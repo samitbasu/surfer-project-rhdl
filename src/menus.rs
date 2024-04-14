@@ -146,6 +146,13 @@ impl State {
             b("Toggle full screen", Message::ToggleFullscreen)
                 .shortcut("F11")
                 .add_closing_menu(msgs, ui);
+            ui.menu_button("Theme", |ui| {
+                b("Default Theme", Message::SelectTheme(None)).add_closing_menu(msgs, ui);
+
+                for s in self.config.theme_names.clone() {
+                    b(s.clone(), Message::SelectTheme(Some(s))).add_closing_menu(msgs, ui);
+                }
+            });
         });
 
         ui.menu_button("Settings", |ui| {

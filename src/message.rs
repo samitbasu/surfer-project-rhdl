@@ -194,6 +194,8 @@ pub enum Message {
     Batch(Vec<Message>),
     AddViewport,
     RemoveViewport,
+    /// Select Theme
+    SelectTheme(Option<String>),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,

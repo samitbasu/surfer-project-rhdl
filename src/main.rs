@@ -1393,6 +1393,17 @@ impl State {
                     }
                 }
             }
+            Message::SelectTheme(theme_name) => {
+                if let Ok(config) =
+                    SurferConfig::with_theme(theme_name.as_deref().unwrap_or(""), false)
+                        .with_context(|| "Failed to set theme")
+                {
+                    self.config = config;
+                    if let Some(ctx) = &self.sys.context.as_ref() {
+                        ctx.set_visuals(self.get_visuals());
+                    }
+                }
+            }
         }
     }
 
