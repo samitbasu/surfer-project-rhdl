@@ -646,100 +646,103 @@ impl State {
                     .unwrap()
                     .displayed_items
                     .get(displayed_item_id)
-                    .map(|displayed_item| match displayed_item {
-                        DisplayedItem::Variable(displayed_variable) => {
-                            let var = displayed_variable;
-                            let info = &displayed_variable.info;
-                            let index = if self
-                                .show_variable_indices
-                                .unwrap_or_else(|| self.config.layout.show_variable_indices())
-                            {
-                                self.waves
-                                    .as_ref()
-                                    .unwrap()
-                                    .inner
-                                    .variable_meta(&var.variable_ref)
-                                    .ok()
-                                    .as_ref()
-                                    .and_then(|meta| meta.index.clone())
-                                    .map(|index| format!(" {index}"))
-                            } else {
-                                None
-                            };
-                            let style = Style::default();
-                            let mut layout_job = LayoutJob::default();
-                            self.add_alpha_id(
-                                draw_alpha,
-                                vidx,
-                                &style,
-                                &mut layout_job,
-                                Align::LEFT,
-                            );
-                            displayed_item.add_to_layout_job(
-                                &self.config.theme.foreground,
-                                index,
-                                &style,
-                                &mut layout_job,
-                            );
+                    .map(|displayed_item| {
+                        let item_rect = match displayed_item {
+                            DisplayedItem::Variable(displayed_variable) => {
+                                let var = displayed_variable;
+                                let info = &displayed_variable.info;
+                                let index = if self
+                                    .show_variable_indices
+                                    .unwrap_or_else(|| self.config.layout.show_variable_indices())
+                                {
+                                    self.waves
+                                        .as_ref()
+                                        .unwrap()
+                                        .inner
+                                        .variable_meta(&var.variable_ref)
+                                        .ok()
+                                        .as_ref()
+                                        .and_then(|meta| meta.index.clone())
+                                        .map(|index| format!(" {index}"))
+                                } else {
+                                    None
+                                };
+                                let style = Style::default();
+                                let mut layout_job = LayoutJob::default();
+                                self.add_alpha_id(
+                                    draw_alpha,
+                                    vidx,
+                                    &style,
+                                    &mut layout_job,
+                                    Align::LEFT,
+                                );
+                                displayed_item.add_to_layout_job(
+                                    &self.config.theme.foreground,
+                                    index,
+                                    &style,
+                                    &mut layout_job,
+                                );
 
-                            self.add_alpha_id(
-                                draw_alpha,
-                                vidx,
-                                &style,
-                                &mut layout_job,
-                                Align::RIGHT,
-                            );
+                                self.add_alpha_id(
+                                    draw_alpha,
+                                    vidx,
+                                    &style,
+                                    &mut layout_job,
+                                    Align::RIGHT,
+                                );
 
-                            self.draw_variable(
-                                msgs,
-                                vidx,
-                                WidgetText::LayoutJob(layout_job),
-                                FieldRef::without_fields(var.variable_ref.clone()),
-                                &mut item_offsets,
-                                info,
-                                ui,
-                            );
-                        }
-                        DisplayedItem::Divider(_) => {
-                            self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                                draw_alpha,
-                            );
-                        }
-                        DisplayedItem::Marker(_) => {
-                            self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                                draw_alpha,
-                            );
-                        }
-                        DisplayedItem::Placeholder(_) => {
-                            self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                                draw_alpha,
-                            );
-                        }
-                        DisplayedItem::TimeLine(_) => {
-                            self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                                draw_alpha,
-                            );
-                        }
+                                self.draw_variable(
+                                    msgs,
+                                    vidx,
+                                    WidgetText::LayoutJob(layout_job),
+                                    FieldRef::without_fields(var.variable_ref.clone()),
+                                    &mut item_offsets,
+                                    info,
+                                    ui,
+                                )
+                            }
+                            DisplayedItem::Divider(_) => {
+                                self.draw_plain_item(
+                                    msgs,
+                                    vidx,
+                                    displayed_item,
+                                    &mut item_offsets,
+                                    ui,
+                                    draw_alpha,
+                                )
+                            }
+                            DisplayedItem::Marker(_) => {
+                                self.draw_plain_item(
+                                    msgs,
+                                    vidx,
+                                    displayed_item,
+                                    &mut item_offsets,
+                                    ui,
+                                    draw_alpha,
+                                )
+                            }
+                            DisplayedItem::Placeholder(_) => {
+                                self.draw_plain_item(
+                                    msgs,
+                                    vidx,
+                                    displayed_item,
+                                    &mut item_offsets,
+                                    ui,
+                                    draw_alpha,
+                                )
+                            }
+                            DisplayedItem::TimeLine(_) => {
+                                self.draw_plain_item(
+                                    msgs,
+                                    vidx,
+                                    displayed_item,
+                                    &mut item_offsets,
+                                    ui,
+                                    draw_alpha,
+                                )
+                            }
+                        };
+                        self.draw_drag_target(msgs, vidx, item_rect, ui);
                     });
             }
         });
@@ -767,13 +770,14 @@ impl State {
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         info: &VariableInfo,
         ui: &mut egui::Ui,
-    ) {
+    ) -> Rect {
         let draw_label = |ui: &mut egui::Ui| {
             let mut variable_label = ui
                 .selectable_label(self.item_is_selected(vidx), name)
                 .context_menu(|ui| {
                     self.item_context_menu(Some(&field), msgs, ui, vidx);
-                });
+                })
+                .interact(egui::Sense::drag());
 
             if self.show_tooltip() {
                 let tooltip = if let Some(waves) = &self.waves {
@@ -797,6 +801,18 @@ impl State {
                     msgs.push(Message::UnfocusItem);
                 } else {
                     msgs.push(Message::FocusItem(vidx));
+                }
+            }
+
+            if variable_label.drag_started() {
+                msgs.push(Message::VariableDragStarted(vidx));
+            }
+
+            if variable_label.drag_released() {
+                if let Some(source_idx) = self.drag_source_idx {
+                    if source_idx == vidx {
+                        msgs.push(Message::VariableDragFinished);
+                    }
                 }
             }
             variable_label
@@ -837,6 +853,7 @@ impl State {
                     top: response.0.rect.top(),
                     bottom: response.0.rect.bottom(),
                 }));
+                return response.0.rect;
             }
             VariableInfo::Bool
             | VariableInfo::Bits
@@ -850,6 +867,82 @@ impl State {
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                 }));
+                return label.rect;
+            }
+        }
+    }
+
+    fn draw_drag_target(
+        &self,
+        msgs: &mut Vec<Message>,
+        vidx: usize,
+        item_rect: Rect,
+        ui: &mut egui::Ui,
+    ) {
+        // Add default margin as it was removed when creating the frame
+        let rect_with_margin = Rect {
+            min: item_rect.min - ui.spacing().item_spacing / 2f32,
+            max: item_rect.max + ui.spacing().item_spacing / 2f32,
+        };
+
+        let vertical_translation_up = Vec2 {
+            x: 0f32,
+            y: -rect_with_margin.height() / 2f32,
+        };
+
+        let before_rect = Rect {
+            min: ui
+                .painter()
+                .round_pos_to_pixels(rect_with_margin.left_top()),
+            max: ui
+                .painter()
+                .round_pos_to_pixels(rect_with_margin.right_bottom() + vertical_translation_up),
+        };
+
+        let after_rect = Rect {
+            min: ui.painter().round_pos_to_pixels(before_rect.left_bottom()),
+            max: ui
+                .painter()
+                .round_pos_to_pixels(rect_with_margin.right_bottom()),
+        };
+
+        if self.drag_started {
+            if let Some(source_idx) = self.drag_source_idx {
+                let target_idx = if ui.rect_contains_pointer(before_rect) {
+                    ui.painter().rect_filled(
+                        Rect {
+                            min: before_rect.min,
+                            max: before_rect.right_top() + Vec2 { x: 0f32, y: 1f32 },
+                        },
+                        egui::Rounding::ZERO,
+                        egui::Color32::GRAY,
+                    );
+                    if vidx > source_idx {
+                        vidx - 1
+                    } else {
+                        vidx
+                    }
+                } else if ui.rect_contains_pointer(after_rect) {
+                    ui.painter().rect_filled(
+                        Rect {
+                            min: after_rect.left_bottom(),
+                            max: after_rect.right_bottom() + Vec2 { x: 0f32, y: 1f32 },
+                        },
+                        egui::Rounding::ZERO,
+                        egui::Color32::GRAY,
+                    );
+                    if vidx < source_idx {
+                        vidx + 1
+                    } else {
+                        vidx
+                    }
+                } else {
+                    source_idx
+                };
+
+                if source_idx != target_idx {
+                    msgs.push(Message::VariableDragTargetChanged(target_idx));
+                }
             }
         }
     }
@@ -862,7 +955,7 @@ impl State {
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
         draw_alpha: bool,
-    ) {
+    ) -> Rect {
         let mut draw_label = |ui: &mut egui::Ui| {
             let style = Style::default();
             let mut layout_job = LayoutJob::default();
@@ -913,6 +1006,31 @@ impl State {
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
         }
+
+        let item_rect = ui.allocate_rect(
+            Rect {
+                min: label.rect.min,
+                max: Pos2 {
+                    x: ui.max_rect().max.x,
+                    y: label.rect.bottom(),
+                },
+            },
+            egui::Sense::drag(),
+        );
+
+        if item_rect.drag_started() {
+            msgs.push(Message::VariableDragStarted(vidx));
+        }
+
+        if item_rect.drag_released() {
+            if let Some(source_idx) = self.drag_source_idx {
+                if source_idx == vidx {
+                    msgs.push(Message::VariableDragFinished);
+                }
+            }
+        }
+
+        return label.rect;
     }
 
     fn add_alpha_id(

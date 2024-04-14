@@ -183,6 +183,11 @@ pub enum Message {
     VariableValueToClipbord(Option<usize>),
     InvalidateDrawCommands,
 
+    /// Variable dragging messages
+    VariableDragStarted(usize),
+    VariableDragTargetChanged(usize),
+    VariableDragFinished,
+
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
     UnpauseSimulation,

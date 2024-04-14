@@ -470,6 +470,9 @@ pub struct State {
     show_variable_indices: Option<bool>,
 
     waves: Option<WaveData>,
+    drag_started: bool,
+    drag_source_idx: Option<usize>,
+    drag_target_idx: Option<usize>,
 
     previous_waves: Option<WaveData>,
 
@@ -552,6 +555,9 @@ impl State {
             show_statusbar: None,
             align_names_right: None,
             show_variable_indices: None,
+            drag_started: false,
+            drag_source_idx: None,
+            drag_target_idx: None,
         };
 
         Ok(result)
@@ -1365,6 +1371,38 @@ impl State {
                 for message in messages {
                     self.update(message)
                 }
+            }
+            Message::VariableDragStarted(vidx) => {
+                self.drag_started = true;
+                self.drag_source_idx = Some(vidx);
+                self.drag_target_idx = None;
+            }
+            Message::VariableDragTargetChanged(vidx) => {
+                self.drag_target_idx = Some(vidx);
+            }
+            Message::VariableDragFinished => {
+                self.drag_started = false;
+
+                // reordering
+                if let Some(source_vidx) = self.drag_source_idx {
+                    if let Some(target_vidx) = self.drag_target_idx {
+                        self.invalidate_draw_commands();
+                        let Some(waves) = self.waves.as_mut() else {
+                            return;
+                        };
+                        let visible_items_len = waves.displayed_items.len();
+                        if visible_items_len > 0 {
+                            let old_idx = waves.displayed_items_order.remove(source_vidx);
+                            if waves.displayed_items_order.len() < target_vidx {
+                                waves.displayed_items_order.push(old_idx);
+                            } else {
+                                waves.displayed_items_order.insert(target_vidx, old_idx);
+                            }
+                        }
+                    }
+                }
+                self.drag_source_idx = None;
+                self.drag_target_idx = None;
             }
             Message::VariableValueToClipbord(vidx) => {
                 if let Some(waves) = &self.waves {
