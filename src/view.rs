@@ -701,46 +701,38 @@ impl State {
                                     ui,
                                 )
                             }
-                            DisplayedItem::Divider(_) => {
-                                self.draw_plain_item(
-                                    msgs,
-                                    vidx,
-                                    displayed_item,
-                                    &mut item_offsets,
-                                    ui,
-                                    draw_alpha,
-                                )
-                            }
-                            DisplayedItem::Marker(_) => {
-                                self.draw_plain_item(
-                                    msgs,
-                                    vidx,
-                                    displayed_item,
-                                    &mut item_offsets,
-                                    ui,
-                                    draw_alpha,
-                                )
-                            }
-                            DisplayedItem::Placeholder(_) => {
-                                self.draw_plain_item(
-                                    msgs,
-                                    vidx,
-                                    displayed_item,
-                                    &mut item_offsets,
-                                    ui,
-                                    draw_alpha,
-                                )
-                            }
-                            DisplayedItem::TimeLine(_) => {
-                                self.draw_plain_item(
-                                    msgs,
-                                    vidx,
-                                    displayed_item,
-                                    &mut item_offsets,
-                                    ui,
-                                    draw_alpha,
-                                )
-                            }
+                            DisplayedItem::Divider(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            ),
+                            DisplayedItem::Marker(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            ),
+                            DisplayedItem::Placeholder(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            ),
+                            DisplayedItem::TimeLine(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                                draw_alpha,
+                            ),
                         };
                         self.draw_drag_target(msgs, vidx, item_rect, ui);
                     });
