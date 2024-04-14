@@ -1398,6 +1398,11 @@ impl State {
                             } else {
                                 waves.displayed_items_order.insert(target_vidx, old_idx);
                             }
+
+                            // carry focused item when moving it
+                            if waves.focused_item.is_some_and(|f| f == source_vidx) {
+                                waves.focused_item = Some(target_vidx);
+                            }
                         }
                     }
                 }

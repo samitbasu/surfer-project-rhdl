@@ -761,6 +761,27 @@ impl State {
         }
     }
 
+    fn draw_drag_source(
+        &self,
+        msgs: &mut Vec<Message>,
+        vidx: usize,
+        item_response: &egui::Response,
+    ) {
+        if item_response.dragged_by(egui::PointerButton::Primary)
+            && item_response.drag_delta().length() > 1f32
+        {
+            msgs.push(Message::VariableDragStarted(vidx));
+        }
+
+        if item_response.drag_released() {
+            if let Some(source_idx) = self.drag_source_idx {
+                if source_idx == vidx {
+                    msgs.push(Message::VariableDragFinished);
+                }
+            }
+        }
+    }
+
     fn draw_variable(
         &self,
         msgs: &mut Vec<Message>,
@@ -804,17 +825,6 @@ impl State {
                 }
             }
 
-            if variable_label.drag_started() {
-                msgs.push(Message::VariableDragStarted(vidx));
-            }
-
-            if variable_label.drag_released() {
-                if let Some(source_idx) = self.drag_source_idx {
-                    if source_idx == vidx {
-                        msgs.push(Message::VariableDragFinished);
-                    }
-                }
-            }
             variable_label
         };
 
@@ -861,6 +871,7 @@ impl State {
             | VariableInfo::String
             | VariableInfo::Real => {
                 let label = draw_label(ui);
+                self.draw_drag_source(msgs, vidx, &label);
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     field_ref: field.clone(),
                     item_list_idx: vidx,
@@ -1006,30 +1017,7 @@ impl State {
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
         }
-
-        let item_rect = ui.allocate_rect(
-            Rect {
-                min: label.rect.min,
-                max: Pos2 {
-                    x: ui.max_rect().max.x,
-                    y: label.rect.bottom(),
-                },
-            },
-            egui::Sense::drag(),
-        );
-
-        if item_rect.drag_started() {
-            msgs.push(Message::VariableDragStarted(vidx));
-        }
-
-        if item_rect.drag_released() {
-            if let Some(source_idx) = self.drag_source_idx {
-                if source_idx == vidx {
-                    msgs.push(Message::VariableDragFinished);
-                }
-            }
-        }
-
+        self.draw_drag_source(msgs, vidx, &label);
         return label.rect;
     }
 
