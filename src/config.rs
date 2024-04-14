@@ -322,17 +322,17 @@ impl SurferConfig {
 
         let default_config = String::from(include_str!("../default_config.toml"));
 
-        let mut c = Config::builder().add_source(config::File::from_str(
+        let mut config = Config::builder().add_source(config::File::from_str(
             &default_config,
             config::FileFormat::Toml,
         ));
 
         let mut theme_names = Vec::new();
 
-        let c = if !force_default_config {
+        let config = if !force_default_config {
             if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
                 let config_file = proj_dirs.config_dir().join("config.toml");
-                c = c.add_source(File::from(config_file).required(false));
+                config = config.add_source(File::from(config_file).required(false));
 
                 let theme_dir = proj_dirs.config_dir().join("themes");
                 let entries = std::fs::read_dir(theme_dir);
@@ -349,23 +349,23 @@ impl SurferConfig {
                 }
             }
 
-            c = c
+            config = config
                 .add_source(File::from(Path::new("surfer.toml")).required(false))
                 .add_source(Environment::with_prefix("surfer"));
 
             if !theme_name.is_empty() {
                 if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
                     let theme_file = proj_dirs.config_dir().join("themes/").join(theme_name);
-                    c = c.add_source(File::from(theme_file).required(false));
+                    config = config.add_source(File::from(theme_file).required(false));
                 }
             }
 
-            c.set_override("theme_names", theme_names)?
+            config.set_override("theme_names", theme_names)?
         } else {
-            c.set_override("theme_names", Vec::<String>::new())?
+            config.set_override("theme_names", Vec::<String>::new())?
         };
 
-        c.build()?
+        config.build()?
             .try_deserialize()
             .map_err(|e| anyhow!("Failed to parse config {e}"))
     }
