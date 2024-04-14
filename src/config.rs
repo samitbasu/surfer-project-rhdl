@@ -327,7 +327,7 @@ impl SurferConfig {
             config::FileFormat::Toml,
         ));
 
-        let mut vs = Vec::new();
+        let mut theme_names = Vec::new();
 
         let c = if !force_default_config {
             if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
@@ -342,7 +342,7 @@ impl SurferConfig {
                         if entry.is_ok() {
                             let fname = entry.unwrap().file_name().into_string().unwrap();
                             if fname.ends_with(".toml") {
-                                vs.push(fname);
+                                theme_names.push(fname);
                             }
                         }
                     }
@@ -360,7 +360,7 @@ impl SurferConfig {
                 }
             }
 
-            c.set_override("theme_names", vs)?
+            c.set_override("theme_names", theme_names)?
         } else {
             c.set_override("theme_names", Vec::<String>::new())?
         };
