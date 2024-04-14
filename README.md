@@ -80,6 +80,11 @@ You can download a pre-built Windows binary
 
 Note that sometimes Windows Defender has been known to report Surfer [and other rust projects](https://github.com/cargo-bins/cargo-binstall/issues/945) as a trojan. If in doubt, please use [Virus total](https://www.virustotal.com/) to check.
 
+## Configuration
+
+Many aspects of Surfer can be configured.
+To learn more about configuration, have a look at our [wiki](https://gitlab.com/surfer-project/surfer/-/wikis/Configuration).
+
 ## Development Information
 
 Contributions to Surfer are very welcome! See the
@@ -133,7 +138,7 @@ As an indication of the status of the project, here is an incomplete list of sup
   - [ ] Custom translation via Python API
 - [x] Dividers
 - [x] Wave file reloading
-- [ ] Saving and loading selected waves
+- [x] Saving and loading selected waves
 - [x] Cursors for measuring time
 - [x] Mouse gesture control
 - [x] Keyboard commands
