@@ -1384,25 +1384,25 @@ impl State {
                 self.drag_started = false;
 
                 // reordering
-                if let Some(source_vidx) = self.drag_source_idx {
-                    if let Some(target_vidx) = self.drag_target_idx {
-                        self.invalidate_draw_commands();
-                        let Some(waves) = self.waves.as_mut() else {
-                            return;
-                        };
-                        let visible_items_len = waves.displayed_items.len();
-                        if visible_items_len > 0 {
-                            let old_idx = waves.displayed_items_order.remove(source_vidx);
-                            if waves.displayed_items_order.len() < target_vidx {
-                                waves.displayed_items_order.push(old_idx);
-                            } else {
-                                waves.displayed_items_order.insert(target_vidx, old_idx);
-                            }
+                if let (Some(source_vidx), Some(target_vidx)) =
+                    (self.drag_source_idx, self.drag_target_idx)
+                {
+                    self.invalidate_draw_commands();
+                    let Some(waves) = self.waves.as_mut() else {
+                        return;
+                    };
+                    let visible_items_len = waves.displayed_items.len();
+                    if visible_items_len > 0 {
+                        let old_idx = waves.displayed_items_order.remove(source_vidx);
+                        if waves.displayed_items_order.len() < target_vidx {
+                            waves.displayed_items_order.push(old_idx);
+                        } else {
+                            waves.displayed_items_order.insert(target_vidx, old_idx);
+                        }
 
-                            // carry focused item when moving it
-                            if waves.focused_item.is_some_and(|f| f == source_vidx) {
-                                waves.focused_item = Some(target_vidx);
-                            }
+                        // carry focused item when moving it
+                        if waves.focused_item.is_some_and(|f| f == source_vidx) {
+                            waves.focused_item = Some(target_vidx);
                         }
                     }
                 }

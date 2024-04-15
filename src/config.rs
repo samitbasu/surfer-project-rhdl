@@ -239,6 +239,12 @@ pub struct SurferTheme {
 
     /// Viewport separator line
     pub viewport_separator: SurferLineStyle,
+
+    // drag hint and threshold parameters
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub drag_hint_color: Color32,
+    pub drag_hint_width: f32,
+    pub drag_threshold: f32,
 }
 
 impl SurferTheme {

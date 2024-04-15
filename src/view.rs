@@ -734,7 +734,13 @@ impl State {
                                 draw_alpha,
                             ),
                         };
-                        self.draw_drag_target(msgs, vidx, item_rect, ui);
+                        self.draw_drag_target(
+                            msgs,
+                            vidx,
+                            item_rect,
+                            ui,
+                            vidx == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
+                        );
                     });
             }
         });
@@ -760,16 +766,17 @@ impl State {
         item_response: &egui::Response,
     ) {
         if item_response.dragged_by(egui::PointerButton::Primary)
-            && item_response.drag_delta().length() > 1f32
+            && item_response.drag_delta().length() > self.config.theme.drag_threshold
         {
             msgs.push(Message::VariableDragStarted(vidx));
         }
 
         if item_response.drag_released() {
-            if let Some(source_idx) = self.drag_source_idx {
-                if source_idx == vidx {
-                    msgs.push(Message::VariableDragFinished);
-                }
+            if self
+                .drag_source_idx
+                .is_some_and(|source_idx| source_idx == vidx)
+            {
+                msgs.push(Message::VariableDragFinished);
             }
         }
     }
@@ -881,6 +888,7 @@ impl State {
         vidx: usize,
         item_rect: Rect,
         ui: &mut egui::Ui,
+        last: bool,
     ) {
         // Add default margin as it was removed when creating the frame
         let rect_with_margin = Rect {
@@ -902,11 +910,20 @@ impl State {
                 .round_pos_to_pixels(rect_with_margin.right_bottom() + vertical_translation_up),
         };
 
+        let expanded_after_rect = if last {
+            ui.max_rect().max
+        } else {
+            rect_with_margin.right_bottom()
+        };
+
         let after_rect = Rect {
             min: ui.painter().round_pos_to_pixels(before_rect.left_bottom()),
-            max: ui
-                .painter()
-                .round_pos_to_pixels(rect_with_margin.right_bottom()),
+            max: ui.painter().round_pos_to_pixels(expanded_after_rect),
+        };
+
+        let half_line_width = Vec2 {
+            x: 0f32,
+            y: self.config.theme.linewidth / 2f32,
         };
 
         if self.drag_started {
@@ -914,11 +931,11 @@ impl State {
                 let target_idx = if ui.rect_contains_pointer(before_rect) {
                     ui.painter().rect_filled(
                         Rect {
-                            min: before_rect.min,
-                            max: before_rect.right_top() + Vec2 { x: 0f32, y: 1f32 },
+                            min: rect_with_margin.left_top() - half_line_width,
+                            max: rect_with_margin.right_top() + half_line_width,
                         },
                         egui::Rounding::ZERO,
-                        egui::Color32::GRAY,
+                        self.config.theme.drag_hint_color,
                     );
                     if vidx > source_idx {
                         vidx - 1
@@ -928,11 +945,11 @@ impl State {
                 } else if ui.rect_contains_pointer(after_rect) {
                     ui.painter().rect_filled(
                         Rect {
-                            min: after_rect.left_bottom(),
-                            max: after_rect.right_bottom() + Vec2 { x: 0f32, y: 1f32 },
+                            min: rect_with_margin.left_bottom() - half_line_width,
+                            max: rect_with_margin.right_bottom() + half_line_width,
                         },
                         egui::Rounding::ZERO,
-                        egui::Color32::GRAY,
+                        self.config.theme.drag_hint_color,
                     );
                     if vidx < source_idx {
                         vidx + 1
@@ -975,7 +992,8 @@ impl State {
                 )
                 .context_menu(|ui| {
                     self.item_context_menu(None, msgs, ui, vidx);
-                });
+                })
+                .interact(egui::Sense::drag());
             if item_label.clicked() {
                 msgs.push(Message::FocusItem(vidx))
             }
@@ -983,6 +1001,7 @@ impl State {
         };
 
         let label = draw_label(ui);
+        self.draw_drag_source(msgs, vidx, &label);
         match displayed_item {
             DisplayedItem::Divider(_) => {
                 drawing_infos.push(ItemDrawingInfo::Divider(DividerDrawingInfo {
@@ -1009,7 +1028,6 @@ impl State {
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
         }
-        self.draw_drag_source(msgs, vidx, &label);
         return label.rect;
     }
 
