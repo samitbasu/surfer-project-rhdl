@@ -85,6 +85,7 @@ pub struct SurferConfig {
     /// Distance in pixels for cursor snap
     pub snap_distance: f32,
     /// List of theme names
+    #[serde(default = "Vec::new")]
     pub theme_names: Vec<String>,
 }
 
@@ -313,7 +314,7 @@ impl SurferConfig {
     #[cfg(target_arch = "wasm32")]
     pub fn with_theme(_theme_name: &str, _force_default_config: bool) -> Result<Self> {
         let default_config = String::from(include_str!("../default_config.toml"));
-        Ok(toml::from_str(&default_config)?)
+        Ok(toml::from_str::<SurferConfig>(&default_config)?)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
