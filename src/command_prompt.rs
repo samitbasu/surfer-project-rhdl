@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
+use eframe::egui::scroll_area::ScrollBarVisibility;
 use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
 use eframe::egui::{self, Align, Key, NumExt, RichText, TextEdit};
 use eframe::emath::Align2;
@@ -521,6 +522,7 @@ pub struct CommandPrompt {
     pub visible: bool,
     pub suggestions: Vec<(String, Vec<bool>)>,
     pub selected: usize,
+    pub selection_changed: bool,
     pub previous_commands: Vec<(String, Vec<bool>)>,
 }
 
@@ -562,7 +564,6 @@ pub fn show_command_prompt(
                     set_cursor_to_pos(input.chars().count(), ui);
                 }
 
-                let skip_suggestions = state.sys.command_prompt.selected.saturating_sub(14);
                 let suggestions = state
                     .sys
                     .command_prompt
@@ -575,8 +576,6 @@ pub fn show_command_prompt(
                     .chain(state.sys.command_prompt.suggestions.iter())
                     .enumerate()
                     // allow scrolling down the suggestions
-                    .skip(skip_suggestions)
-                    .take(15)
                     .collect_vec();
 
                 let expanded = expand_command(input, get_parser(state)).expanded;
@@ -596,7 +595,7 @@ pub fn show_command_prompt(
                         );
 
                         let selection = suggestions
-                            .get(state.sys.command_prompt.selected - skip_suggestions)
+                            .get(state.sys.command_prompt.selected)
                             .unwrap_or(&default);
 
                         if input.chars().last().is_some_and(|c| c.is_whitespace()) {
@@ -677,107 +676,123 @@ pub fn show_command_prompt(
                     );
                 }
 
-                for (idx, suggestion) in suggestions {
-                    let mut job = LayoutJob::default();
-                    let selected = state.sys.command_prompt.selected == idx;
+                egui::ScrollArea::vertical()
+                    .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
+                    .show(ui, |ui| {
+                        for (idx, suggestion) in suggestions {
+                            let mut job = LayoutJob::default();
+                            // taking selection_changed into account here reduces flickering
+                            // when the command prompt is scrolled
+                            let selected = state.sys.command_prompt.selected == idx
+                                && !state.sys.command_prompt.selection_changed;
 
-                    let previous_cmds_len = state.sys.command_prompt.previous_commands.len();
-                    if idx == 0 && previous_cmds_len != 0 && input.is_empty() {
-                        ui.horizontal(|ui| {
-                            let label = ui.label(
-                                RichText::new("Recently used").color(
-                                    state
-                                        .config
-                                        .theme
-                                        .primary_ui_color
-                                        .foreground
-                                        .gamma_multiply(0.5),
-                                ),
+                            let previous_cmds_len =
+                                state.sys.command_prompt.previous_commands.len();
+                            if idx == 0 && previous_cmds_len != 0 && input.is_empty() {
+                                ui.horizontal(|ui| {
+                                    let label = ui.label(
+                                        RichText::new("Recently used").color(
+                                            state
+                                                .config
+                                                .theme
+                                                .primary_ui_color
+                                                .foreground
+                                                .gamma_multiply(0.5),
+                                        ),
+                                    );
+                                    ui.vertical(|ui| {
+                                        ui.add_space(label.rect.height() / 2.0);
+                                        ui.separator()
+                                    });
+                                });
+                            }
+
+                            if (idx == previous_cmds_len.clamp(0, 3) && input.is_empty())
+                                || (idx == 0 && !input.is_empty())
+                            {
+                                ui.horizontal(|ui| {
+                                    let label = ui.label(
+                                        RichText::new("Suggestions").color(
+                                            state
+                                                .config
+                                                .theme
+                                                .primary_ui_color
+                                                .foreground
+                                                .gamma_multiply(0.5),
+                                        ),
+                                    );
+                                    ui.vertical(|ui| {
+                                        ui.add_space(label.rect.height() / 2.0);
+                                        ui.separator()
+                                    });
+                                });
+                            }
+
+                            for (c, highlight) in zip(suggestion.0.chars(), &suggestion.1) {
+                                let mut tmp = [0u8; 4];
+                                let sub_string = c.encode_utf8(&mut tmp);
+                                job.append(
+                                    sub_string,
+                                    0.0,
+                                    TextFormat {
+                                        font_id: FontId::new(14.0, FontFamily::Monospace),
+                                        color: if selected || *highlight {
+                                            state.config.theme.accent_info.background
+                                        } else {
+                                            state.config.theme.primary_ui_color.foreground
+                                        },
+                                        ..Default::default()
+                                    },
+                                );
+                            }
+
+                            // make label full width of the palette
+                            let resp = ui.allocate_ui_with_layout(
+                                ui.available_size(),
+                                egui::Layout::top_down(Align::LEFT).with_cross_justify(true),
+                                |ui| ui.add(SuggestionLabel::new(job, selected)),
                             );
-                            ui.vertical(|ui| {
-                                ui.add_space(label.rect.height() / 2.0);
-                                ui.separator()
-                            });
-                        });
-                    }
 
-                    if (idx == previous_cmds_len.clamp(0, 3) && input.is_empty())
-                        || (idx == 0 && !input.is_empty())
-                    {
-                        ui.horizontal(|ui| {
-                            let label = ui.label(
-                                RichText::new("Suggestions").color(
-                                    state
-                                        .config
-                                        .theme
-                                        .primary_ui_color
-                                        .foreground
-                                        .gamma_multiply(0.5),
-                                ),
-                            );
-                            ui.vertical(|ui| {
-                                ui.add_space(label.rect.height() / 2.0);
-                                ui.separator()
-                            });
-                        });
-                    }
+                            if state.sys.command_prompt.selection_changed
+                                && idx == state.sys.command_prompt.selected
+                            {
+                                resp.response.scroll_to_me(Some(egui::Align::Center));
+                            }
 
-                    for (c, highlight) in zip(suggestion.0.chars(), &suggestion.1) {
-                        let mut tmp = [0u8; 4];
-                        let sub_string = c.encode_utf8(&mut tmp);
-                        job.append(
-                            sub_string,
-                            0.0,
-                            TextFormat {
-                                font_id: FontId::new(14.0, FontFamily::Monospace),
-                                color: if selected || *highlight {
-                                    state.config.theme.accent_info.background
+                            if resp.inner.clicked() {
+                                let new_input =
+                                    if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                                        // if no input exists for current argument just append
+                                        input.to_owned() + " " + &suggestion.0
+                                    } else {
+                                        // if something was already typed for this argument removed then append
+                                        let parts = input.split_ascii_whitespace().collect_vec();
+                                        parts.iter().take(parts.len().saturating_sub(1)).join(" ")
+                                            + " "
+                                            + &suggestion.0
+                                    };
+                                let expanded =
+                                    expand_command(&new_input, get_parser(state)).expanded;
+                                let result = (
+                                    expanded.clone(),
+                                    parse_command(&expanded, get_parser(state)),
+                                );
+
+                                if let Ok(cmd) = result.1 {
+                                    msgs.push(Message::ShowCommandPrompt(false));
+                                    msgs.push(Message::CommandPromptClear);
+                                    msgs.push(Message::CommandPromptPushPrevious(expanded));
+                                    msgs.push(cmd);
+                                    run_fuzzy_parser("", state, msgs);
                                 } else {
-                                    state.config.theme.primary_ui_color.foreground
-                                },
-                                ..Default::default()
-                            },
-                        );
-                    }
-
-                    // make label full width of the palette
-                    let resp = ui.allocate_ui_with_layout(
-                        ui.available_size(),
-                        egui::Layout::top_down(Align::LEFT).with_cross_justify(true),
-                        |ui| ui.add(SuggestionLabel::new(job, selected)),
-                    );
-
-                    if resp.inner.clicked() {
-                        let new_input = if input.chars().last().is_some_and(|c| c.is_whitespace()) {
-                            // if no input exists for current argument just append
-                            input.to_owned() + " " + &suggestion.0
-                        } else {
-                            // if something was already typed for this argument removed then append
-                            let parts = input.split_ascii_whitespace().collect_vec();
-                            parts.iter().take(parts.len().saturating_sub(1)).join(" ")
-                                + " "
-                                + &suggestion.0
-                        };
-                        let expanded = expand_command(&new_input, get_parser(state)).expanded;
-                        let result = (
-                            expanded.clone(),
-                            parse_command(&expanded, get_parser(state)),
-                        );
-
-                        if let Ok(cmd) = result.1 {
-                            msgs.push(Message::ShowCommandPrompt(false));
-                            msgs.push(Message::CommandPromptClear);
-                            msgs.push(Message::CommandPromptPushPrevious(expanded));
-                            msgs.push(cmd);
-                            run_fuzzy_parser("", state, msgs);
-                        } else {
-                            *input = result.0 + " ";
-                            set_cursor_to_pos(input.chars().count(), ui);
-                            // run fuzzy parser since setting the cursor swallows the `changed` flag
-                            run_fuzzy_parser(input, state, msgs);
+                                    *input = result.0 + " ";
+                                    set_cursor_to_pos(input.chars().count(), ui);
+                                    // run fuzzy parser since setting the cursor swallows the `changed` flag
+                                    run_fuzzy_parser(input, state, msgs);
+                                }
+                            }
                         }
-                    }
-                }
+                    });
             });
         });
 }
