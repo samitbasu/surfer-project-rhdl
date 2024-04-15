@@ -289,6 +289,10 @@ impl State {
 
         if self.sys.command_prompt.visible {
             show_command_prompt(self, ctx, window_size, &mut msgs);
+            if let Some(new_idx) = self.sys.command_prompt.new_selection {
+                self.sys.command_prompt.selected = new_idx;
+                self.sys.command_prompt.new_selection = None;
+            }
         }
 
         if let Some(vcd_progress_data) = &self.sys.progress_tracker {
