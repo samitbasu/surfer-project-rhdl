@@ -1382,3 +1382,27 @@ fn wait_for_waves_fully_loaded(state: &mut State) {
         state.handle_batch_commands();
     }
 }
+
+snapshot_ui_with_file_and_msgs! {default_dark_theme_works, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::FocusItem(1),
+    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+    Message::SelectTheme(Some("dark+".to_string()))
+]}
+
+snapshot_ui_with_file_and_msgs! {default_light_theme_works, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::FocusItem(1),
+    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+    Message::SelectTheme(Some("light+".to_string()))
+]}
+
+snapshot_ui_with_file_and_msgs! {default_solarized_theme_works, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::FocusItem(1),
+    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+    Message::SelectTheme(Some("solarized".to_string()))
+]}
