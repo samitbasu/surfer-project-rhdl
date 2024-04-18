@@ -1,0 +1,35 @@
+
+foreground = "d4d4d4"
+alt_text_color = "2b2b2b" # negated foreground
+border_color = "282b2d"
+selected_elements_colors = { background = "444444", foreground = "d4d4d4" }
+canvas_colors = { background = "0b151d", alt_background = "1b252d", foreground = "d4d4d4" }
+primary_ui_color = { background = "171717", foreground = "d4d4d4" }
+secondary_ui_color = { background = "0d1317", foreground = "d4d4d4" }
+accent_info = { background = "007acc", foreground = "d4d4d4" }
+accent_warn = { background = "32302f", foreground = "d4d4d4" }
+accent_error = { background = "d2302f", foreground = "d4d4d4" }
+clock_highlight_line = { color = "777777", width = 2 }
+clock_highlight_cycle = "12222f"
+variable_default = "56c126"
+variable_undef = "f44747"
+variable_highimp = "c9e124"
+variable_dontcare = "4040ff"
+variable_weak = "808080"
+cursor = { color="b63935", width=2 }
+linewidth = 1.5
+alt_frequency = 3
+viewport_separator = { color="d4d4d4", width=4 }
+drag_threshold = 1.0
+drag_hint_color = "bfbfbf"
+drag_hint_width = 2.0
+
+[colors]
+Green = "6a9955"
+Red = "f44747"
+Yellow = "ffd602"
+Blue = "569cd6"
+Pink = "c586c0"
+Orange = "ce9178"
+Gray = "808080"
+Violet = "646695"

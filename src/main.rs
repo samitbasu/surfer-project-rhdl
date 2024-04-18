@@ -47,7 +47,7 @@ use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use command_prompt::get_parser;
-use config::SurferConfig;
+use config::{SurferConfig, SurferTheme};
 use displayed_item::DisplayedItem;
 use eframe::egui;
 use eframe::egui::style::Selection;
@@ -1450,11 +1450,10 @@ impl State {
                 }
             }
             Message::SelectTheme(theme_name) => {
-                if let Ok(config) =
-                    SurferConfig::with_theme(theme_name.as_deref().unwrap_or(""), false)
-                        .with_context(|| "Failed to set theme")
+                if let Ok(theme) =
+                    SurferTheme::new(theme_name).with_context(|| "Failed to set theme")
                 {
-                    self.config = config;
+                    self.config.theme = theme;
                     if let Some(ctx) = &self.sys.context.as_ref() {
                         ctx.set_visuals(self.get_visuals());
                     }

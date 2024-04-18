@@ -153,6 +153,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "scope_select",
             "divider_add",
             "config_reload",
+            "theme_select",
             "reload",
             "remove_unavailable",
             "show_controls",
@@ -193,6 +194,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "load_file",
             "load_url",
             "config_reload",
+            "theme_select",
             "toggle_menu",
             "toggle_side_panel",
             "toggle_fullscreen",
@@ -204,7 +206,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
     #[cfg(feature = "performance_plot")]
     commands.push("show_performance");
-    let theme_names = state.config.theme_names.clone();
+    let mut theme_names = state.config.theme.theme_names.clone();
+    theme_names.insert(0, "default".to_string());
     Command::NonTerminal(
         ParamGreed::Word,
         commands.into_iter().map(|s| s.into()).collect(),

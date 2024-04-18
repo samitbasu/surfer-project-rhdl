@@ -1,5 +1,5 @@
 # VSCode Light+ theme
-[theme]
+
 foreground = "343434"
 border_color = "282b2d"
 selected_elements_colors = { background = "adadad", foreground = "343434" }
@@ -19,7 +19,7 @@ variable_weak = "808080"
 cursor = { color="b63935", width=2 }
 linewidth = 1.5
 
-[theme.colors]
+[colors]
 Green = "6a9955"
 Red = "f44747"
 Yellow = "ffd602"

@@ -1,7 +1,7 @@
 # VSCode Dark+ theme
 # This re-uses a lot of the colors from the default theme, so we only need to update a few
 # values
-[theme]
+
 foreground = "d4d4d4"
 border_color = "424242"
 canvas_colors = { background = "1e1e1e", alt_background = "2e1e1e", foreground = "d4d4d4" }

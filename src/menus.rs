@@ -148,9 +148,9 @@ impl State {
                 .add_closing_menu(msgs, ui);
             ui.menu_button("Theme", |ui| {
                 b("Default Theme", Message::SelectTheme(None)).add_closing_menu(msgs, ui);
-
-                for s in self.config.theme_names.clone() {
-                    b(s.clone(), Message::SelectTheme(Some(s))).add_closing_menu(msgs, ui);
+                for theme_name in self.config.theme.theme_names.clone() {
+                    b(theme_name.clone(), Message::SelectTheme(Some(theme_name)))
+                        .add_closing_menu(msgs, ui);
                 }
             });
         });

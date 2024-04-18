@@ -1,7 +1,7 @@
 use color_eyre::eyre::{Context, Result};
 use color_eyre::Report;
-#[cfg(not(target_arch = "wasm32"))]
-use config::{Config, Environment, File};
+use config::builder::DefaultState;
+use config::{Config, ConfigBuilder, Environment, File};
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
 use eframe::epaint::Color32;
@@ -72,6 +72,7 @@ impl From<String> for ArrowKeyBindings {
 #[derive(Debug, Deserialize)]
 pub struct SurferConfig {
     pub layout: SurferLayout,
+    #[serde(deserialize_with = "deserialize_theme")]
     pub theme: SurferTheme,
     pub gesture: SurferGesture,
     pub behavior: SurferBehavior,
@@ -84,9 +85,6 @@ pub struct SurferConfig {
     pub default_clock_highlight_type: ClockHighlightType,
     /// Distance in pixels for cursor snap
     pub snap_distance: f32,
-    /// List of theme names
-    #[serde(default = "Vec::new")]
-    pub theme_names: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,6 +243,9 @@ pub struct SurferTheme {
     pub drag_hint_color: Color32,
     pub drag_hint_width: f32,
     pub drag_threshold: f32,
+    /// List of theme names
+    #[serde(default = "Vec::new")]
+    pub theme_names: Vec<String>,
 }
 
 impl SurferTheme {
@@ -259,6 +260,111 @@ impl SurferTheme {
             return case_insensitive;
         }
         None
+    }
+
+    fn generate_defaults(
+        theme_name: &Option<String>,
+    ) -> (ConfigBuilder<DefaultState>, Vec<String>) {
+        let default_theme = String::from(include_str!("../default_theme.toml"));
+
+        let mut theme = Config::builder().add_source(config::File::from_str(
+            &default_theme,
+            config::FileFormat::Toml,
+        ));
+
+        let theme_names = vec![
+            "dark+".to_string(),
+            "light+".to_string(),
+            "solarized".to_string(),
+        ];
+
+        let override_theme = match theme_name.clone().unwrap_or("".to_string()).as_str() {
+            "dark+" => include_str!("../themes/dark+.toml"),
+            "light+" => include_str!("../themes/light+.toml"),
+            "solarized" => include_str!("../themes/solarized.toml"),
+            _ => "",
+        }
+        .to_string();
+
+        theme = theme.add_source(config::File::from_str(
+            &override_theme,
+            config::FileFormat::Toml,
+        ));
+        (theme, theme_names)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn new(theme_name: Option<String>) -> Result<Self> {
+        use color_eyre::eyre::anyhow;
+
+        let (mut theme, theme_names) = Self::generate_defaults(&theme_name);
+
+        let theme = theme.set_override(
+            "theme_names",
+            vec![
+                "dark+".to_string(),
+                "light+".to_string(),
+                "solarized".to_string(),
+            ],
+        )?;
+
+        theme
+            .build()?
+            .try_deserialize()
+            .map_err(|e| anyhow!("Failed to parse config {e}"))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new(theme_name: Option<String>) -> color_eyre::Result<Self> {
+        use color_eyre::eyre::anyhow;
+
+        let (mut theme, mut theme_names) = Self::generate_defaults(&theme_name);
+
+        if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
+            let theme_dir = proj_dirs.config_dir().join("themes");
+            let entries = std::fs::read_dir(theme_dir);
+
+            if let Ok(entries) = entries {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        if entry
+                            .file_name()
+                            .into_string()
+                            .is_ok_and(|file_name| file_name.ends_with(".toml"))
+                        {
+                            let fname = entry
+                                .file_name()
+                                .into_string()
+                                .unwrap()
+                                .strip_suffix(".toml")
+                                .unwrap_or("")
+                                .to_string();
+                            if !fname.is_empty() && !theme_names.contains(&fname) {
+                                theme_names.push(fname);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if !theme_name.clone().unwrap_or("".to_string()).is_empty() {
+            if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
+                let theme_file = proj_dirs
+                    .config_dir()
+                    .join("themes/")
+                    .join(theme_name.unwrap())
+                    .join(".toml");
+                theme = theme.add_source(File::from(theme_file).required(false));
+            }
+        }
+
+        let theme = theme.set_override("theme_names", theme_names)?;
+
+        theme
+            .build()?
+            .try_deserialize()
+            .map_err(|e| anyhow!("Failed to parse theme {e}"))
     }
 }
 #[derive(Debug, Deserialize)]
@@ -308,23 +414,13 @@ fn default_colors() -> HashMap<String, Color32> {
 
 impl SurferConfig {
     #[cfg(target_arch = "wasm32")]
-    pub fn new(force_default_config: bool) -> Result<Self> {
-        Self::with_theme("", force_default_config)
+    pub fn new(_force_default_config: bool) -> Result<Self> {
+        let default_config = String::from(include_str!("../default_config.toml"));
+        Ok(toml::from_str(&default_config)?)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new(force_default_config: bool) -> color_eyre::Result<Self> {
-        Self::with_theme("", force_default_config)
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn with_theme(_theme_name: &str, _force_default_config: bool) -> Result<Self> {
-        let default_config = String::from(include_str!("../default_config.toml"));
-        Ok(toml::from_str::<SurferConfig>(&default_config)?)
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn with_theme(theme_name: &str, force_default_config: bool) -> color_eyre::Result<Self> {
         use color_eyre::eyre::anyhow;
 
         let default_config = String::from(include_str!("../default_config.toml"));
@@ -334,42 +430,17 @@ impl SurferConfig {
             config::FileFormat::Toml,
         ));
 
-        let mut theme_names = Vec::new();
-
         let config = if !force_default_config {
             if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
                 let config_file = proj_dirs.config_dir().join("config.toml");
                 config = config.add_source(File::from(config_file).required(false));
-
-                let theme_dir = proj_dirs.config_dir().join("themes");
-                let entries = std::fs::read_dir(theme_dir);
-
-                if entries.is_ok() {
-                    for entry in entries.unwrap() {
-                        if entry.is_ok() {
-                            let fname = entry.unwrap().file_name().into_string().unwrap();
-                            if fname.ends_with(".toml") {
-                                theme_names.push(fname);
-                            }
-                        }
-                    }
-                }
             }
 
-            config = config
+            config
                 .add_source(File::from(Path::new("surfer.toml")).required(false))
-                .add_source(Environment::with_prefix("surfer"));
-
-            if !theme_name.is_empty() {
-                if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
-                    let theme_file = proj_dirs.config_dir().join("themes/").join(theme_name);
-                    config = config.add_source(File::from(theme_file).required(false));
-                }
-            }
-
-            config.set_override("theme_names", theme_names)?
+                .add_source(Environment::with_prefix("surfer"))
         } else {
-            config.set_override("theme_names", Vec::<String>::new())?
+            config
         };
 
         config
@@ -427,4 +498,12 @@ where
 
     let v = HashMap::<String, Wrapper>::deserialize(deserializer)?;
     Ok(v.into_iter().map(|(k, Wrapper(v))| (k, v)).collect())
+}
+
+fn deserialize_theme<'de, D>(deserializer: D) -> Result<SurferTheme, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let buf = String::deserialize(deserializer)?;
+    SurferTheme::new(Some(buf)).map_err(de::Error::custom)
 }

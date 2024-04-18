@@ -1,5 +1,5 @@
 # Surfer solarized
-[theme]
+
 foreground = "839496"
 border_color = "282b2d"
 selected_elements_colors = { background = "2c3b3d", alt_background = "3c3b3d", foreground = "839496" }
@@ -17,7 +17,7 @@ variable_highimp = "000347"
 cursor = { color="b63935", width=2 }
 linewidth = 1
 
-[theme.colors]
+[colors]
 Green = "859900"
 Red = "dc322f"
 Yellow = "b58900"
