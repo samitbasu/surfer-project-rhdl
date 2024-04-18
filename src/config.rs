@@ -354,7 +354,8 @@ impl SurferTheme {
                     .config_dir()
                     .join("themes/")
                     .join(theme_name.unwrap())
-                    .join(".toml");
+                    .with_extension("toml");
+
                 theme = theme.add_source(File::from(theme_file).required(false));
             }
         }
