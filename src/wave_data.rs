@@ -47,6 +47,7 @@ pub struct WaveData {
     pub focused_item: Option<usize>,
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
+    pub display_variable_indices: bool,
     /// These are just stored during operation, so no need to serialize
     #[serde(skip)]
     pub drawing_infos: Vec<ItemDrawingInfo>,
@@ -119,6 +120,7 @@ impl WaveData {
             markers: self.markers.clone(),
             focused_item: self.focused_item,
             default_variable_name_type: self.default_variable_name_type,
+            display_variable_indices: self.display_variable_indices,
             scroll_offset: self.scroll_offset,
             drawing_infos: vec![],
             top_item_draw_offset: 0.,

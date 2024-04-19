@@ -9,6 +9,7 @@ use wellen::{self, VarRef};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
+use crate::variable_direction::VariableDirection;
 use crate::wellen::{var_to_meta, LoadSignalsCmd, LoadSignalsResult};
 use crate::{
     time::{TimeScale, TimeUnit},
@@ -570,5 +571,6 @@ pub struct VariableMeta {
     pub num_bits: Option<u32>,
     pub variable_type: Option<VariableType>,
     pub index: Option<String>,
+    pub direction: VariableDirection,
     pub enum_map: HashMap<String, String>,
 }
