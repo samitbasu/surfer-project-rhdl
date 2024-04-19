@@ -651,22 +651,6 @@ impl State {
                             DisplayedItem::Variable(displayed_variable) => {
                                 let var = displayed_variable;
                                 let info = &displayed_variable.info;
-                                let index = if self
-                                    .show_variable_indices
-                                    .unwrap_or_else(|| self.config.layout.show_variable_indices())
-                                {
-                                    self.waves
-                                        .as_ref()
-                                        .unwrap()
-                                        .inner
-                                        .variable_meta(&var.variable_ref)
-                                        .ok()
-                                        .as_ref()
-                                        .and_then(|meta| meta.index.clone())
-                                        .map(|index| format!(" {index}"))
-                                } else {
-                                    None
-                                };
                                 let style = Style::default();
                                 let mut layout_job = LayoutJob::default();
                                 self.add_alpha_id(
@@ -678,7 +662,6 @@ impl State {
                                 );
                                 displayed_item.add_to_layout_job(
                                     &self.config.theme.foreground,
-                                    index,
                                     &style,
                                     &mut layout_job,
                                 );
@@ -983,7 +966,7 @@ impl State {
 
             let text_color = self.get_item_text_color(displayed_item);
 
-            displayed_item.add_to_layout_job(text_color, None, &style, &mut layout_job);
+            displayed_item.add_to_layout_job(text_color, &style, &mut layout_job);
             self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
             let item_label = ui
                 .selectable_label(

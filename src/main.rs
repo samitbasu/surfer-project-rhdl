@@ -1145,7 +1145,11 @@ impl State {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_variable_indices(),
                 };
-                self.show_variable_indices = Some(new)
+                self.show_variable_indices = Some(new);
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.display_variable_indices = new;
+                    waves.compute_variable_display_names();
+                }
             }
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
@@ -1504,6 +1508,7 @@ impl State {
                 markers: HashMap::new(),
                 focused_item: None,
                 default_variable_name_type: self.config.default_variable_name_type,
+                display_variable_indices: self.show_variable_indices(),
                 scroll_offset: 0.,
                 drawing_infos: vec![],
                 top_item_draw_offset: 0.,
