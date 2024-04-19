@@ -868,7 +868,10 @@ snapshot_ui!(regex_error_indication, || {
 });
 
 snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
-    Message::ToggleSidePanel, Message::SetActiveScope(ScopeRef::from_strs(&["tb"])), Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")),
+    Message::ToggleSidePanel,
+    Message::ToggleDirection,
+    Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")),
 ]}
 
 snapshot_ui!(fuzzy_signal_filter_works, || {
@@ -898,6 +901,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         Message::ToggleMenu,
         Message::ToggleToolbar,
         Message::ToggleOverview,
+        Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
         Message::SetVariableNameFilterType(VariableNameFilterType::Fuzzy),
@@ -938,6 +942,7 @@ snapshot_ui!(contain_signal_filter_works, || {
         Message::ToggleMenu,
         Message::ToggleToolbar,
         Message::ToggleOverview,
+        Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
         Message::SetVariableNameFilterType(VariableNameFilterType::Contain),
@@ -978,6 +983,7 @@ snapshot_ui!(regex_signal_filter_works, || {
         Message::ToggleMenu,
         Message::ToggleToolbar,
         Message::ToggleOverview,
+        Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
@@ -1022,6 +1028,7 @@ snapshot_ui!(start_signal_filter_works, || {
         Message::ToggleMenu,
         Message::ToggleToolbar,
         Message::ToggleOverview,
+        Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
@@ -1062,6 +1069,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         Message::ToggleMenu,
         Message::ToggleToolbar,
         Message::ToggleOverview,
+        Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
         Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
@@ -1224,6 +1232,7 @@ snapshot_ui_with_file_and_msgs! {hierarchy_tree, "examples/counter.vcd", [
 // makes sure that variables that are not part of a scope are properly displayed in the hierarchy tree view
 snapshot_ui_with_file_and_msgs! {hierarchy_tree_with_root_vars, "examples/atxmega256a3u-bmda-jtag_short.vcd", [
     Message::ToggleSidePanel,
+    Message::ToggleDirection,
     Message::SetHierarchyStyle(HierarchyStyle::Tree),
     Message::AddVariable(VariableRef::from_strs(&["tck"])),
     Message::AddVariable(VariableRef::from_strs(&["tms"])),
@@ -1235,6 +1244,7 @@ snapshot_ui_with_file_and_msgs! {hierarchy_tree_with_root_vars, "examples/atxmeg
 // makes sure that variables that are not part of a scope are properly displayed in the separate hierarchy view
 snapshot_ui_with_file_and_msgs! {hierarchy_separate_with_root_vars, "examples/atxmega256a3u-bmda-jtag_short.vcd", [
     Message::ToggleSidePanel,
+    Message::ToggleDirection,
     Message::AddVariable(VariableRef::from_strs(&["tck"])),
     Message::AddVariable(VariableRef::from_strs(&["tms"])),
     Message::AddVariable(VariableRef::from_strs(&["tdi"])),
