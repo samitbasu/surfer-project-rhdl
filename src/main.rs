@@ -53,7 +53,9 @@ use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
 use eframe::egui::style::Widgets;
+use eframe::egui::FontData;
 use eframe::egui::FontDefinitions;
+use eframe::egui::FontFamily;
 use eframe::egui::Visuals;
 use eframe::emath;
 use eframe::epaint::Rect;
@@ -339,7 +341,17 @@ fn main() -> Result<()> {
 
 fn setup_custom_font(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
-    egui_remixicon::add_to_fonts(&mut fonts);
+
+    fonts.font_data.insert(
+        "remix_icons".to_owned(),
+        FontData::from_static(egui_remixicon::FONT),
+    );
+
+    fonts
+        .families
+        .get_mut(&FontFamily::Proportional)
+        .unwrap()
+        .push("remix_icons".to_owned());
 
     ctx.set_fonts(fonts);
 }
