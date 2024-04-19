@@ -1349,7 +1349,9 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
         });
 
     wait_for_waves_fully_loaded(&mut state, 10);
-
+    state.update(Message::ToggleToolbar);
+    state.update(Message::ToggleMenu);
+    state.update(Message::ToggleSidePanel);
     state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
         "tb.dut.counter",
     )));

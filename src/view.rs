@@ -653,24 +653,24 @@ impl State {
                     .displayed_items
                     .get(displayed_item_id)
                 {
-                        let item_rect = match displayed_item {
-                            DisplayedItem::Variable(displayed_variable) => {
-                                let var = displayed_variable;
-                                let info = &displayed_variable.info;
-                                let style = Style::default();
-                                let mut layout_job = LayoutJob::default();
-                                self.add_alpha_id(
-                                    draw_alpha,
-                                    vidx,
-                                    &style,
-                                    &mut layout_job,
-                                    Align::LEFT,
-                                );
-                                displayed_item.add_to_layout_job(
-                                    &self.config.theme.foreground,
-                                    &style,
-                                    &mut layout_job,
-                                );
+                    let item_rect = match displayed_item {
+                        DisplayedItem::Variable(displayed_variable) => {
+                            let var = displayed_variable;
+                            let info = &displayed_variable.info;
+                            let style = Style::default();
+                            let mut layout_job = LayoutJob::default();
+                            self.add_alpha_id(
+                                draw_alpha,
+                                vidx,
+                                &style,
+                                &mut layout_job,
+                                Align::LEFT,
+                            );
+                            displayed_item.add_to_layout_job(
+                                &self.config.theme.foreground,
+                                &style,
+                                &mut layout_job,
+                            );
 
                             self.add_alpha_id(
                                 draw_alpha,
