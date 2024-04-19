@@ -28,6 +28,7 @@ use crate::{
         timestamp::CxxrtlTimestamp,
     },
     message::Message,
+    variable_direction::VariableDirection,
     wave_container::{
         QueryResult, ScopeRef, SimulationStatus, VariableMeta, VariableRef, WaveContainerScopeId,
         WaveContainerVarId,
@@ -530,6 +531,7 @@ impl CxxrtlContainer {
                 num_bits: Some(item.width),
                 variable_type: None,
                 index: None,
+                direction: VariableDirection::Unknown,
                 enum_map: Default::default(),
             })
             .unwrap_or_else(|| VariableMeta {
@@ -537,6 +539,7 @@ impl CxxrtlContainer {
                 num_bits: None,
                 variable_type: None,
                 index: None,
+                direction: VariableDirection::Unknown,
                 enum_map: Default::default(),
             }))
     }
