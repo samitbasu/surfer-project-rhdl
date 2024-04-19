@@ -103,6 +103,17 @@ impl WaveData {
                                 unique(&variable.variable_ref, &full_names)
                             }
                         };
+                        if self.display_variable_indices {
+                            let index = self
+                                .inner
+                                .variable_meta(&variable.variable_ref)
+                                .ok()
+                                .as_ref()
+                                .and_then(|meta| meta.index.clone())
+                                .map(|index| format!(" {index}"))
+                                .unwrap_or_default();
+                            variable.display_name = format!("{}{}", variable.display_name, index);
+                        }
                     }
                     DisplayedItem::Divider(_) => {}
                     DisplayedItem::Marker(_) => {}
