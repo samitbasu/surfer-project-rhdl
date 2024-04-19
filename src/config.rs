@@ -105,6 +105,8 @@ pub struct SurferLayout {
     show_statusbar: bool,
     /// Flag to show/hide the indices of variables in the variable list
     show_variable_indices: bool,
+    /// Flag to show/hide the variable direction icon
+    show_variable_direction: bool,
     /// Initial window height
     pub window_height: usize,
     /// Initial window width
@@ -142,6 +144,9 @@ impl SurferLayout {
     }
     pub fn show_variable_indices(&self) -> bool {
         self.show_variable_indices
+    }
+    pub fn show_variable_direction(&self) -> bool {
+        self.show_variable_direction
     }
 }
 

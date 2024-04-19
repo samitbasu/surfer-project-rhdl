@@ -256,6 +256,12 @@ impl State {
                     ui.close_menu();
                     msgs.push(Message::ToggleIndices)
                 });
+            ui.radio(self.show_variable_direction(), "Show variable direction")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleDirection)
+                });
         });
         ui.menu_button("Help", |ui| {
             b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);

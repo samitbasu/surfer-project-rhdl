@@ -530,6 +530,7 @@ impl CxxrtlContainer {
                 num_bits: Some(item.width),
                 variable_type: None,
                 index: None,
+                direction: None,
                 enum_map: Default::default(),
             })
             .unwrap_or_else(|| VariableMeta {
@@ -537,6 +538,7 @@ impl CxxrtlContainer {
                 num_bits: None,
                 variable_type: None,
                 index: None,
+                direction: None,
                 enum_map: Default::default(),
             }))
     }

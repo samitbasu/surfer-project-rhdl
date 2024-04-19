@@ -38,7 +38,7 @@ fn no_of_digits(num_bits: u64, digit_size: u64) -> usize {
 }
 
 /// VCD bit extension
-fn extend_string(val: &String, num_bits: u64) -> String {
+fn extend_string(val: &str, num_bits: u64) -> String {
     if num_bits > val.len() as u64 {
         let extra_count = num_bits - val.len() as u64;
         let extra_value = match val.chars().next() {
