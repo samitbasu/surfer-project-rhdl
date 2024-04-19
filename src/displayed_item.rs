@@ -261,18 +261,15 @@ impl DisplayedItem {
     }
 
     /// Widget displayed in variable list for the wave form, may include additional info compared to name()
-    pub fn add_to_layout_job(
-        &self,
-        color: &Color32,
-        index: Option<String>,
-        style: &Style,
-        layout_job: &mut LayoutJob,
-    ) {
+    pub fn add_to_layout_job(&self, color: &Color32, style: &Style, layout_job: &mut LayoutJob) {
         match self {
             DisplayedItem::Variable(_) => {
-                RichText::new(format!("{}{}", self.name(), index.unwrap_or_default()))
-                    .color(*color)
-                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
+                RichText::new(self.name()).color(*color).append_to(
+                    layout_job,
+                    style,
+                    FontSelection::Default,
+                    Align::Center,
+                );
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
                 RichText::new(self.name())
