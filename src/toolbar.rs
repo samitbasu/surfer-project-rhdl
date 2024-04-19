@@ -142,7 +142,7 @@ impl State {
             add_toolbar_button(
                 ui,
                 msgs,
-                "⛶",
+                icons::ASPECT_RATIO_FILL,
                 "Zoom to fit",
                 Message::ZoomToFit { viewport_idx: 0 },
                 wave_loaded,
