@@ -27,6 +27,7 @@ mod time;
 mod toolbar;
 mod translation;
 mod util;
+mod variable_direction;
 mod variable_name_filter;
 mod variable_name_type;
 mod variable_type;
@@ -560,6 +561,7 @@ pub struct State {
     show_statusbar: Option<bool>,
     align_names_right: Option<bool>,
     show_variable_indices: Option<bool>,
+    show_variable_direction: Option<bool>,
 
     waves: Option<WaveData>,
     drag_started: bool,
@@ -641,6 +643,7 @@ impl State {
             show_tooltip: None,
             show_overview: None,
             show_statusbar: None,
+            show_variable_direction: None,
             align_names_right: None,
             show_variable_indices: None,
             drag_started: false,
@@ -1306,6 +1309,13 @@ impl State {
                     None => !self.config.layout.show_overview(),
                 };
                 self.show_overview = Some(new)
+            }
+            Message::ToggleDirection => {
+                let new = match self.show_variable_direction {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_variable_direction(),
+                };
+                self.show_variable_direction = Some(new)
             }
             Message::ToggleIndices => {
                 let new = match self.show_variable_indices {

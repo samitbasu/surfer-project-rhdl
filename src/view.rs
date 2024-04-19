@@ -596,16 +596,23 @@ impl State {
         filter: &str,
     ) {
         for variable in self.filtered_variables(wave, filter, scope) {
-            let index = wave
-                .inner
-                .variable_meta(&variable)
-                .ok()
+            let meta = wave.inner.variable_meta(&variable).ok();
+            let index = meta
                 .as_ref()
                 .and_then(|meta| meta.index.clone())
                 .map(|index| format!(" {index}"))
                 .unwrap_or_default();
 
-            let sig_name = format!("{}{}", variable.name.clone(), index);
+            let direction = if self.show_variable_direction() {
+                meta.as_ref()
+                    .and_then(|meta| meta.direction.clone())
+                    .map(|direction| format!("{} ", direction.get_icon()))
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            let sig_name = format!("{}{}{}", direction, variable.name.clone(), index);
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
@@ -1265,14 +1272,18 @@ impl State {
 fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
     let meta = wave.inner.variable_meta(variable).ok();
     format!(
-        "{}\nNum bits: {}\nType: {}",
+        "{}\nNum bits: {}\nType: {}\nDirection: {}",
         variable.full_path_string(),
         meta.as_ref()
             .and_then(|meta| meta.num_bits)
             .map(|num_bits| format!("{num_bits}"))
             .unwrap_or_else(|| "unknown".to_string()),
-        meta.and_then(|meta| meta.variable_type)
+        meta.as_ref()
+            .and_then(|meta| meta.variable_type)
             .map(|variable_type| format!("{variable_type}"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        meta.and_then(|meta| meta.direction)
+            .map(|direction| format!("{direction}"))
             .unwrap_or_else(|| "unknown".to_string())
     )
 }
