@@ -21,7 +21,7 @@ derivative = "2.2.0"
 derive_more = "0.99.17"
 directories = "5.0"
 eframe = "0.25.0"
-egui-remixicon = "0.2"
+egui-remixicon = { version = "0.27.2", default_features = false }
 egui_extras = "0.25.0"
 egui_plot = { version = "0.25", optional = true }
 enum-iterator = "2.0"
@@ -41,7 +41,7 @@ num = { version = "0.4", features = ["serde"] }
 pure-rust-locales = "0.8.1"
 rayon = "1.8.0"
 regex = "1.10.2"
-reqwest = { version = "0.11.22", features = ["stream"] }
+reqwest = { version = "0.12.3", features = ["stream"] }
 rfd = { version = "0.14.0", default-features = false, features = ["tokio", "xdg-portal"] }
 ron = { version = "0.8.1", features = ["integer128"] }
 serde = { version = "1.0.193", features = ["derive"] }
