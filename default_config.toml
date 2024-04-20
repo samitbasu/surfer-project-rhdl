@@ -17,6 +17,7 @@ show_tooltip = true
 show_overview = true
 show_statusbar = true
 show_variable_indices = true
+show_variable_direction = true
 window_width = 1920
 window_height = 1080
 align_names_right = false

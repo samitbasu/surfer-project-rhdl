@@ -285,15 +285,14 @@ impl State {
     fn get_thread_pool() -> Option<rayon::ThreadPool> {
         // try to create a new rayon thread pool so that we do not block drawing functionality
         // which might be blocked by the waveform reader using up all the threads in the global pool
-        let pool = match rayon::ThreadPoolBuilder::new().build() {
+        match rayon::ThreadPoolBuilder::new().build() {
             Ok(pool) => Some(pool),
             Err(e) => {
                 // on wasm this will always fail
                 warn!("failed to create thread pool: {e:?}");
                 None
             }
-        };
-        pool
+        }
     }
 
     pub fn load_wave_body(
