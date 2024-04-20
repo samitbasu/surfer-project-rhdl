@@ -1040,13 +1040,13 @@ impl State {
                     // start of visible area transition for next transition
                     // end of visible area for previous transition
                     if waves.cursor.is_none() && waves.focused_item.is_some() {
-                        let num_timestamps = waves.num_timestamps();
-                        if next {
-                            if let Some(vp) = waves.viewports.first() {
-                                waves.cursor = Some(vp.left_edge_time(&num_timestamps));
-                            }
-                        } else if let Some(vp) = waves.viewports.first() {
-                            waves.cursor = Some(vp.right_edge_time(&num_timestamps));
+                        if let Some(vp) = waves.viewports.first() {
+                            let num_timestamps = waves.num_timestamps();
+                            waves.cursor = if next {
+                                Some(vp.left_edge_time(&num_timestamps))
+                            } else {
+                                Some(vp.right_edge_time(&num_timestamps))
+                            };
                         }
                     }
                     waves.set_cursor_at_transition(next, variable, skip_zero);
