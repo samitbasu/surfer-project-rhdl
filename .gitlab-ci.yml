@@ -96,6 +96,33 @@ test-nightly:
         - when: always
     allow_failure: true
 
+test-macos-aarch64:
+    stage: test
+    variables:
+        HOMEBREW_NO_AUTO_UPDATE: 1
+        HOMEBREW_NO_ENV_HINTS: 1
+        HOMEBREW_NO_INSTALL_CLEANUP: 1
+    tags:
+        - saas-macos-medium-m1
+    image: macos-14-xcode-15
+    before_script:
+        - brew install rustup-init
+        - ulimit -n 1000
+        - rustup install 1.77
+        - rustup override set 1.77
+        - cargo -V
+        - rustc -V
+    script:
+        - cargo test
+    cache:
+        key: test-macos-aarch64
+        paths:
+            - target
+            - $CARGO_HOME
+    rules:
+        - when: always
+    allow_failure: true
+
 coverage:
     image: xd009642/tarpaulin
     stage: test
@@ -107,7 +134,7 @@ coverage:
             - $CARGO_HOME
     script:
         - shopt -s globstar
-        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* FastWaveBackend/**/* f128/**/* wellen/**/* material-icons/**/* --skip-clean --color Always
+        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* f128/**/* wellen/**/* --skip-clean --color Always
     coverage: '/^\d+.\d+% coverage/'
     artifacts:
         reports:
@@ -197,6 +224,43 @@ windows_build:
         expire_in: 1 week
     cache:
         key: windows_build
+        paths:
+            - target
+            - $CARGO_HOME
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main"
+          when: always
+        - if: $CI_COMMIT_TAG
+          when: always
+        - when: never
+
+macos-aarch64_build:
+    stage: deploy
+    variables:
+        HOMEBREW_NO_AUTO_UPDATE: 1
+        HOMEBREW_NO_ENV_HINTS: 1
+        HOMEBREW_NO_INSTALL_CLEANUP: 1
+    tags:
+        - saas-macos-medium-m1
+    image: macos-14-xcode-15
+    before_script:
+        - brew install rustup-init
+        - rustup install 1.77
+        - rustup override set 1.77
+        - cargo -V
+        - rustc -V
+        - git fetch --tags
+    script:
+        - cargo build --release --locked
+        - ls -alrt target/release/surfer
+        - cp target/release/surfer surfer
+        - zip surfer_macos-aarch64.zip surfer
+    artifacts:
+        paths:
+            - surfer_macos-aarch64.zip
+        expire_in: 1 week
+    cache:
+        key: macos-aarch64_build
         paths:
             - target
             - $CARGO_HOME
@@ -301,6 +365,8 @@ upload:
       curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file surfer_win.zip "${PACKAGE_REGISTRY_URL}/surfer_win_${CI_COMMIT_TAG}.zip"
     - |
       curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file surfer_linux.zip "${PACKAGE_REGISTRY_URL}/surfer_linux_${CI_COMMIT_TAG}.zip"
+    - |
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file surfer_macos-aarch64.zip "${PACKAGE_REGISTRY_URL}/surfer_macos-aarch64_${CI_COMMIT_TAG}.zip"
 
 release:
   # Caution, as of 2021-02-02 these assets links require a login, see:
@@ -315,4 +381,5 @@ release:
     - |
       release-cli create --name "Release $CI_COMMIT_TAG" --tag-name $CI_COMMIT_TAG \
         --assets-link "{\"name\":\"surfer_win_${CI_COMMIT_TAG}.zip\",\"url\":\"${PACKAGE_REGISTRY_URL}/surfer_win_${CI_COMMIT_TAG}.zip\"}" \
-        --assets-link "{\"name\":\"surfer_linux_${CI_COMMIT_TAG}.zip\",\"url\":\"${PACKAGE_REGISTRY_URL}/surfer_linux_${CI_COMMIT_TAG}.zip\"}"
+        --assets-link "{\"name\":\"surfer_linux_${CI_COMMIT_TAG}.zip\",\"url\":\"${PACKAGE_REGISTRY_URL}/surfer_linux_${CI_COMMIT_TAG}.zip\"}" \
+        --assets-link "{\"name\":\"surfer_macos-aarch64_${CI_COMMIT_TAG}.zip\",\"url\":\"${PACKAGE_REGISTRY_URL}/surfer_macos-aarch64_${CI_COMMIT_TAG}.zip\"}"

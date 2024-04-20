@@ -80,6 +80,11 @@ You can download a pre-built Windows binary
 
 Note that sometimes Windows Defender has been known to report Surfer [and other rust projects](https://github.com/cargo-bins/cargo-binstall/issues/945) as a trojan. If in doubt, please use [Virus total](https://www.virustotal.com/) to check.
 
+### Pre-built macos-aarch64 binary
+
+You can download a pre-built macos-aarch64 binary
+[here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/raw/surfer_macos-aarch64.zip?job=macos-aarch64_build).
+
 ## Configuration
 
 Many aspects of Surfer can be configured.
