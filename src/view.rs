@@ -648,90 +648,91 @@ impl State {
                 .iter()
                 .enumerate()
             {
-                self.waves
+                if let Some(displayed_item) = self
+                    .waves
                     .as_ref()
                     .unwrap()
                     .displayed_items
                     .get(displayed_item_id)
-                    .map(|displayed_item| {
-                        let item_rect = match displayed_item {
-                            DisplayedItem::Variable(displayed_variable) => {
-                                let var = displayed_variable;
-                                let info = &displayed_variable.info;
-                                let style = Style::default();
-                                let mut layout_job = LayoutJob::default();
-                                self.add_alpha_id(
-                                    draw_alpha,
-                                    vidx,
-                                    &style,
-                                    &mut layout_job,
-                                    Align::LEFT,
-                                );
-                                displayed_item.add_to_layout_job(
-                                    &self.config.theme.foreground,
-                                    &style,
-                                    &mut layout_job,
-                                );
+                {
+                    let item_rect = match displayed_item {
+                        DisplayedItem::Variable(displayed_variable) => {
+                            let var = displayed_variable;
+                            let info = &displayed_variable.info;
+                            let style = Style::default();
+                            let mut layout_job = LayoutJob::default();
+                            self.add_alpha_id(
+                                draw_alpha,
+                                vidx,
+                                &style,
+                                &mut layout_job,
+                                Align::LEFT,
+                            );
+                            displayed_item.add_to_layout_job(
+                                &self.config.theme.foreground,
+                                &style,
+                                &mut layout_job,
+                            );
 
-                                self.add_alpha_id(
-                                    draw_alpha,
-                                    vidx,
-                                    &style,
-                                    &mut layout_job,
-                                    Align::RIGHT,
-                                );
+                            self.add_alpha_id(
+                                draw_alpha,
+                                vidx,
+                                &style,
+                                &mut layout_job,
+                                Align::RIGHT,
+                            );
 
-                                self.draw_variable(
-                                    msgs,
-                                    vidx,
-                                    WidgetText::LayoutJob(layout_job),
-                                    FieldRef::without_fields(var.variable_ref.clone()),
-                                    &mut item_offsets,
-                                    info,
-                                    ui,
-                                )
-                            }
-                            DisplayedItem::Divider(_) => self.draw_plain_item(
+                            self.draw_variable(
                                 msgs,
                                 vidx,
-                                displayed_item,
+                                WidgetText::LayoutJob(layout_job),
+                                FieldRef::without_fields(var.variable_ref.clone()),
                                 &mut item_offsets,
+                                info,
                                 ui,
-                                draw_alpha,
-                            ),
-                            DisplayedItem::Marker(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                                draw_alpha,
-                            ),
-                            DisplayedItem::Placeholder(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                                draw_alpha,
-                            ),
-                            DisplayedItem::TimeLine(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                                draw_alpha,
-                            ),
-                        };
-                        self.draw_drag_target(
+                            )
+                        }
+                        DisplayedItem::Divider(_) => self.draw_plain_item(
                             msgs,
                             vidx,
-                            item_rect,
+                            displayed_item,
+                            &mut item_offsets,
                             ui,
-                            vidx == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
-                        );
-                    });
+                            draw_alpha,
+                        ),
+                        DisplayedItem::Marker(_) => self.draw_plain_item(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        ),
+                        DisplayedItem::Placeholder(_) => self.draw_plain_item(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        ),
+                        DisplayedItem::TimeLine(_) => self.draw_plain_item(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        ),
+                    };
+                    self.draw_drag_target(
+                        msgs,
+                        vidx,
+                        item_rect,
+                        ui,
+                        vidx == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
+                    );
+                };
             }
         });
 

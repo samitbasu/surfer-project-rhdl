@@ -130,18 +130,18 @@ pub struct DisplayedPlaceholder {
 
 impl DisplayedPlaceholder {
     pub fn to_variable(
-        self,
+        &self,
         variable_info: VariableInfo,
         updated_variable_ref: VariableRef,
     ) -> DisplayedVariable {
         DisplayedVariable {
             variable_ref: updated_variable_ref,
             info: variable_info,
-            color: self.color,
-            background_color: self.background_color,
-            display_name: self.display_name,
+            color: self.color.clone(),
+            background_color: self.background_color.clone(),
+            display_name: self.display_name.clone(),
             display_name_type: self.display_name_type,
-            manual_name: self.manual_name,
+            manual_name: self.manual_name.clone(),
         }
     }
 }
