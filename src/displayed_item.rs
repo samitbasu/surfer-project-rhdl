@@ -130,18 +130,18 @@ pub struct DisplayedPlaceholder {
 
 impl DisplayedPlaceholder {
     pub fn to_variable(
-        self,
+        &self,
         variable_info: VariableInfo,
         updated_variable_ref: VariableRef,
     ) -> DisplayedVariable {
         DisplayedVariable {
             variable_ref: updated_variable_ref,
             info: variable_info,
-            color: self.color,
-            background_color: self.background_color,
-            display_name: self.display_name,
+            color: self.color.clone(),
+            background_color: self.background_color.clone(),
+            display_name: self.display_name.clone(),
             display_name_type: self.display_name_type,
-            manual_name: self.manual_name,
+            manual_name: self.manual_name.clone(),
         }
     }
 }
@@ -196,18 +196,15 @@ impl DisplayedItem {
     }
 
     /// Widget displayed in variable list for the wave form, may include additional info compared to name()
-    pub fn add_to_layout_job(
-        &self,
-        color: &Color32,
-        index: Option<String>,
-        style: &Style,
-        layout_job: &mut LayoutJob,
-    ) {
+    pub fn add_to_layout_job(&self, color: &Color32, style: &Style, layout_job: &mut LayoutJob) {
         match self {
             DisplayedItem::Variable(_) => {
-                RichText::new(format!("{}{}", self.name(), index.unwrap_or_default()))
-                    .color(*color)
-                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
+                RichText::new(self.name()).color(*color).append_to(
+                    layout_job,
+                    style,
+                    FontSelection::Default,
+                    Align::Center,
+                );
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
                 RichText::new(self.name())
