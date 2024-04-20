@@ -731,7 +731,7 @@ impl State {
                         ui,
                         vidx.0 == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
                     );
-                }
+                };
             }
         });
 
