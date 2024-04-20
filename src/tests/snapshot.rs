@@ -1331,6 +1331,17 @@ snapshot_ui_with_file_and_msgs! {previous_transition_skip_zero, "examples/counte
     Message::MoveCursorToTransition { next: false, variable: None, skip_zero: true }
 ]}
 
+snapshot_ui_with_file_and_msgs! {toggle_variable_indices, "examples/counter.vcd", [
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.counter")),
+    Message::ToggleIndices
+]}
+
+snapshot_ui_with_file_and_msgs! {direction_works, "examples/tb_recv.ghw", [
+    Message::ToggleSidePanel,
+    Message::SetActiveScope(ScopeRef::from_strs(&["tb_recv", "dut"])),
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb_recv.dut.en")),
+]}
+
 snapshot_ui!(signals_can_be_added_after_file_switch, || {
     let mut state = State::new_default_config()
         .unwrap()
