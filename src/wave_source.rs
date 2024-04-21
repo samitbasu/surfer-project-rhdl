@@ -386,7 +386,7 @@ impl State {
                 #[cfg(not(target_arch = "wasm32"))]
                 sender
                     .send(Message::LoadWaveformFile(
-                        camino::Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
+                        Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
                         LoadOptions {
                             keep_variables,
                             keep_unavailable,
