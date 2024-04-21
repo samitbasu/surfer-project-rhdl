@@ -19,6 +19,7 @@ clippy:
         - rustup component add clippy
         - cargo install gitlab_clippy
     script:
+        - cargo -V
         - cargo clippy --color=always -- --allow clippy::useless_format
     after_script:
         - cargo clippy --message-format=json -- --allow clippy::useless_format | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
@@ -43,6 +44,25 @@ test:
         - cargo test --color=always --locked
     cache:
         key: test
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+
+test-no-default-features:
+    stage: test
+    script:
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always --locked --no-default-features
+    cache:
+        key: test-no-default-features
         paths:
             - target
             - $CARGO_HOME
@@ -106,6 +126,8 @@ coverage:
             - target
             - $CARGO_HOME
     script:
+        - rustc -V
+        - cargo -V
         - shopt -s globstar
         - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* FastWaveBackend/**/* f128/**/* wellen/**/* material-icons/**/* --skip-clean --color Always
     coverage: '/^\d+.\d+% coverage/'
@@ -162,6 +184,8 @@ linux_build:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
         - git fetch --tags
+        - rustc -V
+        - cargo -V
         - cargo build --release --locked
         - cp target/release/surfer surfer
         - zip surfer_linux.zip surfer
@@ -187,6 +211,8 @@ windows_build:
         - apt-get update -y
         - apt-get install -y mingw-w64 zip
         - git fetch --tags
+        - rustc -V
+        - cargo -V
         - rustup target add x86_64-pc-windows-gnu
         - cargo build --target x86_64-pc-windows-gnu --release --locked
         - cp target/x86_64-pc-windows-gnu/release/surfer.exe surfer.exe
@@ -218,7 +244,9 @@ pages_build:
     script:
         - git fetch --tags
         - rustup target add wasm32-unknown-unknown
-        - wget -qO- https://github.com/trunk-rs/trunk/releases/download/v0.18.7/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+        - rustc -V
+        - cargo -V
+        - wget -qO- https://github.com/trunk-rs/trunk/releases/download/v0.19.2/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
         - ls ./trunk
         - chmod +x trunk
           # https://github.com/thedodd/trunk/pull/361#issuecomment-1308487648 trunk can not
