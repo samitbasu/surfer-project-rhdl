@@ -46,7 +46,7 @@ rfd = { version = "0.14.0", default-features = false, features = ["tokio", "xdg-
 ron = { version = "0.8.1", features = ["integer128"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.113"
-serde_stacker = "0.1"
+serde_stacker = { version = "0.1", optional = true }
 softposit = "0.4.0"
 spade = { path = "spade/spade-compiler", optional = true }
 spade-common = { path = "spade/spade-common", optional = true }
@@ -57,14 +57,13 @@ sys-locale = "0.3.1"
 tokio = { version = "1.37", features = ["rt", "time", "macros"] }
 toml = "0.8.12"
 vcd-translate = { path = "spade/vcd-translate", optional = true }
-web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
 web-time = "1.1.0"
 wellen = { path = "wellen" }
 
 [features]
 default = ["spade", "performance_plot"]
 f128 = ["dep:f128"]
-spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-mir", "dep:spade-types", "dep:vcd-translate"]
+spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-mir", "dep:spade-types", "dep:vcd-translate", "dep:serde_stacker"]
 performance_plot = ["dep:egui_plot"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -73,6 +72,8 @@ tracing-wasm = "0.2"
 wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
 wasm_thread = { version = "0.2.0", features = ["es_modules"] }
+web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
+
 
 # The following dependency can be removed once egui is updated to 0.26.2 or higher
 [target.'cfg(any(target_os = "windows"))'.dependencies]
