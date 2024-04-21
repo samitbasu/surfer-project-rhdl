@@ -54,6 +54,25 @@ test:
     rules:
         - when: always
 
+test-no-default-features:
+    stage: test
+    script:
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always --locked --no-default-features
+    cache:
+        key: test-no-default-features
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+
 test-beta:
     image: "instrumentisto/rust:beta"
     stage: test
