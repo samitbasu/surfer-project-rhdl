@@ -74,7 +74,6 @@ wasm-bindgen-futures = "0.4"
 wasm_thread = { version = "0.2.0", features = ["es_modules"] }
 web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
 
-
 # The following dependency can be removed once egui is updated to 0.26.2 or higher
 [target.'cfg(any(target_os = "windows"))'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser"] }

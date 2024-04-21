@@ -19,6 +19,7 @@ clippy:
         - rustup component add clippy
         - cargo install gitlab_clippy
     script:
+        - cargo -V
         - cargo clippy --color=always -- --allow clippy::useless_format
     after_script:
         - cargo clippy --message-format=json -- --allow clippy::useless_format | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
@@ -43,6 +44,25 @@ test:
         - cargo test --color=always --locked
     cache:
         key: test
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+
+test-no-default-features:
+    stage: test
+    script:
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always --locked --no-default-features
+    cache:
+        key: test-no-default-features
         paths:
             - target
             - $CARGO_HOME
@@ -106,6 +126,8 @@ coverage:
             - target
             - $CARGO_HOME
     script:
+        - rustc -V
+        - cargo -V
         - shopt -s globstar
         - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* FastWaveBackend/**/* f128/**/* wellen/**/* material-icons/**/* --skip-clean --color Always
     coverage: '/^\d+.\d+% coverage/'
