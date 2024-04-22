@@ -492,7 +492,7 @@ impl WaveContainer {
                 .lock()
                 .unwrap()
                 .max_timestamp()
-                .map(|t| t.into_femtoseconds()),
+                .map(|t| t.as_femtoseconds()),
         }
     }
 

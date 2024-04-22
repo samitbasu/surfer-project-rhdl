@@ -176,7 +176,7 @@ fn variable_draw_commands(
                 &waves.variable_format,
                 translators,
             )
-            .as_fields();
+            .into_fields();
 
         for SubFieldFlatTranslationResult { names, value } in fields {
             let prev = prev_values.get(&names);
@@ -263,7 +263,7 @@ impl State {
                 .par_bridge()
                 .filter_map(|x| {
                     let time = waves.viewports[viewport_idx]
-                        .to_time_f64(x as f64, frame_width, &num_timestamps)
+                        .as_time_f64(x as f64, frame_width, &num_timestamps)
                         .0;
                     if time < 0. || time > max_time {
                         None
@@ -367,7 +367,7 @@ impl State {
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
-                let mouse_ptr = Some(waves.viewports[viewport_idx].to_time_bigint(
+                let mouse_ptr = Some(waves.viewports[viewport_idx].as_time_bigint(
                     mouse_ptr_pos.x,
                     frame_width,
                     &waves.num_timestamps(),
@@ -731,11 +731,9 @@ impl State {
         frame_width: f32,
         viewport_idx: usize,
     ) -> Option<BigInt> {
-        let Some(pos) = pointer_pos_canvas else {
-            return None;
-        };
+        let pos = pointer_pos_canvas?;
         let viewport = &waves.viewports[viewport_idx];
-        let timestamp = viewport.to_time_bigint(pos.x, frame_width, &waves.num_timestamps());
+        let timestamp = viewport.as_time_bigint(pos.x, frame_width, &waves.num_timestamps());
         if let Some(utimestamp) = timestamp.to_biguint() {
             if let Some(vidx) = waves.get_item_at_y(pos.y) {
                 if let Some(id) = waves.displayed_items_order.get(vidx) {

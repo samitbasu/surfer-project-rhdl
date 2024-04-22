@@ -36,7 +36,7 @@ impl CxxrtlTimestamp {
         }
     }
 
-    pub fn into_femtoseconds(&self) -> BigUint {
+    pub fn as_femtoseconds(&self) -> BigUint {
         &self.seconds * BigUint::from(1_000_000_000_000_000u64) + &self.femtoseconds
     }
 }

@@ -191,14 +191,13 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
             println!("Diff: {diff_file:?}");
             print_image(&DynamicImage::ImageRgb8(diff_img));
 
-            assert!(
-                false,
+            panic!(
                 "Snapshot diff. Score: {score}\n\told: {previous_image_file:?}\n\tnew: {new_file:?}"
             )
         }
         (true, None) => {
             print_image(&new);
-            assert!(false, "New snapshot image (saved to {new_file:?})")
+            panic!("New snapshot image (saved to {new_file:?})")
         }
         (false, _) => {}
     }

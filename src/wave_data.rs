@@ -222,7 +222,7 @@ impl WaveData {
                                 Some((
                                     *id,
                                     DisplayedItem::Variable(
-                                        p.clone().to_variable(info, new_variable_ref),
+                                        p.clone().into_variable(info, new_variable_ref),
                                     ),
                                 ))
                             }
@@ -430,10 +430,8 @@ impl WaveData {
     }
 
     pub fn remove_placeholders(&mut self) {
-        self.displayed_items.retain(|_, item| match item {
-            DisplayedItem::Placeholder(_) => false,
-            _ => true,
-        });
+        self.displayed_items
+            .retain(|_, item| !matches!(item, DisplayedItem::Placeholder(_)));
         let remaining_ids = self.displayed_items_order.clone();
         self.displayed_items_order
             .retain(|i| remaining_ids.contains(i));

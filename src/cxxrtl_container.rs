@@ -72,15 +72,12 @@ impl CxxrtlWorker {
         loop {
             tokio::select! {
                 rx = self.command_channel.recv() => {
-                    match rx {
-                        Some((command, callback)) => {
-                            if let Err(e) =  self.send_message(CSMessage::command(command)).await {
+                    if let Some((command, callback)) = rx {
+                        if let Err(e) =  self.send_message(CSMessage::command(command)).await {
                                 error!("Failed to send message {e:#?}")
                             } else {
                                 self.callback_queue.push_back(callback)
                             }
-                        }
-                        None => {}
                     }
                 }
                 count = self.stream.read(&mut buf) => {
@@ -544,12 +541,8 @@ impl CxxrtlContainer {
     pub fn query_signal(&mut self, signal: &VariableRef, time: &BigUint) -> Option<QueryResult> {
         // Before we can query any signals, we need some other data available. If we don't have
         // that we'll early return with no value
-        let Some(max_timestamp) = self.max_timestamp() else {
-            return None;
-        };
-        let Some(info) = self.fetch_all_items() else {
-            return None;
-        };
+        let max_timestamp = self.max_timestamp()?;
+        let info = self.fetch_all_items()?;
         let loaded_signals = block_on(self.data.read()).loaded_signals.clone();
 
         let s = &self;

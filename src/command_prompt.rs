@@ -22,10 +22,12 @@ use crate::{
     State,
 };
 
+type RestCommand = Box<dyn Fn(&str) -> Option<Command<Message>>>;
+
 pub fn get_parser(state: &State) -> Command<Message> {
     fn single_word(
         suggestions: Vec<String>,
-        rest_command: Box<dyn Fn(&str) -> Option<Command<Message>>>,
+        rest_command: RestCommand,
     ) -> Option<Command<Message>> {
         Some(Command::NonTerminal(
             ParamGreed::Rest,
@@ -36,7 +38,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     fn optional_single_word(
         suggestions: Vec<String>,
-        rest_command: Box<dyn Fn(&str) -> Option<Command<Message>>>,
+        rest_command: RestCommand,
     ) -> Option<Command<Message>> {
         Some(Command::NonTerminal(
             ParamGreed::OptionalWord,
@@ -47,7 +49,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     fn single_word_delayed_suggestions(
         suggestions: Box<dyn Fn() -> Vec<String>>,
-        rest_command: Box<dyn Fn(&str) -> Option<Command<Message>>>,
+        rest_command: RestCommand,
     ) -> Option<Command<Message>> {
         Some(Command::NonTerminal(
             ParamGreed::Rest,

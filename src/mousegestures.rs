@@ -99,12 +99,12 @@ impl State {
                             };
                             msgs.push(Message::ZoomToRange {
                                 // FIXME: No need to go via bigint here, this could all be relative
-                                start: waves.viewports[viewport_idx].to_time_bigint(
+                                start: waves.viewports[viewport_idx].as_time_bigint(
                                     minx,
                                     frame_width,
                                     &waves.num_timestamps(),
                                 ),
-                                end: waves.viewports[viewport_idx].to_time_bigint(
+                                end: waves.viewports[viewport_idx].as_time_bigint(
                                     maxx,
                                     frame_width,
                                     &waves.num_timestamps(),
@@ -211,7 +211,7 @@ impl State {
             format!(
                 "Zoom in: {} to {}",
                 time_string(
-                    &(waves.viewports[viewport_idx].to_time_bigint(
+                    &(waves.viewports[viewport_idx].as_time_bigint(
                         minx,
                         width,
                         &waves.num_timestamps()
@@ -221,7 +221,7 @@ impl State {
                     &self.get_time_format()
                 ),
                 time_string(
-                    &(waves.viewports[viewport_idx].to_time_bigint(
+                    &(waves.viewports[viewport_idx].as_time_bigint(
                         maxx,
                         width,
                         &waves.num_timestamps()

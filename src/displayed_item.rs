@@ -45,7 +45,7 @@ impl DisplayedVariable {
             // variable is not available in the new waveform
             None => {
                 if keep_unavailable {
-                    Some(DisplayedItem::Placeholder(self.clone().to_placeholder()))
+                    Some(DisplayedItem::Placeholder(self.clone().into_placeholder()))
                 } else {
                     None
                 }
@@ -58,7 +58,7 @@ impl DisplayedVariable {
         }
     }
 
-    pub fn to_placeholder(mut self) -> DisplayedPlaceholder {
+    pub fn into_placeholder(mut self) -> DisplayedPlaceholder {
         self.variable_ref.clear_id(); // placeholders do not refer to currently loaded variables
         DisplayedPlaceholder {
             variable_ref: self.variable_ref,
@@ -129,7 +129,7 @@ pub struct DisplayedPlaceholder {
 }
 
 impl DisplayedPlaceholder {
-    pub fn to_variable(
+    pub fn into_variable(
         self,
         variable_info: VariableInfo,
         updated_variable_ref: VariableRef,
