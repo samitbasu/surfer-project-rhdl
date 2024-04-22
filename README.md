@@ -17,8 +17,8 @@ native, and some features are missing so for day-to-day use it is recommended
 to install the native version.
 
 The primary way to install surfer to build it from source which should work on
-Linux, Mac and Windows. For convenience we also provide a pre-built Linux
-binary.
+Linux, Mac and Windows. For convenience we also provide pre-built Linux and Windows
+binaries.
 
 ### Compiling from source
 
@@ -84,6 +84,8 @@ Note that sometimes Windows Defender has been known to report Surfer [and other 
 
 You can download a pre-built macos-aarch64 binary
 [here](https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/raw/surfer_macos-aarch64.zip?job=macos-aarch64_build).
+
+However, this binary is currently not signed, so most users will not be able to install it as is. We are looking for a solution to this.
 
 ## Configuration
 
