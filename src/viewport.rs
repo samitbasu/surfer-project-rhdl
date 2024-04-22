@@ -99,13 +99,13 @@ impl Viewport {
         BigInt::from(self.curr_right.absolute(num_timestamps).0 as i64)
     }
 
-    pub fn to_time_f64(&self, x: f64, view_width: f32, num_timestamps: &BigInt) -> Absolute {
+    pub fn as_time_f64(&self, x: f64, view_width: f32, num_timestamps: &BigInt) -> Absolute {
         let time_spacing = self.width_absolute(num_timestamps) / view_width as f64;
 
         self.curr_left.absolute(num_timestamps) + time_spacing * x
     }
 
-    pub fn to_time_bigint(&self, x: f32, view_width: f32, num_timestamps: &BigInt) -> BigInt {
+    pub fn as_time_bigint(&self, x: f32, view_width: f32, num_timestamps: &BigInt) -> BigInt {
         let Viewport {
             curr_left: left,
             curr_right: right,

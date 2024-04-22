@@ -113,7 +113,7 @@ impl State {
                 .map(|p| to_screen.inverse().transform_pos(p))
                 .unwrap();
             let timestamp =
-                viewport_all.to_time_bigint(pos.x, frame_width, &waves.num_timestamps());
+                viewport_all.as_time_bigint(pos.x, frame_width, &waves.num_timestamps());
             msgs.push(Message::GoToTime(Some(timestamp), 0));
         });
     }

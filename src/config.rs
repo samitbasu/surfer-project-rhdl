@@ -325,23 +325,21 @@ impl SurferTheme {
             let entries = std::fs::read_dir(theme_dir);
 
             if let Ok(entries) = entries {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        if entry
+                for entry in entries.flatten() {
+                    if entry
+                        .file_name()
+                        .into_string()
+                        .is_ok_and(|file_name| file_name.ends_with(".toml"))
+                    {
+                        let fname = entry
                             .file_name()
                             .into_string()
-                            .is_ok_and(|file_name| file_name.ends_with(".toml"))
-                        {
-                            let fname = entry
-                                .file_name()
-                                .into_string()
-                                .unwrap()
-                                .strip_suffix(".toml")
-                                .unwrap_or("")
-                                .to_string();
-                            if !fname.is_empty() && !theme_names.contains(&fname) {
-                                theme_names.push(fname);
-                            }
+                            .unwrap()
+                            .strip_suffix(".toml")
+                            .unwrap_or("")
+                            .to_string();
+                        if !fname.is_empty() && !theme_names.contains(&fname) {
+                            theme_names.push(fname);
                         }
                     }
                 }

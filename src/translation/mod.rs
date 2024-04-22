@@ -192,7 +192,7 @@ pub struct FlatTranslationResult {
 }
 
 impl FlatTranslationResult {
-    pub fn as_fields(self) -> Vec<SubFieldFlatTranslationResult> {
+    pub fn into_fields(self) -> Vec<SubFieldFlatTranslationResult> {
         vec![SubFieldFlatTranslationResult {
             names: vec![],
             value: self.this,
@@ -359,7 +359,7 @@ impl TranslationResult {
             fields: subresults
                 .into_iter()
                 .flat_map(|(n, sub)| {
-                    sub.as_fields()
+                    sub.into_fields()
                         .into_iter()
                         .map(|mut result| {
                             result.names.insert(0, n.clone());

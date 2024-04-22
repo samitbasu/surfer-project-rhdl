@@ -128,7 +128,7 @@ async fn fill_signal_values(
                 .collect::<HashMap<_, _>>();
 
             block_on(signal_values.write())
-                .insert(sample.time.into_femtoseconds().to_bigint().unwrap(), values);
+                .insert(sample.time.as_femtoseconds().to_bigint().unwrap(), values);
             msg_sender
                 .send(Message::InvalidateDrawCommands)
                 .expect("Message receiver disconnected");
