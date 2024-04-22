@@ -769,13 +769,12 @@ impl State {
             msgs.push(Message::VariableDragStarted(vidx));
         }
 
-        if item_response.drag_released() {
-            if self
+        if item_response.drag_released()
+            && self
                 .drag_source_idx
                 .is_some_and(|source_idx| source_idx == vidx)
-            {
-                msgs.push(Message::VariableDragFinished);
-            }
+        {
+            msgs.push(Message::VariableDragFinished);
         }
     }
 
@@ -860,7 +859,7 @@ impl State {
                     top: response.0.rect.top(),
                     bottom: response.0.rect.bottom(),
                 }));
-                return response.0.rect;
+                response.0.rect
             }
             VariableInfo::Bool
             | VariableInfo::Bits
@@ -875,7 +874,7 @@ impl State {
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                 }));
-                return label.rect;
+                label.rect
             }
         }
     }
@@ -1026,7 +1025,7 @@ impl State {
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
         }
-        return label.rect;
+        label.rect
     }
 
     fn add_alpha_id(

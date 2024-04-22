@@ -272,7 +272,7 @@ impl FieldRef {
     pub fn from_strs(root: &[&str], field: &[&str]) -> Self {
         Self {
             root: VariableRef::from_strs(root),
-            field: field.into_iter().map(|s| s.to_string()).collect(),
+            field: field.iter().map(|s| s.to_string()).collect(),
         }
     }
 }
@@ -434,7 +434,7 @@ impl WaveContainer {
                 .unwrap()
                 .modules()
                 .iter()
-                .map(|m| m.strs().last().cloned().unwrap_or(format!("root")))
+                .map(|m| m.strs().last().cloned().unwrap_or("root".to_string()))
                 .collect(),
         }
     }

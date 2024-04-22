@@ -516,25 +516,21 @@ impl WaveData {
                                 // No next transition, go to end
                                 self.cursor = Some(self.num_timestamps().clone());
                             }
-                        } else {
-                            if let Some(stime) = res.current.unwrap().0.to_bigint() {
-                                let bigone = BigInt::from(1);
-                                // Check if we are on a transition
-                                if stime == *cursor && *cursor >= bigone {
-                                    // If so, subtract cursor position by one
-                                    if let Ok(Some(newres)) = self.inner.query_variable(
-                                        &variable.variable_ref,
-                                        &(cursor - bigone).to_biguint().unwrap_or_default(),
-                                    ) {
-                                        if let Some(newstime) =
-                                            newres.current.unwrap().0.to_bigint()
-                                        {
-                                            self.cursor = Some(newstime);
-                                        }
+                        } else if let Some(stime) = res.current.unwrap().0.to_bigint() {
+                            let bigone = BigInt::from(1);
+                            // Check if we are on a transition
+                            if stime == *cursor && *cursor >= bigone {
+                                // If so, subtract cursor position by one
+                                if let Ok(Some(newres)) = self.inner.query_variable(
+                                    &variable.variable_ref,
+                                    &(cursor - bigone).to_biguint().unwrap_or_default(),
+                                ) {
+                                    if let Some(newstime) = newres.current.unwrap().0.to_bigint() {
+                                        self.cursor = Some(newstime);
                                     }
-                                } else {
-                                    self.cursor = Some(stime);
                                 }
+                            } else {
+                                self.cursor = Some(stime);
                             }
                         }
 

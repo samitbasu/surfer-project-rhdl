@@ -252,12 +252,10 @@ fn split_and_format_number(time: String, format: &TimeStringFormatting) -> Strin
                 } else {
                     format!("{integer_result}.{fractional_part}")
                 }
+            } else if time.len() > 4 {
+                group_n_chars(&time, 3).join(THIN_SPACE)
             } else {
-                if time.len() > 4 {
-                    group_n_chars(&time, 3).join(THIN_SPACE)
-                } else {
-                    time
-                }
+                time
             }
         }
     }

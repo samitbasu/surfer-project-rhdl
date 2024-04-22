@@ -785,7 +785,7 @@ mod test {
             RiscvTranslator {}
                 .basic_translate(
                     32,
-                    &VariableValue::BigUint(0b100000010011_01010_000_01011_0010011u32.into())
+                    &VariableValue::BigUint(0b1000_0001_0011_0101_0000_0101_1001_0011_u32.into())
                 )
                 .0,
             "addi A1, A0, 2067"

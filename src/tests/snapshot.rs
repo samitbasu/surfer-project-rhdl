@@ -110,9 +110,9 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     let (write_new_file, diff) = if previous_image_file.exists() {
         let mut comparator = Dssim::new();
         comparator.set_save_ssim_maps(1);
-        let prev = dssim::load_image(&comparator, &previous_image_file).expect(&format!(
-            "Failed to load previous image from {previous_image_file:?}"
-        ));
+        let prev = dssim::load_image(&comparator, &previous_image_file).unwrap_or_else(|_| {
+            panic!("Failed to load previous image from {previous_image_file:?}")
+        });
         let new = comparator
             .create_image_rgb(
                 &new.to_rgb8()
@@ -129,7 +129,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
             .expect("Failed to create dssim image from new");
 
         // comparator.create_image_rgb(&prev_imgref.as_ref(), width, height);
-        let (score, map) = comparator.compare(&prev, &new);
+        let (score, map) = comparator.compare(&prev, new);
         (score >= 1e-6, Some((score, map)))
     } else {
         (true, None)
@@ -146,10 +146,11 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     if write_new_file {
         std::fs::create_dir_all("snapshots").expect("Failed to create snapshots dir");
         new.write_to(
-            &mut File::create(&new_file).expect(&format!("Failed to create {new_file:?}")),
+            &mut File::create(&new_file)
+                .unwrap_or_else(|_| panic!("Failed to create {new_file:?}")),
             ImageFormat::Png,
         )
-        .expect(&format!("Failed to write new image to {new_file:?}"));
+        .unwrap_or_else(|_| panic!("Failed to write new image to {new_file:?}"));
     }
 
     match (write_new_file, diff) {
@@ -179,7 +180,7 @@ fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
 
             diff_img
                 .save(&diff_file)
-                .expect(&format!("Failed to save diff file to {diff_file:?}"));
+                .unwrap_or_else(|_| panic!("Failed to save diff file to {diff_file:?}"));
 
             println!("Previous: {previous_image_file:?}");
             // The Dssim image is super annoying to work with, so I'll just reload the image
@@ -1032,7 +1033,7 @@ snapshot_ui!(start_signal_filter_works, || {
     for message in msgs.into_iter() {
         state.update(message);
     }
-    state.sys.variable_name_filter.borrow_mut().push_str("a");
+    state.sys.variable_name_filter.borrow_mut().push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state);
     state
@@ -1073,7 +1074,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
     for message in msgs.into_iter() {
         state.update(message);
     }
-    state.sys.variable_name_filter.borrow_mut().push_str("a");
+    state.sys.variable_name_filter.borrow_mut().push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state);
     state

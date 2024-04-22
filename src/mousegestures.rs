@@ -424,23 +424,21 @@ fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind>
             // South
             None
         }
+    } else if delta.x * tan225 > delta.y.abs() {
+        // East
+        Some(GestureKind::ZoomIn)
+    } else if delta.y < 0.0 && delta.x > -delta.y * tan225 {
+        // North east
+        Some(GestureKind::ZoomOut)
+    } else if delta.y > 0.0 && delta.x > delta.y * tan225 {
+        // South east
+        Some(GestureKind::GoToEnd)
+    // } else if delta.y > 0.0 {
+    //    // North
+    //    None
     } else {
-        if delta.x * tan225 > delta.y.abs() {
-            // East
-            Some(GestureKind::ZoomIn)
-        } else if delta.y < 0.0 && delta.x > -delta.y * tan225 {
-            // North east
-            Some(GestureKind::ZoomOut)
-        } else if delta.y > 0.0 && delta.x > delta.y * tan225 {
-            // South east
-            Some(GestureKind::GoToEnd)
-        // } else if delta.y > 0.0 {
-        //    // North
-        //    None
-        } else {
-            // South
-            None
-        }
+        // South
+        None
     }
 }
 

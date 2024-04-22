@@ -428,6 +428,12 @@ pub struct SystemState {
     timing: RefCell<Timing>,
 }
 
+impl Default for SystemState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SystemState {
     pub fn new() -> Self {
         let channels = Channels::new();

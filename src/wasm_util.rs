@@ -5,7 +5,7 @@ use log::info;
 // but runs the work sequentially where we can not.
 pub fn perform_work<F>(f: F)
 where
-    F: FnOnce() -> () + Send + 'static,
+    F: FnOnce() + Send + 'static,
 {
     #[cfg(target_arch = "wasm32")]
     {

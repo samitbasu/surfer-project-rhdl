@@ -288,7 +288,7 @@ impl State {
         let displayed_item = waves
             .displayed_items_order
             .get(vidx)
-            .and_then(|id| Some(&waves.displayed_items[id]))
+            .map(|id| &waves.displayed_items[id])
             .unwrap();
         ui.menu_button("Color", |ui| {
             let selected_color = &displayed_item

@@ -760,10 +760,8 @@ impl State {
                                 if (prev - pos.x).abs() <= self.config.snap_distance {
                                     return Some(prev_time.clone());
                                 }
-                            } else {
-                                if (next - pos.x).abs() <= self.config.snap_distance {
-                                    return Some(next_time.clone());
-                                }
+                            } else if (next - pos.x).abs() <= self.config.snap_distance {
+                                return Some(next_time.clone());
                             }
                         }
                     }

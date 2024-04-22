@@ -78,6 +78,12 @@ pub struct Viewport {
     pub curr_right: Relative,
 }
 
+impl Default for Viewport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Viewport {
     pub fn new() -> Self {
         Self {

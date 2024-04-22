@@ -107,7 +107,7 @@ impl CxxrtlWorker {
 
     async fn send_message(&mut self, message: CSMessage) -> Result<()> {
         let encoded = serde_json::to_string(&message)
-            .with_context(|| format!("Failed to encode greeting message"))?;
+            .with_context(|| "Failed to encode greeting message".to_string())?;
         self.stream.write_all(encoded.as_bytes()).await?;
         self.stream.write_all(&[b'\0']).await?;
 
@@ -122,11 +122,9 @@ impl CxxrtlWorker {
                 if let Some(cb) = self.callback_queue.pop_front() {
                     let mut w = self.data.write().await;
                     cb(r, &mut w);
-                    crate::EGUI_CONTEXT
-                        .read()
-                        .unwrap()
-                        .as_ref()
-                        .map(|ctx| ctx.request_repaint());
+                    if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
+                        ctx.request_repaint()
+                    }
                 } else {
                     warn!("Received a response ({r:?}) without a corresponding callback")
                 }
@@ -152,11 +150,9 @@ impl CxxrtlWorker {
                             }))
                     }
                 }
-                crate::EGUI_CONTEXT
-                    .read()
-                    .unwrap()
-                    .as_ref()
-                    .map(|ctx| ctx.request_repaint());
+                if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
+                    ctx.request_repaint()
+                }
             }
         }
     }
@@ -300,7 +296,7 @@ impl CxxrtlContainer {
         info!("Done setting up TCP stream");
 
         let greeting = serde_json::to_string(&CSMessage::greeting { version: 0 })
-            .with_context(|| format!("Failed to encode greeting message"))?;
+            .with_context(|| "Failed to encode greeting message".to_string())?;
         stream.write_all(greeting.as_bytes())?;
         stream.write_all(&[b'\0'])?;
 
