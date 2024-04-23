@@ -140,7 +140,7 @@ test-macos-aarch64:
             - target
             - $CARGO_HOME
     rules:
-        - if: '$CI_PROJECT_NAMESPACE == "surfer"'
+        - if: '$CI_PROJECT_NAMESPACE == "surfer-project"'
     allow_failure: true
 
 coverage:
