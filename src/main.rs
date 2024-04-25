@@ -27,6 +27,7 @@ mod time;
 mod toolbar;
 mod translation;
 mod util;
+mod variable_direction;
 mod variable_name_filter;
 mod variable_name_type;
 mod variable_type;
@@ -531,6 +532,7 @@ pub struct State {
     show_statusbar: Option<bool>,
     align_names_right: Option<bool>,
     show_variable_indices: Option<bool>,
+    show_variable_direction: Option<bool>,
 
     waves: Option<WaveData>,
     drag_started: bool,
@@ -616,6 +618,7 @@ impl State {
             show_tooltip: None,
             show_overview: None,
             show_statusbar: None,
+            show_variable_direction: None,
             align_names_right: None,
             show_variable_indices: None,
             drag_started: false,
@@ -1037,13 +1040,13 @@ impl State {
                     // start of visible area transition for next transition
                     // end of visible area for previous transition
                     if waves.cursor.is_none() && waves.focused_item.is_some() {
-                        let num_timestamps = waves.num_timestamps();
-                        if next {
-                            if let Some(vp) = waves.viewports.first() {
-                                waves.cursor = Some(vp.left_edge_time(&num_timestamps));
-                            }
-                        } else if let Some(vp) = waves.viewports.first() {
-                            waves.cursor = Some(vp.right_edge_time(&num_timestamps));
+                        if let Some(vp) = waves.viewports.first() {
+                            let num_timestamps = waves.num_timestamps();
+                            waves.cursor = if next {
+                                Some(vp.left_edge_time(&num_timestamps))
+                            } else {
+                                Some(vp.right_edge_time(&num_timestamps))
+                            };
                         }
                     }
                     waves.set_cursor_at_transition(next, variable, skip_zero);
@@ -1231,12 +1234,23 @@ impl State {
                 };
                 self.show_overview = Some(new)
             }
+            Message::ToggleDirection => {
+                let new = match self.show_variable_direction {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_variable_direction(),
+                };
+                self.show_variable_direction = Some(new)
+            }
             Message::ToggleIndices => {
                 let new = match self.show_variable_indices {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_variable_indices(),
                 };
-                self.show_variable_indices = Some(new)
+                self.show_variable_indices = Some(new);
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.display_variable_indices = new;
+                    waves.compute_variable_display_names();
+                }
             }
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
@@ -1595,6 +1609,7 @@ impl State {
                 markers: HashMap::new(),
                 focused_item: None,
                 default_variable_name_type: self.config.default_variable_name_type,
+                display_variable_indices: self.show_variable_indices(),
                 scroll_offset: 0.,
                 drawing_infos: vec![],
                 top_item_draw_offset: 0.,

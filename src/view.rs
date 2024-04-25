@@ -597,16 +597,23 @@ impl State {
         filter: &str,
     ) {
         for variable in self.filtered_variables(wave, filter, scope) {
-            let index = wave
-                .inner
-                .variable_meta(&variable)
-                .ok()
+            let meta = wave.inner.variable_meta(&variable).ok();
+            let index = meta
                 .as_ref()
                 .and_then(|meta| meta.index.clone())
                 .map(|index| format!(" {index}"))
                 .unwrap_or_default();
 
-            let sig_name = format!("{}{}", variable.name.clone(), index);
+            let direction = if self.show_variable_direction() {
+                meta.as_ref()
+                    .and_then(|meta| meta.direction.clone())
+                    .map(|direction| format!("{} ", direction.get_icon()))
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            let sig_name = format!("{}{}{}", direction, variable.name.clone(), index);
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
@@ -650,22 +657,6 @@ impl State {
                         DisplayedItem::Variable(displayed_variable) => {
                             let var = displayed_variable;
                             let info = &displayed_variable.info;
-                            let index = if self
-                                .show_variable_indices
-                                .unwrap_or_else(|| self.config.layout.show_variable_indices())
-                            {
-                                self.waves
-                                    .as_ref()
-                                    .unwrap()
-                                    .inner
-                                    .variable_meta(&var.variable_ref)
-                                    .ok()
-                                    .as_ref()
-                                    .and_then(|meta| meta.index.clone())
-                                    .map(|index| format!(" {index}"))
-                            } else {
-                                None
-                            };
                             let style = Style::default();
                             let mut layout_job = LayoutJob::default();
                             self.add_alpha_id(
@@ -677,7 +668,6 @@ impl State {
                             );
                             displayed_item.add_to_layout_job(
                                 &self.config.theme.foreground,
-                                index,
                                 &style,
                                 &mut layout_job,
                             );
@@ -740,7 +730,7 @@ impl State {
                         ui,
                         vidx == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
                     );
-                }
+                };
             }
         });
 
@@ -981,7 +971,7 @@ impl State {
 
             let text_color = self.get_item_text_color(displayed_item);
 
-            displayed_item.add_to_layout_job(text_color, None, &style, &mut layout_job);
+            displayed_item.add_to_layout_job(text_color, &style, &mut layout_job);
             self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
             let item_label = ui
                 .selectable_label(
@@ -1259,14 +1249,18 @@ impl State {
 fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
     let meta = wave.inner.variable_meta(variable).ok();
     format!(
-        "{}\nNum bits: {}\nType: {}",
+        "{}\nNum bits: {}\nType: {}\nDirection: {}",
         variable.full_path_string(),
         meta.as_ref()
             .and_then(|meta| meta.num_bits)
             .map(|num_bits| format!("{num_bits}"))
             .unwrap_or_else(|| "unknown".to_string()),
-        meta.and_then(|meta| meta.variable_type)
+        meta.as_ref()
+            .and_then(|meta| meta.variable_type)
             .map(|variable_type| format!("{variable_type}"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        meta.and_then(|meta| meta.direction)
+            .map(|direction| format!("{direction}"))
             .unwrap_or_else(|| "unknown".to_string())
     )
 }
