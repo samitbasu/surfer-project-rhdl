@@ -4,7 +4,7 @@ use std::{fs, str::FromStr};
 
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
-use eframe::egui::{self, Align, Key, NumExt, RichText, TextEdit};
+use eframe::egui::{self, Align, Key, NumExt, RichText, TextEdit, TextStyle};
 use eframe::emath::Align2;
 use eframe::epaint::{FontFamily, FontId, Vec2};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
@@ -681,10 +681,13 @@ pub fn show_command_prompt(
                     );
                 }
 
+                let text_style = TextStyle::Button;
+                let row_height = ui.text_style_height(&text_style);
                 egui::ScrollArea::vertical()
                     .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
-                    .show(ui, |ui| {
-                        for (idx, suggestion) in suggestions {
+                    .show_rows(ui, row_height, suggestions.len(), |ui, row_range| {
+                        for (idx, suggestion) in &suggestions[row_range] {
+                            let idx = *idx;
                             let mut job = LayoutJob::default();
                             let selected = state.sys.command_prompt.selected == idx;
 
