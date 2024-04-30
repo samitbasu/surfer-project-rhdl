@@ -28,6 +28,7 @@ impl State {
                 }
             }
             ui.with_layout(Layout::right_to_left(Align::RIGHT), |ui| {
+                ui.add_space(20.0);
                 if let Some(time) = &waves.cursor {
                     ui.label(time_string(
                         time,
@@ -37,6 +38,10 @@ impl State {
                     ))
                     .context_menu(|ui| timeunit_menu(ui, msgs, &self.wanted_timeunit));
                     ui.add_space(10.0)
+                }
+                if let Some(undo_op) = &self.sys.undo_stack.last() {
+                    ui.label(format!("Undo: {}", undo_op.message));
+                    ui.add_space(20.0);
                 }
                 if let Some(count) = &self.count {
                     ui.label(format!("Count: {}", count));

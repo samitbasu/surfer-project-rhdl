@@ -2,6 +2,7 @@ default_variable_name_type = "Unique"
 default_clock_highlight_type = "Line"
 snap_distance = 6
 theme = ""
+undo_stack_size = 50
 
 [default_time_format]
 format = "No"
