@@ -85,6 +85,8 @@ pub struct SurferConfig {
     pub default_clock_highlight_type: ClockHighlightType,
     /// Distance in pixels for cursor snap
     pub snap_distance: f32,
+    /// Maximum size of the undo stack
+    pub undo_stack_size: usize,
 }
 
 #[derive(Debug, Deserialize)]
