@@ -1408,3 +1408,19 @@ snapshot_ui_with_file_and_msgs! {default_solarized_theme_works, "examples/counte
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::SelectTheme(Some("solarized".to_string()))
 ]}
+
+snapshot_ui_with_file_and_msgs! {undo_redo_works, "examples/counter.vcd", [
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.counter")),
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.clk")),
+    Message::Undo,
+    Message::Redo,
+    Message::Undo,
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
+    Message::Undo,
+    Message::Undo,
+    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
+    // the redo stack is cleared when something is added to the view
+    Message::Redo
+]}

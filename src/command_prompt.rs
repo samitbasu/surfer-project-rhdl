@@ -189,6 +189,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "copy_value",
             "pause_simulation",
             "unpause_simulation",
+            "undo",
+            "redo",
             "exit",
         ]
     } else {
@@ -500,6 +502,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "viewport_remove" => Some(Command::Terminal(Message::RemoveViewport)),
                 "pause_simulation" => Some(Command::Terminal(Message::PauseSimulation)),
                 "unpause_simulation" => Some(Command::Terminal(Message::UnpauseSimulation)),
+                "undo" => Some(Command::Terminal(Message::Undo)),
+                "redo" => Some(Command::Terminal(Message::Redo)),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
             }

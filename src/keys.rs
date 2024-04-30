@@ -77,6 +77,13 @@ impl State {
                     (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
                     (Key::T, true, false, false) => msgs.push(Message::ToggleToolbar),
                     (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
+                    (Key::U, true, false, false) => {
+                        if modifiers.shift {
+                            msgs.push(Message::Redo);
+                        } else {
+                            msgs.push(Message::Undo);
+                        }
+                    }
                     (Key::S, true, false, false) => {
                         msgs.push(Message::GoToStart { viewport_idx: 0 })
                     }
