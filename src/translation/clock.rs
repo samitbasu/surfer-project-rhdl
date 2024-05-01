@@ -1,5 +1,3 @@
-use color_eyre::eyre::anyhow;
-
 use crate::wave_container::{VariableMeta, VariableValue};
 
 use super::{BasicTranslator, BitTranslator, Translator, VariableInfo};
