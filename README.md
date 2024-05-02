@@ -87,6 +87,18 @@ You can download a pre-built macos-aarch64 binary
 
 However, this binary is currently not signed, so most users will not be able to install it as is. We are looking for a solution to this.
 
+### WSL support
+
+It is possible to run Surfer in WSL (Windows Subsystem for  Linux). However, there are several [issues](https://gitlab.com/surfer-project/surfer/-/issues/?label_name%5B%5D=platform%3A%20WSL) reported that most likely are caused by the gui framework used (as in, Surfer cannot really affect it). These are the three suggested solutions if it does not work from you:
+
+1. Run the Windows version (this is really the preferred way anyway as it will be faster, although finding the files from Windows is a bit of a mess)
+2. Compile Surfer with the following change to `Cargo.toml` (replace the line defining `eframe` version, using the current one below)
+```toml
+   eframe = { version="0.25.0",  features = ["glow", "x11", "default_fonts"], default-features = false}
+```
+3. Install the VS Code [extension](https://marketplace.visualstudio.com/items?itemName=surfer-project.surfer). This will allow you to just write `code filename.vcd`  and
+   start the Windows version of VS Code with the WASM-version of Surfer (if it opens the VCD as text, make sure that you trust the containing folder)
+
 ## Configuration
 
 Many aspects of Surfer can be configured.
@@ -113,7 +125,7 @@ As an indication of the status of the project, here is an incomplete list of sup
 - [x] FST loading
 - [x] GHW loading
 - [x] [Fuzzy completion based command line interface](misc/surfer_ui_trimmed.mp4)
-- [x] Bit translation
+- [x] Bit-vector translation
   - [x] Raw bits
   - [x] Hexadecimal values
   - [x] Unsigned values
@@ -150,6 +162,7 @@ As an indication of the status of the project, here is an incomplete list of sup
 - [x] Mouse gesture control
 - [x] Keyboard commands
 - [ ] [WAL](https://wal-lang.org) integration
+- [x] VS Code [extension](https://marketplace.visualstudio.com/items?itemName=surfer-project.surfer)
 
 ## License
 
