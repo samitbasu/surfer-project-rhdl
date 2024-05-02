@@ -221,6 +221,10 @@ pub enum Message {
     RemoveViewport,
     /// Select Theme
     SelectTheme(Option<String>),
+    /// Undo the last n changes
+    Undo(usize),
+    /// Redo the last n changes
+    Redo(usize),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,

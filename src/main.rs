@@ -50,6 +50,7 @@ use color_eyre::Result;
 use command_prompt::get_parser;
 use config::{SurferConfig, SurferTheme};
 use displayed_item::DisplayedItem;
+use displayed_item::DisplayedItemRef;
 use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
@@ -73,6 +74,7 @@ use log::trace;
 use log::warn;
 use logs::EGUI_LOGGER;
 use message::Message;
+use num::BigInt;
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
@@ -102,6 +104,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::fmt::Display;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
@@ -405,6 +408,15 @@ pub enum MoveDir {
     Down,
 }
 
+impl Display for MoveDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MoveDir::Up => write!(f, "up"),
+            MoveDir::Down => write!(f, "down"),
+        }
+    }
+}
+
 pub enum ColorSpecifier {
     Index(usize),
     Name(String),
@@ -428,6 +440,15 @@ impl Channels {
             msg_receiver,
         }
     }
+}
+
+/// Stores the current canvas state to enable undo/redo operations
+struct CanvasState {
+    message: String,
+    focused_item: Option<usize>,
+    displayed_item_order: Vec<DisplayedItemRef>,
+    displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
+    markers: HashMap<u8, BigInt>,
 }
 
 pub struct SystemState {
@@ -470,6 +491,10 @@ pub struct SystemState {
     rendering_cpu_times: VecDeque<f32>,
     #[cfg(feature = "performance_plot")]
     timing: RefCell<Timing>,
+
+    // Undo and Redo stacks
+    undo_stack: Vec<CanvasState>,
+    redo_stack: Vec<CanvasState>,
 }
 
 impl Default for SystemState {
@@ -512,6 +537,8 @@ impl SystemState {
             rendering_cpu_times: VecDeque::new(),
             #[cfg(feature = "performance_plot")]
             timing: RefCell::new(Timing::new()),
+            undo_stack: vec![],
+            redo_stack: vec![],
         }
     }
 }
@@ -711,24 +738,30 @@ impl State {
                 }
             }
             Message::AddVariable(var) => {
+                self.save_current_canvas(format!("Add variable {}", var.name));
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cmd) = waves.add_variables(&self.sys.translators, vec![var]) {
                         self.load_signals(cmd);
                     }
+
                     self.invalidate_draw_commands();
                 }
             }
             Message::AddDivider(name, vidx) => {
+                self.save_current_canvas(format!("Add divider"));
                 if let Some(waves) = self.waves.as_mut() {
                     waves.add_divider(name, vidx);
                 }
             }
             Message::AddTimeLine(vidx) => {
+                self.save_current_canvas(format!("Add timeline"));
                 if let Some(waves) = self.waves.as_mut() {
                     waves.add_timeline(vidx);
                 }
             }
             Message::AddScope(scope) => {
+                self.save_current_canvas(format!("Add scope {}", scope.name()));
+
                 let Some(waves) = self.waves.as_mut() else {
                     warn!("Adding scope without waves loaded");
                     return;
@@ -771,6 +804,10 @@ impl State {
                 };
             }
             Message::RenameItem(vidx) => {
+                self.save_current_canvas(format!(
+                    "Rename item to {}",
+                    self.sys.item_renaming_string.borrow()
+                ));
                 if let Some(waves) = self.waves.as_mut() {
                     let idx = vidx.or(waves.focused_item);
                     if let Some(idx) = idx {
@@ -839,12 +876,25 @@ impl State {
                 }
             }
             Message::RemoveItem(idx, count) => {
+                let name = self
+                    .waves
+                    .as_ref()
+                    .and_then(|waves| {
+                        waves
+                            .displayed_items_order
+                            .get(idx)
+                            .and_then(|id| waves.displayed_items.get(id))
+                            .and_then(|item| Some(item.name()))
+                    })
+                    .unwrap_or("".to_string());
+                self.save_current_canvas(format!("Remove item {}", name));
                 if let Some(waves) = self.waves.as_mut() {
                     waves.remove_displayed_item(count, idx);
                     self.invalidate_draw_commands();
                 }
             }
             Message::MoveFocusedItem(direction, count) => {
+                self.save_current_canvas(format!("Move item {}, {}", direction, count));
                 self.invalidate_draw_commands();
                 let Some(waves) = self.waves.as_mut() else {
                     return;
@@ -992,6 +1042,10 @@ impl State {
                 }
             }
             Message::ItemColorChange(vidx, color_name) => {
+                self.save_current_canvas(format!(
+                    "Change item color to {}",
+                    color_name.clone().unwrap_or("default".into())
+                ));
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(idx) = vidx.or(waves.focused_item) {
                         waves.displayed_items_order.get(idx).map(|id| {
@@ -1004,6 +1058,10 @@ impl State {
                 };
             }
             Message::ItemNameChange(vidx, name) => {
+                self.save_current_canvas(format!(
+                    "Change item name to {}",
+                    name.clone().unwrap_or("default".into())
+                ));
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(idx) = vidx.or(waves.focused_item) {
                         waves.displayed_items_order.get(idx).map(|id| {
@@ -1016,6 +1074,10 @@ impl State {
                 };
             }
             Message::ItemBackgroundColorChange(vidx, color_name) => {
+                self.save_current_canvas(format!(
+                    "Change item background color to {}",
+                    color_name.clone().unwrap_or("default".into())
+                ));
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(idx) = vidx.or(waves.focused_item) {
                         waves.displayed_items_order.get(idx).map(|id| {
@@ -1313,11 +1375,13 @@ impl State {
                 self.config.default_clock_highlight_type = new_type
             }
             Message::SetMarker { id, time } => {
+                self.save_current_canvas(format!("Set marker to {time}"));
                 if let Some(waves) = self.waves.as_mut() {
                     waves.set_marker_position(id, &time)
                 };
             }
             Message::MoveMarkerToCursor(idx) => {
+                self.save_current_canvas("Move marker".into());
                 if let Some(waves) = self.waves.as_mut() {
                     waves.move_marker_to_cursor(idx);
                 };
@@ -1522,6 +1586,42 @@ impl State {
                             }
                         }
                     }
+                }
+            }
+            Message::Undo(count) => {
+                if let Some(waves) = &mut self.waves {
+                    for _ in 0..count {
+                        if let Some(prev_state) = self.sys.undo_stack.pop() {
+                            self.sys
+                                .redo_stack
+                                .push(State::current_canvas_state(waves, prev_state.message));
+                            waves.focused_item = prev_state.focused_item;
+                            waves.displayed_items_order = prev_state.displayed_item_order;
+                            waves.displayed_items = prev_state.displayed_items;
+                            waves.markers = prev_state.markers;
+                        } else {
+                            break;
+                        }
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
+            Message::Redo(count) => {
+                if let Some(waves) = &mut self.waves {
+                    for _ in 0..count {
+                        if let Some(prev_state) = self.sys.redo_stack.pop() {
+                            self.sys
+                                .undo_stack
+                                .push(State::current_canvas_state(waves, prev_state.message));
+                            waves.focused_item = prev_state.focused_item;
+                            waves.displayed_items_order = prev_state.displayed_item_order;
+                            waves.displayed_items = prev_state.displayed_items;
+                            waves.markers = prev_state.markers;
+                        } else {
+                            break;
+                        }
+                    }
+                    self.invalidate_draw_commands();
                 }
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
@@ -1770,5 +1870,30 @@ impl State {
             .collect::<Vec<_>>();
 
         parsed
+    }
+
+    /// Returns the current canvas state
+    fn current_canvas_state(waves: &WaveData, message: String) -> CanvasState {
+        CanvasState {
+            message,
+            focused_item: waves.focused_item,
+            displayed_item_order: waves.displayed_items_order.clone(),
+            displayed_items: waves.displayed_items.clone(),
+            markers: waves.markers.clone(),
+        }
+    }
+
+    /// Push the current canvas state to the undo stack
+    fn save_current_canvas(&mut self, message: String) {
+        if let Some(waves) = &self.waves {
+            self.sys
+                .undo_stack
+                .push(State::current_canvas_state(waves, message));
+
+            if self.sys.undo_stack.len() > self.config.undo_stack_size {
+                self.sys.undo_stack.remove(0);
+            }
+            self.sys.redo_stack.clear();
+        }
     }
 }
