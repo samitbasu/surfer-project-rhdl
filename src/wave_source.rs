@@ -14,6 +14,7 @@ use futures_util::FutureExt;
 use log::{error, info, warn};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
+use web_time::Instant;
 
 use crate::message::{BodyResult, HeaderResult};
 use crate::remote::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER};
@@ -113,7 +114,21 @@ pub enum OpenMode {
     Switch,
 }
 
-pub enum LoadProgress {
+pub struct LoadProgress {
+    pub started: Instant,
+    pub progress: LoadProgressStatus,
+}
+
+impl LoadProgress {
+    pub fn new(progress: LoadProgressStatus) -> Self {
+        LoadProgress {
+            started: Instant::now(),
+            progress,
+        }
+    }
+}
+
+pub enum LoadProgressStatus {
     Downloading(String),
     ReadingHeader(WaveSource),
     ReadingBody(WaveSource, u64, Arc<AtomicU64>),
@@ -166,7 +181,9 @@ impl State {
             }
         });
 
-        self.sys.progress_tracker = Some(LoadProgress::ReadingHeader(source_copy));
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingHeader(
+            source_copy,
+        )));
         Ok(())
     }
 
@@ -258,7 +275,8 @@ impl State {
                 };
                 spawn!(task);
 
-                self.sys.progress_tracker = Some(LoadProgress::Downloading(url_))
+                self.sys.progress_tracker =
+                    Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)))
             }
         }
     }
@@ -346,11 +364,11 @@ impl State {
             // the progress tracker will be cleared once the hierarchy is returned from the server
             let source = WaveSource::Url(server.clone());
             let sender = self.sys.channels.msg_sender.clone();
-            self.sys.progress_tracker = Some(LoadProgress::ReadingBody(
+            self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingBody(
                 source,
                 status.bytes,
                 Arc::new(AtomicU64::new(status.bytes_loaded)),
-            ));
+            )));
             // get another status update
             Self::get_server_status(sender, server, 250);
         }
@@ -379,7 +397,7 @@ impl State {
         };
         spawn!(task);
 
-        self.sys.progress_tracker = Some(LoadProgress::Downloading(url_))
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)))
     }
 
     pub fn load_wave_from_bytes(
@@ -411,7 +429,9 @@ impl State {
             }
         });
 
-        self.sys.progress_tracker = Some(LoadProgress::ReadingHeader(source_copy));
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingHeader(
+            source_copy,
+        )));
     }
 
     fn get_thread_pool() -> Option<rayon::ThreadPool> {
@@ -463,8 +483,11 @@ impl State {
             }
         });
 
-        self.sys.progress_tracker =
-            Some(LoadProgress::ReadingBody(source_copy, body_len, progress));
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingBody(
+            source_copy,
+            body_len,
+            progress,
+        )));
     }
 
     pub fn load_signals(&mut self, cmd: LoadSignalsCmd) {
@@ -516,7 +539,9 @@ impl State {
             }
         }
 
-        self.sys.progress_tracker = Some(LoadProgress::LoadingSignals(num_signals));
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::LoadingSignals(
+            num_signals,
+        )));
     }
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
@@ -590,38 +615,38 @@ impl State {
     }
 }
 
-pub fn draw_progress_panel(ctx: &egui::Context, vcd_progress_data: &LoadProgress) {
-    egui::TopBottomPanel::top("progress panel").show(ctx, |ui| {
-        ui.vertical_centered_justified(|ui| match vcd_progress_data {
-            LoadProgress::Downloading(url) => {
+pub fn draw_progress_information(ui: &mut egui::Ui, progress_data: &LoadProgress) {
+    match &progress_data.progress {
+        LoadProgressStatus::Downloading(url) => {
+            ui.horizontal(|ui| {
                 ui.spinner();
                 ui.monospace(format!("Downloading {url}"));
-            }
-            LoadProgress::ReadingHeader(source) => {
-                ui.spinner();
-                ui.monospace(format!("Loading signal names from {source}"));
-            }
-            LoadProgress::ReadingBody(source, 0, _) => {
-                ui.spinner();
-                ui.monospace(format!("Loading signal change data from {source}"));
-            }
-            LoadProgress::LoadingSignals(num) => {
-                ui.spinner();
-                ui.monospace(format!("Loading {num} signals"));
-            }
-            LoadProgress::ReadingBody(source, total, bytes_done) => {
-                let num_bytes = bytes_done.load(std::sync::atomic::Ordering::SeqCst);
-                let progress = num_bytes as f32 / *total as f32;
-                ui.monospace(format!(
-                    "Loading signal change data from {source}. {} / {}",
-                    bytesize::ByteSize::b(num_bytes),
-                    bytesize::ByteSize::b(*total),
-                ));
-                let progress_bar = egui::ProgressBar::new(progress)
-                    .show_percentage()
-                    .desired_width(300.);
-                ui.add(progress_bar);
-            }
-        });
-    });
+            });
+        }
+        LoadProgressStatus::ReadingHeader(source) => {
+            ui.spinner();
+            ui.monospace(format!("Loading signal names from {source}"));
+        }
+        LoadProgressStatus::ReadingBody(source, 0, _) => {
+            ui.spinner();
+            ui.monospace(format!("Loading signal change data from {source}"));
+        }
+        LoadProgressStatus::LoadingSignals(num) => {
+            ui.spinner();
+            ui.monospace(format!("Loading {num} signals"));
+        }
+        LoadProgressStatus::ReadingBody(source, total, bytes_done) => {
+            let num_bytes = bytes_done.load(std::sync::atomic::Ordering::SeqCst);
+            let progress = num_bytes as f32 / *total as f32;
+            ui.monospace(format!(
+                "Loading signal change data from {source}. {} / {}",
+                bytesize::ByteSize::b(num_bytes),
+                bytesize::ByteSize::b(*total),
+            ));
+            let progress_bar = egui::ProgressBar::new(progress)
+                .show_percentage()
+                .desired_width(300.);
+            ui.add(progress_bar);
+        }
+    };
 }
