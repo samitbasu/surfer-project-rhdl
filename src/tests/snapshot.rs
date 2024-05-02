@@ -72,7 +72,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     });
 
     let mut state = state();
-    state.show_wave_source = false;
+    state.config.layout.show_statusbar = false;
 
     let size = Vec2::new(1280., 720.);
     let size_i = (size.x as i32, size.y as i32);

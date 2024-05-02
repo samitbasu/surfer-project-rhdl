@@ -577,9 +577,6 @@ pub struct State {
     show_gestures: bool,
     show_quick_start: bool,
     show_license: bool,
-    /// Hide the wave source. For now, this is only used in snapshot tests to avoid problems
-    /// with absolute path diffs
-    show_wave_source: bool,
     show_performance: bool,
     show_logs: bool,
     show_cursor_window: bool,
@@ -631,7 +628,6 @@ impl State {
             show_url_entry: false,
             show_quick_start: false,
             rename_target: None,
-            show_wave_source: true,
             variable_name_filter_focused: false,
             variable_name_filter_type: VariableNameFilterType::Fuzzy,
             variable_name_filter_case_insensitive: true,
