@@ -204,6 +204,7 @@ fn key_listing(ui: &mut Ui) {
         ("", "Ctrl+j/⬇", "Move focused item down"),
         ("", "Alt+k/⬆", "Move focus up"),
         ("", "Alt+j/⬇", "Move focus down"),
+        ("", "u/Shift+u", "Undo/redo last change"),
         ("", "Ctrl+0-9", "Add numbered marker"),
         ("", "0-9", "Center view at numbered marker"),
         (icons::REWIND_START_FILL, "s", "Go to start"),

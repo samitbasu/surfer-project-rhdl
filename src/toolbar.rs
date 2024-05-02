@@ -67,6 +67,8 @@ impl State {
 
     fn draw_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         let wave_loaded = self.waves.is_some();
+        let undo_available = !self.sys.undo_stack.is_empty();
+        let redo_available = !self.sys.redo_stack.is_empty();
         let item_selected = wave_loaded && self.waves.as_ref().unwrap().focused_item.is_some();
         let cursor_set = wave_loaded && self.waves.as_ref().unwrap().cursor.is_some();
         let multiple_viewports = wave_loaded && (self.waves.as_ref().unwrap().viewports.len() > 1);
@@ -286,6 +288,33 @@ impl State {
                 "Remove viewport",
                 Message::RemoveViewport,
                 wave_loaded && multiple_viewports,
+            );
+
+            let undo_tooltip = if let Some(undo_op) = self.sys.undo_stack.last() {
+                format!("Undo: {}", undo_op.message)
+            } else {
+                "Undo".into()
+            };
+            let redo_tooltip = if let Some(redo_op) = self.sys.redo_stack.last() {
+                format!("Redo: {}", redo_op.message)
+            } else {
+                "Redo".into()
+            };
+            add_toolbar_button(
+                ui,
+                msgs,
+                icons::ARROW_GO_BACK_FILL,
+                &undo_tooltip,
+                Message::Undo(1),
+                undo_available,
+            );
+            add_toolbar_button(
+                ui,
+                msgs,
+                icons::ARROW_GO_FORWARD_FILL,
+                &redo_tooltip,
+                Message::Redo(1),
+                redo_available,
             );
 
             self.simulation_status_toolbar(ui, msgs);
