@@ -1423,3 +1423,46 @@ snapshot_ui_with_file_and_msgs! {undo_redo_works, "examples/counter.vcd", [
     // the redo stack is cleared when something is added to the view
     Message::Redo(1)
 ]}
+
+snapshot_ui!(rising_clock_markers, || {
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/counter.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+    loop {
+        state.handle_async_messages();
+        state.handle_batch_commands();
+        if state.waves_fully_loaded() {
+            break;
+        }
+    }
+    state.config.theme.clock_rising_marker = true;
+    state.update(Message::ToggleMenu);
+    state.update(Message::ToggleSidePanel);
+    state.update(Message::ToggleToolbar);
+    state.update(Message::ToggleOverview);
+    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
+        "tb.clk",
+    )));
+    state.update(Message::VariableFormatChange(
+        FieldRef::from_strs(&["tb", "clk"], &[]),
+        String::from("Clock"),
+    ));
+    state.update(Message::CanvasZoom {
+        mouse_ptr: None,
+        delta: 0.5,
+        viewport_idx: 0,
+    });
+    wait_for_waves_fully_loaded(&mut state, 10);
+    state
+});

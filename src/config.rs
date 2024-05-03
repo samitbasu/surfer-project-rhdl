@@ -211,6 +211,8 @@ pub struct SurferTheme {
     pub clock_highlight_line: SurferLineStyle,
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub clock_highlight_cycle: Color32,
+    /// Draw arrows on rising clock edges
+    pub clock_rising_marker: bool,
 
     #[serde(deserialize_with = "deserialize_hex_color")]
     /// Default variable color
