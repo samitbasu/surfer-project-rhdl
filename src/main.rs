@@ -1538,6 +1538,7 @@ impl State {
                 if let (Some(source_vidx), Some(target_vidx)) =
                     (self.drag_source_idx, self.drag_target_idx)
                 {
+                    self.save_current_canvas(format!("Drag item"));
                     self.invalidate_draw_commands();
                     let Some(waves) = self.waves.as_mut() else {
                         return;
