@@ -7,3 +7,4 @@ border_color = "424242"
 canvas_colors = { background = "1e1e1e", alt_background = "2e1e1e", foreground = "d4d4d4" }
 primary_ui_color = { background = "32302f", foreground = "d4d4d4" }
 secondary_ui_color = { background = "272727", foreground = "d4d4d4" }
+clock_rising_marker = true
