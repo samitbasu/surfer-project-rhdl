@@ -22,7 +22,7 @@ use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
 use crate::wave_container::{FieldRef, ScopeRef, VariableRef};
-use crate::wave_source::{draw_progress_panel, LoadOptions};
+use crate::wave_source::LoadOptions;
 use crate::{
     command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy,
     translation::VariableInfo, wave_data::WaveData, Message, MoveDir, State,
@@ -262,11 +262,11 @@ impl State {
             self.draw_load_url(ctx, &mut msgs);
         }
 
+        if self.show_statusbar() {
+            self.add_statusbar_panel(ctx, &self.waves, &mut msgs);
+        }
         if let Some(waves) = &self.waves {
-            if self.show_statusbar() {
-                self.add_statusbar_panel(ctx, waves, &mut msgs);
-            }
-            if self.show_overview() {
+            if self.show_overview() && !waves.displayed_items_order.is_empty() {
                 self.add_overview_panel(ctx, waves, &mut msgs)
             }
         }
@@ -291,10 +291,6 @@ impl State {
                 self.sys.command_prompt.selected = new_idx;
                 self.sys.command_prompt.new_selection = None;
             }
-        }
-
-        if let Some(vcd_progress_data) = &self.sys.progress_tracker {
-            draw_progress_panel(ctx, vcd_progress_data);
         }
 
         if self.waves.is_some() {
