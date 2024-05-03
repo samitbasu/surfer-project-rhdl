@@ -11,6 +11,7 @@ accent_warn = { background = "32302f", foreground = "d4d4d4" }
 accent_error = { background = "d2302f", foreground = "d4d4d4" }
 clock_highlight_line = { color = "777777", width = 2 }
 clock_highlight_cycle = "12222f"
+clock_rising_marker = false
 variable_default = "56c126"
 variable_undef = "f44747"
 variable_highimp = "c9e124"

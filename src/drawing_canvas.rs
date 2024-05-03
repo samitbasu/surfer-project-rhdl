@@ -35,6 +35,7 @@ pub struct DrawnRegion {
 /// be drawn at the *start time* until the *start time* of the next value
 pub struct DrawingCommands {
     is_bool: bool,
+    is_clock: bool,
     values: Vec<(f32, DrawnRegion)>,
 }
 
@@ -43,6 +44,15 @@ impl DrawingCommands {
         Self {
             values: vec![],
             is_bool: true,
+            is_clock: false,
+        }
+    }
+
+    pub fn new_clock() -> Self {
+        Self {
+            values: vec![],
+            is_bool: true,
+            is_clock: true,
         }
     }
 
@@ -50,6 +60,7 @@ impl DrawingCommands {
         Self {
             values: vec![],
             is_bool: false,
+            is_clock: false,
         }
     }
 
@@ -208,12 +219,10 @@ fn variable_draw_commands(
 
                 local_commands
                     .entry(names.clone())
-                    .or_insert_with(|| {
-                        if let VariableInfo::Bool | VariableInfo::Clock = info.get_subinfo(&names) {
-                            DrawingCommands::new_bool()
-                        } else {
-                            DrawingCommands::new_wide()
-                        }
+                    .or_insert_with(|| match info.get_subinfo(&names) {
+                        VariableInfo::Bool => DrawingCommands::new_bool(),
+                        VariableInfo::Clock => DrawingCommands::new_clock(),
+                        _ => DrawingCommands::new_wide(),
                     })
                     .push((
                         *pixel,
@@ -438,8 +447,10 @@ impl State {
             let draw_clock_edges = match clock_edges.as_slice() {
                 [] => false,
                 [_single] => true,
-                [first, second, ..] => second - first > 15.,
+                [first, second, ..] => second - first > 20.,
             };
+            let draw_clock_rising_marker =
+                draw_clock_edges && self.config.theme.clock_rising_marker;
             let ticks = &draw_data.ticks;
             if !ticks.is_empty() && self.show_ticks() {
                 let stroke = Stroke {
@@ -488,6 +499,7 @@ impl State {
                                         new.1.force_anti_alias,
                                         color,
                                         y_offset,
+                                        commands.is_clock && draw_clock_rising_marker,
                                         &mut ctx,
                                     )
                                 } else {
@@ -614,6 +626,7 @@ impl State {
         force_anti_alias: bool,
         color: Color32,
         offset: f32,
+        draw_clock_marker: bool,
         ctx: &mut DrawingContext,
     ) {
         if let (Some(prev_result), Some(new_result)) = (&prev_region.inner, &new_region.inner) {
@@ -648,6 +661,18 @@ impl State {
                 ],
                 stroke,
             ));
+
+            if draw_clock_marker && (old_height < new_height) {
+                ctx.painter.add(PathShape::convex_polygon(
+                    vec![
+                        trace_coords(*new_x - 2.5, 0.6),
+                        trace_coords(*new_x, 0.4),
+                        trace_coords(*new_x + 2.5, 0.6),
+                    ],
+                    old_color,
+                    stroke,
+                ));
+            }
 
             if let Some(old_bg) = old_bg {
                 ctx.painter.add(RectShape {
