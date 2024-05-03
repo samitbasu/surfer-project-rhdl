@@ -14,8 +14,10 @@ impl State {
 
     #[inline]
     pub fn show_statusbar(&self) -> bool {
-        self.show_statusbar
-            .unwrap_or_else(|| self.config.layout.show_statusbar())
+        self.show_statusbar.unwrap_or_else(|| {
+            (self.waves.is_some() || self.sys.progress_tracker.is_some())
+                && self.config.layout.show_statusbar()
+        })
     }
 
     #[inline]
