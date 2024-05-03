@@ -104,7 +104,7 @@ pub struct SurferLayout {
     /// Flag to show/hide the overview
     show_overview: bool,
     /// Flag to show/hide the statusbar
-    show_statusbar: bool,
+    pub show_statusbar: bool,
     /// Flag to show/hide the indices of variables in the variable list
     show_variable_indices: bool,
     /// Initial window height
