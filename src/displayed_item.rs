@@ -11,7 +11,14 @@ use crate::{
 
 const DEFAULT_DIVIDER_NAME: &str = "";
 
-pub type DisplayedItemRef = usize;
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct DisplayedItemRef(pub usize);
+
+impl From<usize> for DisplayedItemRef {
+    fn from(item: usize) -> Self {
+        DisplayedItemRef(item)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct DisplayedItemIndex(pub usize);

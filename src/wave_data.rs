@@ -36,7 +36,7 @@ pub struct WaveData {
     pub displayed_items_order: Vec<DisplayedItemRef>,
     pub displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
     /// Tracks the consecutive displayed item refs
-    pub display_item_ref_counter: DisplayedItemRef,
+    pub display_item_ref_counter: usize,
     pub viewports: Vec<Viewport>,
     /// Name of the translator used to translate this trace
     pub variable_format: HashMap<FieldRef, String>,
@@ -561,9 +561,9 @@ impl WaveData {
         }
     }
 
-    pub fn next_displayed_item_ref(&mut self) -> usize {
+    pub fn next_displayed_item_ref(&mut self) -> DisplayedItemRef {
         self.display_item_ref_counter += 1;
-        self.display_item_ref_counter
+        self.display_item_ref_counter.into()
     }
 
     /// Returns the number of timestamps in the current waves. For now, this adjusts the
