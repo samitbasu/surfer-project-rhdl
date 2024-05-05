@@ -1193,13 +1193,11 @@ impl State {
                 .map(|(_time, value)| meta.and_then(|meta| translator.translate(&meta, &value)));
 
             if let Some(Ok(s)) = translation_result {
-                let subfields = s
-                    .flatten(
-                        FieldRef::without_fields(field_ref.root.clone()),
-                        &waves.variable_format,
-                        &self.sys.translators,
-                    )
-                    .into_fields();
+                let subfields = s.format_flat(
+                    FieldRef::without_fields(field_ref.root.clone()),
+                    &waves.variable_format,
+                    &self.sys.translators,
+                );
 
                 let subfield = subfields.iter().find(|res| res.names == field_ref.field);
 

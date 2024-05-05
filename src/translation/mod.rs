@@ -183,23 +183,22 @@ pub struct SubFieldFlatTranslationResult {
     pub value: Option<TranslatedValue>,
 }
 
-pub struct FlatTranslationResult {
-    /// The string representation of the translated result
+// A tree of format results for a signal, to be flattened into `SubFieldFlatTranslationResult`s
+struct HierFormatResult {
+    pub names: Vec<String>,
     pub this: Option<TranslatedValue>,
     /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
     /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<SubFieldFlatTranslationResult>,
+    pub fields: Vec<HierFormatResult>,
 }
 
-impl FlatTranslationResult {
-    pub fn into_fields(self) -> Vec<SubFieldFlatTranslationResult> {
-        vec![SubFieldFlatTranslationResult {
-            names: vec![],
+impl HierFormatResult {
+    pub fn collect_into(self, into: &mut Vec<SubFieldFlatTranslationResult>) {
+        into.push(SubFieldFlatTranslationResult {
+            names: self.names,
             value: self.this,
-        }]
-        .into_iter()
-        .chain(self.fields)
-        .collect()
+        });
+        self.fields.into_iter().for_each(|r| r.collect_into(into));
     }
 }
 
@@ -225,150 +224,164 @@ pub struct TranslationResult {
     pub kind: ValueKind,
 }
 
-impl TranslationResult {
-    /// Flattens the translation result into path, value pairs
-    pub fn flatten(
-        &self,
-        path_so_far: FieldRef,
-        formats: &HashMap<FieldRef, String>,
-        translators: &TranslatorList,
-    ) -> FlatTranslationResult {
-        let subresults = self
-            .subfields
-            .iter()
-            .map(|res| {
-                let sub_path = path_so_far
-                    .field
-                    .clone()
-                    .into_iter()
-                    .chain(vec![res.name.clone()])
-                    .collect();
+fn format(
+    val: &ValueRepr,
+    kind: ValueKind,
+    subtranslator_name: &String,
+    translators: &TranslatorList,
+    subresults: &[HierFormatResult],
+) -> Option<TranslatedValue> {
+    match val {
+        ValueRepr::Bit(val) => {
+            let subtranslator = translators
+                .basic
+                .get(subtranslator_name)
+                .unwrap_or_else(|| panic!("Did not find a translator named {subtranslator_name}"));
 
-                let sub = res.result.flatten(
-                    FieldRef {
-                        root: path_so_far.root.clone(),
-                        field: sub_path,
-                    },
-                    formats,
-                    translators,
-                );
-                (&res.name, sub)
-            })
-            .collect::<Vec<_>>();
+            Some(TranslatedValue::from_basic_translate(
+                subtranslator
+                    .as_ref()
+                    .basic_translate(1, &VariableValue::String(val.to_string())),
+            ))
+        }
+        ValueRepr::Bits(bit_count, bits) => {
+            let subtranslator = translators
+                .basic
+                .get(subtranslator_name)
+                .unwrap_or_else(|| panic!("Did not find a translator named {subtranslator_name}"));
 
-        let string_repr = match &self.val {
-            ValueRepr::Bit(val) => {
-                let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
-
-                let subtranslator =
-                    translators
-                        .basic
-                        .get(subtranslator_name)
-                        .unwrap_or_else(|| {
-                            panic!("Did not find a translator named {subtranslator_name}")
-                        });
-
-                Some(TranslatedValue::from_basic_translate(
-                    subtranslator
+            Some(TranslatedValue::from_basic_translate(
+                subtranslator
+                    .as_ref()
+                    .basic_translate(*bit_count, &VariableValue::String(bits.clone())),
+            ))
+        }
+        ValueRepr::String(sval) => Some(TranslatedValue {
+            value: sval.clone(),
+            kind,
+        }),
+        ValueRepr::Tuple => Some(TranslatedValue {
+            value: format!(
+                "({})",
+                subresults
+                    .iter()
+                    .map(|v| v
+                        .this
                         .as_ref()
-                        .basic_translate(1, &VariableValue::String(val.to_string())),
-                ))
-            }
-            ValueRepr::Bits(bit_count, bits) => {
-                let subtranslator_name = formats.get(&path_so_far).unwrap_or(&translators.default);
-
-                let subtranslator =
-                    translators
-                        .basic
-                        .get(subtranslator_name)
-                        .unwrap_or_else(|| {
-                            panic!("Did not find a translator named {subtranslator_name}")
-                        });
-
-                Some(TranslatedValue::from_basic_translate(
-                    subtranslator
-                        .as_ref()
-                        .basic_translate(*bit_count, &VariableValue::String(bits.clone())),
-                ))
-            }
-            ValueRepr::String(sval) => Some(TranslatedValue {
-                value: sval.clone(),
-                kind: self.kind,
-            }),
-            ValueRepr::Tuple => Some(TranslatedValue {
-                value: format!(
-                    "({})",
-                    subresults
-                        .iter()
-                        .map(|(_, v)| v
-                            .this
-                            .as_ref()
-                            .map(|t| t.value.as_str())
-                            .unwrap_or_else(|| "-"))
-                        .join(", ")
-                ),
-                kind: self.kind,
-            }),
-            ValueRepr::Struct => Some(TranslatedValue {
-                value: format!(
-                    "{{{}}}",
-                    subresults
-                        .iter()
-                        .map(|(n, v)| format!(
+                        .map(|t| t.value.as_str())
+                        .unwrap_or_else(|| "-"))
+                    .join(", ")
+            ),
+            kind,
+        }),
+        ValueRepr::Struct => Some(TranslatedValue {
+            value: format!(
+                "{{{}}}",
+                subresults
+                    .iter()
+                    .map(|v| {
+                        let n = v.names.join("_");
+                        format!(
                             "{n}: {}",
                             v.this
                                 .as_ref()
                                 .map(|t| t.value.as_str())
                                 .unwrap_or_else(|| "-")
-                        ))
-                        .join(", ")
-                ),
-                kind: self.kind,
-            }),
-            ValueRepr::Array => Some(TranslatedValue {
-                value: format!(
-                    "[{}]",
-                    subresults
-                        .iter()
-                        .map(|(_, v)| v
-                            .this
-                            .as_ref()
-                            .map(|t| t.value.as_str())
-                            .unwrap_or_else(|| "-"))
-                        .join(", ")
-                ),
-                kind: self.kind,
-            }),
-            ValueRepr::NotPresent => None,
-            ValueRepr::Enum { idx, name } => Some(TranslatedValue {
-                value: format!(
-                    "{name}{{{}}}",
-                    subresults[*idx]
-                        .1
+                        )
+                    })
+                    .join(", ")
+            ),
+            kind,
+        }),
+        ValueRepr::Array => Some(TranslatedValue {
+            value: format!(
+                "[{}]",
+                subresults
+                    .iter()
+                    .map(|v| v
                         .this
                         .as_ref()
                         .map(|t| t.value.as_str())
-                        .unwrap_or_else(|| "-")
-                ),
-                kind: self.kind,
-            }),
-        };
+                        .unwrap_or_else(|| "-"))
+                    .join(", ")
+            ),
+            kind,
+        }),
+        ValueRepr::NotPresent => None,
+        ValueRepr::Enum { idx, name } => Some(TranslatedValue {
+            value: format!(
+                "{name}{{{}}}",
+                subresults[*idx]
+                    .this
+                    .as_ref()
+                    .map(|t| t.value.as_str())
+                    .unwrap_or_else(|| "-")
+            ),
+            kind,
+        }),
+    }
+}
 
-        FlatTranslationResult {
-            this: string_repr,
-            fields: subresults
-                .into_iter()
-                .flat_map(|(n, sub)| {
-                    sub.into_fields()
-                        .into_iter()
-                        .map(|mut result| {
-                            result.names.insert(0, n.clone());
-                            result
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect(),
-        }
+impl TranslationResult {
+    fn sub_format(
+        &self,
+        formats: &HashMap<FieldRef, String>,
+        translators: &TranslatorList,
+        path_so_far: &FieldRef,
+    ) -> Vec<HierFormatResult> {
+        self.subfields
+            .iter()
+            .map(|res| {
+                let mut sub_path = path_so_far.clone();
+                sub_path.field.push(res.name.clone());
+
+                let sub = res.result.sub_format(formats, translators, &sub_path);
+
+                // we can consistently fall back to the default here since sub-fields
+                // are never checked for their preferred translator
+                let translator_name = formats.get(&sub_path).unwrap_or(&translators.default);
+                let formatted = format(
+                    &res.result.val,
+                    res.result.kind,
+                    &translator_name,
+                    translators,
+                    &sub,
+                );
+
+                HierFormatResult {
+                    this: formatted,
+                    names: sub_path.field,
+                    fields: sub,
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
+    /// Flattens the translation result into path, value pairs
+    pub fn format_flat(
+        &self,
+        path_so_far: FieldRef,
+        formats: &HashMap<FieldRef, String>,
+        translators: &TranslatorList,
+    ) -> Vec<SubFieldFlatTranslationResult> {
+        let sub_result = self.sub_format(formats, translators, &path_so_far);
+
+        let formatted = format(
+            &self.val,
+            self.kind,
+            formats.get(&path_so_far).unwrap_or(&translators.default),
+            translators,
+            &sub_result,
+        );
+
+        let formatted = HierFormatResult {
+            names: vec![],
+            this: formatted,
+            fields: sub_result,
+        };
+        let mut collected = vec![];
+        formatted.collect_into(&mut collected);
+        collected
     }
 }
 

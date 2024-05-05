@@ -181,13 +181,11 @@ fn variable_draw_commands(
             }
         };
 
-        let fields = translation_result
-            .flatten(
-                FieldRef::without_fields(displayed_variable.variable_ref.clone()),
-                &waves.variable_format,
-                translators,
-            )
-            .into_fields();
+        let fields = translation_result.format_flat(
+            FieldRef::without_fields(displayed_variable.variable_ref.clone()),
+            &waves.variable_format,
+            translators,
+        );
 
         for SubFieldFlatTranslationResult { names, value } in fields {
             let prev = prev_values.get(&names);
