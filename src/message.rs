@@ -10,15 +10,16 @@ use eframe::{
 use num::BigInt;
 use serde::Deserialize;
 
-use crate::wellen::LoadSignalsResult;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
+    displayed_item::DisplayedItemIndex,
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     variable_name_type::VariableNameType,
     wave_container::{FieldRef, ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
+    wellen::LoadSignalsResult,
     MoveDir, VariableNameFilterType, WaveSource,
 };
 use crate::{config::HierarchyStyle, wave_source::WaveFormat};
@@ -51,20 +52,20 @@ pub enum Message {
     AddScope(ScopeRef),
     AddCount(char),
     InvalidateCount,
-    RemoveItem(usize, CommandCount),
-    FocusItem(usize),
+    RemoveItem(DisplayedItemIndex, CommandCount),
+    FocusItem(DisplayedItemIndex),
     UnfocusItem,
-    RenameItem(Option<usize>),
+    RenameItem(Option<DisplayedItemIndex>),
     MoveFocus(MoveDir, CommandCount),
     MoveFocusedItem(MoveDir, CommandCount),
     VerticalScroll(MoveDir, CommandCount),
     ScrollToItem(usize),
     SetScrollOffset(f32),
     VariableFormatChange(FieldRef, String),
-    ItemColorChange(Option<usize>, Option<String>),
-    ItemBackgroundColorChange(Option<usize>, Option<String>),
-    ItemNameChange(Option<usize>, Option<String>),
-    ChangeVariableNameType(Option<usize>, VariableNameType),
+    ItemColorChange(Option<DisplayedItemIndex>, Option<String>),
+    ItemBackgroundColorChange(Option<DisplayedItemIndex>, Option<String>),
+    ItemNameChange(Option<DisplayedItemIndex>, Option<String>),
+    ChangeVariableNameType(Option<DisplayedItemIndex>, VariableNameType),
     ForceVariableNameTypes(VariableNameType),
     SetNameAlignRight(bool),
     SetClockHighlightType(ClockHighlightType),
@@ -181,10 +182,10 @@ pub enum Message {
     SetArrowKeyBindings(ArrowKeyBindings),
     // Second argument is position to insert after, None inserts after focused item,
     // or last if no focused item
-    AddDivider(Option<String>, Option<usize>),
+    AddDivider(Option<String>, Option<DisplayedItemIndex>),
     // Argument is position to insert after, None inserts after focused item,
     // or last if no focused item
-    AddTimeLine(Option<usize>),
+    AddTimeLine(Option<DisplayedItemIndex>),
     ToggleTickLines,
     ToggleVariableTooltip,
     /// Set a marker at a specific position. If it doesn't exist, it will be created
@@ -197,15 +198,15 @@ pub enum Message {
     SaveState(PathBuf),
     MoveCursorToTransition {
         next: bool,
-        variable: Option<usize>,
+        variable: Option<DisplayedItemIndex>,
         skip_zero: bool,
     },
-    VariableValueToClipbord(Option<usize>),
+    VariableValueToClipbord(Option<DisplayedItemIndex>),
     InvalidateDrawCommands,
 
     /// Variable dragging messages
-    VariableDragStarted(usize),
-    VariableDragTargetChanged(usize),
+    VariableDragStarted(DisplayedItemIndex),
+    VariableDragTargetChanged(DisplayedItemIndex),
     VariableDragFinished,
 
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise

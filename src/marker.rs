@@ -293,7 +293,7 @@ impl State {
         }) {
             let Some(item) = waves
                 .displayed_items_order
-                .get(drawing_info.item_list_idx)
+                .get(drawing_info.item_list_idx.0)
                 .and_then(|id| waves.displayed_items.get(id))
             else {
                 return;

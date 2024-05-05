@@ -1,13 +1,15 @@
+use crate::displayed_item::DisplayedItemIndex;
+
 /// This function takes a number and converts it's digits into the range
 /// a-p. This is nice because it makes for some easily typed ids.
 /// The function first formats the number as a hex digit and then performs
 /// the mapping.
-pub fn uint_idx_to_alpha_idx(idx: usize, nvariables: usize) -> String {
+pub fn uint_idx_to_alpha_idx(idx: DisplayedItemIndex, nvariables: usize) -> String {
     // this calculates how many hex digits we need to represent nvariables
     // unwrap because the result should always fit into usize and because
     // we are not going to display millions of character ids.
     let width = usize::try_from(nvariables.ilog(16)).unwrap() + 1;
-    format!("{:0width$x}", idx)
+    format!("{:0width$x}", idx.0)
         .chars()
         .map(|c| match c {
             '0' => 'a',
@@ -32,7 +34,7 @@ pub fn uint_idx_to_alpha_idx(idx: usize, nvariables: usize) -> String {
 }
 
 /// This is the reverse function to uint_idx_to_alpha_idx.
-pub fn alpha_idx_to_uint_idx(idx: String) -> Option<usize> {
+pub fn alpha_idx_to_uint_idx(idx: String) -> Option<DisplayedItemIndex> {
     let mapped = idx
         .chars()
         .map(|c| match c {
@@ -55,5 +57,7 @@ pub fn alpha_idx_to_uint_idx(idx: String) -> Option<usize> {
             _ => '?',
         })
         .collect::<String>();
-    usize::from_str_radix(&mapped, 16).ok()
+    usize::from_str_radix(&mapped, 16)
+        .ok()
+        .map(DisplayedItemIndex)
 }

@@ -11,6 +11,7 @@ use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
 use itertools::Itertools;
 
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
+use crate::displayed_item::DisplayedItemIndex;
 use crate::wave_source::LoadOptions;
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -72,6 +73,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             .iter()
             .enumerate()
             .map(|(idx, item_id)| {
+                let idx = DisplayedItemIndex(idx);
                 let item = &v.displayed_items[item_id];
                 match item {
                     DisplayedItem::Variable(var) => format!(

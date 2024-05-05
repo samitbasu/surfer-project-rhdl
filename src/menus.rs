@@ -12,7 +12,7 @@ use crate::{
     variable_name_type::VariableNameType,
     wave_container::FieldRef,
     wave_source::OpenMode,
-    State,
+    DisplayedItemIndex, State,
 };
 
 // Button builder. Short name because we use it a ton
@@ -277,7 +277,7 @@ impl State {
         path: Option<&FieldRef>,
         msgs: &mut Vec<Message>,
         ui: &mut Ui,
-        vidx: usize,
+        vidx: DisplayedItemIndex,
     ) {
         let Some(waves) = &self.waves else { return };
         if let Some(path) = path {
@@ -287,7 +287,7 @@ impl State {
         // let displayed_item = &waves.displayed_items[vidx];
         let displayed_item = waves
             .displayed_items_order
-            .get(vidx)
+            .get(vidx.0)
             .map(|id| &waves.displayed_items[id])
             .unwrap();
         ui.menu_button("Color", |ui| {

@@ -13,7 +13,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
-use crate::displayed_item::DisplayedVariable;
+use crate::displayed_item::{DisplayedItemIndex, DisplayedVariable};
 use crate::translation::{
     SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind, VariableInfo,
 };
@@ -436,7 +436,15 @@ impl State {
         // compensate for that
         let y_zero = to_screen.transform_pos(Pos2::ZERO).y;
         for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
-            self.draw_background(idx, waves, drawing_info, y_zero, &ctx, gap, frame_width);
+            self.draw_background(
+                DisplayedItemIndex(idx),
+                waves,
+                drawing_info,
+                y_zero,
+                &ctx,
+                gap,
+                frame_width,
+            );
         }
 
         #[cfg(feature = "performance_plot")]

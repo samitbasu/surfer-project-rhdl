@@ -13,6 +13,15 @@ const DEFAULT_DIVIDER_NAME: &str = "";
 
 pub type DisplayedItemRef = usize;
 
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct DisplayedItemIndex(pub usize);
+
+impl From<usize> for DisplayedItemIndex {
+    fn from(index: usize) -> Self {
+        DisplayedItemIndex(index)
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub enum DisplayedItem {
     Variable(DisplayedVariable),
@@ -283,7 +292,12 @@ impl DisplayedItem {
     }
 }
 
-pub fn draw_rename_window(ctx: &Context, msgs: &mut Vec<Message>, idx: usize, name: &mut String) {
+pub fn draw_rename_window(
+    ctx: &Context,
+    msgs: &mut Vec<Message>,
+    idx: DisplayedItemIndex,
+    name: &mut String,
+) {
     let mut open = true;
     Window::new("Rename item")
         .open(&mut open)

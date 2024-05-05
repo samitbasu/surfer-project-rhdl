@@ -50,6 +50,7 @@ use color_eyre::Result;
 use command_prompt::get_parser;
 use config::{SurferConfig, SurferTheme};
 use displayed_item::DisplayedItem;
+use displayed_item::DisplayedItemIndex;
 use displayed_item::DisplayedItemRef;
 use eframe::egui;
 use eframe::egui::style::Selection;
@@ -269,7 +270,7 @@ fn main() -> Result<()> {
 
     // https://tokio.rs/tokio/topics/bridging
     // We want to run the gui in the main thread, but some long running tasks like
-    // laoading VCDs should be done asynchronously. We can't just use std::thread to
+    // loading VCDs should be done asynchronously. We can't just use std::thread to
     // do that due to wasm support, so we'll start a tokio runtime
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -445,7 +446,7 @@ impl Channels {
 /// Stores the current canvas state to enable undo/redo operations
 struct CanvasState {
     message: String,
-    focused_item: Option<usize>,
+    focused_item: Option<DisplayedItemIndex>,
     displayed_item_order: Vec<DisplayedItemRef>,
     displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
     markers: HashMap<u8, BigInt>,
@@ -561,8 +562,8 @@ pub struct State {
 
     waves: Option<WaveData>,
     drag_started: bool,
-    drag_source_idx: Option<usize>,
-    drag_target_idx: Option<usize>,
+    drag_source_idx: Option<DisplayedItemIndex>,
+    drag_target_idx: Option<DisplayedItemIndex>,
 
     previous_waves: Option<WaveData>,
 
@@ -586,7 +587,7 @@ pub struct State {
     variable_name_filter_focused: bool,
     variable_name_filter_type: VariableNameFilterType,
     variable_name_filter_case_insensitive: bool,
-    rename_target: Option<usize>,
+    rename_target: Option<DisplayedItemIndex>,
 
     /// UI zoom factor if set by the user
     ui_zoom_factor: Option<f32>,
@@ -786,11 +787,11 @@ impl State {
                 };
 
                 let visible_items_len = waves.displayed_items.len();
-                if visible_items_len > 0 && idx < visible_items_len {
+                if visible_items_len > 0 && idx.0 < visible_items_len {
                     waves.focused_item = Some(idx);
                 } else {
                     error!(
-                        "Can not focus variable {idx} because only {visible_items_len} variables are visible.",
+                        "Can not focus variable {} because only {visible_items_len} variables are visible.", idx.0
                     );
                 }
             }
@@ -810,7 +811,7 @@ impl State {
                         self.rename_target = Some(idx);
                         *self.sys.item_renaming_string.borrow_mut() = waves
                             .displayed_items_order
-                            .get(idx)
+                            .get(idx.0)
                             .and_then(|id| waves.displayed_items.get(id))
                             .map(|item| item.name())
                             .unwrap_or_default();
@@ -828,15 +829,23 @@ impl State {
                         MoveDir::Up => {
                             waves.focused_item = waves
                                 .focused_item
+                                .map(|dii| dii.0)
                                 .map_or(Some(visible_items_len - 1), |focused| {
                                     Some(focused - count.clamp(0, focused))
                                 })
+                                .map(DisplayedItemIndex)
                         }
                         MoveDir::Down => {
-                            waves.focused_item = waves.focused_item.map_or(
-                                Some((count - 1).clamp(0, visible_items_len - 1)),
-                                |focused| Some((focused + count).clamp(0, visible_items_len - 1)),
-                            );
+                            waves.focused_item = waves
+                                .focused_item
+                                .map(|dii| dii.0)
+                                .map_or(
+                                    Some((count - 1).clamp(0, visible_items_len - 1)),
+                                    |focused| {
+                                        Some((focused + count).clamp(0, visible_items_len - 1))
+                                    },
+                                )
+                                .map(DisplayedItemIndex);
                         }
                     }
                 }
@@ -878,7 +887,7 @@ impl State {
                     .and_then(|waves| {
                         waves
                             .displayed_items_order
-                            .get(idx)
+                            .get(idx.0)
                             .and_then(|id| waves.displayed_items.get(id))
                             .map(|item| item.name())
                     })
@@ -895,7 +904,7 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                if let Some(idx) = waves.focused_item {
+                if let Some(DisplayedItemIndex(idx)) = waves.focused_item {
                     let visible_items_len = waves.displayed_items.len();
                     if visible_items_len > 0 {
                         match direction {
@@ -907,13 +916,13 @@ impl State {
                                     .rev()
                                 {
                                     waves.displayed_items_order.swap(i, i - 1);
-                                    waves.focused_item = Some(i - 1);
+                                    waves.focused_item = Some((i - 1).into());
                                 }
                             }
                             MoveDir::Down => {
                                 for i in idx..(idx + count).clamp(0, visible_items_len - 1) {
                                     waves.displayed_items_order.swap(i, i + 1);
-                                    waves.focused_item = Some(i + 1);
+                                    waves.focused_item = Some((i + 1).into());
                                 }
                             }
                         }
@@ -1043,7 +1052,7 @@ impl State {
                     color_name.clone().unwrap_or("default".into())
                 ));
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(idx) = vidx.or(waves.focused_item) {
+                    if let Some(DisplayedItemIndex(idx)) = vidx.or(waves.focused_item) {
                         waves.displayed_items_order.get(idx).map(|id| {
                             waves
                                 .displayed_items
@@ -1059,7 +1068,7 @@ impl State {
                     name.clone().unwrap_or("default".into())
                 ));
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(idx) = vidx.or(waves.focused_item) {
+                    if let Some(DisplayedItemIndex(idx)) = vidx.or(waves.focused_item) {
                         waves.displayed_items_order.get(idx).map(|id| {
                             waves
                                 .displayed_items
@@ -1075,7 +1084,7 @@ impl State {
                     color_name.clone().unwrap_or("default".into())
                 ));
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(idx) = vidx.or(waves.focused_item) {
+                    if let Some(DisplayedItemIndex(idx)) = vidx.or(waves.focused_item) {
                         waves.displayed_items_order.get(idx).map(|id| {
                             waves
                                 .displayed_items
@@ -1396,7 +1405,7 @@ impl State {
                     return;
                 };
                 // checks if vidx is Some then use that, else try focused variable
-                if let Some(idx) = vidx.or(waves.focused_item) {
+                if let Some(DisplayedItemIndex(idx)) = vidx.or(waves.focused_item) {
                     if waves.displayed_items.len() > idx {
                         let id = waves.displayed_items_order[idx];
                         let mut recompute_names = false;
@@ -1535,8 +1544,10 @@ impl State {
                 self.drag_started = false;
 
                 // reordering
-                if let (Some(source_vidx), Some(target_vidx)) =
-                    (self.drag_source_idx, self.drag_target_idx)
+                if let (
+                    Some(DisplayedItemIndex(source_vidx)),
+                    Some(DisplayedItemIndex(target_vidx)),
+                ) = (self.drag_source_idx, self.drag_target_idx)
                 {
                     self.save_current_canvas(format!("Drag item"));
                     self.invalidate_draw_commands();
@@ -1553,8 +1564,8 @@ impl State {
                         }
 
                         // carry focused item when moving it
-                        if waves.focused_item.is_some_and(|f| f == source_vidx) {
-                            waves.focused_item = Some(target_vidx);
+                        if waves.focused_item.is_some_and(|f| f.0 == source_vidx) {
+                            waves.focused_item = Some(target_vidx.into());
                         }
                     }
                 }
@@ -1563,7 +1574,7 @@ impl State {
             }
             Message::VariableValueToClipbord(vidx) => {
                 if let Some(waves) = &self.waves {
-                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                    if let Some(DisplayedItemIndex(vidx)) = vidx.or(waves.focused_item) {
                         if let Some(DisplayedItem::Variable(displayed_variable)) = waves
                             .displayed_items_order
                             .get(vidx)

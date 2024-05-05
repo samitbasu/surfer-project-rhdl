@@ -14,7 +14,7 @@ use log::{info, warn};
 use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::command_prompt::get_parser;
 use crate::config::SurferTheme;
-use crate::displayed_item::{draw_rename_window, DisplayedItem};
+use crate::displayed_item::{draw_rename_window, DisplayedItem, DisplayedItemIndex};
 use crate::help::{
     draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
 };
@@ -58,21 +58,21 @@ impl DrawConfig {
 #[derive(Debug)]
 pub struct VariableDrawingInfo {
     pub field_ref: FieldRef,
-    pub item_list_idx: usize,
+    pub item_list_idx: DisplayedItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct DividerDrawingInfo {
-    pub item_list_idx: usize,
+    pub item_list_idx: DisplayedItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct MarkerDrawingInfo {
-    pub item_list_idx: usize,
+    pub item_list_idx: DisplayedItemIndex,
     pub top: f32,
     pub bottom: f32,
     pub idx: u8,
@@ -80,7 +80,7 @@ pub struct MarkerDrawingInfo {
 
 #[derive(Debug)]
 pub struct TimeLineDrawingInfo {
-    pub item_list_idx: usize,
+    pub item_list_idx: DisplayedItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
@@ -111,10 +111,10 @@ impl ItemDrawingInfo {
     }
     pub fn item_list_idx(&self) -> usize {
         match self {
-            ItemDrawingInfo::Variable(drawing_info) => drawing_info.item_list_idx,
-            ItemDrawingInfo::Divider(drawing_info) => drawing_info.item_list_idx,
-            ItemDrawingInfo::Marker(drawing_info) => drawing_info.item_list_idx,
-            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Variable(drawing_info) => drawing_info.item_list_idx.0,
+            ItemDrawingInfo::Divider(drawing_info) => drawing_info.item_list_idx.0,
+            ItemDrawingInfo::Marker(drawing_info) => drawing_info.item_list_idx.0,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx.0,
         }
     }
 }
@@ -635,6 +635,7 @@ impl State {
                 .iter()
                 .enumerate()
             {
+                let vidx = vidx.into();
                 if let Some(displayed_item) = self
                     .waves
                     .as_ref()
@@ -734,7 +735,7 @@ impl State {
                         vidx,
                         item_rect,
                         ui,
-                        vidx == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
+                        vidx.0 == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
                     );
                 }
             }
@@ -757,7 +758,7 @@ impl State {
     fn draw_drag_source(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: usize,
+        vidx: DisplayedItemIndex,
         item_response: &egui::Response,
     ) {
         if item_response.dragged_by(egui::PointerButton::Primary)
@@ -778,7 +779,7 @@ impl State {
     fn draw_variable(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: usize,
+        vidx: DisplayedItemIndex,
         name: WidgetText,
         field: FieldRef,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
@@ -879,7 +880,7 @@ impl State {
     fn draw_drag_target(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: usize,
+        vidx: DisplayedItemIndex,
         item_rect: Rect,
         ui: &mut egui::Ui,
         last: bool,
@@ -920,8 +921,9 @@ impl State {
             y: self.config.theme.linewidth / 2f32,
         };
 
+        let vidx = vidx.0;
         if self.drag_started {
-            if let Some(source_idx) = self.drag_source_idx {
+            if let Some(DisplayedItemIndex(source_idx)) = self.drag_source_idx {
                 let target_idx = if ui.rect_contains_pointer(before_rect) {
                     ui.painter().rect_filled(
                         Rect {
@@ -955,7 +957,7 @@ impl State {
                 };
 
                 if source_idx != target_idx {
-                    msgs.push(Message::VariableDragTargetChanged(target_idx));
+                    msgs.push(Message::VariableDragTargetChanged(target_idx.into()));
                 }
             }
         }
@@ -964,7 +966,7 @@ impl State {
     fn draw_plain_item(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: usize,
+        vidx: DisplayedItemIndex,
         displayed_item: &DisplayedItem,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
@@ -1028,7 +1030,7 @@ impl State {
     fn add_alpha_id(
         &self,
         draw_alpha: bool,
-        vidx: usize,
+        vidx: DisplayedItemIndex,
         style: &Style,
         layout_job: &mut LayoutJob,
         alignment: Align,
@@ -1064,7 +1066,7 @@ impl State {
         }
     }
 
-    fn item_is_selected(&self, vidx: usize) -> bool {
+    fn item_is_selected(&self, vidx: DisplayedItemIndex) -> bool {
         if let Some(waves) = &self.waves {
             waves.focused_item == Some(vidx)
         } else {
@@ -1113,6 +1115,7 @@ impl State {
                 .sorted_by_key(|o| o.top() as i32)
                 .enumerate()
             {
+                let vidx = vidx.into();
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,
@@ -1219,7 +1222,7 @@ impl State {
 
     pub fn draw_background(
         &self,
-        vidx: usize,
+        vidx: DisplayedItemIndex,
         waves: &WaveData,
         drawing_info: &ItemDrawingInfo,
         y_zero: f32,
@@ -1241,9 +1244,10 @@ impl State {
             .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
     }
 
-    fn get_default_alternating_background_color(&self, vidx: usize) -> &Color32 {
+    fn get_default_alternating_background_color(&self, vidx: DisplayedItemIndex) -> &Color32 {
         // Set background color
-        if self.config.theme.alt_frequency != 0 && (vidx / self.config.theme.alt_frequency) % 2 == 1
+        if self.config.theme.alt_frequency != 0
+            && (vidx.0 / self.config.theme.alt_frequency) % 2 == 1
         {
             &self.config.theme.canvas_colors.alt_background
         } else {

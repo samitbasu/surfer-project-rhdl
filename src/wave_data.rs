@@ -6,6 +6,7 @@ use num::bigint::ToBigInt;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
+use crate::displayed_item::DisplayedItemIndex;
 use crate::wave_container::VariableValue;
 use crate::wave_source::WaveFormat;
 use crate::wellen::LoadSignalsCmd;
@@ -44,7 +45,7 @@ pub struct WaveData {
     /// actions will apply. This gets cleared when the context menu is closed
     pub right_cursor: Option<BigInt>,
     pub markers: HashMap<u8, BigInt>,
-    pub focused_item: Option<usize>,
+    pub focused_item: Option<DisplayedItemIndex>,
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
     /// These are just stored during operation, so no need to serialize
@@ -326,7 +327,8 @@ impl WaveData {
         res
     }
 
-    pub fn remove_displayed_item(&mut self, count: usize, idx: usize) {
+    pub fn remove_displayed_item(&mut self, count: usize, idx: DisplayedItemIndex) {
+        let idx = idx.0;
         for _ in 0..count {
             let visible_items_len = self.displayed_items_order.len();
             if let Some(DisplayedItem::Marker(marker)) = self
@@ -340,14 +342,14 @@ impl WaveData {
                 let displayed_item_id = self.displayed_items_order[idx];
                 self.displayed_items_order.remove(idx);
                 self.displayed_items.remove(&displayed_item_id);
-                if let Some(focused) = self.focused_item {
+                if let Some(DisplayedItemIndex(focused)) = self.focused_item {
                     if focused == idx {
                         if (idx > 0) && (idx == (visible_items_len - 1)) {
                             // if the end of list is selected
-                            self.focused_item = Some(idx - 1);
+                            self.focused_item = Some((idx - 1).into());
                         }
                     } else if idx < focused {
-                        self.focused_item = Some(focused - 1)
+                        self.focused_item = Some((focused - 1).into())
                     }
                     if !self.any_displayed() {
                         self.focused_item = None;
@@ -358,7 +360,7 @@ impl WaveData {
         self.compute_variable_display_names();
     }
 
-    pub fn add_divider(&mut self, name: Option<String>, vidx: Option<usize>) {
+    pub fn add_divider(&mut self, name: Option<String>, vidx: Option<DisplayedItemIndex>) {
         self.insert_item(
             DisplayedItem::Divider(DisplayedDivider {
                 color: None,
@@ -369,7 +371,7 @@ impl WaveData {
         );
     }
 
-    pub fn add_timeline(&mut self, vidx: Option<usize>) {
+    pub fn add_timeline(&mut self, vidx: Option<DisplayedItemIndex>) {
         self.insert_item(
             DisplayedItem::TimeLine(DisplayedTimeLine {
                 color: None,
@@ -383,18 +385,18 @@ impl WaveData {
     /// Insert item after item vidx if Some(vidx).
     /// If None, insert after focused item if there is one, otherwise insert at the end.
     /// Focus on the inserted item if there was a focues item.
-    fn insert_item(&mut self, new_item: DisplayedItem, vidx: Option<usize>) {
-        if let Some(current_idx) = vidx {
+    fn insert_item(&mut self, new_item: DisplayedItem, vidx: Option<DisplayedItemIndex>) {
+        if let Some(DisplayedItemIndex(current_idx)) = vidx {
             let insert_idx = current_idx + 1;
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.insert(insert_idx, id);
             self.displayed_items.insert(id, new_item);
-        } else if let Some(focus_idx) = self.focused_item {
+        } else if let Some(DisplayedItemIndex(focus_idx)) = self.focused_item {
             let insert_idx = focus_idx + 1;
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.insert(insert_idx, id);
             self.displayed_items.insert(id, new_item);
-            self.focused_item = Some(insert_idx);
+            self.focused_item = Some(insert_idx.into());
         } else {
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.push(id);
@@ -490,10 +492,10 @@ impl WaveData {
     pub fn set_cursor_at_transition(
         &mut self,
         next: bool,
-        variable: Option<usize>,
+        variable: Option<DisplayedItemIndex>,
         skip_zero: bool,
     ) {
-        if let Some(vidx) = variable.or(self.focused_item) {
+        if let Some(DisplayedItemIndex(vidx)) = variable.or(self.focused_item) {
             if let Some(cursor) = &self.cursor {
                 if let Some(DisplayedItem::Variable(variable)) = &self
                     .displayed_items_order
@@ -549,7 +551,7 @@ impl WaveData {
                                         })
                                     })
                                 }) {
-                                    self.set_cursor_at_transition(next, Some(vidx), false);
+                                    self.set_cursor_at_transition(next, Some(vidx.into()), false);
                                 }
                             }
                         }

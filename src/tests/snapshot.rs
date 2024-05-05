@@ -18,6 +18,7 @@ use test_log::test;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::HierarchyStyle,
+    displayed_item::DisplayedItemIndex,
     setup_custom_font,
     variable_name_filter::VariableNameFilterType,
     wave_container::{FieldRef, ScopeRef, VariableRef},
@@ -578,8 +579,8 @@ snapshot_ui_with_file_and_msgs! {divider_works, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::AddDivider(Some("Divider".to_string()), None),
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::ItemBackgroundColorChange(Some(4), Some("Blue".to_string())),
-    Message::ItemColorChange(Some(4), Some("Green".to_string()))
+    Message::ItemBackgroundColorChange(Some(DisplayedItemIndex(4)), Some("Blue".to_string())),
+    Message::ItemColorChange(Some(DisplayedItemIndex(4)), Some("Green".to_string()))
 ]}
 
 snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
@@ -587,10 +588,10 @@ snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(4), Some("Blue".to_string())),
+    Message::ItemColorChange(Some(DisplayedItemIndex(4)), Some("Blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(5), Some("Green".to_string())),
+    Message::ItemColorChange(Some(DisplayedItemIndex(5)), Some("Green".to_string())),
     Message::CursorSet(BigInt::from(500)),
 ]}
 
@@ -599,10 +600,10 @@ snapshot_ui_with_file_and_msgs! {markers_dialog_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(4), Some("Blue".to_string())),
+    Message::ItemColorChange(Some(DisplayedItemIndex(4)), Some("Blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(5), Some("Green".to_string())),
+    Message::ItemColorChange(Some(DisplayedItemIndex(5)), Some("Green".to_string())),
     Message::CursorSet(BigInt::from(500)),
     Message::SetCursorWindowVisible(true)
 ]}
@@ -638,13 +639,13 @@ snapshot_ui_with_file_and_msgs! {
 
 snapshot_ui_with_file_and_msgs! {signals_are_added_at_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
+    Message::FocusItem(DisplayedItemIndex(1)),
     Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.counter"))
 ]}
 
 snapshot_ui_with_file_and_msgs! {dividers_are_added_at_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
+    Message::FocusItem(DisplayedItemIndex(1)),
     Message::AddDivider(Some(String::from("Test")), None)
 ]}
 
@@ -748,30 +749,30 @@ snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::RemoveItem(1, 1)
+    Message::RemoveItem(DisplayedItemIndex(1), 1)
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_items, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::RemoveItem(2, 6)
+    Message::RemoveItem(DisplayedItemIndex(2), 6)
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_with_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
-    Message::RemoveItem(1, 1)
+    Message::FocusItem(DisplayedItemIndex(1)),
+    Message::RemoveItem(DisplayedItemIndex(1), 1)
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_before_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(3),
-    Message::RemoveItem(1, 1)
+    Message::FocusItem(DisplayedItemIndex(3)),
+    Message::RemoveItem(DisplayedItemIndex(1), 1)
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_after_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
-    Message::RemoveItem(2, 1)
+    Message::FocusItem(DisplayedItemIndex(1)),
+    Message::RemoveItem(DisplayedItemIndex(2), 1)
 ]}
 
 snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
@@ -781,49 +782,49 @@ snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {move_focused_item_up, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(2),
+    Message::FocusItem(DisplayedItemIndex(2)),
     Message::MoveFocusedItem(MoveDir::Up, 1),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focused_item_to_top, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(2),
+    Message::FocusItem(DisplayedItemIndex(2)),
     Message::MoveFocusedItem(MoveDir::Up, 4),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focused_item_down, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveFocusedItem(MoveDir::Down, 2),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focused_item_to_bottom, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveFocusedItem(MoveDir::Down, 10),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focus_up, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(2),
+    Message::FocusItem(DisplayedItemIndex(2)),
     Message::MoveFocus(MoveDir::Up, 1),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focus_to_top, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(2),
+    Message::FocusItem(DisplayedItemIndex(2)),
     Message::MoveFocus(MoveDir::Up, 4),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focus_down, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveFocus(MoveDir::Down, 2),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focus_to_bottom, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveFocus(MoveDir::Down, 10),
 ]}
 
@@ -1254,20 +1255,20 @@ snapshot_ui_with_file_and_msgs! {aliasing_works_on_random_3_16, "examples/random
 snapshot_ui_with_file_and_msgs! {next_transition, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(500)),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: false }
 ]}
 
 snapshot_ui_with_file_and_msgs! {next_transition_numbered, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(500)),
-    Message::MoveCursorToTransition { next: true, variable: Some(0), skip_zero: false }
+    Message::MoveCursorToTransition { next: true, variable: Some(DisplayedItemIndex(0)), skip_zero: false }
 ]}
 
 snapshot_ui_with_file_and_msgs! {next_transition_do_not_get_stuck, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(500)),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: false },
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: false }
 ]}
@@ -1275,46 +1276,46 @@ snapshot_ui_with_file_and_msgs! {next_transition_do_not_get_stuck, "examples/cou
 snapshot_ui_with_file_and_msgs! {previous_transition, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(500)),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveCursorToTransition { next: false, variable: None, skip_zero: false}
 ]}
 
 snapshot_ui_with_file_and_msgs! {previous_transition_numbered, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(500)),
-    Message::MoveCursorToTransition { next: false, variable: Some(0), skip_zero: false }
+    Message::MoveCursorToTransition { next: false, variable: Some(DisplayedItemIndex(0)), skip_zero: false }
 ]}
 
 snapshot_ui_with_file_and_msgs! {previous_transition_do_not_get_stuck, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::CursorSet(BigInt::from(500)),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveCursorToTransition { next: false, variable: None, skip_zero: false },
     Message::MoveCursorToTransition { next: false, variable: None, skip_zero: false }
 ]}
 
 snapshot_ui_with_file_and_msgs! {next_transition_no_cursor, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: false },
 ]}
 
 snapshot_ui_with_file_and_msgs! {previous_transition_no_cursor, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(0),
+    Message::FocusItem(DisplayedItemIndex(0)),
     Message::MoveCursorToTransition { next: false, variable: None, skip_zero: false },
 ]}
 
 snapshot_ui_with_file_and_msgs! {next_transition_skip_zero, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
+    Message::FocusItem(DisplayedItemIndex(1)),
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true }
 ]}
 
 snapshot_ui_with_file_and_msgs! {previous_transition_skip_zero, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
+    Message::FocusItem(DisplayedItemIndex(1)),
     Message::MoveCursorToTransition { next: false, variable: None, skip_zero: true },
     Message::MoveCursorToTransition { next: false, variable: None, skip_zero: true }
 ]}
@@ -1387,7 +1388,7 @@ pub fn wait_for_waves_fully_loaded(state: &mut State, timeout_s: u64) {
 
 snapshot_ui_with_file_and_msgs! {default_dark_theme_works, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
+    Message::FocusItem(DisplayedItemIndex(1)),
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::SelectTheme(Some("dark+".to_string()))
@@ -1395,7 +1396,7 @@ snapshot_ui_with_file_and_msgs! {default_dark_theme_works, "examples/counter.vcd
 
 snapshot_ui_with_file_and_msgs! {default_light_theme_works, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
+    Message::FocusItem(DisplayedItemIndex(1)),
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::SelectTheme(Some("light+".to_string()))
@@ -1403,7 +1404,7 @@ snapshot_ui_with_file_and_msgs! {default_light_theme_works, "examples/counter.vc
 
 snapshot_ui_with_file_and_msgs! {default_solarized_theme_works, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(1),
+    Message::FocusItem(DisplayedItemIndex(1)),
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
     Message::SelectTheme(Some("solarized".to_string()))
