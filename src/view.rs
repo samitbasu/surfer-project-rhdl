@@ -14,7 +14,9 @@ use log::{info, warn};
 use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::command_prompt::get_parser;
 use crate::config::SurferTheme;
-use crate::displayed_item::{draw_rename_window, DisplayedItem, DisplayedItemIndex};
+use crate::displayed_item::{
+    draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
+};
 use crate::help::{
     draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
 };
@@ -58,6 +60,7 @@ impl DrawConfig {
 #[derive(Debug)]
 pub struct VariableDrawingInfo {
     pub field_ref: FieldRef,
+    pub displayed_field_ref: DisplayedFieldRef,
     pub item_list_idx: DisplayedItemIndex,
     pub top: f32,
     pub bottom: f32,
@@ -691,6 +694,7 @@ impl State {
                                 msgs,
                                 vidx,
                                 WidgetText::LayoutJob(layout_job),
+                                *displayed_item_id,
                                 FieldRef::without_fields(var.variable_ref.clone()),
                                 &mut item_offsets,
                                 info,
@@ -781,6 +785,7 @@ impl State {
         msgs: &mut Vec<Message>,
         vidx: DisplayedItemIndex,
         name: WidgetText,
+        displayed_id: DisplayedItemRef,
         field: FieldRef,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         info: &VariableInfo,
@@ -822,6 +827,10 @@ impl State {
             variable_label
         };
 
+        let displayed_field_ref = DisplayedFieldRef {
+            item: displayed_id,
+            field: field.field.clone(),
+        };
         match info {
             VariableInfo::Compound { subfields } => {
                 let response = egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -843,6 +852,7 @@ impl State {
                             msgs,
                             vidx,
                             WidgetText::RichText(RichText::new(name)),
+                            displayed_id,
                             new_path,
                             drawing_infos,
                             info,
@@ -852,6 +862,7 @@ impl State {
                 });
 
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
+                    displayed_field_ref,
                     field_ref: field.clone(),
                     item_list_idx: vidx,
                     top: response.0.rect.top(),
@@ -867,6 +878,7 @@ impl State {
                 let label = draw_label(ui);
                 self.draw_drag_source(msgs, vidx, &label);
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
+                    displayed_field_ref,
                     field_ref: field.clone(),
                     item_list_idx: vidx,
                     top: label.rect.top(),
@@ -1132,7 +1144,11 @@ impl State {
                             continue;
                         }
 
-                        let v = self.get_variable_value(waves, &drawing_info.field_ref, &ucursor);
+                        let v = self.get_variable_value(
+                            waves,
+                            &drawing_info.displayed_field_ref,
+                            &ucursor,
+                        );
                         if let Some(v) = v {
                             ui.label(v).context_menu(|ui| {
                                 self.item_context_menu(
@@ -1177,13 +1193,20 @@ impl State {
     pub fn get_variable_value(
         &self,
         waves: &WaveData,
-        field_ref: &FieldRef,
+        displayed_field_ref: &DisplayedFieldRef,
         ucursor: &Option<num::BigUint>,
     ) -> Option<String> {
         if let Some(ucursor) = ucursor {
-            let variable = &field_ref.root;
-            let translator = waves.variable_translator(field_ref, &self.sys.translators);
+            let Some(DisplayedItem::Variable(displayed_variable)) =
+                waves.displayed_items.get(&displayed_field_ref.item)
+            else {
+                return None;
+            };
+            let variable = &displayed_variable.variable_ref;
+            let translator = waves
+                .variable_translator(&displayed_field_ref.without_field(), &self.sys.translators);
             let meta = waves.inner.variable_meta(variable);
+
             let translation_result = waves
                 .inner
                 .query_variable(variable, ucursor)
@@ -1193,13 +1216,15 @@ impl State {
                 .map(|(_time, value)| meta.and_then(|meta| translator.translate(&meta, &value)));
 
             if let Some(Ok(s)) = translation_result {
-                let subfields = s.format_flat(
-                    FieldRef::without_fields(field_ref.root.clone()),
-                    &waves.variable_format,
+                let fields = s.format_flat(
+                    &displayed_variable.format,
+                    &displayed_variable.field_formats,
                     &self.sys.translators,
                 );
 
-                let subfield = subfields.iter().find(|res| res.names == field_ref.field);
+                let subfield = fields
+                    .iter()
+                    .find(|res| res.names == displayed_field_ref.field);
 
                 if let Some(SubFieldFlatTranslationResult {
                     names: _,

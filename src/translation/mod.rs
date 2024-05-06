@@ -17,7 +17,7 @@ pub use numeric_translators::*;
 use crate::{
     message::Message,
     variable_type::STRING_TYPES,
-    wave_container::{FieldRef, VariableMeta, VariableValue},
+    wave_container::{VariableMeta, VariableValue},
 };
 
 pub fn all_translators() -> TranslatorList {
@@ -325,21 +325,28 @@ fn format(
 impl TranslationResult {
     fn sub_format(
         &self,
-        formats: &HashMap<FieldRef, String>,
+        formats: &[crate::displayed_item::FieldFormat],
         translators: &TranslatorList,
-        path_so_far: &FieldRef,
+        path_so_far: &[String],
     ) -> Vec<HierFormatResult> {
         self.subfields
             .iter()
             .map(|res| {
-                let mut sub_path = path_so_far.clone();
-                sub_path.field.push(res.name.clone());
+                let sub_path = path_so_far
+                    .iter()
+                    .chain([&res.name])
+                    .cloned()
+                    .collect::<Vec<_>>();
 
                 let sub = res.result.sub_format(formats, translators, &sub_path);
 
                 // we can consistently fall back to the default here since sub-fields
                 // are never checked for their preferred translator
-                let translator_name = formats.get(&sub_path).unwrap_or(&translators.default);
+                let translator_name = formats
+                    .iter()
+                    .find(|e| e.field == sub_path)
+                    .map(|e| e.format.clone())
+                    .unwrap_or(translators.default.clone());
                 let formatted = format(
                     &res.result.val,
                     res.result.kind,
@@ -350,7 +357,7 @@ impl TranslationResult {
 
                 HierFormatResult {
                     this: formatted,
-                    names: sub_path.field,
+                    names: sub_path,
                     fields: sub,
                 }
             })
@@ -360,16 +367,19 @@ impl TranslationResult {
     /// Flattens the translation result into path, value pairs
     pub fn format_flat(
         &self,
-        path_so_far: FieldRef,
-        formats: &HashMap<FieldRef, String>,
+        root_format: &Option<String>,
+        formats: &[crate::displayed_item::FieldFormat],
         translators: &TranslatorList,
     ) -> Vec<SubFieldFlatTranslationResult> {
-        let sub_result = self.sub_format(formats, translators, &path_so_far);
+        let sub_result = self.sub_format(formats, translators, &[]);
 
+        // FIXME for consistency we should not fall back to `translators.default` here, but fetch the
+        // preferred translator - but doing that ATM will break if the spade translator is used, since
+        // on the first render the spade translator seems to not have loaded it's information yet.
         let formatted = format(
             &self.val,
             self.kind,
-            formats.get(&path_so_far).unwrap_or(&translators.default),
+            root_format.as_ref().unwrap_or(&translators.default),
             translators,
             &sub_result,
         );

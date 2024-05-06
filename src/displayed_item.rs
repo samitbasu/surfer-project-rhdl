@@ -20,6 +20,30 @@ impl From<usize> for DisplayedItemRef {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+pub struct DisplayedFieldRef {
+    pub item: DisplayedItemRef,
+    pub field: Vec<String>,
+}
+
+impl DisplayedFieldRef {
+    pub fn without_field(&self) -> DisplayedFieldRef {
+        DisplayedFieldRef {
+            item: self.item,
+            field: vec![],
+        }
+    }
+}
+
+impl From<DisplayedItemRef> for DisplayedFieldRef {
+    fn from(item: DisplayedItemRef) -> Self {
+        DisplayedFieldRef {
+            item,
+            field: vec![],
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct DisplayedItemIndex(pub usize);
 
@@ -39,6 +63,12 @@ pub enum DisplayedItem {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct FieldFormat {
+    pub field: Vec<String>,
+    pub format: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayedVariable {
     pub variable_ref: VariableRef,
     #[serde(skip)]
@@ -48,9 +78,22 @@ pub struct DisplayedVariable {
     pub display_name: String,
     pub display_name_type: VariableNameType,
     pub manual_name: Option<String>,
+    pub format: Option<String>,
+    pub field_formats: Vec<FieldFormat>,
 }
 
 impl DisplayedVariable {
+    pub fn get_format(&self, field: &[String]) -> Option<&String> {
+        if field.is_empty() {
+            self.format.as_ref()
+        } else {
+            self.field_formats
+                .iter()
+                .find(|ff| ff.field == field)
+                .map(|ff| &ff.format)
+        }
+    }
+
     /// Updates the variable after a new waveform has been loaded.
     pub fn update(
         &self,
@@ -83,6 +126,8 @@ impl DisplayedVariable {
             display_name: self.display_name,
             display_name_type: self.display_name_type,
             manual_name: self.manual_name,
+            format: self.format,
+            field_formats: self.field_formats,
         }
     }
 }
@@ -142,6 +187,8 @@ pub struct DisplayedPlaceholder {
     pub display_name: String,
     pub display_name_type: VariableNameType,
     pub manual_name: Option<String>,
+    pub format: Option<String>,
+    pub field_formats: Vec<FieldFormat>,
 }
 
 impl DisplayedPlaceholder {
@@ -158,6 +205,8 @@ impl DisplayedPlaceholder {
             display_name: self.display_name,
             display_name_type: self.display_name_type,
             manual_name: self.manual_name,
+            format: self.format,
+            field_formats: self.field_formats,
         }
     }
 }

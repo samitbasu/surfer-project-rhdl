@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use color_eyre::eyre::WrapErr;
+use color_eyre::eyre::{Result, WrapErr};
 use log::{error, warn};
 use num::bigint::ToBigInt;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
-use crate::displayed_item::DisplayedItemIndex;
+use crate::displayed_item::{DisplayedFieldRef, DisplayedItemIndex};
 use crate::wave_container::VariableValue;
 use crate::wave_source::WaveFormat;
 use crate::wellen::LoadSignalsCmd;
@@ -18,7 +18,7 @@ use crate::{
     variable_name_type::VariableNameType,
     view::ItemDrawingInfo,
     viewport::Viewport,
-    wave_container::{FieldRef, ScopeRef, VariableMeta, VariableRef, WaveContainer},
+    wave_container::{ScopeRef, VariableMeta, VariableRef, WaveContainer},
     wave_source::WaveSource,
 };
 
@@ -38,8 +38,6 @@ pub struct WaveData {
     /// Tracks the consecutive displayed item refs
     pub display_item_ref_counter: usize,
     pub viewports: Vec<Viewport>,
-    /// Name of the translator used to translate this trace
-    pub variable_format: HashMap<FieldRef, String>,
     pub cursor: Option<BigInt>,
     /// When right clicking we'll create a temporary cursor that shows where right click
     /// actions will apply. This gets cleared when the context menu is closed
@@ -58,6 +56,57 @@ pub struct WaveData {
     /// used by the `update_viewports` method after loading a new file
     #[serde(skip)]
     pub old_num_timestamps: Option<BigInt>,
+}
+
+fn select_preferred_translator(var: &VariableMeta, translators: &TranslatorList) -> String {
+    translators
+        .all_translators()
+        .iter()
+        .filter_map(|t| match t.translates(var) {
+            Ok(TranslationPreference::Prefer) => Some(t.name()),
+            Ok(TranslationPreference::Yes) => None,
+            Ok(TranslationPreference::No) => None,
+            Err(e) => {
+                error!(
+                    "Failed to check if {} translates {}\n{e:#?}",
+                    t.name(),
+                    var.var.full_path_string()
+                );
+                None
+            }
+        })
+        .next()
+        .unwrap_or_else(|| translators.default.clone())
+}
+
+pub fn variable_translator<'a, F>(
+    translator: Option<&String>,
+    field: &[String],
+    translators: &'a TranslatorList,
+    meta: F,
+) -> &'a dyn Translator
+where
+    F: FnOnce() -> Result<VariableMeta>,
+{
+    let translator_name = translator
+        .cloned()
+        .or_else(|| {
+            Some(if field.is_empty() {
+                meta()
+                    .as_ref()
+                    .map(|meta| select_preferred_translator(meta, translators).clone())
+                    .unwrap_or_else(|e| {
+                        warn!("{e:#?}");
+                        translators.default.clone()
+                    })
+            } else {
+                translators.default.clone()
+            })
+        })
+        .unwrap();
+
+    let translator = translators.get_translator(&translator_name);
+    translator
 }
 
 impl WaveData {
@@ -80,30 +129,6 @@ impl WaveData {
             translators,
         );
 
-        let mut nested_format = self
-            .variable_format
-            .iter()
-            .filter(|&(field_ref, _)| !field_ref.field.is_empty())
-            .map(|(x, y)| (x.clone(), y.clone()))
-            .collect::<HashMap<_, _>>();
-        let variable_format = self
-            .variable_format
-            .drain()
-            .filter(|(field_ref, candidate)| {
-                display_items.values().any(|di| match di {
-                    DisplayedItem::Variable(DisplayedVariable { variable_ref, .. }) => {
-                        let Ok(meta) = new_waves.variable_meta(variable_ref) else {
-                            return false;
-                        };
-                        field_ref.field.is_empty()
-                            && *variable_ref == field_ref.root
-                            && translators.is_valid_translator(&meta, candidate.as_str())
-                    }
-                    _ => false,
-                })
-            })
-            .collect();
-
         let old_num_timestamps = Some(self.num_timestamps());
         let mut new_wave = WaveData {
             inner: *new_waves,
@@ -114,7 +139,6 @@ impl WaveData {
             displayed_items: display_items,
             display_item_ref_counter: self.display_item_ref_counter,
             viewports: self.viewports,
-            variable_format,
             cursor: self.cursor.clone(),
             right_cursor: None,
             markers: self.markers.clone(),
@@ -126,23 +150,29 @@ impl WaveData {
             total_height: 0.,
             old_num_timestamps,
         };
-        nested_format.retain(|nested, _| {
-            let Some(variable_ref) = new_wave.displayed_items.values().find_map(|di| match di {
-                DisplayedItem::Variable(DisplayedVariable { variable_ref, .. }) => {
-                    Some(variable_ref)
-                }
-                _ => None,
-            }) else {
-                return false;
+
+        for (_vidx, di) in new_wave.displayed_items.iter_mut() {
+            let DisplayedItem::Variable(displayed_variable) = di else {
+                continue;
             };
-            let meta = new_wave.inner.variable_meta(&nested.root).unwrap();
-            new_wave
-                .variable_translator(&FieldRef::without_fields(variable_ref.clone()), translators)
-                .variable_info(&meta)
-                .map(|info| info.has_subpath(&nested.field))
-                .unwrap_or(false)
-        });
-        new_wave.variable_format.extend(nested_format);
+
+            let meta = new_wave
+                .inner
+                .variable_meta(&displayed_variable.variable_ref.clone())
+                .unwrap();
+            let translator =
+                variable_translator(displayed_variable.get_format(&[]), &[], translators, || {
+                    Ok(meta.clone())
+                });
+            let info = translator.variable_info(&meta).ok();
+
+            match info {
+                Some(info) => displayed_variable
+                    .field_formats
+                    .retain(|ff| info.has_subpath(&ff.field)),
+                _ => displayed_variable.field_formats.clear(),
+            }
+        }
 
         // load variables that need to be displayed
         let variables = new_wave
@@ -215,9 +245,11 @@ impl WaveData {
                                 else {
                                     return Some((*id, DisplayedItem::Placeholder(p.clone())));
                                 };
-                                let translator = self.variable_translator(
-                                    &FieldRef::without_fields(p.variable_ref.clone()),
+                                let translator = variable_translator(
+                                    p.format.as_ref(),
+                                    &[],
                                     translators,
+                                    || Ok(meta.clone()),
                                 );
                                 let info = translator.variable_info(&meta).unwrap();
                                 Some((
@@ -239,46 +271,26 @@ impl WaveData {
         var: VariableMeta,
         translators: &TranslatorList,
     ) -> String {
-        translators
-            .all_translators()
-            .iter()
-            .filter_map(|t| match t.translates(&var) {
-                Ok(TranslationPreference::Prefer) => Some(t.name()),
-                Ok(TranslationPreference::Yes) => None,
-                Ok(TranslationPreference::No) => None,
-                Err(e) => {
-                    error!(
-                        "Failed to check if {} translates {}\n{e:#?}",
-                        t.name(),
-                        var.var.full_path_string()
-                    );
-                    None
-                }
-            })
-            .next()
-            .unwrap_or_else(|| translators.default.clone())
+        select_preferred_translator(&var, translators)
     }
 
     pub fn variable_translator<'a>(
         &'a self,
-        field: &FieldRef,
+        field: &DisplayedFieldRef,
         translators: &'a TranslatorList,
     ) -> &'a dyn Translator {
-        let translator_name = self.variable_format.get(field).cloned().unwrap_or_else(|| {
-            if field.field.is_empty() {
-                self.inner
-                    .variable_meta(&field.root)
-                    .map(|meta| self.select_preferred_translator(meta, translators))
-                    .unwrap_or_else(|e| {
-                        warn!("{e:#?}");
-                        translators.default.clone()
-                    })
-            } else {
-                translators.default.clone()
-            }
-        });
-        let translator = translators.get_translator(&translator_name);
-        translator
+        let Some(DisplayedItem::Variable(displayed_variable)) =
+            self.displayed_items.get(&field.item)
+        else {
+            panic!("asking for translator for a non DisplayItem::Variable signal")
+        };
+
+        variable_translator(
+            displayed_variable.get_format(&field.field),
+            &field.field,
+            translators,
+            || self.inner.variable_meta(&displayed_variable.variable_ref),
+        )
     }
 
     pub fn add_variables(
@@ -306,8 +318,7 @@ impl WaveData {
                 return res;
             };
 
-            let translator =
-                self.variable_translator(&FieldRef::without_fields(variable.clone()), translators);
+            let translator = variable_translator(None, &[], translators, || Ok(meta.clone()));
             let info = translator.variable_info(&meta).unwrap();
 
             let new_variable = DisplayedItem::Variable(DisplayedVariable {
@@ -318,6 +329,8 @@ impl WaveData {
                 display_name: variable.name.clone(),
                 display_name_type: self.default_variable_name_type,
                 manual_name: None,
+                format: None,
+                field_formats: vec![],
             });
 
             self.insert_item(new_variable, None);

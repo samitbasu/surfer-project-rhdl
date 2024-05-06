@@ -13,13 +13,15 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
-use crate::displayed_item::{DisplayedItemIndex, DisplayedVariable};
+use crate::displayed_item::{
+    DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef, DisplayedVariable,
+};
 use crate::translation::{
     SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind, VariableInfo,
 };
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::viewport::Viewport;
-use crate::wave_container::{FieldRef, QueryResult, VariableRef};
+use crate::wave_container::QueryResult;
 use crate::wave_data::WaveData;
 use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
 
@@ -71,13 +73,14 @@ impl DrawingCommands {
 
 struct VariableDrawCommands {
     clock_edges: Vec<f32>,
-    variable_ref: VariableRef,
+    display_id: DisplayedItemRef,
     local_commands: HashMap<Vec<String>, DrawingCommands>,
     local_msgs: Vec<Message>,
 }
 
 fn variable_draw_commands(
     displayed_variable: &DisplayedVariable,
+    display_id: DisplayedItemRef,
     timestamps: &[(f32, num::BigUint)],
     waves: &WaveData,
     translators: &TranslatorList,
@@ -99,10 +102,8 @@ fn variable_draw_commands(
         }
     };
 
-    let translator = waves.variable_translator(
-        &FieldRef::without_fields(displayed_variable.variable_ref.clone()),
-        translators,
-    );
+    let displayed_field_ref: DisplayedFieldRef = display_id.into();
+    let translator = waves.variable_translator(&displayed_field_ref, translators);
     // we need to get the variable info here to get the correct info for aliases
     let info = translator.variable_info(&meta).unwrap();
 
@@ -174,16 +175,14 @@ fn variable_draw_commands(
                     sig_name = displayed_variable.variable_ref.full_path_string()
                 );
                 error!("{e:#}");
-                local_msgs.push(Message::ResetVariableFormat(FieldRef::without_fields(
-                    displayed_variable.variable_ref.clone(),
-                )));
+                local_msgs.push(Message::ResetVariableFormat(displayed_field_ref));
                 return None;
             }
         };
 
         let fields = translation_result.format_flat(
-            FieldRef::without_fields(displayed_variable.variable_ref.clone()),
-            &waves.variable_format,
+            &displayed_variable.format,
+            &displayed_variable.field_formats,
             translators,
         );
 
@@ -234,7 +233,7 @@ fn variable_draw_commands(
     }
     Some(VariableDrawCommands {
         clock_edges,
-        variable_ref: displayed_variable.variable_ref.clone(),
+        display_id,
         local_commands,
         local_msgs,
     })
@@ -285,16 +284,17 @@ impl State {
             let commands = waves
                 .displayed_items_order
                 .par_iter()
-                .map(|id| waves.displayed_items.get(id))
-                .filter_map(|item| match item {
-                    Some(DisplayedItem::Variable(variable_ref)) => Some(variable_ref),
+                .map(|id| (*id, waves.displayed_items.get(id)))
+                .filter_map(|(id, item)| match item {
+                    Some(DisplayedItem::Variable(variable_ref)) => Some((id, variable_ref)),
                     _ => None,
                 })
                 // Iterate over the variables, generating draw commands for all the
                 // subfields
-                .filter_map(|displayed_variable| {
+                .filter_map(|(id, displayed_variable)| {
                     variable_draw_commands(
                         displayed_variable,
+                        id,
                         &timestamps,
                         waves,
                         translators,
@@ -306,17 +306,17 @@ impl State {
 
             for VariableDrawCommands {
                 clock_edges: mut new_clock_edges,
-                variable_ref,
+                display_id,
                 local_commands,
                 mut local_msgs,
             } in commands
             {
                 msgs.append(&mut local_msgs);
-                for (path, val) in local_commands {
+                for (field, val) in local_commands {
                     draw_commands.insert(
-                        FieldRef {
-                            root: variable_ref.clone(),
-                            field: path.clone(),
+                        DisplayedFieldRef {
+                            item: display_id,
+                            field,
                         },
                         val,
                     );
@@ -494,7 +494,8 @@ impl State {
 
                 match drawing_info {
                     ItemDrawingInfo::Variable(drawing_info) => {
-                        if let Some(commands) = draw_commands.get(&drawing_info.field_ref) {
+                        if let Some(commands) = draw_commands.get(&drawing_info.displayed_field_ref)
+                        {
                             for (old, new) in
                                 commands.values.iter().zip(commands.values.iter().skip(1))
                             {

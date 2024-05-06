@@ -578,6 +578,7 @@ impl WaveContainer {
     }
 }
 
+#[derive(Clone)]
 pub struct VariableMeta {
     pub var: VariableRef,
     pub num_bits: Option<u32>,

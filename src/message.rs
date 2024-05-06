@@ -13,11 +13,12 @@ use serde::Deserialize;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
+    displayed_item::DisplayedFieldRef,
     displayed_item::DisplayedItemIndex,
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     variable_name_type::VariableNameType,
-    wave_container::{FieldRef, ScopeRef, VariableRef, WaveContainer},
+    wave_container::{ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
     wellen::LoadSignalsResult,
     MoveDir, VariableNameFilterType, WaveSource,
@@ -61,7 +62,7 @@ pub enum Message {
     VerticalScroll(MoveDir, CommandCount),
     ScrollToItem(usize),
     SetScrollOffset(f32),
-    VariableFormatChange(FieldRef, String),
+    VariableFormatChange(DisplayedFieldRef, String),
     ItemColorChange(Option<DisplayedItemIndex>, Option<String>),
     ItemBackgroundColorChange(Option<DisplayedItemIndex>, Option<String>),
     ItemNameChange(Option<DisplayedItemIndex>, Option<String>),
@@ -71,7 +72,7 @@ pub enum Message {
     SetClockHighlightType(ClockHighlightType),
     // Reset the translator for this variable back to default. Sub-variables,
     // i.e. those with the variable idx and a shared path are also reset
-    ResetVariableFormat(FieldRef),
+    ResetVariableFormat(DisplayedFieldRef),
     CanvasScroll {
         delta: Vec2,
         viewport_idx: usize,

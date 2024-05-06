@@ -4,7 +4,7 @@ use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
 use crate::{
     clock_highlighting::clock_highlight_type_menu,
     config::{ArrowKeyBindings, HierarchyStyle},
-    displayed_item::DisplayedItem,
+    displayed_item::{DisplayedFieldRef, DisplayedItem, DisplayedItemIndex},
     message::Message,
     time::{timeformat_menu, timeunit_menu},
     translation::TranslationPreference,
@@ -12,7 +12,7 @@ use crate::{
     variable_name_type::VariableNameType,
     wave_container::FieldRef,
     wave_source::OpenMode,
-    DisplayedItemIndex, State,
+    State,
 };
 
 // Button builder. Short name because we use it a ton
@@ -280,16 +280,21 @@ impl State {
         vidx: DisplayedItemIndex,
     ) {
         let Some(waves) = &self.waves else { return };
-        if let Some(path) = path {
-            self.add_format_menu(path, msgs, ui);
-        }
 
-        // let displayed_item = &waves.displayed_items[vidx];
-        let displayed_item = waves
+        let (displayed_item_id, displayed_item) = waves
             .displayed_items_order
             .get(vidx.0)
-            .map(|id| &waves.displayed_items[id])
+            .map(|id| (*id, &waves.displayed_items[id]))
             .unwrap();
+
+        if let Some(path) = path {
+            let dfr = DisplayedFieldRef {
+                item: displayed_item_id,
+                field: path.field.clone(),
+            };
+            self.add_format_menu(&dfr, &displayed_item, path, msgs, ui);
+        }
+
         ui.menu_button("Color", |ui| {
             let selected_color = &displayed_item
                 .color()
@@ -385,7 +390,14 @@ impl State {
         });
     }
 
-    fn add_format_menu(&self, path: &FieldRef, msgs: &mut Vec<Message>, ui: &mut Ui) {
+    fn add_format_menu(
+        &self,
+        displayed_field_ref: &DisplayedFieldRef,
+        displayed_item: &DisplayedItem,
+        path: &FieldRef,
+        msgs: &mut Vec<Message>,
+        ui: &mut Ui,
+    ) {
         // Should not call this unless a variable is selected, and, hence, a VCD is loaded
         let Some(waves) = &self.waves else { return };
 
@@ -432,20 +444,25 @@ impl State {
         preferred_translators.sort_by(|a, b| human_sort::compare(a, b));
         bad_translators.sort_by(|a, b| human_sort::compare(a, b));
 
-        let selected_translator = waves
-            .variable_translator(path, &self.sys.translators)
-            .name();
+        let selected_translator = match displayed_item {
+            DisplayedItem::Variable(var) => Some(var),
+            _ => None,
+        }
+        .and_then(|displayed_variable| displayed_variable.get_format(&displayed_field_ref.field));
 
         let mut menu_entry = |ui: &mut Ui, name: &String| {
-            ui.radio(selected_translator == *name, name)
-                .clicked()
-                .then(|| {
-                    ui.close_menu();
-                    msgs.push(Message::VariableFormatChange(
-                        path.clone(),
-                        name.to_string(),
-                    ));
-                });
+            ui.radio(
+                selected_translator.map(|st| st == name).unwrap_or(false),
+                name,
+            )
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::VariableFormatChange(
+                    displayed_field_ref.clone(),
+                    name.to_string(),
+                ));
+            });
         };
 
         ui.menu_button("Format", |ui| {

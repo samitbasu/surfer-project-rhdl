@@ -18,10 +18,12 @@ use test_log::test;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::HierarchyStyle,
+    displayed_item::DisplayedFieldRef,
     displayed_item::DisplayedItemIndex,
+    displayed_item::DisplayedItemRef,
     setup_custom_font,
     variable_name_filter::VariableNameFilterType,
-    wave_container::{FieldRef, ScopeRef, VariableRef},
+    wave_container::{ScopeRef, VariableRef},
     wave_source::LoadOptions,
     Message, MoveDir, StartupParams, State, WaveSource,
 };
@@ -501,19 +503,19 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::VariableFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
+    Message::VariableFormatChange(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}, String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Line),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::VariableFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
+    Message::VariableFormatChange(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}, String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Cycle),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::VariableFormatChange(FieldRef::from_strs(&["tb", "clk"], &[]), String::from("Clock")),
+    Message::VariableFormatChange(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}, String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::None),
 ]}
 
@@ -1456,7 +1458,10 @@ snapshot_ui!(rising_clock_markers, || {
         "tb.clk",
     )));
     state.update(Message::VariableFormatChange(
-        FieldRef::from_strs(&["tb", "clk"], &[]),
+        DisplayedFieldRef {
+            item: DisplayedItemRef(1),
+            field: vec![],
+        },
         String::from("Clock"),
     ));
     state.update(Message::CanvasZoom {

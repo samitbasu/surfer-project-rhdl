@@ -49,9 +49,11 @@ use color_eyre::eyre::Context;
 use color_eyre::Result;
 use command_prompt::get_parser;
 use config::{SurferConfig, SurferTheme};
+use displayed_item::DisplayedFieldRef;
 use displayed_item::DisplayedItem;
 use displayed_item::DisplayedItemIndex;
 use displayed_item::DisplayedItemRef;
+use displayed_item::FieldFormat;
 use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
@@ -89,7 +91,6 @@ use variable_name_filter::VariableNameFilterType;
 use viewport::Viewport;
 use wasm_util::perform_work;
 use wasm_util::UrlArgs;
-use wave_container::FieldRef;
 use wave_container::VariableRef;
 use wave_container::WaveContainer;
 use wave_data::WaveData;
@@ -424,7 +425,7 @@ pub enum ColorSpecifier {
 }
 
 struct CachedDrawData {
-    pub draw_commands: HashMap<FieldRef, drawing_canvas::DrawingCommands>,
+    pub draw_commands: HashMap<DisplayedFieldRef, drawing_canvas::DrawingCommands>,
     pub clock_edges: Vec<f32>,
     pub ticks: Vec<(String, f32)>,
 }
@@ -1000,51 +1001,49 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
-            Message::VariableFormatChange(field, format) => {
+            Message::VariableFormatChange(displayed_field_ref, format) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-
-                if self
+                if !self
                     .sys
                     .translators
                     .all_translator_names()
                     .contains(&&format)
                 {
-                    *waves.variable_format.entry(field.clone()).or_default() = format;
-
-                    if field.field.is_empty() {
-                        let Ok(meta) = waves
-                            .inner
-                            .variable_meta(&field.root)
-                            .map_err(|e| warn!("{e:#?}"))
-                        else {
-                            return;
-                        };
-                        let translator = waves.variable_translator(&field, &self.sys.translators);
-                        let new_info = translator.variable_info(&meta).unwrap();
-
-                        for id in &waves.displayed_items_order {
-                            waves
-                                .displayed_items
-                                .entry(*id)
-                                .and_modify(|item| match item {
-                                    DisplayedItem::Variable(disp) => {
-                                        if disp.variable_ref == field.root {
-                                            disp.info = new_info.clone();
-                                        }
-                                    }
-                                    DisplayedItem::Marker(_) => {}
-                                    DisplayedItem::Divider(_) => {}
-                                    DisplayedItem::TimeLine(_) => {}
-                                    DisplayedItem::Placeholder(_) => {}
-                                });
-                        }
-                    }
-                    self.invalidate_draw_commands();
-                } else {
-                    warn!("No translator {format}")
+                    warn!("No translator {format}");
+                    return;
                 }
+
+                let Some(DisplayedItem::Variable(displayed_variable)) =
+                    waves.displayed_items.get_mut(&displayed_field_ref.item)
+                else {
+                    return;
+                };
+
+                if displayed_field_ref.field.is_empty() {
+                    let Ok(meta) = waves
+                        .inner
+                        .variable_meta(&displayed_variable.variable_ref)
+                        .map_err(|e| warn!("{e:#?}"))
+                    else {
+                        return;
+                    };
+                    let translator = self.sys.translators.get_translator(&format);
+                    let new_info = translator.variable_info(&meta).unwrap();
+
+                    displayed_variable.format = Some(format);
+                    displayed_variable.info = new_info;
+                } else {
+                    displayed_variable
+                        .field_formats
+                        .retain(|ff| ff.field != displayed_field_ref.field);
+                    displayed_variable.field_formats.push(FieldFormat {
+                        field: displayed_field_ref.field,
+                        format,
+                    });
+                }
+                self.invalidate_draw_commands();
             }
             Message::ItemColorChange(vidx, color_name) => {
                 self.save_current_canvas(format!(
@@ -1120,9 +1119,19 @@ impl State {
                     }
                 }
             }
-            Message::ResetVariableFormat(idx) => {
-                if let Some(waves) = self.waves.as_mut() {
-                    waves.variable_format.remove(&idx);
+            Message::ResetVariableFormat(displayed_field_ref) => {
+                if let Some(DisplayedItem::Variable(displayed_variable)) = self
+                    .waves
+                    .as_mut()
+                    .and_then(|waves| waves.displayed_items.get_mut(&displayed_field_ref.item))
+                {
+                    if displayed_field_ref.field.is_empty() {
+                        displayed_variable.format = None;
+                    } else {
+                        displayed_variable
+                            .field_formats
+                            .retain(|ff| ff.field != displayed_field_ref.field);
+                    }
                     self.invalidate_draw_commands();
                 }
             }
@@ -1575,16 +1584,16 @@ impl State {
             Message::VariableValueToClipbord(vidx) => {
                 if let Some(waves) = &self.waves {
                     if let Some(DisplayedItemIndex(vidx)) = vidx.or(waves.focused_item) {
-                        if let Some(DisplayedItem::Variable(displayed_variable)) = waves
+                        if let Some(DisplayedItem::Variable(_displayed_variable)) = waves
                             .displayed_items_order
                             .get(vidx)
                             .and_then(|id| waves.displayed_items.get(id))
                         {
-                            let path =
-                                FieldRef::without_fields(displayed_variable.variable_ref.clone());
+                            let field_ref =
+                                (*waves.displayed_items_order.get(vidx).unwrap()).into();
                             let variable_value = self.get_variable_value(
                                 waves,
-                                &path,
+                                &field_ref,
                                 &waves.cursor.as_ref().and_then(|u| u.to_biguint()),
                             );
                             if let Some(variable_value) = variable_value {
@@ -1697,7 +1706,6 @@ impl State {
                 displayed_items_order: vec![],
                 displayed_items: HashMap::new(),
                 viewports,
-                variable_format: HashMap::new(),
                 cursor: None,
                 right_cursor: None,
                 markers: HashMap::new(),
