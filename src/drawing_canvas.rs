@@ -187,6 +187,14 @@ fn variable_draw_commands(
         );
 
         for SubFieldFlatTranslationResult { names, value } in fields {
+            let entry = local_commands.entry(names.clone()).or_insert_with(|| {
+                match info.get_subinfo(&names) {
+                    VariableInfo::Bool => DrawingCommands::new_bool(),
+                    VariableInfo::Clock => DrawingCommands::new_clock(),
+                    _ => DrawingCommands::new_wide(),
+                }
+            });
+
             let prev = prev_values.get(&names);
 
             // If the value changed between this and the previous pixel, we want to
@@ -214,20 +222,13 @@ fn variable_draw_commands(
                     }
                 }
 
-                local_commands
-                    .entry(names.clone())
-                    .or_insert_with(|| match info.get_subinfo(&names) {
-                        VariableInfo::Bool => DrawingCommands::new_bool(),
-                        VariableInfo::Clock => DrawingCommands::new_clock(),
-                        _ => DrawingCommands::new_wide(),
-                    })
-                    .push((
-                        *pixel,
-                        DrawnRegion {
-                            inner: value,
-                            force_anti_alias: anti_alias && !new_value,
-                        },
-                    ))
+                entry.push((
+                    *pixel,
+                    DrawnRegion {
+                        inner: value,
+                        force_anti_alias: anti_alias && !new_value,
+                    },
+                ))
             }
         }
     }
