@@ -61,4 +61,9 @@ impl State {
         self.show_variable_indices
             .unwrap_or_else(|| self.config.layout.show_variable_indices())
     }
+    #[inline]
+    pub fn show_variable_direction(&self) -> bool {
+        self.show_variable_direction
+            .unwrap_or_else(|| self.config.layout.show_variable_direction())
+    }
 }
