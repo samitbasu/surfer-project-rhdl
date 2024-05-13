@@ -1,5 +1,6 @@
 use crate::message::BodyResult;
 use crate::time::{TimeScale, TimeUnit};
+use crate::variable_direction::VariableDirection;
 use crate::variable_type::VariableType;
 use color_eyre::eyre::bail;
 use color_eyre::{eyre::anyhow, Result};
@@ -545,6 +546,7 @@ pub(crate) fn var_to_meta(
         num_bits: var.length(),
         variable_type: Some(var.var_type().into()),
         index: var.index().map(index_to_string),
+        direction: Some(VariableDirection::from(var.direction())),
         enum_map,
     }
 }
