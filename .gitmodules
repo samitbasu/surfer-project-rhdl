@@ -7,6 +7,3 @@
 [submodule "f128"]
 	path = f128
 	url = https://github.com/jkarns275/f128.git
-[submodule "waveform"]
-	path = wellen
-	url = https://github.com/ekiwi/waveform-rust.git

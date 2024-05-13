@@ -60,7 +60,7 @@ tokio = { version = "1.37", features = ["rt", "time", "macros"] }
 toml = "0.8.12"
 vcd-translate = { path = "spade/vcd-translate", optional = true }
 web-time = "1.1.0"
-wellen = { path = "wellen", features = ["serde1"] }
+wellen = { version = "0.9.9", features = ["serde1"] }
 
 [features]
 default = ["spade", "performance_plot"]
