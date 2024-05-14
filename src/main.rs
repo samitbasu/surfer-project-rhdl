@@ -1231,7 +1231,7 @@ impl State {
                 }
             }
             Message::SignalsLoaded(start, res) => {
-                info!("Loaded {} signals in {:?}", res.len(), start.elapsed());
+                info!("Loaded {} variables in {:?}", res.len(), start.elapsed());
                 self.sys.progress_tracker = None;
                 let waves = self
                     .waves
