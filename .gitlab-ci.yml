@@ -156,7 +156,7 @@ coverage:
         - rustc -V
         - cargo -V
         - shopt -s globstar
-        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* f128/**/* wellen/**/* --skip-clean --color Always
+        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* f128/**/* --skip-clean --color Always
     coverage: '/^\d+.\d+% coverage/'
     artifacts:
         reports:
