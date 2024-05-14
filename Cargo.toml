@@ -5,6 +5,7 @@ edition = "2021"
 license = "EUPL-1.2"
 categories = ["development-tools::debugging", "science"]
 build = "build.rs"
+rust = "1.75"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -17,13 +18,13 @@ camino = { version = "1.1.6", features = ["serde1"] }
 chrono = "0.4.31"
 clap = { version = "4.5.4", features = ['derive'] }
 color-eyre = "0.6.2"
-config = { version = "0.14", default_features = false, features = ["toml"] }
+config = { version = "0.14", default-features = false, features = ["toml"] }
 derivative = "2.2.0"
 derive_more = "0.99.17"
 directories = "5.0"
 eframe = "0.25.0"
-egui-remixicon = { version = "0.27.2", default_features = false }
-egui_extras = { version = "0.25.0", default_features = false }
+egui-remixicon = { version = "0.27.2", default-features = false }
+egui_extras = { version = "0.25.0", default-features = false }
 egui_plot = { version = "0.25", optional = true }
 enum-iterator = "2.0"
 f128 = { path = "f128", optional = true }
@@ -93,7 +94,7 @@ dssim = "3.3.0"
 # egui_skia = {version = "0.4.0", features = ["cpu_fix"]}
 egui_skia = { git = "https://github.com/TheZoq2/egui_skia.git", features = ["cpu_fix"] }
 env_logger = "0.11.3"
-image = { version = "0.25", default_features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 imgref = "1.10.1"
 project-root = "0.2.2"
 rgb = "0.8.37"
