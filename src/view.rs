@@ -612,11 +612,11 @@ impl State {
                 String::new()
             };
 
-            let sig_name = format!("{}{}{}", direction, variable.name.clone(), index);
+            let variable_name = format!("{}{}{}", direction, variable.name.clone(), index);
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
-                    let mut response = ui.add(egui::SelectableLabel::new(false, sig_name));
+                    let mut response = ui.add(egui::SelectableLabel::new(false, variable_name));
                     if self.show_tooltip() {
                         response = response.on_hover_text(variable_tooltip_text(wave, &variable));
                     }

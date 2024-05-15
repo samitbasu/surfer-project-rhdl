@@ -284,7 +284,7 @@ impl WaveData {
         let Some(DisplayedItem::Variable(displayed_variable)) =
             self.displayed_items.get(&field.item)
         else {
-            panic!("asking for translator for a non DisplayItem::Variable signal")
+            panic!("asking for translator for a non DisplayItem::Variable item")
         };
 
         variable_translator(

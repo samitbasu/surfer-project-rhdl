@@ -490,7 +490,7 @@ impl State {
         )));
     }
 
-    pub fn load_signals(&mut self, cmd: LoadSignalsCmd) {
+    pub fn load_variables(&mut self, cmd: LoadSignalsCmd) {
         let (signals, from_unique_id, payload) = cmd.destruct();
         if signals.is_empty() {
             return;
@@ -625,21 +625,21 @@ pub fn draw_progress_information(ui: &mut egui::Ui, progress_data: &LoadProgress
         }
         LoadProgressStatus::ReadingHeader(source) => {
             ui.spinner();
-            ui.monospace(format!("Loading signal names from {source}"));
+            ui.monospace(format!("Loading variable names from {source}"));
         }
         LoadProgressStatus::ReadingBody(source, 0, _) => {
             ui.spinner();
-            ui.monospace(format!("Loading signal change data from {source}"));
+            ui.monospace(format!("Loading variable change data from {source}"));
         }
         LoadProgressStatus::LoadingSignals(num) => {
             ui.spinner();
-            ui.monospace(format!("Loading {num} signals"));
+            ui.monospace(format!("Loading {num} variables"));
         }
         LoadProgressStatus::ReadingBody(source, total, bytes_done) => {
             let num_bytes = bytes_done.load(std::sync::atomic::Ordering::SeqCst);
             let progress = num_bytes as f32 / *total as f32;
             ui.monospace(format!(
-                "Loading signal change data from {source}. {} / {}",
+                "Loading variable change data from {source}. {} / {}",
                 bytesize::ByteSize::b(num_bytes),
                 bytesize::ByteSize::b(*total),
             ));

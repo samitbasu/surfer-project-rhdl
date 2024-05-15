@@ -53,7 +53,7 @@ impl QueryContainer {
         let signal_values = self.signal_values.clone();
 
         let wh = tokio::spawn(async {
-            fill_signal_values(signals, item_info, data, signal_values, msg_sender).await
+            fill_variable_values(signals, item_info, data, signal_values, msg_sender).await
         });
 
         self.worker_handle = Some(wh);
@@ -82,7 +82,7 @@ impl QueryContainer {
     }
 }
 
-async fn fill_signal_values(
+async fn fill_variable_values(
     variables: Vec<VariableRef>,
     item_info: Arc<HashMap<VariableRef, CxxrtlItem>>,
     data: Vec<CxxrtlSample>,
@@ -94,7 +94,7 @@ async fn fill_signal_values(
     spawn_blocking(move || {
         // Once we base64 decode the cxxrtl data, we'll end up with a bunch of u32s, where
         // the signals are packed next to each other. We'll start off computing the offset
-        // of each signal for later use
+        // of each variable for later use
         let mut offset = 0;
         let mut ranges = vec![];
         for variable in &variables {
@@ -121,7 +121,7 @@ async fn fill_signal_values(
                 .map(|(range, var)| {
                     let value = BigUint::from_bytes_le(&u8s[range.clone()]);
 
-                    // FIXME: Probably shouldn't have this indexed by the signal ref here so we can
+                    // FIXME: Probably shouldn't have this indexed by the variable ref here so we can
                     // avoid the clone
                     (var.clone(), VariableValue::BigUint(value))
                 })
