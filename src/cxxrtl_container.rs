@@ -437,7 +437,7 @@ impl CxxrtlContainer {
                 let sp = k.split(' ').collect::<Vec<_>>();
 
                 if sp.is_empty() {
-                    error!("Found an empty signal name and scope");
+                    error!("Found an empty variable name and scope");
                     None
                 } else {
                     Some((
@@ -540,7 +540,11 @@ impl CxxrtlContainer {
         self.raw_simulation_status().map(|s| s.latest_time)
     }
 
-    pub fn query_signal(&mut self, signal: &VariableRef, time: &BigUint) -> Option<QueryResult> {
+    pub fn query_variable(
+        &mut self,
+        variable: &VariableRef,
+        time: &BigUint,
+    ) -> Option<QueryResult> {
         // Before we can query any signals, we need some other data available. If we don't have
         // that we'll early return with no value
         let max_timestamp = self.max_timestamp()?;
@@ -553,7 +557,7 @@ impl CxxrtlContainer {
         let res = data
             .query_result
             .fetch_if_needed(move || {
-                info!("Running query signal");
+                info!("Running query variable");
 
                 s.run_command(
                     CxxrtlCommand::query_interval {
@@ -580,21 +584,21 @@ impl CxxrtlContainer {
                 // If we get here, the cache is valid and we we should look into the
                 // interval_query_cache for the query result
                 data.interval_query_cache
-                    .query(signal, time.to_bigint().unwrap())
+                    .query(variable, time.to_bigint().unwrap())
             })
             .unwrap_or_default();
         Some(res)
     }
 
-    pub fn load_signals<S: AsRef<VariableRef>, T: Iterator<Item = S>>(&mut self, signals: T) {
+    pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(&mut self, variables: T) {
         let mut data = block_on(self.data.write());
-        for signal in signals {
-            let sigref = signal.as_ref().clone();
+        for variable in variables {
+            let varref = variable.as_ref().clone();
 
-            if !data.signal_index_map.contains_key(&sigref) {
+            if !data.signal_index_map.contains_key(&varref) {
                 let idx = data.loaded_signals.len();
-                data.signal_index_map.insert(sigref.clone(), idx);
-                data.loaded_signals.push(sigref.clone());
+                data.signal_index_map.insert(varref.clone(), idx);
+                data.loaded_signals.push(varref.clone());
             }
         }
 

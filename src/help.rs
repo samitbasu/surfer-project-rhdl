@@ -210,22 +210,22 @@ fn key_listing(ui: &mut Ui) {
         (
             icons::PLAY_FILL,
             "➡/l",
-            "Go to next transition of focused signal (changeable in config)",
+            "Go to next transition of focused variable (changeable in config)",
         ),
         (
             icons::PLAY_REVERSE_FILL,
             "⬅/h",
-            "Go to previous transition of focused item (changeable in config)",
+            "Go to previous transition of focused variable (changeable in config)",
         ),
         (
             "",
             "Ctrl+➡/l",
-            "Go to next non-zero transition of focused item",
+            "Go to next non-zero transition of focused variable",
         ),
         (
             "",
             "Ctrl+⬅/h",
-            "Go to previous non-zero transition of focused signal",
+            "Go to previous non-zero transition of focused variable",
         ),
         (icons::DELETE_BIN_2_FILL, "x/Delete", "Delete focused item"),
         #[cfg(not(target_arch = "wasm32"))]

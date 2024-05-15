@@ -170,9 +170,9 @@ fn variable_draw_commands(
             Ok(result) => result,
             Err(e) => {
                 error!(
-                    "{translator_name} for {sig_name} failed. Disabling:",
+                    "{translator_name} for {variable_name} failed. Disabling:",
                     translator_name = translator.name(),
-                    sig_name = displayed_variable.variable_ref.full_path_string()
+                    variable_name = displayed_variable.variable_ref.full_path_string()
                 );
                 error!("{e:#}");
                 local_msgs.push(Message::ResetVariableFormat(displayed_field_ref));

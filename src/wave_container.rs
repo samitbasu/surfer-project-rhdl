@@ -373,14 +373,14 @@ impl WaveContainer {
             WaveContainer::Empty => bail!("Cannot load variables from empty container."),
             #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => {
-                c.get_mut().unwrap().load_signals(variables);
+                c.get_mut().unwrap().load_variables(variables);
                 Ok(None)
             }
         }
     }
 
-    /// Callback for when wellen signals have been loaded. Might lead to a new load signal
-    /// command since new signals might have been requested in the meantime
+    /// Callback for when wellen signals have been loaded. Might lead to a new load variable
+    /// command since new variables might have been requested in the meantime
     pub fn on_signals_loaded(&mut self, res: LoadSignalsResult) -> Result<Option<LoadSignalsCmd>> {
         match self {
             WaveContainer::Wellen(f) => f.on_signals_loaded(res),
@@ -408,7 +408,7 @@ impl WaveContainer {
 
     /// Query the value of the variable at a certain time step.
     /// Returns `None` if we do not have any values for the variable.
-    /// That generally happens if the corresponding signal is still being loaded.
+    /// That generally happens if the corresponding variable is still being loaded.
     pub fn query_variable(
         &self,
         variable: &VariableRef,
@@ -418,7 +418,7 @@ impl WaveContainer {
             WaveContainer::Wellen(f) => f.query_variable(variable, time),
             WaveContainer::Empty => bail!("Querying variable from empty wave container"),
             #[cfg(not(target_arch = "wasm32"))]
-            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().query_signal(variable, time)),
+            WaveContainer::Cxxrtl(c) => Ok(c.lock().unwrap().query_variable(variable, time)),
         }
     }
 

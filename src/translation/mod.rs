@@ -183,7 +183,7 @@ pub struct SubFieldFlatTranslationResult {
     pub value: Option<TranslatedValue>,
 }
 
-// A tree of format results for a signal, to be flattened into `SubFieldFlatTranslationResult`s
+// A tree of format results for a variable, to be flattened into `SubFieldFlatTranslationResult`s
 struct HierFormatResult {
     pub names: Vec<String>,
     pub this: Option<TranslatedValue>,

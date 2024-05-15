@@ -231,7 +231,7 @@ impl State {
                 ui,
                 msgs,
                 icons::CONTRACT_LEFT_FILL,
-                "Set cursor on previous transition of focused signal",
+                "Set cursor on previous transition of focused variable",
                 Message::MoveCursorToTransition {
                     next: false,
                     variable: None,
@@ -243,7 +243,7 @@ impl State {
                 ui,
                 msgs,
                 icons::CONTRACT_RIGHT_FILL,
-                "Set cursor on next transition of focused signal",
+                "Set cursor on next transition of focused variable",
                 Message::MoveCursorToTransition {
                     next: true,
                     variable: None,
