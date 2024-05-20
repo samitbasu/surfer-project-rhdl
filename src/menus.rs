@@ -298,7 +298,7 @@ impl State {
                 item: displayed_item_id,
                 field: path.field.clone(),
             };
-            self.add_format_menu(&dfr, &displayed_item, path, msgs, ui);
+            self.add_format_menu(&dfr, displayed_item, path, msgs, ui);
         }
 
         ui.menu_button("Color", |ui| {

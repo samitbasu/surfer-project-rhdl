@@ -23,14 +23,14 @@ use super::sc_message::CxxrtlSample;
 type ValueList = Arc<RwLock<BTreeMap<BigInt, HashMap<VariableRef, VariableValue>>>>;
 
 pub struct QueryContainer {
-    signal_values: ValueList,
+    variable_values: ValueList,
     worker_handle: Option<JoinHandle<()>>,
 }
 
 impl QueryContainer {
     pub fn empty() -> Self {
         QueryContainer {
-            signal_values: Arc::new(RwLock::new(BTreeMap::new())),
+            variable_values: Arc::new(RwLock::new(BTreeMap::new())),
             worker_handle: None,
         }
     }
@@ -40,27 +40,27 @@ impl QueryContainer {
             wh.abort();
             self.worker_handle = None
         }
-        self.signal_values = Arc::new(RwLock::new(BTreeMap::new()))
+        self.variable_values = Arc::new(RwLock::new(BTreeMap::new()))
     }
 
     pub fn populate(
         &mut self,
-        signals: Vec<VariableRef>,
+        variables: Vec<VariableRef>,
         item_info: Arc<HashMap<VariableRef, CxxrtlItem>>,
         data: Vec<CxxrtlSample>,
         msg_sender: std::sync::mpsc::Sender<Message>,
     ) {
-        let signal_values = self.signal_values.clone();
+        let variable_values = self.variable_values.clone();
 
         let wh = tokio::spawn(async {
-            fill_variable_values(signals, item_info, data, signal_values, msg_sender).await
+            fill_variable_values(variables, item_info, data, variable_values, msg_sender).await
         });
 
         self.worker_handle = Some(wh);
     }
 
     pub fn query(&self, var: &VariableRef, query_time: BigInt) -> QueryResult {
-        let values = block_on(self.signal_values.read());
+        let values = block_on(self.variable_values.read());
 
         if let Some((time, value_map)) = values.range(..query_time.clone()).next_back() {
             match (time.to_biguint(), value_map.get(var)) {
@@ -86,14 +86,14 @@ async fn fill_variable_values(
     variables: Vec<VariableRef>,
     item_info: Arc<HashMap<VariableRef, CxxrtlItem>>,
     data: Vec<CxxrtlSample>,
-    signal_values: ValueList,
+    variable_values: ValueList,
     msg_sender: std::sync::mpsc::Sender<Message>,
 ) {
     // Since this is a purely CPU bound operation, we'll spawn a blocking task to
     // perform it
     spawn_blocking(move || {
         // Once we base64 decode the cxxrtl data, we'll end up with a bunch of u32s, where
-        // the signals are packed next to each other. We'll start off computing the offset
+        // the variables are packed next to each other. We'll start off computing the offset
         // of each variable for later use
         let mut offset = 0;
         let mut ranges = vec![];
@@ -127,7 +127,7 @@ async fn fill_variable_values(
                 })
                 .collect::<HashMap<_, _>>();
 
-            block_on(signal_values.write())
+            block_on(variable_values.write())
                 .insert(sample.time.as_femtoseconds().to_bigint().unwrap(), values);
             msg_sender
                 .send(Message::InvalidateDrawCommands)

@@ -341,7 +341,7 @@ impl WaveContainer {
             WaveContainer::Empty => vec![],
             // I don't know if we can do
             #[cfg(not(target_arch = "wasm32"))]
-            WaveContainer::Cxxrtl(_) => vec![], // FIXME: List signals
+            WaveContainer::Cxxrtl(_) => vec![], // FIXME: List variable names
         }
     }
 
@@ -359,7 +359,7 @@ impl WaveContainer {
             WaveContainer::Wellen(f) => f.variables_in_scope(scope),
             WaveContainer::Empty => vec![],
             #[cfg(not(target_arch = "wasm32"))]
-            WaveContainer::Cxxrtl(c) => c.lock().unwrap().signals_in_module(scope),
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().variables_in_module(scope),
         }
     }
 
@@ -402,7 +402,7 @@ impl WaveContainer {
             }
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
             #[cfg(not(target_arch = "wasm32"))]
-            WaveContainer::Cxxrtl(c) => c.lock().unwrap().signal_meta(r),
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().variable_meta(r),
         }
     }
 

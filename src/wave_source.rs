@@ -132,7 +132,7 @@ pub enum LoadProgressStatus {
     Downloading(String),
     ReadingHeader(WaveSource),
     ReadingBody(WaveSource, u64, Arc<AtomicU64>),
-    LoadingSignals(u64),
+    LoadingVariables(u64),
 }
 
 pub(crate) const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::LoadOptions = wellen::LoadOptions {
@@ -539,7 +539,7 @@ impl State {
             }
         }
 
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::LoadingSignals(
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::LoadingVariables(
             num_signals,
         )));
     }
@@ -631,7 +631,7 @@ pub fn draw_progress_information(ui: &mut egui::Ui, progress_data: &LoadProgress
             ui.spinner();
             ui.monospace(format!("Loading variable change data from {source}"));
         }
-        LoadProgressStatus::LoadingSignals(num) => {
+        LoadProgressStatus::LoadingVariables(num) => {
             ui.spinner();
             ui.monospace(format!("Loading {num} variables"));
         }
