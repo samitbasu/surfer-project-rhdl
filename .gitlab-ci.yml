@@ -74,6 +74,27 @@ test-no-default-features:
     rules:
         - when: always
 
+test-oldest-supported:
+    # This version should match rust-version in Cargo.toml
+    image: rust:1.75
+    stage: test
+    script:
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always --locked
+    cache:
+        key: test-oldest-supported
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+
 test-beta:
     image: "instrumentisto/rust:beta"
     stage: test
