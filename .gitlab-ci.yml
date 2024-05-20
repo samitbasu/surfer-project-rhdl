@@ -20,9 +20,9 @@ clippy:
         - cargo install gitlab_clippy
     script:
         - cargo -V
-        - cargo clippy --color=always -- --allow clippy::useless_format
+        - cargo clippy --color=always
     after_script:
-        - cargo clippy --message-format=json -- --allow clippy::useless_format | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
+        - cargo clippy --message-format=json | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
     artifacts:
         reports:
             codequality: gl-code-quality-report.json
@@ -63,6 +63,27 @@ test-no-default-features:
         - cargo test --color=always --locked --no-default-features
     cache:
         key: test-no-default-features
+        paths:
+            - target
+            - $CARGO_HOME
+    artifacts:
+        paths:
+            - snapshots
+        expire_in: 1h
+        when: on_failure
+    rules:
+        - when: always
+
+test-oldest-supported:
+    # This version should match rust-version in Cargo.toml
+    image: rust:1.75
+    stage: test
+    script:
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always --locked
+    cache:
+        key: test-oldest-supported
         paths:
             - target
             - $CARGO_HOME

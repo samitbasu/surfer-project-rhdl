@@ -224,13 +224,11 @@ impl DisplayedItem {
 
     pub fn set_color(&mut self, color_name: Option<String>) {
         match self {
-            DisplayedItem::Variable(variable) => variable.color = color_name.clone(),
-            DisplayedItem::Divider(divider) => divider.color = color_name.clone(),
-            DisplayedItem::Marker(marker) => marker.color = color_name.clone(),
-            DisplayedItem::TimeLine(timeline) => {
-                timeline.color = color_name.clone();
-            }
-            DisplayedItem::Placeholder(placeholder) => placeholder.color = color_name.clone(),
+            DisplayedItem::Variable(variable) => variable.color.clone_from(&color_name),
+            DisplayedItem::Divider(divider) => divider.color.clone_from(&color_name),
+            DisplayedItem::Marker(marker) => marker.color.clone_from(&color_name),
+            DisplayedItem::TimeLine(timeline) => timeline.color.clone_from(&color_name),
+            DisplayedItem::Placeholder(placeholder) => placeholder.color.clone_from(&color_name),
         }
     }
 
@@ -327,19 +325,19 @@ impl DisplayedItem {
     pub fn set_background_color(&mut self, color_name: Option<String>) {
         match self {
             DisplayedItem::Variable(variable) => {
-                variable.background_color = color_name.clone();
+                variable.background_color.clone_from(&color_name);
             }
             DisplayedItem::Divider(divider) => {
-                divider.background_color = color_name.clone();
+                divider.background_color.clone_from(&color_name);
             }
             DisplayedItem::Marker(marker) => {
-                marker.background_color = color_name.clone();
+                marker.background_color.clone_from(&color_name);
             }
             DisplayedItem::TimeLine(timeline) => {
-                timeline.background_color = color_name.clone();
+                timeline.background_color.clone_from(&color_name);
             }
             DisplayedItem::Placeholder(placeholder) => {
-                placeholder.background_color = color_name.clone();
+                placeholder.background_color.clone_from(&color_name);
             }
         }
     }

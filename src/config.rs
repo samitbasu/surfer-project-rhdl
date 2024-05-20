@@ -375,12 +375,6 @@ impl SurferTheme {
             .map_err(|e| anyhow!("Failed to parse theme {e}"))
     }
 }
-#[derive(Debug, Deserialize)]
-pub struct ThemeColor {
-    pub name: String,
-    #[serde(deserialize_with = "deserialize_hex_color")]
-    pub color: Color32,
-}
 
 #[derive(Debug, Deserialize)]
 pub struct ThemeColorPair {
