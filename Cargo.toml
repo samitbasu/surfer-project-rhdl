@@ -5,7 +5,7 @@ edition = "2021"
 license = "EUPL-1.2"
 categories = ["development-tools::debugging", "science"]
 build = "build.rs"
-rust = "1.75"
+rust-version = "1.75"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

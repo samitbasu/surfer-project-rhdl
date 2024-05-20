@@ -208,7 +208,10 @@ fn variable_draw_commands(
 
             // This is not the value we drew last time
             if new_value || is_last_timestep || anti_alias {
-                *prev_values.entry(names.clone()).or_insert(value.clone()) = value.clone();
+                prev_values
+                    .entry(names.clone())
+                    .or_insert(value.clone())
+                    .clone_from(&value);
 
                 if let VariableInfo::Clock = info.get_subinfo(&names) {
                     match value.as_ref().map(|result| result.value.as_str()) {
