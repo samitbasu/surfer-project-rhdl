@@ -511,11 +511,11 @@ impl CxxrtlContainer {
             .unwrap_or_default()
     }
 
-    pub fn signals_in_module(&mut self, module: &ScopeRef) -> Vec<VariableRef> {
+    pub fn variables_in_module(&mut self, module: &ScopeRef) -> Vec<VariableRef> {
         self.fetch_items_in_module(module).keys().cloned().collect()
     }
 
-    pub fn signal_meta(&mut self, variable: &VariableRef) -> Result<VariableMeta> {
+    pub fn variable_meta(&mut self, variable: &VariableRef) -> Result<VariableMeta> {
         Ok(self
             .fetch_item(variable)
             .map(|item| VariableMeta {
