@@ -20,9 +20,9 @@ clippy:
         - cargo install gitlab_clippy
     script:
         - cargo -V
-        - cargo clippy --color=always -- --allow clippy::useless_format
+        - cargo clippy --color=always
     after_script:
-        - cargo clippy --message-format=json -- --allow clippy::useless_format | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
+        - cargo clippy --message-format=json | $CARGO_HOME/bin/gitlab-clippy > gl-code-quality-report.json
     artifacts:
         reports:
             codequality: gl-code-quality-report.json

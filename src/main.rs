@@ -749,13 +749,13 @@ impl State {
                 }
             }
             Message::AddDivider(name, vidx) => {
-                self.save_current_canvas(format!("Add divider"));
+                self.save_current_canvas("Add divider".into());
                 if let Some(waves) = self.waves.as_mut() {
                     waves.add_divider(name, vidx);
                 }
             }
             Message::AddTimeLine(vidx) => {
-                self.save_current_canvas(format!("Add timeline"));
+                self.save_current_canvas("Add timeline".into());
                 if let Some(waves) = self.waves.as_mut() {
                     waves.add_timeline(vidx);
                 }
@@ -1255,7 +1255,8 @@ impl State {
                 self.blacklisted_translators.insert((idx, translator));
             }
             Message::Error(e) => {
-                error!("{e:?}")
+                error!("{e:?}");
+                self.show_logs = true;
             }
             Message::TranslatorLoaded(t) => {
                 info!("Translator {} loaded", t.name());
@@ -1572,7 +1573,7 @@ impl State {
                     Some(DisplayedItemIndex(target_vidx)),
                 ) = (self.drag_source_idx, self.drag_target_idx)
                 {
-                    self.save_current_canvas(format!("Drag item"));
+                    self.save_current_canvas("Drag item".to_string());
                     self.invalidate_draw_commands();
                     let Some(waves) = self.waves.as_mut() else {
                         return;

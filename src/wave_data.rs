@@ -525,7 +525,7 @@ impl WaveData {
                             if let Some(ref time) = res.next {
                                 let stime = time.to_bigint();
                                 if stime.is_some() {
-                                    self.cursor = stime.clone();
+                                    self.cursor.clone_from(&stime);
                                 }
                             } else {
                                 // No next transition, go to end
