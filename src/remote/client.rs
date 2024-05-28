@@ -1,8 +1,12 @@
-use super::*;
 use bincode::Options;
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
 use log::info;
+
+use super::{
+    HierarchyResponse, Status, BINCODE_OPTIONS, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER,
+    SURFER_VERSION, WELLEN_VERSION, X_SURFER_VERSION, X_WELLEN_VERSION,
+};
 
 fn check_response(server_url: &str, response: &reqwest::Response) -> Result<()> {
     let server = response
