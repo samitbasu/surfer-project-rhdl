@@ -11,11 +11,10 @@ use wellen::{self, VarRef};
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::message::BodyResult;
 use crate::variable_direction::VariableDirection;
-use crate::wellen::{var_to_meta, LoadSignalsCmd, LoadSignalsResult};
+use crate::wellen::{var_to_meta, LoadSignalsCmd, LoadSignalsResult, WellenContainer};
 use crate::{
     time::{TimeScale, TimeUnit},
     variable_type::VariableType,
-    wellen::WellenContainer,
 };
 
 #[derive(Debug, Clone)]

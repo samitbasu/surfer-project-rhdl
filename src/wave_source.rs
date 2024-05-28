@@ -9,7 +9,7 @@ use crate::wasm_util::{perform_async_work, perform_work};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
-use eframe::egui::{self, DroppedFile};
+use eframe::egui;
 use futures_util::FutureExt;
 use log::{error, info, warn};
 use rfd::AsyncFileDialog;
@@ -196,7 +196,7 @@ impl State {
         Ok(())
     }
 
-    pub fn load_wave_from_dropped(&mut self, file: DroppedFile) -> Result<()> {
+    pub fn load_wave_from_dropped(&mut self, file: egui::DroppedFile) -> Result<()> {
         info!("Got a dropped file");
 
         let path = file.path.and_then(|x| Utf8PathBuf::try_from(x).ok());

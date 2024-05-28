@@ -2,9 +2,9 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{self, Response, Sense};
-use eframe::emath::{Align2, RectTransform};
-use eframe::epaint::{Color32, FontId, PathShape, Pos2, Rect, RectShape, Rounding, Stroke, Vec2};
+use eframe::egui::{PointerButton, Response, Sense, Ui};
+use eframe::emath::{Align2, Pos2, Rect, RectTransform, Vec2};
+use eframe::epaint::{Color32, FontId, PathShape, RectShape, Rounding, Stroke};
 use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};
@@ -347,7 +347,7 @@ impl State {
         self.sys.timing.borrow_mut().end("Generate draw commands");
     }
 
-    pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui, viewport_idx: usize) {
+    pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut Ui, viewport_idx: usize) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
         let cfg = DrawConfig::new(response.rect.size().y);
@@ -405,7 +405,7 @@ impl State {
             }
         });
 
-        response.dragged_by(egui::PointerButton::Primary).then(|| {
+        response.dragged_by(PointerButton::Primary).then(|| {
             if let Some(snap_point) =
                 self.snap_to_edge(pointer_pos_canvas, waves, frame_width, viewport_idx)
             {
@@ -420,7 +420,7 @@ impl State {
         );
 
         response
-            .drag_started_by(egui::PointerButton::Middle)
+            .drag_started_by(PointerButton::Middle)
             .then(|| msgs.push(Message::SetDragStart(pointer_pos_canvas)));
 
         let mut ctx = DrawingContext {

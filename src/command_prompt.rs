@@ -4,9 +4,9 @@ use std::{fs, str::FromStr};
 
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
-use eframe::egui::{self, Align, Key, NumExt, RichText, TextEdit};
-use eframe::emath::Align2;
-use eframe::epaint::{FontFamily, FontId, Vec2};
+use eframe::egui::{self, Key, RichText, TextEdit};
+use eframe::emath::{Align, Align2, NumExt, Vec2};
+use eframe::epaint::{FontFamily, FontId};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
 use itertools::Itertools;
 
@@ -767,7 +767,7 @@ pub fn show_command_prompt(
                                 .new_selection
                                 .is_some_and(|new_idx| idx == new_idx)
                             {
-                                resp.response.scroll_to_me(Some(egui::Align::Center));
+                                resp.response.scroll_to_me(Some(Align::Center));
                             }
 
                             if resp.inner.clicked() {

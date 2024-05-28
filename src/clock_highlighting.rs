@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use eframe::egui::Ui;
-use eframe::epaint::{Pos2, Rect, Stroke};
+use eframe::emath::{Pos2, Rect};
+use eframe::epaint::Stroke;
 use enum_iterator::Sequence;
 use serde::Deserialize;
 

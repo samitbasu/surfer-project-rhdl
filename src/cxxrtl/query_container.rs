@@ -3,10 +3,10 @@ use std::{
     sync::Arc,
 };
 
-use base64::prelude::*;
+use base64::{prelude::BASE64_STANDARD, Engine as _};
 use futures::executor::block_on;
-use num::{bigint::ToBigInt, BigInt, BigUint};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use num::{bigint::ToBigInt as _, BigInt, BigUint};
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use tokio::{
     sync::RwLock,
     task::{spawn_blocking, JoinHandle},
