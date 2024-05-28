@@ -1,4 +1,3 @@
-use super::*;
 use bincode::Options;
 use color_eyre::eyre::{anyhow, bail, Context};
 use color_eyre::Result;
@@ -16,7 +15,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use tokio::net::TcpListener;
-use wellen::*;
+use wellen::{viewers, FileFormat, Hierarchy, Signal, SignalRef, Time};
+
+use super::{
+    Status, BINCODE_OPTIONS, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, SURFER_VERSION,
+    WELLEN_VERSION, X_SURFER_VERSION, X_WELLEN_VERSION,
+};
 
 struct ReadOnly {
     url: String,
@@ -59,7 +63,7 @@ fn get_info_page(shared: Arc<ReadOnly>) -> String {
     <head><title>Surfer Remote Server</title></head><body>
     <h1>Surfer Remote Server</h1>
     <b>To connect, run:</b> <code>surfer {}</code><br>
-    <b>Wellen version:</b> {VERSION}<br>
+    <b>Wellen version:</b> {WELLEN_VERSION}<br>
     <b>Surfer version:</b> {SURFER_VERSION}<br>
     <b>Filename:</b> {}<br>
     <b>Progress:</b> {progress}<br>
@@ -110,7 +114,7 @@ fn get_status(shared: Arc<ReadOnly>) -> Result<Vec<u8>> {
         bytes: shared.body_len + shared.header_len,
         bytes_loaded: shared.body_progress.load(Ordering::SeqCst) + shared.header_len,
         filename: shared.filename.clone(),
-        wellen_version: VERSION.to_string(),
+        wellen_version: WELLEN_VERSION.to_string(),
         surfer_version: SURFER_VERSION.to_string(),
         file_format: shared.file_format,
     };
@@ -170,7 +174,7 @@ trait DefaultHeader {
 impl DefaultHeader for hyper::http::response::Builder {
     fn default_header(self) -> Self {
         self.header(HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER)
-            .header(X_WELLEN_VERSION, VERSION)
+            .header(X_WELLEN_VERSION, WELLEN_VERSION)
             .header(X_SURFER_VERSION, SURFER_VERSION)
             .header("Cache-Control", "no-cache")
     }
