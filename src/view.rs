@@ -1,11 +1,12 @@
 use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
-use eframe::egui::{self, style::Margin, Align, Layout, Painter, RichText};
-use eframe::egui::{FontSelection, Frame, ScrollArea, Sense, Stroke, Style, TextStyle, WidgetText};
-use eframe::emath::RectTransform;
-use eframe::epaint::text::LayoutJob;
-use eframe::epaint::{Color32, Pos2, Rect, Rounding, Vec2};
+use eframe::egui::{
+    self, ecolor::Color32, style::Margin, FontSelection, Frame, Layout, Painter, RichText,
+    ScrollArea, Sense, Style, TextStyle, WidgetText,
+};
+use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
+use eframe::epaint::{text::LayoutJob, Rounding, Stroke};
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
@@ -278,7 +279,7 @@ impl State {
             egui::SidePanel::left("variable select left panel")
                 .default_width(300.)
                 .width_range(100.0..=max_width)
-                .frame(egui::Frame {
+                .frame(Frame {
                     fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
@@ -368,7 +369,7 @@ impl State {
                 }
 
                 egui::CentralPanel::default()
-                    .frame(egui::Frame {
+                    .frame(Frame {
                         inner_margin: Margin::ZERO,
                         outer_margin: Margin::ZERO,
                         ..Default::default()
@@ -389,13 +390,13 @@ impl State {
                 .map_or(false, |waves| !waves.any_displayed())
         {
             egui::CentralPanel::default()
-                .frame(egui::Frame::none().fill(self.config.theme.canvas_colors.background))
+                .frame(Frame::none().fill(self.config.theme.canvas_colors.background))
                 .show(ctx, |ui| {
                     ui.add_space(max_height * 0.1);
                     ui.vertical_centered(|ui| {
                         ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
                         ui.add_space(20.);
-                        let layout = Layout::top_down(egui::Align::LEFT);
+                        let layout = Layout::top_down(Align::LEFT);
                         ui.allocate_ui_with_layout(
                             Vec2 {
                                 x: max_width * 0.35,
@@ -787,7 +788,7 @@ impl State {
                 .context_menu(|ui| {
                     self.item_context_menu(Some(&field), msgs, ui, vidx);
                 })
-                .interact(egui::Sense::drag());
+                .interact(Sense::drag());
 
             if self.show_tooltip() {
                 let tooltip = if let Some(waves) = &self.waves {
@@ -991,7 +992,7 @@ impl State {
                 .context_menu(|ui| {
                     self.item_context_menu(None, msgs, ui, vidx);
                 })
-                .interact(egui::Sense::drag());
+                .interact(Sense::drag());
             if item_label.clicked() {
                 msgs.push(Message::FocusItem(vidx))
             }
@@ -1044,20 +1045,20 @@ impl State {
                     .as_ref()
                     .map_or(0, |waves| waves.displayed_items.len()),
             );
-            let text = egui::RichText::new(alpha_id)
+            let text = RichText::new(alpha_id)
                 .background_color(self.config.theme.accent_info.background)
                 .monospace()
                 .color(self.config.theme.accent_info.foreground);
             if alignment == Align::LEFT {
                 text.append_to(layout_job, style, FontSelection::Default, Align::Center);
-                egui::RichText::new(" ").append_to(
+                RichText::new(" ").append_to(
                     layout_job,
                     style,
                     FontSelection::Default,
                     Align::Center,
                 );
             } else {
-                egui::RichText::new(" ").append_to(
+                RichText::new(" ").append_to(
                     layout_job,
                     style,
                     FontSelection::Default,

@@ -2,14 +2,16 @@ use crate::message::BodyResult;
 use crate::time::{TimeScale, TimeUnit};
 use crate::variable_direction::VariableDirection;
 use crate::variable_type::VariableType;
-use color_eyre::eyre::bail;
-use color_eyre::{eyre::anyhow, Result};
+use color_eyre::{eyre::anyhow, eyre::bail, Result};
 use derivative::Derivative;
 use log::warn;
 use num::{BigUint, ToPrimitive};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
-use wellen::*;
+use wellen::{
+    FileFormat, GetItem as _, Hierarchy, ScopeType, Signal, SignalRef, SignalSource, Time,
+    TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
+};
 
 use crate::wave_container::{
     MetaData, QueryResult, ScopeRef, VariableMeta, VariableRef, VariableValue,

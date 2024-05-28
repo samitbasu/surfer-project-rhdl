@@ -2,24 +2,22 @@ use std::collections::HashMap;
 
 use color_eyre::eyre::{Result, WrapErr};
 use log::{error, warn};
-use num::bigint::ToBigInt;
+use num::bigint::ToBigInt as _;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
-use crate::displayed_item::{DisplayedFieldRef, DisplayedItemIndex};
-use crate::wave_container::VariableValue;
-use crate::wave_source::WaveFormat;
-use crate::wellen::LoadSignalsCmd;
 use crate::{
     displayed_item::{
-        DisplayedDivider, DisplayedItem, DisplayedItemRef, DisplayedTimeLine, DisplayedVariable,
+        DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
+        DisplayedTimeLine, DisplayedVariable,
     },
     translation::{TranslationPreference, Translator, TranslatorList},
     variable_name_type::VariableNameType,
     view::ItemDrawingInfo,
     viewport::Viewport,
-    wave_container::{ScopeRef, VariableMeta, VariableRef, WaveContainer},
-    wave_source::WaveSource,
+    wave_container::{ScopeRef, VariableMeta, VariableRef, VariableValue, WaveContainer},
+    wave_source::{WaveFormat, WaveSource},
+    wellen::LoadSignalsCmd,
 };
 
 pub const PER_SCROLL_EVENT: f32 = 50.0;

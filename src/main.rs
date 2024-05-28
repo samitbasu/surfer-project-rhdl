@@ -63,8 +63,7 @@ use eframe::egui::FontData;
 use eframe::egui::FontDefinitions;
 use eframe::egui::FontFamily;
 use eframe::egui::Visuals;
-use eframe::emath;
-use eframe::epaint::Rect;
+use eframe::emath::{Pos2, Rect, Vec2};
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 #[cfg(not(target_arch = "wasm32"))]
@@ -322,7 +321,7 @@ fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Surfer")
-            .with_inner_size(egui::Vec2::new(
+            .with_inner_size(Vec2::new(
                 state.config.layout.window_width as f32,
                 state.config.layout.window_height as f32,
             )),
@@ -478,7 +477,7 @@ pub struct SystemState {
     // mutability
     draw_data: RefCell<Vec<Option<CachedDrawData>>>,
 
-    gesture_start_location: Option<emath::Pos2>,
+    gesture_start_location: Option<Pos2>,
 
     // Egui requires a place to store text field content between frames
     url: RefCell<String>,

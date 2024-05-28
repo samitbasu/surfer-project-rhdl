@@ -2,8 +2,8 @@ use crate::message::Message;
 use crate::view::{DrawConfig, DrawingContext};
 use crate::{wave_data::WaveData, State};
 use eframe::egui::{Context, Frame, PointerButton, Sense, TopBottomPanel, Ui};
-use eframe::emath::{Align2, RectTransform};
-use eframe::epaint::{Pos2, Rect, Rounding, Vec2};
+use eframe::emath::{Align2, Pos2, Rect, RectTransform, Vec2};
+use eframe::epaint::Rounding;
 
 impl State {
     pub fn add_overview_panel(&self, ctx: &Context, waves: &WaveData, msgs: &mut Vec<Message>) {

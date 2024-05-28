@@ -5,7 +5,7 @@ use camino::Utf8PathBuf;
 use derivative::Derivative;
 use eframe::{
     egui::DroppedFile,
-    epaint::{Pos2, Vec2},
+    emath::{Pos2, Vec2},
 };
 use num::BigInt;
 use serde::Deserialize;

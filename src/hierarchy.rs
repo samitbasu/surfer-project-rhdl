@@ -1,17 +1,17 @@
-use eframe::egui::{Align, Layout, Margin, ScrollArea};
-
+use crate::message::Message;
 use crate::wave_container::ScopeRef;
 use crate::State;
-use crate::{egui, message::Message};
+use eframe::egui::{Frame, Layout, Margin, ScrollArea, Ui};
+use eframe::emath::Align;
 
-pub fn separate(state: &mut State, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     ui.visuals_mut().override_text_color = Some(state.config.theme.primary_ui_color.foreground);
 
     ui.with_layout(
         Layout::top_down(Align::LEFT).with_cross_justify(true),
         |ui| {
             let total_space = ui.available_height();
-            egui::Frame::none()
+            Frame::none()
                 .inner_margin(Margin::same(5.0))
                 .show(ui, |ui| {
                     ui.set_max_height(total_space / 2.);
@@ -28,7 +28,7 @@ pub fn separate(state: &mut State, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
                     });
                 });
 
-            egui::Frame::none()
+            Frame::none()
                 .inner_margin(Margin::same(5.0))
                 .show(ui, |ui| {
                     let filter = &mut *state.sys.variable_name_filter.borrow_mut();
@@ -55,13 +55,13 @@ pub fn separate(state: &mut State, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
     );
 }
 
-pub fn tree(state: &mut State, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
+pub fn tree(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     ui.visuals_mut().override_text_color = Some(state.config.theme.primary_ui_color.foreground);
 
     ui.with_layout(
         Layout::top_down(Align::LEFT).with_cross_justify(true),
         |ui| {
-            egui::Frame::none()
+            Frame::none()
                 .inner_margin(Margin::same(5.0))
                 .show(ui, |ui| {
                     let filter = &mut *state.sys.variable_name_filter.borrow_mut();

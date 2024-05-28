@@ -1,6 +1,5 @@
 use eframe::egui::{Button, Context, Layout, RichText, TopBottomPanel, Ui};
-use eframe::emath::Align;
-use eframe::epaint::Vec2;
+use eframe::emath::{Align, Vec2};
 use egui_remixicon::icons;
 
 use crate::wave_container::SimulationStatus;

@@ -1,5 +1,8 @@
-use crate::translation::*;
+use crate::translation::{
+    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableInfo,
+};
 use crate::wave_container::{VariableMeta, VariableValue};
+use color_eyre::Result;
 use std::borrow::Cow;
 
 pub struct EnumTranslator {}
