@@ -151,9 +151,15 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [ ] Quire for 32-bit, two exponent bits
     - [x] Quire for 16-bit, one exponent bit
     - [x] Quire for 8-bit, no exponent bit
-  - [x] Risc-V instructions, using [asm_riscv](https://docs.rs/asm_riscv/)
+  - [x] Instruction decoding using [instruction-decoder](https://github.com/ics-jku/instruction-decoder)
     - [x] RV32I
-    - [ ] ...
+      - [x] M
+      - [x] A
+      - [x] F
+      - [x] D
+    - [ ] RV64
+    - [ ] arm
+    - [ ] Mips
   - [ ] Compressed integers
     - [x] LEB128 (also for other bitwidths than 128)
   - [ ] Custom translation via Python API

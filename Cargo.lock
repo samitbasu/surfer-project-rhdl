@@ -288,12 +288,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "asm_riscv"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29f888fa65f239a705444cfbcfcbbfcba695d64d3f53c9e81cbfa6ec12eb01be"
-
-[[package]]
 name = "async-broadcast"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2451,6 +2445,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "instruction-decoder"
+version = "0.1.0"
+dependencies = [
+ "toml",
+]
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4429,7 +4430,6 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 name = "surfer"
 version = "0.2.0-dev"
 dependencies = [
- "asm_riscv",
  "base64 0.22.0",
  "bincode",
  "bytes",
@@ -4465,6 +4465,7 @@ dependencies = [
  "hyper-util",
  "image 0.25.0",
  "imgref",
+ "instruction-decoder",
  "itertools",
  "lazy_static",
  "log",
