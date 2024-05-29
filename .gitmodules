@@ -7,3 +7,6 @@
 [submodule "f128"]
 	path = f128
 	url = https://github.com/jkarns275/f128.git
+[submodule "instruction-decoder"]
+	path = instruction-decoder
+	url = https://github.com/ics-jku/instruction-decoder.git

@@ -4,6 +4,7 @@ use super::{
 use crate::wave_container::{VariableMeta, VariableValue};
 
 use color_eyre::Result;
+use instruction_decoder::Decoder;
 use itertools::Itertools;
 use num::Zero;
 
@@ -326,11 +327,13 @@ impl BasicTranslator for ASCIITranslator {
     }
 }
 
-pub struct RiscvTranslator {}
+pub struct RiscvTranslator {
+    pub decoder: Decoder,
+}
 
 impl BasicTranslator for RiscvTranslator {
     fn name(&self) -> String {
-        "RV32I".to_string()
+        "RV32IMAFD".to_string()
     }
 
     fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
@@ -338,64 +341,20 @@ impl BasicTranslator for RiscvTranslator {
             VariableValue::BigUint(v) => v.to_u32_digits().last().cloned(),
             VariableValue::String(s) => match check_vector_variable(s) {
                 Some(v) => return v,
-                None => s.parse().ok(),
+                None => u32::from_str_radix(s, 2).ok(),
             },
         }
         .unwrap_or(0);
 
-        match asm_riscv::I::try_from(u32_value) {
-            Ok(insn) => (riscv_to_string(&insn).to_string(), ValueKind::Normal),
-            Err(_) => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
-        }
+        let result = match self.decoder.decode_from_u32(u32_value, 32) {
+            Ok(iform) => (iform, ValueKind::Normal),
+            _ => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
+        };
+        result
     }
 
     fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
         check_single_wordlength(variable.num_bits, 32)
-    }
-}
-
-fn riscv_to_string(i: &asm_riscv::I) -> String {
-    match i {
-        asm_riscv::I::LUI { d, im } => format!("lui {d:?}, {im:?}"),
-        asm_riscv::I::AUIPC { d, im } => format!("auipc {d:?}, {im:?}"),
-        asm_riscv::I::JAL { d, im } => format!("jal {d:?}, {im:?}"),
-        asm_riscv::I::JALR { d, s, im } => format!("jalr {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::BEQ { s1, s2, im } => format!("beq {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::BNE { s1, s2, im } => format!("bne {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::BLT { s1, s2, im } => format!("blt {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::BGE { s1, s2, im } => format!("bge {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::BLTU { s1, s2, im } => format!("bltu {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::BGEU { s1, s2, im } => format!("bgeu {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::LB { d, s, im } => format!("lb {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::LH { d, s, im } => format!("lh {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::LW { d, s, im } => format!("lw {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::LBU { d, s, im } => format!("lbu {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::LHU { d, s, im } => format!("lhu {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::SB { s1, s2, im } => format!("sb {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::SH { s1, s2, im } => format!("sh {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::SW { s1, s2, im } => format!("sw {s1:?}, {s2:?}, {im:?}"),
-        asm_riscv::I::ADDI { d, s, im } => format!("addi {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::SLTI { d, s, im } => format!("slti {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::SLTUI { d, s, im } => format!("sltui {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::XORI { d, s, im } => format!("xori {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::ORI { d, s, im } => format!("ori {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::ANDI { d, s, im } => format!("andi {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::SLLI { d, s, im } => format!("slli {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::SRLI { d, s, im } => format!("srli {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::SRAI { d, s, im } => format!("srai {d:?}, {s:?}, {im:?}"),
-        asm_riscv::I::ADD { d, s1, s2 } => format!("add {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::SUB { d, s1, s2 } => format!("sub {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::SLL { d, s1, s2 } => format!("sll {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::SLT { d, s1, s2 } => format!("slt {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::SLTU { d, s1, s2 } => format!("sltu {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::XOR { d, s1, s2 } => format!("xor {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::SRL { d, s1, s2 } => format!("srl {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::SRA { d, s1, s2 } => format!("sra {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::OR { d, s1, s2 } => format!("or {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::AND { d, s1, s2 } => format!("and {d:?}, {s1:?}, {s2:?}"),
-        asm_riscv::I::ECALL {} => "ecall".to_string(),
-        asm_riscv::I::EBREAK {} => "ebreak".to_string(),
-        asm_riscv::I::FENCE { im } => format!("fence {im:?}"),
     }
 }
 
@@ -797,79 +756,99 @@ mod test {
         )
     }
 
+    fn new_rv32_decoder() -> Decoder {
+        Decoder::new(&vec![
+            include_str!("../../instruction-decoder/examples/RV32I.toml").to_string(),
+            include_str!("../../instruction-decoder/examples/RV32M.toml").to_string(),
+            include_str!("../../instruction-decoder/examples/RV32A.toml").to_string(),
+            include_str!("../../instruction-decoder/examples/RV32F.toml").to_string(),
+            include_str!("../../instruction-decoder/examples/RV32D.toml").to_string(),
+        ])
+    }
+
     #[test]
     fn riscv_from_bigunit() {
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(32, &VariableValue::BigUint(0u32.into()))
-                .0,
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(32, &VariableValue::BigUint(0u32.into()))
+            .0,
             "UNKNOWN INSN (0x0)"
         );
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(32, &VariableValue::BigUint(0b1000000010000000u32.into()))
-                .0,
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(32, &VariableValue::BigUint(0b1000000010000000u32.into()))
+            .0,
             "UNKNOWN INSN (0x8080)"
         );
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(
-                    32,
-                    &VariableValue::BigUint(0b1000_0001_0011_0101_0000_0101_1001_0011_u32.into())
-                )
-                .0,
-            "addi A1, A0, 2067"
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::BigUint(0b1000_0001_0011_0101_0000_0101_1001_0011_u32.into())
+            )
+            .0,
+            "addi a1, a0, -2029"
         );
     }
     #[test]
     fn riscv_from_string() {
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(32, &VariableValue::String("0".to_owned()))
-                .0,
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(32, &VariableValue::String("0".to_owned()))
+            .0,
             "UNKNOWN INSN (0x0)"
         );
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(
-                    32,
-                    &VariableValue::String("01001000100010001000100010001000".to_owned())
-                )
-                .0,
-            "UNKNOWN INSN (0x0)" // Should be 0x48888888 -- see issue #114
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("01001000100010001000100010001000".to_owned())
+            )
+            .0,
+            "UNKNOWN INSN (0x48888888)"
         );
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(
-                    32,
-                    &VariableValue::String("01xzz-hlw0010001000100010001000".to_owned())
-                )
-                .0,
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("01xzz-hlw0010001000100010001000".to_owned())
+            )
+            .0,
             "UNDEF"
         );
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(
-                    32,
-                    &VariableValue::String("010zz-hlw0010001000100010001000".to_owned())
-                )
-                .0,
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("010zz-hlw0010001000100010001000".to_owned())
+            )
+            .0,
             "HIGHIMP"
         );
         assert_eq!(
-            RiscvTranslator {}
-                .basic_translate(
-                    32,
-                    &VariableValue::String("01011-hlw0010001000100010001000".to_owned())
-                )
-                .0,
+            RiscvTranslator {
+                decoder: new_rv32_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("01011-hlw0010001000100010001000".to_owned())
+            )
+            .0,
             "DON'T CARE"
         );
-        // assert_eq!(
-        //    RiscvTranslator {}
-        //        .basic_translate(32, &SignalValue::String("10000001001101000000001000010011".to_owned()))
-        //        .0,
-        //    "addi TP, S0, 2067"
-        //);
     }
 }

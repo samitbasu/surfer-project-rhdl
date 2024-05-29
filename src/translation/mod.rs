@@ -10,6 +10,7 @@ pub mod numeric_translators;
 pub mod spade;
 
 pub use basic_translators::*;
+use instruction_decoder::Decoder;
 use itertools::Itertools;
 use num::BigUint;
 pub use numeric_translators::*;
@@ -42,7 +43,15 @@ pub fn all_translators() -> TranslatorList {
             Box::new(PositQuire16Translator {}),
             Box::new(E5M2Translator {}),
             Box::new(E4M3Translator {}),
-            Box::new(RiscvTranslator {}),
+            Box::new(RiscvTranslator {
+                decoder: Decoder::new(&vec![
+                    include_str!("../../instruction-decoder/examples/RV32I.toml").to_string(),
+                    include_str!("../../instruction-decoder/examples/RV32M.toml").to_string(),
+                    include_str!("../../instruction-decoder/examples/RV32A.toml").to_string(),
+                    include_str!("../../instruction-decoder/examples/RV32F.toml").to_string(),
+                    include_str!("../../instruction-decoder/examples/RV32D.toml").to_string(),
+                ]),
+            }),
             Box::new(LebTranslator {}),
             #[cfg(feature = "f128")]
             Box::new(QuadPrecisionTranslator {}),
