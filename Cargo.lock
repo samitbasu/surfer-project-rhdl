@@ -1568,7 +1568,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
 dependencies = [
  "log",
- "regex",
 ]
 
 [[package]]
@@ -1580,7 +1579,6 @@ dependencies = [
  "anstream",
  "anstyle",
  "env_filter",
- "humantime",
  "log",
 ]
 
@@ -2278,12 +2276,6 @@ name = "human-sort"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "140a09c9305e6d5e557e2ed7cbc68e05765a7d4213975b87cb04920689cc6219"
-
-[[package]]
-name = "humantime"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -4569,7 +4561,6 @@ dependencies = [
  "egui_plot",
  "egui_skia",
  "enum-iterator",
- "env_logger",
  "f128",
  "fern",
  "futures",
@@ -4583,7 +4574,6 @@ dependencies = [
  "hyper",
  "hyper-util",
  "image 0.25.1",
- "imgref",
  "itertools 0.13.0",
  "lazy_static",
  "log",
@@ -4606,14 +4596,11 @@ dependencies = [
  "spade",
  "spade-common",
  "spade-hir-lowering",
- "spade-mir",
  "spade-types",
  "sys-locale",
  "test-log",
  "tokio",
  "toml",
- "tracing-wasm",
- "vcd-translate",
  "vergen",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -5076,17 +5063,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-wasm"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4575c663a174420fa2d78f4108ff68f65bf2fbb7dd89f33749b6e826b3626e07"
-dependencies = [
- "tracing",
- "tracing-subscriber",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5210,31 +5186,6 @@ name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
-
-[[package]]
-name = "vcd"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84a5ed196124bf3bb32418e5f79cd7548a455500bba37e094f7ef4cfe91161fc"
-
-[[package]]
-name = "vcd-translate"
-version = "0.1.0"
-dependencies = [
- "clap",
- "color-eyre",
- "itertools 0.12.1",
- "num",
- "ron",
- "spade",
- "spade-ast",
- "spade-common",
- "spade-hir-lowering",
- "spade-mir",
- "spade-typeinference",
- "spade-types",
- "vcd",
-]
 
 [[package]]
 name = "vcpkg"
