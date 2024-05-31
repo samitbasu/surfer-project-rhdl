@@ -1,6 +1,6 @@
 [package]
 name = "surfer"
-version = "0.2.0-dev"
+version = "0.2.0"
 edition = "2021"
 license = "EUPL-1.2"
 categories = ["development-tools::debugging", "science"]
