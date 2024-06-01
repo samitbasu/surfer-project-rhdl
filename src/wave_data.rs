@@ -109,14 +109,14 @@ where
 }
 
 impl WaveData {
-    pub fn update_with(
+    pub fn update_with_waves(
         mut self,
         new_waves: Box<WaveContainer>,
         source: WaveSource,
         format: WaveFormat,
         translators: &TranslatorList,
         keep_unavailable: bool,
-    ) -> WaveData {
+    ) -> (WaveData, Option<LoadSignalsCmd>) {
         let active_scope = self
             .active_scope
             .take()
@@ -129,7 +129,7 @@ impl WaveData {
         );
 
         let old_num_timestamps = Some(self.num_timestamps());
-        let mut new_wave = WaveData {
+        let mut new_wavedata = WaveData {
             inner: *new_waves,
             source,
             format,
@@ -151,12 +151,41 @@ impl WaveData {
             old_num_timestamps,
         };
 
-        for (_vidx, di) in new_wave.displayed_items.iter_mut() {
+        new_wavedata.update_metadata(translators);
+        let load_commands = new_wavedata.load_waves();
+        (new_wavedata, load_commands)
+    }
+
+    pub fn update_with_items(
+        &mut self,
+        new_items: &HashMap<DisplayedItemRef, DisplayedItem>,
+        order: Vec<DisplayedItemRef>,
+        translators: &TranslatorList,
+    ) -> Option<LoadSignalsCmd> {
+        self.displayed_items_order = order;
+        self.displayed_items =
+            self.update_displayed_items(&self.inner, new_items, true, translators);
+        self.display_item_ref_counter = self
+            .displayed_items
+            .keys()
+            .map(|dir| dir.0)
+            .max()
+            .unwrap_or(0);
+
+        self.update_metadata(translators);
+        self.load_waves()
+    }
+
+    /// Go through all signals and update the metadata for all signals
+    ///
+    /// Used after loading new waves, signals or switching a bunch of translators
+    fn update_metadata(&mut self, translators: &TranslatorList) {
+        for (_vidx, di) in self.displayed_items.iter_mut() {
             let DisplayedItem::Variable(displayed_variable) = di else {
                 continue;
             };
 
-            let meta = new_wave
+            let meta = self
                 .inner
                 .variable_meta(&displayed_variable.variable_ref.clone())
                 .unwrap();
@@ -173,21 +202,19 @@ impl WaveData {
                 _ => displayed_variable.field_formats.clear(),
             }
         }
+    }
 
-        // load variables that need to be displayed
-        let variables = new_wave
-            .displayed_items
-            .values()
-            .filter_map(|item| match item {
-                DisplayedItem::Variable(r) => Some(&r.variable_ref),
-                _ => None,
-            });
-        new_wave
-            .inner
+    /// Get the underlying wave container to load all signals that are being displayed
+    ///
+    /// This is needed for wave containers that lazy-load signals.
+    fn load_waves(&mut self) -> Option<LoadSignalsCmd> {
+        let variables = self.displayed_items.values().filter_map(|item| match item {
+            DisplayedItem::Variable(r) => Some(&r.variable_ref),
+            _ => None,
+        });
+        self.inner
             .load_variables(variables)
-            .expect("internal error: failed to load variables");
-
-        new_wave
+            .expect("internal error: failed to load variables")
     }
 
     /// Needs to be called after update_with, once the new number of timestamps is available in
@@ -212,12 +239,12 @@ impl WaveData {
 
     fn update_displayed_items(
         &self,
-        new_waves: &WaveContainer,
-        current_items: &HashMap<DisplayedItemRef, DisplayedItem>,
+        waves: &WaveContainer,
+        items: &HashMap<DisplayedItemRef, DisplayedItem>,
         keep_unavailable: bool,
         translators: &TranslatorList,
     ) -> HashMap<DisplayedItemRef, DisplayedItem> {
-        current_items
+        items
             .iter()
             .filter_map(|(id, i)| {
                 match i {
@@ -226,10 +253,10 @@ impl WaveData {
                     | DisplayedItem::Marker(_)
                     | DisplayedItem::TimeLine(_) => Some((*id, i.clone())),
                     DisplayedItem::Variable(s) => {
-                        s.update(new_waves, keep_unavailable).map(|r| (*id, r))
+                        s.update(waves, keep_unavailable).map(|r| (*id, r))
                     }
                     DisplayedItem::Placeholder(p) => {
-                        match new_waves.update_variable_ref(&p.variable_ref) {
+                        match waves.update_variable_ref(&p.variable_ref) {
                             None => {
                                 if keep_unavailable {
                                     Some((*id, DisplayedItem::Placeholder(p.clone())))
@@ -238,7 +265,7 @@ impl WaveData {
                                 }
                             }
                             Some(new_variable_ref) => {
-                                let Ok(meta) = new_waves
+                                let Ok(meta) = waves
                                     .variable_meta(&new_variable_ref)
                                     .context("When updating")
                                     .map_err(|e| error!("{e:#?}"))
