@@ -12,8 +12,7 @@ use std::path::PathBuf;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
-    displayed_item::DisplayedFieldRef,
-    displayed_item::DisplayedItemIndex,
+    displayed_item::{DisplayedFieldRef, DisplayedItemIndex},
     time::{TimeStringFormatting, TimeUnit},
     translation::Translator,
     variable_name_type::VariableNameType,
@@ -162,6 +161,8 @@ pub enum Message {
     SelectNextCommand,
     OpenFileDialog(OpenMode),
     SaveStateFile(Option<PathBuf>),
+    LoadStateFile(Option<PathBuf>),
+    LoadState(crate::State, Option<PathBuf>),
     SetStateFile(PathBuf),
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),

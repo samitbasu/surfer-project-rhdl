@@ -102,13 +102,10 @@ impl DisplayedVariable {
     ) -> Option<DisplayedItem> {
         match new_waves.update_variable_ref(&self.variable_ref) {
             // variable is not available in the new waveform
-            None => {
-                if keep_unavailable {
-                    Some(DisplayedItem::Placeholder(self.clone().into_placeholder()))
-                } else {
-                    None
-                }
+            None if keep_unavailable => {
+                Some(DisplayedItem::Placeholder(self.clone().into_placeholder()))
             }
+            None => None,
             Some(new_ref) => {
                 let mut res = self.clone();
                 res.variable_ref = new_ref;

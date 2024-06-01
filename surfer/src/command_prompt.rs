@@ -213,6 +213,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
     #[cfg(feature = "performance_plot")]
     commands.push("show_performance");
+    #[cfg(not(target_arch = "wasm32"))]
+    commands.push("load_state");
     let mut theme_names = state.config.theme.theme_names.clone();
     let state_file = state.state_file.clone();
     theme_names.insert(0, "default".to_string());
@@ -505,6 +507,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     vec![],
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SaveStateFile(Some(
+                            std::path::Path::new(word).into(),
+                        ))))
+                    }),
+                ),
+                "load_state" => single_word(
+                    vec![],
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::LoadStateFile(Some(
                             std::path::Path::new(word).into(),
                         ))))
                     }),

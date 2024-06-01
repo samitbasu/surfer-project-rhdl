@@ -86,6 +86,7 @@ impl State {
             .shortcut("r")
             .add_closing_menu(msgs, ui);
 
+            b("Load state...", Message::LoadStateFile(None)).add_closing_menu(msgs, ui);
             #[cfg(not(target_arch = "wasm32"))]
             {
                 let save_text = if self.state_file.is_some() {

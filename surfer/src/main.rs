@@ -109,6 +109,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt::Display;
+use std::mem;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
@@ -610,6 +611,14 @@ pub struct State {
     /// Internal state that does not persist between sessions and is not serialized
     #[serde(skip, default = "SystemState::new")]
     sys: SystemState,
+}
+
+// Impl needed since for loading we need to put State into a Message
+// Snip out the actual contents to not completely spam the terminal
+impl std::fmt::Debug for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "State {{ <snipped> }}")
+    }
 }
 
 impl State {
@@ -1507,6 +1516,8 @@ impl State {
                 self.open_file_dialog(mode);
             }
             Message::SaveStateFile(path) => self.save_state_file(path),
+            Message::LoadStateFile(path) => self.load_state_file(path),
+            Message::LoadState(state, path) => self.load_state(state, path),
             Message::SetStateFile(path) => self.state_file = Some(path),
             Message::SetAboutVisible(s) => self.show_about = s,
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
@@ -1715,8 +1726,8 @@ impl State {
         let viewport = Viewport::new();
         let viewports = [viewport].to_vec();
 
-        let new_wave = if load_options.keep_variables && self.waves.is_some() {
-            self.waves.take().unwrap().update_with(
+        let (new_wave, load_commands) = if load_options.keep_variables && self.waves.is_some() {
+            self.waves.take().unwrap().update_with_waves(
                 new_waves,
                 filename,
                 format,
@@ -1724,7 +1735,7 @@ impl State {
                 load_options.keep_unavailable,
             )
         } else if let Some(old) = self.previous_waves.take() {
-            old.update_with(
+            old.update_with_waves(
                 new_waves,
                 filename,
                 format,
@@ -1732,28 +1743,34 @@ impl State {
                 load_options.keep_unavailable,
             )
         } else {
-            WaveData {
-                inner: *new_waves,
-                source: filename,
-                format,
-                active_scope: None,
-                displayed_items_order: vec![],
-                displayed_items: HashMap::new(),
-                viewports,
-                cursor: None,
-                right_cursor: None,
-                markers: HashMap::new(),
-                focused_item: None,
-                default_variable_name_type: self.config.default_variable_name_type,
-                display_variable_indices: self.show_variable_indices(),
-                scroll_offset: 0.,
-                drawing_infos: vec![],
-                top_item_draw_offset: 0.,
-                total_height: 0.,
-                display_item_ref_counter: 0,
-                old_num_timestamps: None,
-            }
+            (
+                WaveData {
+                    inner: *new_waves,
+                    source: filename,
+                    format,
+                    active_scope: None,
+                    displayed_items_order: vec![],
+                    displayed_items: HashMap::new(),
+                    viewports,
+                    cursor: None,
+                    right_cursor: None,
+                    markers: HashMap::new(),
+                    focused_item: None,
+                    default_variable_name_type: self.config.default_variable_name_type,
+                    display_variable_indices: self.show_variable_indices(),
+                    scroll_offset: 0.,
+                    drawing_infos: vec![],
+                    top_item_draw_offset: 0.,
+                    total_height: 0.,
+                    display_item_ref_counter: 0,
+                    old_num_timestamps: None,
+                },
+                None,
+            )
         };
+        if let Some(cmd) = load_commands {
+            self.load_variables(cmd);
+        }
         self.invalidate_draw_commands();
 
         // Set time unit to the file time unit before consuming new_wave
@@ -1857,6 +1874,84 @@ impl State {
             .context("Failed to encode state")
             .map_err(|e| error!("Failed to encode state. {e:#?}"))
             .ok()
+    }
+
+    fn load_state(&mut self, mut loaded_state: crate::State, path: Option<PathBuf>) {
+        mem::swap(&mut self.config, &mut loaded_state.config);
+        self.show_hierarchy = loaded_state.show_hierarchy;
+        self.show_menu = loaded_state.show_menu;
+        self.show_ticks = loaded_state.show_ticks;
+        self.show_toolbar = loaded_state.show_toolbar;
+        self.show_overview = loaded_state.show_overview;
+        self.show_statusbar = loaded_state.show_statusbar;
+        self.align_names_right = loaded_state.align_names_right;
+        self.show_variable_indices = loaded_state.show_variable_indices;
+
+        // skip
+        // - inner: we don't want to load a different file, just what is shown
+        // - source: ^^
+        // - format: ^^
+        let load_commands = if let (Some(waves), Some(new_waves)) =
+            (&mut self.waves, &mut loaded_state.waves)
+        {
+            mem::swap(&mut waves.active_scope, &mut new_waves.active_scope);
+            let items = std::mem::take(&mut new_waves.displayed_items);
+            let items_order = std::mem::take(&mut new_waves.displayed_items_order);
+            let load_commands = waves.update_with_items(&items, items_order, &self.sys.translators);
+
+            mem::swap(&mut waves.viewports, &mut new_waves.viewports);
+            mem::swap(&mut waves.cursor, &mut new_waves.cursor);
+            mem::swap(&mut waves.right_cursor, &mut new_waves.right_cursor);
+            mem::swap(&mut waves.markers, &mut new_waves.markers);
+            mem::swap(&mut waves.focused_item, &mut new_waves.focused_item);
+            waves.default_variable_name_type = new_waves.default_variable_name_type;
+            waves.scroll_offset = new_waves.scroll_offset;
+            load_commands
+        } else {
+            None
+        };
+        if let Some(load_commands) = load_commands {
+            self.load_variables(load_commands)
+        };
+        // reset drag to avoid confusion
+        self.drag_started = false;
+        self.drag_source_idx = None;
+        self.drag_target_idx = None;
+
+        // reset previous_waves & count to prevent unintuitive state here
+        self.previous_waves = None;
+        self.count = None;
+
+        self.show_about = loaded_state.show_about;
+        self.show_keys = loaded_state.show_keys;
+        self.show_gestures = loaded_state.show_gestures;
+        self.show_quick_start = loaded_state.show_quick_start;
+        self.show_license = loaded_state.show_license;
+        self.show_performance = loaded_state.show_performance;
+        self.show_logs = loaded_state.show_logs;
+        self.show_cursor_window = loaded_state.show_cursor_window;
+        self.wanted_timeunit = loaded_state.wanted_timeunit;
+        self.time_string_format = loaded_state.time_string_format;
+        self.show_url_entry = loaded_state.show_url_entry;
+        self.variable_name_filter_focused = loaded_state.variable_name_filter_focused;
+        mem::swap(
+            &mut self.variable_name_filter_type,
+            &mut loaded_state.variable_name_filter_type,
+        );
+        self.variable_name_filter_case_insensitive =
+            loaded_state.variable_name_filter_case_insensitive;
+
+        self.ui_zoom_factor = loaded_state.ui_zoom_factor;
+
+        // use just loaded path instead of stored since file might have been moved
+        self.state_file = path;
+
+        // skip rename target to avoid confusion from stored state
+
+        self.invalidate_draw_commands();
+        if let Some(waves) = &mut self.waves {
+            waves.update_viewports();
+        }
     }
 
     /// Returns true if the waveform and all requested signals have been loaded.
