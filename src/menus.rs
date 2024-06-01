@@ -85,12 +85,23 @@ impl State {
             )
             .shortcut("r")
             .add_closing_menu(msgs, ui);
-            b("Save state...", Message::OpenSaveStateDialog).add_closing_menu(msgs, ui);
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let save_text = if self.state_file.is_some() {
+                    "Save state"
+                } else {
+                    "Save state..."
+                };
+                b(save_text, Message::SaveStateFile(self.state_file.clone()))
+                    .add_closing_menu(msgs, ui);
+            }
+            b("Save state as...", Message::SaveStateFile(None)).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
             #[cfg(not(target_arch = "wasm32"))]
             b("Exit", Message::Exit).add_closing_menu(msgs, ui);
         });
-        ui.menu_button("View", |ui| {
+        ui.menu_button("View", |ui: &mut Ui| {
             ui.style_mut().wrap = Some(false);
             if waves_loaded {
                 b(

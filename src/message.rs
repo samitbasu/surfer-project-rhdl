@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use bytes::Bytes;
 use camino::Utf8PathBuf;
 use derivative::Derivative;
@@ -9,6 +7,7 @@ use eframe::{
 };
 use num::BigInt;
 use serde::Deserialize;
+use std::path::PathBuf;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -162,7 +161,8 @@ pub enum Message {
     SelectPrevCommand,
     SelectNextCommand,
     OpenFileDialog(OpenMode),
-    OpenSaveStateDialog,
+    SaveStateFile(Option<PathBuf>),
+    SetStateFile(PathBuf),
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),
     SetGestureHelpVisible(bool),
@@ -197,7 +197,6 @@ pub enum Message {
     },
     MoveMarkerToCursor(u8),
     GoToMarkerPosition(u8, usize),
-    SaveState(PathBuf),
     MoveCursorToTransition {
         next: bool,
         variable: Option<DisplayedItemIndex>,

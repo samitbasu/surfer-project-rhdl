@@ -109,12 +109,12 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt::Display;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::sync::RwLock;
 
-#[cfg(any(target_os = "windows"))]
+#[cfg(target_os = "windows")]
 use winapi as _;
 
 lazy_static! {
@@ -599,6 +599,14 @@ pub struct State {
     /// UI zoom factor if set by the user
     ui_zoom_factor: Option<f32>,
 
+    // Path of last saved-to state file
+    // Do not serialize as this causes a few issues and doesn't help:
+    // - We need to set it on load of a state anyways since the file could have been renamed
+    // - Bad interoperatility story between native and wasm builds
+    // - Sequencing issue in serialization, due to us having to run that async
+    #[serde(skip)]
+    state_file: Option<PathBuf>,
+
     /// Internal state that does not persist between sessions and is not serialized
     #[serde(skip, default = "SystemState::new")]
     sys: SystemState,
@@ -653,6 +661,7 @@ impl State {
             drag_started: false,
             drag_source_idx: None,
             drag_target_idx: None,
+            state_file: None,
         };
 
         Ok(result)
@@ -1490,9 +1499,8 @@ impl State {
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);
             }
-            Message::OpenSaveStateDialog => {
-                self.open_state_save_dialog();
-            }
+            Message::SaveStateFile(path) => self.save_state_file(path),
+            Message::SetStateFile(path) => self.state_file = Some(path),
             Message::SetAboutVisible(s) => self.show_about = s,
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetGestureHelpVisible(s) => self.show_gestures = s,
@@ -1520,9 +1528,6 @@ impl State {
                     ctx.set_zoom_factor(scale)
                 }
                 self.ui_zoom_factor = Some(scale)
-            }
-            Message::SaveState(filename) => {
-                self.save_state(&filename);
             }
             Message::SelectPrevCommand => {
                 self.sys.command_prompt.new_selection = self
@@ -1845,16 +1850,6 @@ impl State {
             .context("Failed to encode state")
             .map_err(|e| error!("Failed to encode state. {e:#?}"))
             .ok()
-    }
-
-    fn save_state(&self, filename: &Path) {
-        let filename_str = filename.to_string_lossy();
-        self.encode_state().and_then(|ser| {
-            std::fs::write(filename, ser)
-                .context(format!("Failed to write state to {filename_str}"))
-                .map_err(|e| error!("Failed to write state. {e:#?}"))
-                .ok()
-        });
     }
 
     /// Returns true if the waveform and all requested signals have been loaded.
