@@ -182,6 +182,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "preference_set_arrow_key_bindings",
             "goto_marker",
             "save_state",
+            "save_state_as",
             "timeline_add",
             "show_marker_window",
             "viewport_add",
@@ -213,6 +214,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
     #[cfg(feature = "performance_plot")]
     commands.push("show_performance");
     let mut theme_names = state.config.theme.theme_names.clone();
+    let state_file = state.state_file.clone();
     theme_names.insert(0, "default".to_string());
     Command::NonTerminal(
         ParamGreed::Word,
@@ -496,9 +498,16 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Some(Command::Terminal(Message::SetCursorWindowVisible(true)))
                 }
                 "show_logs" => Some(Command::Terminal(Message::SetLogsVisible(true))),
-                "save_state" => single_word(
+                "save_state" => Some(Command::Terminal(Message::SaveStateFile(
+                    state_file.clone(),
+                ))),
+                "save_state_as" => single_word(
                     vec![],
-                    Box::new(|word| Some(Command::Terminal(Message::SaveState(word.into())))),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::SaveStateFile(Some(
+                            std::path::Path::new(word).into(),
+                        ))))
+                    }),
                 ),
                 "viewport_add" => Some(Command::Terminal(Message::AddViewport)),
                 "viewport_remove" => Some(Command::Terminal(Message::RemoveViewport)),

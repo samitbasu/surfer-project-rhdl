@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -592,23 +593,43 @@ impl State {
         });
     }
 
-    pub fn open_state_save_dialog(&mut self) {
+    pub fn save_state_file(&mut self, path: Option<PathBuf>) {
+        let sender = self.sys.channels.msg_sender.clone();
         let Some(encoded) = self.encode_state() else {
             return;
         };
 
         perform_async_work(async move {
-            if let Some(write_dest) = AsyncFileDialog::new()
-                .set_title("Save state")
-                .add_filter("Surfer state files (*.ron)", &["ron"])
-                .add_filter("All files", &["*"])
-                .save_file()
-                .await
+            let destination = if let Some(path) = path {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    Some(path.into())
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    None
+                }
+            } else {
+                AsyncFileDialog::new()
+                    .set_title("Save state")
+                    .add_filter("Surfer state files (*.ron)", &["ron"])
+                    .add_filter("All files", &["*"])
+                    .save_file()
+                    .await
+            };
+            let Some(destination) = destination else {
+                return;
+            };
+
+            #[cfg(not(target_arch = "wasm32"))]
             {
-                write_dest
+                sender
+                    .send(Message::SetStateFile(destination.path().into()))
+                    .unwrap();
+                destination
                     .write(encoded.as_bytes())
                     .await
-                    .map_err(|e| error!("Failed to write state. {e:#?}"))
+                    .map_err(|e| error!("Failed to write state {e:#?}"))
                     .ok();
             }
         });
