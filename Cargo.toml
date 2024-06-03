@@ -1,6 +1,6 @@
 [package]
 name = "surfer"
-version = "0.2.0"
+version = "0.3.0-dev"
 edition = "2021"
 license = "EUPL-1.2"
 categories = ["development-tools::debugging", "science"]
@@ -9,7 +9,6 @@ rust-version = "1.75"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-instruction-decoder = { path = "instruction-decoder" }
 bincode = "1.3.3"
 bytes = "1.6.0"
 bytesize = "1.3.0"
@@ -33,6 +32,7 @@ fuzzy-matcher = "0.3.7"
 fzcmd = { path = "fzcmd" }
 half = "2.4.1"
 human-sort = "0.2.2"
+instruction-decoder = { path = "instruction-decoder" }
 itertools = "0.13.0"
 lazy_static = "1.4.0"
 log = "0.4"
