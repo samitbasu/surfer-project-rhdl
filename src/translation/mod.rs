@@ -52,6 +52,12 @@ pub fn all_translators() -> TranslatorList {
                     include_str!("../../instruction-decoder/examples/RV32D.toml").to_string(),
                 ]),
             }),
+            Box::new(MipsTranslator {
+                decoder: Decoder::new(&vec![include_str!(
+                    "../../instruction-decoder/examples/mips.toml"
+                )
+                .to_string()]),
+            }),
             Box::new(LebTranslator {}),
             #[cfg(feature = "f128")]
             Box::new(QuadPrecisionTranslator {}),

@@ -358,6 +358,37 @@ impl BasicTranslator for RiscvTranslator {
     }
 }
 
+pub struct MipsTranslator {
+    pub decoder: Decoder,
+}
+
+impl BasicTranslator for MipsTranslator {
+    fn name(&self) -> String {
+        "Mips".to_string()
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
+        let u32_value = match value {
+            VariableValue::BigUint(v) => v.to_u32_digits().last().cloned(),
+            VariableValue::String(s) => match check_vector_variable(s) {
+                Some(v) => return v,
+                None => u32::from_str_radix(s, 2).ok(),
+            },
+        }
+        .unwrap_or(0);
+
+        let result = match self.decoder.decode_from_u32(u32_value, 32) {
+            Ok(iform) => (iform, ValueKind::Normal),
+            _ => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
+        };
+        result
+    }
+
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        check_single_wordlength(variable.num_bits, 32)
+    }
+}
+
 fn decode_lebxxx(value: &num::BigUint) -> Result<num::BigUint, &'static str> {
     let bytes = value.to_bytes_be();
     match bytes.first() {
@@ -766,6 +797,13 @@ mod test {
         ])
     }
 
+    fn new_mips_decoder() -> Decoder {
+        Decoder::new(&vec![include_str!(
+            "../../instruction-decoder/examples/mips.toml"
+        )
+        .to_string()])
+    }
+
     #[test]
     fn riscv_from_bigunit() {
         assert_eq!(
@@ -842,6 +880,80 @@ mod test {
         assert_eq!(
             RiscvTranslator {
                 decoder: new_rv32_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("01011-hlw0010001000100010001000".to_owned())
+            )
+            .0,
+            "DON'T CARE"
+        );
+    }
+
+    #[test]
+    fn mips_from_bigunit() {
+        assert_eq!(
+            MipsTranslator {
+                decoder: Decoder::new(&vec![include_str!(
+                    "../../instruction-decoder/examples/mips.toml"
+                )
+                .to_string()])
+            }
+            .basic_translate(32, &VariableValue::BigUint(0x3a873u32.into()))
+            .0,
+            "UNKNOWN INSN (0x3a873)"
+        );
+        assert_eq!(
+            RiscvTranslator {
+                decoder: Decoder::new(&vec![include_str!(
+                    "../../instruction-decoder/examples/mips.toml"
+                )
+                .to_string()])
+            }
+            .basic_translate(32, &VariableValue::BigUint(0x24210000u32.into()))
+            .0,
+            "addiu $at, $at, 0"
+        );
+    }
+
+    #[test]
+    fn mips_from_string() {
+        assert_eq!(
+            MipsTranslator {
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("10101111110000010000000000000000".to_owned())
+            )
+            .0,
+            "sw $at, 0($fp)"
+        );
+        assert_eq!(
+            MipsTranslator {
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("01xzz-hlw0010001000100010001000".to_owned())
+            )
+            .0,
+            "UNDEF"
+        );
+        assert_eq!(
+            MipsTranslator {
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("010zz-hlw0010001000100010001000".to_owned())
+            )
+            .0,
+            "HIGHIMP"
+        );
+        assert_eq!(
+            MipsTranslator {
+                decoder: new_mips_decoder()
             }
             .basic_translate(
                 32,
