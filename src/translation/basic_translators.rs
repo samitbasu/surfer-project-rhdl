@@ -327,13 +327,14 @@ impl BasicTranslator for ASCIITranslator {
     }
 }
 
-pub struct RiscvTranslator {
+pub struct InstructionTranslator {
+    pub name: String,
     pub decoder: Decoder,
 }
 
-impl BasicTranslator for RiscvTranslator {
+impl BasicTranslator for InstructionTranslator {
     fn name(&self) -> String {
-        "RV32IMAFD".to_string()
+        self.name.clone()
     }
 
     fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
@@ -346,11 +347,10 @@ impl BasicTranslator for RiscvTranslator {
         }
         .unwrap_or(0);
 
-        let result = match self.decoder.decode_from_u32(u32_value, 32) {
+        match self.decoder.decode_from_u32(u32_value, 32) {
             Ok(iform) => (iform, ValueKind::Normal),
             _ => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
-        };
-        result
+        }
     }
 
     fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
@@ -758,18 +758,26 @@ mod test {
 
     fn new_rv32_decoder() -> Decoder {
         Decoder::new(&vec![
-            include_str!("../../instruction-decoder/examples/RV32I.toml").to_string(),
-            include_str!("../../instruction-decoder/examples/RV32M.toml").to_string(),
-            include_str!("../../instruction-decoder/examples/RV32A.toml").to_string(),
-            include_str!("../../instruction-decoder/examples/RV32F.toml").to_string(),
-            include_str!("../../instruction-decoder/examples/RV32D.toml").to_string(),
+            include_str!("../../instruction-decoder/toml/RV32I.toml").to_string(),
+            include_str!("../../instruction-decoder/toml/RV32M.toml").to_string(),
+            include_str!("../../instruction-decoder/toml/RV32A.toml").to_string(),
+            include_str!("../../instruction-decoder/toml/RV32F.toml").to_string(),
+            include_str!("../../instruction-decoder/toml/RV32D.toml").to_string(),
         ])
+    }
+
+    fn new_mips_decoder() -> Decoder {
+        Decoder::new(&vec![include_str!(
+            "../../instruction-decoder/toml/mips.toml"
+        )
+        .to_string()])
     }
 
     #[test]
     fn riscv_from_bigunit() {
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
             }
             .basic_translate(32, &VariableValue::BigUint(0u32.into()))
@@ -777,7 +785,8 @@ mod test {
             "UNKNOWN INSN (0x0)"
         );
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
             }
             .basic_translate(32, &VariableValue::BigUint(0b1000000010000000u32.into()))
@@ -785,7 +794,8 @@ mod test {
             "UNKNOWN INSN (0x8080)"
         );
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
             }
             .basic_translate(
@@ -799,7 +809,8 @@ mod test {
     #[test]
     fn riscv_from_string() {
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
             }
             .basic_translate(32, &VariableValue::String("0".to_owned()))
@@ -807,7 +818,8 @@ mod test {
             "UNKNOWN INSN (0x0)"
         );
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
             }
             .basic_translate(
@@ -818,7 +830,8 @@ mod test {
             "UNKNOWN INSN (0x48888888)"
         );
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
             }
             .basic_translate(
@@ -829,7 +842,8 @@ mod test {
             "UNDEF"
         );
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
             }
             .basic_translate(
@@ -840,8 +854,83 @@ mod test {
             "HIGHIMP"
         );
         assert_eq!(
-            RiscvTranslator {
+            InstructionTranslator {
+                name: "RV".into(),
                 decoder: new_rv32_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("01011-hlw0010001000100010001000".to_owned())
+            )
+            .0,
+            "DON'T CARE"
+        );
+    }
+
+    #[test]
+    fn mips_from_bigunit() {
+        assert_eq!(
+            InstructionTranslator {
+                name: "Mips".into(),
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(32, &VariableValue::BigUint(0x3a873u32.into()))
+            .0,
+            "UNKNOWN INSN (0x3a873)"
+        );
+        assert_eq!(
+            InstructionTranslator {
+                name: "Mips".into(),
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(32, &VariableValue::BigUint(0x24210000u32.into()))
+            .0,
+            "addiu $at, $at, 0"
+        );
+    }
+
+    #[test]
+    fn mips_from_string() {
+        assert_eq!(
+            InstructionTranslator {
+                name: "Mips".into(),
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("10101111110000010000000000000000".to_owned())
+            )
+            .0,
+            "sw $at, 0($fp)"
+        );
+        assert_eq!(
+            InstructionTranslator {
+                name: "Mips".into(),
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("01xzz-hlw0010001000100010001000".to_owned())
+            )
+            .0,
+            "UNDEF"
+        );
+        assert_eq!(
+            InstructionTranslator {
+                name: "Mips".into(),
+                decoder: new_mips_decoder()
+            }
+            .basic_translate(
+                32,
+                &VariableValue::String("010zz-hlw0010001000100010001000".to_owned())
+            )
+            .0,
+            "HIGHIMP"
+        );
+        assert_eq!(
+            InstructionTranslator {
+                name: "Mips".into(),
+                decoder: new_mips_decoder()
             }
             .basic_translate(
                 32,

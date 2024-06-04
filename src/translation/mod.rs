@@ -43,13 +43,20 @@ pub fn all_translators() -> TranslatorList {
             Box::new(PositQuire16Translator {}),
             Box::new(E5M2Translator {}),
             Box::new(E4M3Translator {}),
-            Box::new(RiscvTranslator {
+            Box::new(InstructionTranslator {
+                name: "RV32IMAFDZicsr".into(),
                 decoder: Decoder::new(&vec![
-                    include_str!("../../instruction-decoder/examples/RV32I.toml").to_string(),
-                    include_str!("../../instruction-decoder/examples/RV32M.toml").to_string(),
-                    include_str!("../../instruction-decoder/examples/RV32A.toml").to_string(),
-                    include_str!("../../instruction-decoder/examples/RV32F.toml").to_string(),
-                    include_str!("../../instruction-decoder/examples/RV32D.toml").to_string(),
+                    include_str!("../../instruction-decoder/toml/RV32I.toml").to_string(),
+                    include_str!("../../instruction-decoder/toml/RV32M.toml").to_string(),
+                    include_str!("../../instruction-decoder/toml/RV32A.toml").to_string(),
+                    include_str!("../../instruction-decoder/toml/RV32F.toml").to_string(),
+                    include_str!("../../instruction-decoder/toml/RV32D.toml").to_string(),
+                ]),
+            }),
+            Box::new(InstructionTranslator {
+                name: "Mips".into(),
+                decoder: Decoder::new(&[
+                    include_str!("../../instruction-decoder/toml/mips.toml").to_string()
                 ]),
             }),
             Box::new(LebTranslator {}),
