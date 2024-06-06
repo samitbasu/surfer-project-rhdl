@@ -323,7 +323,7 @@ impl State {
                 &self.get_time_format(),
             );
 
-            let text_color = *self.config.theme.get_best_text_color(&background_color);
+            let text_color = *self.config.theme.get_best_text_color(background_color);
 
             // Create galley
             let galley =
