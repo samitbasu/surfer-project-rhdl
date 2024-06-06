@@ -1127,7 +1127,15 @@ impl State {
                     ui.add_space(drawing_info.top() - next_y);
                 }
 
-                self.draw_background(vidx, waves, drawing_info, y_zero, &ctx, gap, frame_width);
+                let backgroundcolor = &self.draw_background(
+                    vidx,
+                    waves,
+                    drawing_info,
+                    y_zero,
+                    &ctx,
+                    gap,
+                    frame_width,
+                );
                 match drawing_info {
                     ItemDrawingInfo::Variable(drawing_info) => {
                         if ucursor.as_ref().is_none() {
@@ -1141,7 +1149,11 @@ impl State {
                             &ucursor,
                         );
                         if let Some(v) = v {
-                            ui.label(v).context_menu(|ui| {
+                            ui.label(
+                                RichText::new(v)
+                                    .color(*self.config.theme.get_best_text_color(backgroundcolor)),
+                            )
+                            .context_menu(|ui| {
                                 self.item_context_menu(
                                     Some(&FieldRef::without_fields(
                                         drawing_info.field_ref.root.clone(),
@@ -1166,7 +1178,11 @@ impl State {
                                 &self.get_time_format(),
                             );
 
-                            ui.label(format!("Δ: {delta}",)).context_menu(|ui| {
+                            ui.label(
+                                RichText::new(format!("Δ: {delta}",))
+                                    .color(*self.config.theme.get_best_text_color(backgroundcolor)),
+                            )
+                            .context_menu(|ui| {
                                 self.item_context_menu(None, msgs, ui, vidx);
                             });
                         } else {
@@ -1243,7 +1259,7 @@ impl State {
         ctx: &DrawingContext<'_>,
         gap: f32,
         frame_width: f32,
-    ) {
+    ) -> Color32 {
         // Get background color
         let background_color = *waves
             .displayed_items
@@ -1256,6 +1272,7 @@ impl State {
         let max = (ctx.to_screen)(frame_width, drawing_info.bottom() - y_zero + gap);
         ctx.painter
             .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
+        background_color
     }
 
     fn get_default_alternating_background_color(&self, vidx: DisplayedItemIndex) -> &Color32 {

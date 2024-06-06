@@ -323,12 +323,12 @@ impl State {
                 &self.get_time_format(),
             );
 
+            let text_color = *self.config.theme.get_best_text_color(background_color);
+
             // Create galley
-            let galley = ctx.painter.layout_no_wrap(
-                time,
-                FontId::proportional(text_size),
-                self.config.theme.alt_text_color,
-            );
+            let galley =
+                ctx.painter
+                    .layout_no_wrap(time, FontId::proportional(text_size), text_color);
             let offset_width = galley.rect.width() * 0.5 + 2. * gap;
 
             // Background rectangle
@@ -345,7 +345,7 @@ impl State {
                     (y_offset + y_bottom - galley.rect.height()) * 0.5,
                 ),
                 galley,
-                self.config.theme.alt_text_color,
+                text_color,
             );
         }
     }
