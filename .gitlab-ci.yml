@@ -181,17 +181,17 @@ typos-and-todos:
         # will find typos in
         - tar xzf typos.tar.gz ./typos
     script:
-        - ./typos src
+        - ./typos surfer
           # invert exit code of grep while still printing all matches
-        - set -e; find src -name "*.rs" | xargs grep -Ei "// *TODO" || exit 0 && exit 1
+        - set -e; find surfer -name "*.rs" | xargs grep -Ei "// *TODO" || exit 0 && exit 1
     after_script:
         - >
             if [ $CI_JOB_STATUS == 'success' ]; then
               echo 'SUCCESS'
             else
               echo 'Running again to give you all output since the test failed'
-              ./typos src || echo ""
-              set -e; find src -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
+              ./typos surfer || echo ""
+              set -e; find surfer -name "*.rs" | xargs grep -Ei "// *TODO" || echo ""
             fi
 
 linux_build:
@@ -270,12 +270,10 @@ pages_build:
           # generate relative urls which we want for external pipelines to be able
           # to download our artefacts and put them wherever on their webserver. To fix this,
           # we'll build with a dummy public URL, then replace it with ./
-        - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build --release --public-url /dist
-        - cp -r dist pages_build
+        - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build surfer/Cargo.toml --release --public-url /dist
+        - cp -r surfer/dist pages_build
         - cp examples/*.vcd pages_build/
-          # We have to do this from the source file instead of public/ because sed
-          # does not replace in place
-        - sed -e "s|/dist/|./|g" dist/index.html > pages_build/index.html
+        - sed -i "s|/dist/|./|g" pages_build/index.html
     artifacts:
         paths:
             - pages_build
