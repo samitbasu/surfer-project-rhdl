@@ -565,7 +565,9 @@ pub fn show_command_prompt(
                 let set_cursor_to_pos = |pos, ui: &mut egui::Ui| {
                     if let Some(mut state) = TextEdit::load_state(ui.ctx(), response.id) {
                         let ccursor = CCursor::new(pos);
-                        state.set_ccursor_range(Some(CCursorRange::one(ccursor)));
+                        state
+                            .cursor
+                            .set_char_range(Some(CCursorRange::one(ccursor)));
                         state.store(ui.ctx(), response.id);
                         ui.ctx().memory_mut(|m| m.request_focus(response.id));
                     }

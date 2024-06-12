@@ -168,11 +168,11 @@ impl State {
                 ui.style_mut().visuals.extreme_bg_color = self.config.theme.accent_error.background;
             }
             // Create text edit
-            let response = ui
-                .add(TextEdit::singleline(filter).hint_text("Filter (context menu for type)"))
-                .context_menu(|ui| {
-                    variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type)
-                });
+            let response =
+                ui.add(TextEdit::singleline(filter).hint_text("Filter (context menu for type)"));
+            response.context_menu(|ui| {
+                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type)
+            });
             // Handle focus
             if response.gained_focus() {
                 msgs.push(Message::SetFilterFocused(true));
