@@ -7,7 +7,7 @@ use std::{
 use base64::{engine::general_purpose, Engine};
 use dssim::Dssim;
 use eframe::epaint::Vec2;
-use egui_skia::draw_onto_surface;
+use egui_skia_renderer::draw_onto_surface;
 use image::{DynamicImage, ImageFormat, RgbImage};
 use log::info;
 use num::BigInt;
@@ -92,7 +92,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
             setup_custom_font(ctx);
             state.draw(ctx, Some(size));
         },
-        Some(egui_skia::RasterizeOptions {
+        Some(egui_skia_renderer::RasterizeOptions {
             frames_before_screenshot: 2,
             ..Default::default()
         }),
