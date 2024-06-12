@@ -115,9 +115,6 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::sync::RwLock;
 
-#[cfg(target_os = "windows")]
-use winapi as _;
-
 lazy_static! {
     pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);
 }

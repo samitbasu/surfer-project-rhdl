@@ -83,7 +83,7 @@ impl State {
                 }
             });
 
-            response.drag_released_by(PointerButton::Middle).then(|| {
+            response.drag_stopped_by(PointerButton::Middle).then(|| {
                 let end_location = pointer_pos_canvas.unwrap();
                 let distance = end_location - start_location;
                 if distance.length_sq() >= self.config.gesture.deadzone {
