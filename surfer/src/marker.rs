@@ -46,7 +46,7 @@ impl WaveData {
                     (ctx.to_screen)(x + 0.5, size.y),
                 ],
                 stroke,
-            )
+            );
         }
     }
 
@@ -86,7 +86,7 @@ impl WaveData {
                     (ctx.to_screen)(x + 0.5, size.y),
                 ],
                 stroke,
-            )
+            );
         }
     }
 

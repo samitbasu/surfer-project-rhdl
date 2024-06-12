@@ -19,10 +19,10 @@ color-eyre = "0.6.2"
 config = { version = "0.14", default-features = false, features = ["toml"] }
 derivative = "2.2.0"
 derive_more = "0.99.17"
-eframe = "0.25.0"
+eframe = "0.27.2"
 egui-remixicon = { version = "0.27.2", default-features = false }
-egui_extras = { version = "0.25.0", default-features = false }
-egui_plot = { version = "0.25", optional = true }
+egui_extras = { version = "0.27.2", default-features = false }
+egui_plot = { version = "0.27.2", optional = true }
 enum-iterator = "2.0"
 f128 = { path = "../f128", optional = true }
 fern = { version = "0.6.2", features = ["colored"] }
@@ -80,18 +80,13 @@ wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
 
-# The following dependency can be removed once egui is updated to 0.26.2 or higher
-[target.'cfg(any(target_os = "windows"))'.dependencies]
-winapi = { version = "0.3.9", features = ["winuser"] }
-
 [dev-dependencies]
 dssim = "3.3.0"
-# egui_skia = {version = "0.4.0", features = ["cpu_fix"]}
-egui_skia = { git = "https://github.com/TheZoq2/egui_skia.git", features = ["cpu_fix"] }
+egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 project-root = "0.2.2"
 rgb = "0.8.37"
-skia-safe = "0.69.0"
+skia-safe = "0.75.0"
 test-log = "0.2.15"
 
 [build-dependencies]

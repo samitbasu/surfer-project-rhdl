@@ -2,8 +2,8 @@ use color_eyre::eyre::Context;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::egui::ViewportCommand;
 use eframe::egui::{
-    self, ecolor::Color32, style::Margin, FontSelection, Frame, Layout, Painter, RichText,
-    ScrollArea, Sense, Style, TextStyle, WidgetText,
+    self, ecolor::Color32, FontSelection, Frame, Layout, Margin, Painter, RichText, ScrollArea,
+    Sense, Style, TextStyle, WidgetText,
 };
 use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{text::LayoutJob, Rounding, Stroke};
@@ -459,7 +459,7 @@ impl State {
 
     fn handle_pointer_in_ui(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
         if ui.ui_contains_pointer() {
-            let scroll_delta = ui.input(|i| i.scroll_delta);
+            let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
             if scroll_delta.y > 0.0 {
                 msgs.push(Message::InvalidateCount);
                 msgs.push(Message::VerticalScroll(MoveDir::Up, self.get_count()));
@@ -778,7 +778,7 @@ impl State {
             msgs.push(Message::VariableDragStarted(vidx));
         }
 
-        if item_response.drag_released()
+        if item_response.drag_stopped()
             && self
                 .drag_source_idx
                 .is_some_and(|source_idx| source_idx == vidx)
@@ -801,10 +801,10 @@ impl State {
         let draw_label = |ui: &mut egui::Ui| {
             let mut variable_label = ui
                 .selectable_label(self.item_is_selected(vidx), name)
-                .context_menu(|ui| {
-                    self.item_context_menu(Some(&field), msgs, ui, vidx);
-                })
                 .interact(Sense::drag());
+            variable_label.context_menu(|ui| {
+                self.item_context_menu(Some(&field), msgs, ui, vidx);
+            });
 
             if self.show_tooltip() {
                 let tooltip = if let Some(waves) = &self.waves {
@@ -1005,10 +1005,10 @@ impl State {
                     self.item_is_selected(vidx),
                     WidgetText::LayoutJob(layout_job),
                 )
-                .context_menu(|ui| {
-                    self.item_context_menu(None, msgs, ui, vidx);
-                })
                 .interact(Sense::drag());
+            item_label.context_menu(|ui| {
+                self.item_context_menu(None, msgs, ui, vidx);
+            });
             if item_label.clicked() {
                 msgs.push(Message::FocusItem(vidx))
             }
