@@ -249,7 +249,13 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
     };
     ($name:ident, $file:expr, $spade_top:expr, $spade_state:expr, $initial_state_mod:expr, $msgs:expr) => {
         snapshot_ui!($name, || {
+            use camino::Utf8PathBuf;
+
+            let project_root: Utf8PathBuf = get_project_root().unwrap().try_into().unwrap();
+            let spade_state: Option<Utf8PathBuf> = $spade_state;
+            let spade_state = spade_state.map(|state| project_root.join(state));
             let spade_top = $spade_top;
+
             let mut state = State::new_default_config()
                 .unwrap()
                 .with_params(StartupParams {
@@ -257,7 +263,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                         get_project_root().unwrap().join($file).try_into().unwrap(),
                     )),
                     spade_top: spade_top.clone(),
-                    spade_state: $spade_state,
+                    spade_state,
                     startup_commands: vec![],
                 });
 
@@ -1384,16 +1390,11 @@ snapshot_ui_with_file_and_msgs! {direction_works, "examples/tb_recv.ghw", [
 ]}
 
 snapshot_ui!(signals_can_be_added_after_file_switch, || {
+    let project_root: camino::Utf8PathBuf = get_project_root().unwrap().try_into().unwrap();
     let mut state = State::new_default_config()
         .unwrap()
         .with_params(StartupParams {
-            waves: Some(WaveSource::File(
-                get_project_root()
-                    .unwrap()
-                    .join("examples/counter.vcd")
-                    .try_into()
-                    .unwrap(),
-            )),
+            waves: Some(WaveSource::File(project_root.join("examples/counter.vcd"))),
             spade_top: None,
             spade_state: None,
             startup_commands: vec![],
@@ -1407,7 +1408,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
         VariableRef::from_hierarchy_string("tb.dut.counter"),
     ]));
     state.update(Message::LoadWaveformFile(
-        "examples/counter2.vcd".into(),
+        project_root.join("examples/counter2.vcd"),
         LoadOptions {
             keep_variables: true,
             keep_unavailable: false,
@@ -1417,11 +1418,12 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
     loop {
         state.handle_async_messages();
         state.handle_batch_commands();
-        if state
-            .waves
-            .as_ref()
-            .is_some_and(|w| w.source.to_string() == "examples/counter2.vcd")
-        {
+        if state.waves.as_ref().is_some_and(|w| {
+            w.source
+                .as_file()
+                .unwrap()
+                .ends_with("examples/counter2.vcd")
+        }) {
             break;
         }
     }

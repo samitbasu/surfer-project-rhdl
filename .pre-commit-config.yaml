@@ -38,4 +38,4 @@ repos:
         language: system
         pass_filenames: false
         types_or: ["rust", "png", "toml"]
-exclude: $(instruction-decoder|f128|fzcmd)
+exclude: $(fzcmd|fz128|instruction-decoder)

@@ -82,13 +82,17 @@ macro_rules! snapshot_ui_remote {
             let port_offset = UNIQUE_PORT_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let port = BASE_PORT + port_offset as u16;
             let token = DEFAULT_TOKEN;
-            let filename = $file;
+            let project_root: camino::Utf8PathBuf = project_root::get_project_root()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let filename = project_root.join($file);
             let messages = || Vec::from($msgs);
             let mut test_name = "remote/".to_string();
             test_name.push_str(stringify!($name));
 
             render_and_compare(&PathBuf::from(&test_name), || {
-                run_with_server(port, token, filename, messages)
+                run_with_server(port, token, filename.as_str(), messages)
             })
         }
     };

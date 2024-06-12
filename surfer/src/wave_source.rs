@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::wasm_util::{perform_async_work, perform_work};
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
 use eframe::egui;
@@ -30,6 +30,15 @@ pub enum WaveSource {
     Url(String),
     #[cfg(not(target_arch = "wasm32"))]
     CxxrtlTcp(String),
+}
+
+impl WaveSource {
+    pub fn as_file(&self) -> Option<&Utf8Path> {
+        match self {
+            WaveSource::File(path) => Some(path.as_path()),
+            _ => None,
+        }
+    }
 }
 
 pub fn url_to_wavesource(url: &str) -> Option<WaveSource> {
