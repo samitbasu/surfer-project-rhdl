@@ -570,7 +570,10 @@ impl Translator for StringTranslator {
     }
 
     fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        if variable.encoding == VariableEncoding::String {
+        // f64 (i.e. "real") values are treated as strings for now
+        if variable.encoding == VariableEncoding::String
+            || variable.encoding == VariableEncoding::Real
+        {
             Ok(TranslationPreference::Prefer)
         } else {
             Ok(TranslationPreference::No)
