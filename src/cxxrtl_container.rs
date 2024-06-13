@@ -17,6 +17,7 @@ use log::{error, info, trace, warn};
 use num::{bigint::ToBigInt, BigUint};
 use serde::Deserialize;
 
+use crate::wave_container::VariableEncoding;
 use crate::{
     cxxrtl::{
         command::{CxxrtlCommand, Diagnostic},
@@ -525,6 +526,7 @@ impl CxxrtlContainer {
                 index: None,
                 direction: None,
                 enum_map: Default::default(),
+                encoding: VariableEncoding::BitVector,
             })
             .unwrap_or_else(|| VariableMeta {
                 var: variable.clone(),
@@ -533,6 +535,7 @@ impl CxxrtlContainer {
                 index: None,
                 direction: None,
                 enum_map: Default::default(),
+                encoding: VariableEncoding::BitVector,
             }))
     }
 

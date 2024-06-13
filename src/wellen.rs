@@ -9,12 +9,12 @@ use num::{BigUint, ToPrimitive};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use wellen::{
-    FileFormat, GetItem as _, Hierarchy, ScopeType, Signal, SignalRef, SignalSource, Time,
-    TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
+    FileFormat, GetItem as _, Hierarchy, ScopeType, Signal, SignalEncoding, SignalRef,
+    SignalSource, Time, TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
 };
 
 use crate::wave_container::{
-    MetaData, QueryResult, ScopeRef, VariableMeta, VariableRef, VariableValue,
+    MetaData, QueryResult, ScopeRef, VariableEncoding, VariableMeta, VariableRef, VariableValue,
 };
 
 static UNIQUE_ID_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -543,6 +543,11 @@ pub(crate) fn var_to_meta(
     enum_map: HashMap<String, String>,
     r: &VariableRef,
 ) -> VariableMeta {
+    let encoding = match var.signal_encoding() {
+        SignalEncoding::String => VariableEncoding::String,
+        SignalEncoding::Real => VariableEncoding::Real,
+        SignalEncoding::BitVector(_) => VariableEncoding::BitVector,
+    };
     VariableMeta {
         var: r.clone(),
         num_bits: var.length(),
@@ -550,6 +555,7 @@ pub(crate) fn var_to_meta(
         index: var.index().map(index_to_string),
         direction: Some(VariableDirection::from(var.direction())),
         enum_map,
+        encoding,
     }
 }
 

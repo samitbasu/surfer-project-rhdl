@@ -582,8 +582,19 @@ impl WaveContainer {
 pub struct VariableMeta {
     pub var: VariableRef,
     pub num_bits: Option<u32>,
+    /// Type of the variable in the HDL (on a best effort basis).
     pub variable_type: Option<VariableType>,
     pub index: Option<String>,
     pub direction: Option<VariableDirection>,
     pub enum_map: HashMap<String, String>,
+    /// Indicates how the variable is stored. A variable of "type" boolean for example
+    /// could be stored as a String or as a BitVector.
+    pub encoding: VariableEncoding,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum VariableEncoding {
+    String,
+    Real,
+    BitVector,
 }

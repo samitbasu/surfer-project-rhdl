@@ -15,9 +15,9 @@ use itertools::Itertools;
 use num::BigUint;
 pub use numeric_translators::*;
 
+use crate::wave_container::VariableEncoding;
 use crate::{
     message::Message,
-    variable_type::STRING_TYPES,
     wave_container::{VariableMeta, VariableValue},
 };
 
@@ -473,10 +473,10 @@ pub enum TranslationPreference {
 }
 
 pub fn translates_all_bit_types(variable: &VariableMeta) -> Result<TranslationPreference> {
-    if STRING_TYPES.contains(&variable.variable_type) {
-        Ok(TranslationPreference::No)
-    } else {
+    if variable.encoding == VariableEncoding::BitVector {
         Ok(TranslationPreference::Yes)
+    } else {
+        Ok(TranslationPreference::No)
     }
 }
 
@@ -570,7 +570,7 @@ impl Translator for StringTranslator {
     }
 
     fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        if STRING_TYPES.contains(&variable.variable_type) {
+        if variable.encoding == VariableEncoding::String {
             Ok(TranslationPreference::Prefer)
         } else {
             Ok(TranslationPreference::No)

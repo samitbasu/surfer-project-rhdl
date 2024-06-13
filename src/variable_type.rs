@@ -87,11 +87,9 @@ impl fmt::Display for VariableType {
 }
 
 /// Types that should default to signed conversion
-pub const INTEGER_TYPES: &[Option<VariableType>] = &[Some(VariableType::VCDInteger)];
-
-/// Types that are strings, so no conversion should be made
-pub const STRING_TYPES: &[Option<VariableType>] = &[
-    Some(VariableType::VCDString),
-    Some(VariableType::VCDReal),
-    Some(VariableType::VCDRealTime),
+pub const INTEGER_TYPES: &[Option<VariableType>] = &[
+    Some(VariableType::VCDInteger),
+    Some(VariableType::Int),
+    Some(VariableType::ShortInt),
+    Some(VariableType::LongInt),
 ];
