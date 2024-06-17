@@ -318,7 +318,7 @@ impl SurferTheme {
     fn generate_defaults(
         theme_name: &Option<String>,
     ) -> (ConfigBuilder<DefaultState>, Vec<String>) {
-        let default_theme = String::from(include_str!("../default_theme.toml"));
+        let default_theme = String::from(include_str!("../../default_theme.toml"));
 
         let mut theme = Config::builder().add_source(config::File::from_str(
             &default_theme,
@@ -332,9 +332,9 @@ impl SurferTheme {
         ];
 
         let override_theme = match theme_name.clone().unwrap_or("".to_string()).as_str() {
-            "dark+" => include_str!("../themes/dark+.toml"),
-            "light+" => include_str!("../themes/light+.toml"),
-            "solarized" => include_str!("../themes/solarized.toml"),
+            "dark+" => include_str!("../../themes/dark+.toml"),
+            "light+" => include_str!("../../themes/light+.toml"),
+            "solarized" => include_str!("../../themes/solarized.toml"),
             _ => "",
         }
         .to_string();
@@ -461,7 +461,7 @@ fn default_colors() -> HashMap<String, Color32> {
 impl SurferConfig {
     #[cfg(target_arch = "wasm32")]
     pub fn new(_force_default_config: bool) -> Result<Self> {
-        let default_config = String::from(include_str!("../default_config.toml"));
+        let default_config = String::from(include_str!("../../default_config.toml"));
         Ok(toml::from_str(&default_config)?)
     }
 
@@ -469,7 +469,7 @@ impl SurferConfig {
     pub fn new(force_default_config: bool) -> color_eyre::Result<Self> {
         use color_eyre::eyre::anyhow;
 
-        let default_config = String::from(include_str!("../default_config.toml"));
+        let default_config = String::from(include_str!("../../default_config.toml"));
 
         let mut config = Config::builder().add_source(config::File::from_str(
             &default_config,

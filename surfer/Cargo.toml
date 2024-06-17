@@ -1,0 +1,98 @@
+[package]
+name = "surfer"
+version = "0.3.0-dev"
+edition = "2021"
+license = "EUPL-1.2"
+categories = ["development-tools::debugging", "science"]
+build = "build.rs"
+rust-version = "1.75"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bincode = "1.3.3"
+bytes = "1.6.0"
+bytesize = "1.3.0"
+camino = { version = "1.1.6", features = ["serde1"] }
+chrono = "0.4.31"
+clap = { version = "4.5.4", features = ['derive'] }
+color-eyre = "0.6.2"
+config = { version = "0.14", default-features = false, features = ["toml"] }
+derivative = "2.2.0"
+derive_more = "0.99.17"
+eframe = "0.25.0"
+egui-remixicon = { version = "0.27.2", default-features = false }
+egui_extras = { version = "0.25.0", default-features = false }
+egui_plot = { version = "0.25", optional = true }
+enum-iterator = "2.0"
+f128 = { path = "../f128", optional = true }
+fern = { version = "0.6.2", features = ["colored"] }
+futures-core = "0.3.29"
+futures-util = "0.3.29"
+fuzzy-matcher = "0.3.7"
+fzcmd = { path = "../fzcmd" }
+half = "2.4.1"
+instruction-decoder = { path = "../instruction-decoder" }
+itertools = "0.13.0"
+lazy_static = "1.4.0"
+log = "0.4"
+lz4_flex = "0.11.3"
+num = { version = "0.4", features = ["serde"] }
+numeric-sort = "0.1.1"
+pure-rust-locales = "0.8.1"
+rayon = "1.10.0"
+regex = "1.10.2"
+reqwest = { version = "0.12.4", features = ["stream"] }
+rfd = { version = "0.14.0", default-features = false, features = ["tokio", "xdg-portal"] }
+ron = { version = "0.8.1", features = ["integer128"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.113"
+serde_stacker = { version = "0.1", optional = true }
+softposit = "0.4.0"
+spade = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+sys-locale = "0.3.1"
+tokio = { version = "1.37", features = ["rt", "time", "macros"] }
+toml = "0.8.12"
+web-time = "1.1.0"
+wellen = { version = "0.9.14", features = ["serde1"] }
+
+[features]
+default = ["spade", "performance_plot"]
+f128 = ["dep:f128"]
+spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-types", "dep:serde_stacker"]
+performance_plot = ["dep:egui_plot"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+base64 = "0.22"
+directories = "5.0"
+futures = { version = "0.3.30", features = ["executor"] }
+http-body-util = "0.1"
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+rand = "0.8.5"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"
+toml = "0.8.12"
+wasm-bindgen = "0.2.91"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
+
+# The following dependency can be removed once egui is updated to 0.26.2 or higher
+[target.'cfg(any(target_os = "windows"))'.dependencies]
+winapi = { version = "0.3.9", features = ["winuser"] }
+
+[dev-dependencies]
+dssim = "3.3.0"
+# egui_skia = {version = "0.4.0", features = ["cpu_fix"]}
+egui_skia = { git = "https://github.com/TheZoq2/egui_skia.git", features = ["cpu_fix"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+project-root = "0.2.2"
+rgb = "0.8.37"
+skia-safe = "0.69.0"
+test-log = "0.2.15"
+
+[build-dependencies]
+vergen = { version = "8.3.1", features = ["build", "git", "git2"] }

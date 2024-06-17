@@ -1,6 +1,3 @@
-[submodule "spade"]
-	path = spade
-	url = https://gitlab.com/spade-lang/spade.git
 [submodule "fzcmd"]
 	path = fzcmd
 	url = https://gitlab.com/TheZoq2/fzcmd.git

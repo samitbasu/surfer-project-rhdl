@@ -286,7 +286,7 @@ fn add_hint_text(ui: &mut Ui) {
 
 pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
     let mut open = true;
-    let text = include_str!("../LICENSE-EUPL-1.2.txt");
+    let text = include_str!("../../LICENSE-EUPL-1.2.txt");
     Window::new("Surfer License")
         .open(&mut open)
         .collapsible(false)
