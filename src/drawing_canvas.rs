@@ -438,14 +438,17 @@ impl State {
         // compensate for that
         let y_zero = to_screen.transform_pos(Pos2::ZERO).y;
         for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
+            // Get background color
+            let background_color =
+                &self.get_background_color(waves, drawing_info, DisplayedItemIndex(idx));
+
             self.draw_background(
-                DisplayedItemIndex(idx),
-                waves,
                 drawing_info,
                 y_zero,
                 &ctx,
                 gap,
                 frame_width,
+                background_color,
             );
         }
 
@@ -483,7 +486,7 @@ impl State {
                 }
             }
             let zero_y = to_screen.transform_pos(Pos2::ZERO).y;
-            for drawing_info in &waves.drawing_infos {
+            for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
                 // We draw in absolute coords, but the variable offset in the y
                 // direction is also in absolute coordinates, so we need to
                 // compensate for that
@@ -497,13 +500,23 @@ impl State {
                     .and_then(|color| self.config.theme.get_color(&color));
 
                 match drawing_info {
-                    ItemDrawingInfo::Variable(drawing_info) => {
-                        if let Some(commands) = draw_commands.get(&drawing_info.displayed_field_ref)
+                    ItemDrawingInfo::Variable(variable_info) => {
+                        if let Some(commands) =
+                            draw_commands.get(&variable_info.displayed_field_ref)
                         {
+                            // Get background color and determine best text color
+                            let background_color = self.get_background_color(
+                                waves,
+                                drawing_info,
+                                DisplayedItemIndex(idx),
+                            );
+                            let text_color =
+                                self.config.theme.get_best_text_color(&background_color);
+
+                            let color = *color.unwrap_or(&self.config.theme.variable_default);
                             for (old, new) in
                                 commands.values.iter().zip(commands.values.iter().skip(1))
                             {
-                                let color = *color.unwrap_or(&self.config.theme.variable_default);
                                 if commands.is_bool {
                                     self.draw_bool_transition(
                                         (old, new),
@@ -514,7 +527,13 @@ impl State {
                                         &mut ctx,
                                     )
                                 } else {
-                                    self.draw_region((old, new), color, y_offset, &mut ctx)
+                                    self.draw_region(
+                                        (old, new),
+                                        color,
+                                        y_offset,
+                                        &mut ctx,
+                                        *text_color,
+                                    )
                                 }
                             }
                         }
@@ -522,8 +541,18 @@ impl State {
                     ItemDrawingInfo::Divider(_) => {}
                     ItemDrawingInfo::Marker(_) => {}
                     ItemDrawingInfo::TimeLine(_) => {
+                        let text_color = color.unwrap_or(
+                            // Get background color and determine best text color
+                            self.config
+                                .theme
+                                .get_best_text_color(&self.get_background_color(
+                                    waves,
+                                    drawing_info,
+                                    DisplayedItemIndex(idx),
+                                )),
+                        );
                         waves.draw_ticks(
-                            color,
+                            Some(text_color),
                             ticks,
                             &ctx,
                             y_offset,
@@ -577,6 +606,7 @@ impl State {
         user_color: Color32,
         offset: f32,
         ctx: &mut DrawingContext,
+        text_color: Color32,
     ) {
         if let Some(prev_result) = &prev_region.inner {
             let stroke = Stroke {
@@ -605,15 +635,15 @@ impl State {
             let char_width = text_size * (20. / 31.);
 
             let text_area = (new_x - old_x) - transition_width;
-            let num_chars = (text_area / char_width).floor();
-            let fits_text = num_chars >= 1.;
+            let num_chars = (text_area / char_width).floor() as usize;
+            let fits_text = num_chars >= 1;
 
             if fits_text {
-                let content = if prev_result.value.len() > num_chars as usize {
+                let content = if prev_result.value.len() > num_chars {
                     prev_result
                         .value
                         .chars()
-                        .take(num_chars as usize - 1)
+                        .take(num_chars - 1)
                         .chain(['…'])
                         .collect::<String>()
                 } else {
@@ -625,7 +655,7 @@ impl State {
                     Align2::LEFT_CENTER,
                     content,
                     FontId::monospace(text_size),
-                    self.config.theme.foreground,
+                    text_color,
                 );
             }
         }
