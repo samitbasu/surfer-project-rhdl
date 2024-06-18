@@ -1127,14 +1127,14 @@ impl State {
                     ui.add_space(drawing_info.top() - next_y);
                 }
 
-                let backgroundcolor = &self.draw_background(
-                    vidx,
-                    waves,
+                let backgroundcolor = &self.get_background_color(waves, drawing_info, vidx);
+                self.draw_background(
                     drawing_info,
                     y_zero,
                     &ctx,
                     gap,
                     frame_width,
+                    backgroundcolor,
                 );
                 match drawing_info {
                     ItemDrawingInfo::Variable(drawing_info) => {
@@ -1252,27 +1252,32 @@ impl State {
 
     pub fn draw_background(
         &self,
-        vidx: DisplayedItemIndex,
-        waves: &WaveData,
         drawing_info: &ItemDrawingInfo,
         y_zero: f32,
         ctx: &DrawingContext<'_>,
         gap: f32,
         frame_width: f32,
-    ) -> Color32 {
-        // Get background color
-        let background_color = *waves
-            .displayed_items
-            .get(&waves.displayed_items_order[drawing_info.item_list_idx()])
-            .and_then(|variable| variable.background_color())
-            .and_then(|color| self.config.theme.get_color(&color))
-            .unwrap_or_else(|| self.get_default_alternating_background_color(vidx));
+        background_color: &Color32,
+    ) {
         // Draw background
         let min = (ctx.to_screen)(0.0, drawing_info.top() - y_zero - gap);
         let max = (ctx.to_screen)(frame_width, drawing_info.bottom() - y_zero + gap);
         ctx.painter
-            .rect_filled(Rect { min, max }, Rounding::ZERO, background_color);
-        background_color
+            .rect_filled(Rect { min, max }, Rounding::ZERO, *background_color);
+    }
+
+    pub fn get_background_color(
+        &self,
+        waves: &WaveData,
+        drawing_info: &ItemDrawingInfo,
+        vidx: DisplayedItemIndex,
+    ) -> Color32 {
+        *waves
+            .displayed_items
+            .get(&waves.displayed_items_order[drawing_info.item_list_idx()])
+            .and_then(|variable| variable.background_color())
+            .and_then(|color| self.config.theme.get_color(&color))
+            .unwrap_or_else(|| self.get_default_alternating_background_color(vidx))
     }
 
     fn get_default_alternating_background_color(&self, vidx: DisplayedItemIndex) -> &Color32 {
