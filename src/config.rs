@@ -234,6 +234,9 @@ pub struct SurferTheme {
     #[serde(deserialize_with = "deserialize_hex_color")]
     /// Color used for weak variables
     pub variable_weak: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    /// Color used for constant variables (parameters)
+    pub variable_parameter: Color32,
     #[serde(default = "default_colors", deserialize_with = "deserialize_color_map")]
     pub colors: HashMap<String, Color32>,
 
