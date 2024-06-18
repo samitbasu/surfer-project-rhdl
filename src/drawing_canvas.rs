@@ -19,6 +19,7 @@ use crate::displayed_item::{
 use crate::translation::{
     SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind, VariableInfo,
 };
+use crate::variable_type::VariableType;
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::viewport::Viewport;
 use crate::wave_container::QueryResult;
@@ -492,10 +493,11 @@ impl State {
                 // compensate for that
                 let y_offset = drawing_info.top() - zero_y;
 
-                let color = waves
+                let displayed_item = waves
                     .displayed_items_order
                     .get(drawing_info.item_list_idx())
-                    .and_then(|id| waves.displayed_items.get(id))
+                    .and_then(|id| waves.displayed_items.get(id));
+                let color = displayed_item
                     .and_then(|variable| variable.color())
                     .and_then(|color| self.config.theme.get_color(&color));
 
@@ -513,7 +515,25 @@ impl State {
                             let text_color =
                                 self.config.theme.get_best_text_color(&background_color);
 
-                            let color = *color.unwrap_or(&self.config.theme.variable_default);
+                            let color = *color.unwrap_or_else(|| {
+                                if let Some(DisplayedItem::Variable(variable)) = displayed_item {
+                                    waves
+                                        .inner
+                                        .variable_meta(&variable.variable_ref)
+                                        .ok()
+                                        .and_then(|meta| meta.variable_type)
+                                        .and_then(|var_type| {
+                                            if var_type == VariableType::VCDParameter {
+                                                Some(&self.config.theme.variable_parameter)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                        .unwrap_or(&self.config.theme.variable_default)
+                                } else {
+                                    &self.config.theme.variable_default
+                                }
+                            });
                             for (old, new) in
                                 commands.values.iter().zip(commands.values.iter().skip(1))
                             {
