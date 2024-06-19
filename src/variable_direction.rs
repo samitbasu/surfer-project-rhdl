@@ -28,15 +28,15 @@ impl From<wellen::VarDirection> for VariableDirection {
 }
 
 impl VariableDirection {
-    pub fn get_icon(&self) -> &str {
+    pub fn get_icon(&self) -> Option<&str> {
         match self {
-            VariableDirection::Unknown => "    ",
-            VariableDirection::Implicit => "    ",
-            VariableDirection::Input => icons::CONTRACT_RIGHT_FILL,
-            VariableDirection::Output => icons::EXPAND_RIGHT_FILL,
-            VariableDirection::InOut => icons::ARROW_LEFT_RIGHT_LINE,
-            VariableDirection::Buffer => "    ",
-            VariableDirection::Linkage => icons::LINK,
+            VariableDirection::Unknown => None,
+            VariableDirection::Implicit => None,
+            VariableDirection::Input => Some(icons::CONTRACT_RIGHT_FILL),
+            VariableDirection::Output => Some(icons::EXPAND_RIGHT_FILL),
+            VariableDirection::InOut => Some(icons::ARROW_LEFT_RIGHT_LINE),
+            VariableDirection::Buffer => None,
+            VariableDirection::Linkage => Some(icons::LINK),
         }
     }
 }
