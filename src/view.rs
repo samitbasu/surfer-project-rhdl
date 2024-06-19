@@ -7,6 +7,7 @@ use eframe::egui::{
 };
 use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{text::LayoutJob, Rounding, Stroke};
+use egui_remixicon::icons;
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
@@ -24,6 +25,7 @@ use crate::help::{
 use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
+use crate::variable_type::VariableType;
 use crate::wave_container::{FieldRef, ScopeRef, VariableRef};
 use crate::wave_source::LoadOptions;
 use crate::{
@@ -607,7 +609,18 @@ impl State {
             let direction = if self.show_variable_direction() {
                 meta.as_ref()
                     .and_then(|meta| meta.direction.clone())
-                    .map(|direction| format!("{} ", direction.get_icon()))
+                    .map(|direction| {
+                        format!(
+                            "{} ",
+                            direction.get_icon().unwrap_or_else(|| {
+                                if meta.unwrap().variable_type == Some(VariableType::VCDParameter) {
+                                    icons::MAP_PIN_2_LINE
+                                } else {
+                                    "    "
+                                }
+                            })
+                        )
+                    })
                     .unwrap_or_default()
             } else {
                 String::new()
