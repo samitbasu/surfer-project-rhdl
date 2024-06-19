@@ -719,6 +719,36 @@ snapshot_ui_with_file_and_msgs! {command_prompt_scrolls, "examples/counter.vcd",
     Message::SelectNextCommand
 ]}
 
+snapshot_ui_with_file_and_msgs!(
+    command_prompt_scroll_bounds_prev,
+    "examples/counter.vcd",
+    [
+        Message::ShowCommandPrompt(true),
+        Message::CommandPromptUpdate {
+            suggestions: vec![("test".to_string(), vec![true, true, false, false]); 5]
+        },
+        Message::SelectPrevCommand,
+    ]
+);
+
+snapshot_ui_with_file_and_msgs!(
+    command_prompt_scroll_bounds_next,
+    "examples/counter.vcd",
+    [
+        Message::ShowCommandPrompt(true),
+        Message::CommandPromptUpdate {
+            suggestions: vec![("test".to_string(), vec![true, true, false, false]); 5]
+        },
+        // 5 items, 6 "select next command"
+        Message::SelectNextCommand,
+        Message::SelectNextCommand,
+        Message::SelectNextCommand,
+        Message::SelectNextCommand,
+        Message::SelectNextCommand,
+        Message::SelectNextCommand,
+    ]
+);
+
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::GoToTime(Some(BigInt::from(-50)), 0),

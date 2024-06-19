@@ -1530,7 +1530,7 @@ impl State {
                     .command_prompt
                     .new_selection
                     .or(Some(self.sys.command_prompt.selected))
-                    .map(|idx| idx.saturating_sub(1));
+                    .map(|idx| idx.saturating_sub(1).max(0));
             }
             Message::SelectNextCommand => {
                 self.sys.command_prompt.new_selection = self
@@ -1538,7 +1538,10 @@ impl State {
                     .command_prompt
                     .new_selection
                     .or(Some(self.sys.command_prompt.selected))
-                    .map(|idx| idx.saturating_add(1));
+                    .map(|idx| {
+                        idx.saturating_add(1)
+                            .min(self.sys.command_prompt.suggestions.len().saturating_sub(1))
+                    });
             }
             Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
             Message::SetArrowKeyBindings(bindings) => {
