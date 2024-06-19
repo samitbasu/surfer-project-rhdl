@@ -4948,7 +4948,6 @@ dependencies = [
  "web-sys",
  "web-time 1.1.0",
  "wellen",
- "winapi",
 ]
 
 [[package]]
