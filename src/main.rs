@@ -1350,6 +1350,7 @@ impl State {
                 if let Ok(config) =
                     SurferConfig::new(false).with_context(|| "Failed to load config file")
                 {
+                    self.sys.translators = all_translators();
                     self.config = config;
                     if let Some(ctx) = &self.sys.context.as_ref() {
                         ctx.set_visuals(self.get_visuals())
