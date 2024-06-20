@@ -330,6 +330,7 @@ impl BasicTranslator for ASCIITranslator {
 pub struct InstructionTranslator {
     pub name: String,
     pub decoder: Decoder,
+    pub num_bits: u64,
 }
 
 impl BasicTranslator for InstructionTranslator {
@@ -337,7 +338,7 @@ impl BasicTranslator for InstructionTranslator {
         self.name.clone()
     }
 
-    fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
         let u32_value = match value {
             VariableValue::BigUint(v) => v.to_u32_digits().last().cloned(),
             VariableValue::String(s) => match check_vector_variable(s) {
@@ -347,14 +348,14 @@ impl BasicTranslator for InstructionTranslator {
         }
         .unwrap_or(0);
 
-        match self.decoder.decode_from_u32(u32_value, 32) {
+        match self.decoder.decode_from_u32(u32_value, num_bits as usize) {
             Ok(iform) => (iform, ValueKind::Normal),
             _ => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
         }
     }
 
     fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        check_single_wordlength(variable.num_bits, 32)
+        check_single_wordlength(variable.num_bits, self.num_bits as u32)
     }
 }
 
@@ -778,7 +779,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(32, &VariableValue::BigUint(0u32.into()))
             .0,
@@ -787,7 +789,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(32, &VariableValue::BigUint(0b1000000010000000u32.into()))
             .0,
@@ -796,7 +799,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -811,7 +815,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(32, &VariableValue::String("0".to_owned()))
             .0,
@@ -820,7 +825,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -832,7 +838,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -844,7 +851,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -856,7 +864,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "RV".into(),
-                decoder: new_rv32_decoder()
+                decoder: new_rv32_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -872,7 +881,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "Mips".into(),
-                decoder: new_mips_decoder()
+                decoder: new_mips_decoder(),
+                num_bits: 32,
             }
             .basic_translate(32, &VariableValue::BigUint(0x3a873u32.into()))
             .0,
@@ -881,7 +891,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "Mips".into(),
-                decoder: new_mips_decoder()
+                decoder: new_mips_decoder(),
+                num_bits: 32,
             }
             .basic_translate(32, &VariableValue::BigUint(0x24210000u32.into()))
             .0,
@@ -894,7 +905,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "Mips".into(),
-                decoder: new_mips_decoder()
+                decoder: new_mips_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -906,7 +918,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "Mips".into(),
-                decoder: new_mips_decoder()
+                decoder: new_mips_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -918,7 +931,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "Mips".into(),
-                decoder: new_mips_decoder()
+                decoder: new_mips_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,
@@ -930,7 +944,8 @@ mod test {
         assert_eq!(
             InstructionTranslator {
                 name: "Mips".into(),
-                decoder: new_mips_decoder()
+                decoder: new_mips_decoder(),
+                num_bits: 32,
             }
             .basic_translate(
                 32,

@@ -54,6 +54,7 @@ spade-hir-lowering = { path = "spade/spade-hir-lowering", optional = true }
 spade-types = { path = "spade/spade-types", optional = true }
 sys-locale = "0.3.1"
 tokio = { version = "1.37", features = ["rt", "time", "macros"] }
+toml = "0.8.12"
 web-time = "1.1.0"
 wellen = { version = "0.9.14", features = ["serde1"] }
 
