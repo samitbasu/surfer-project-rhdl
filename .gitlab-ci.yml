@@ -157,6 +157,14 @@ cargo-fmt:
         # pass --check to rustfmt to error if un-formatted
         - cargo fmt -- --check
 
+pre-commit:
+    stage: test
+    before_script:
+        - pip install pre-commit
+        - pre-commit install
+    script:
+      - SKIP=cargo-test pre-commit run --all-files
+
 typos-and-todos:
     stage: test
     cache: [] # Disable cache since the spell checker finds typos in other peoples source code
