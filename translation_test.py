@@ -1,1 +1,0 @@
-from spade import SurferTranslator
