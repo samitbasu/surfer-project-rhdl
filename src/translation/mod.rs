@@ -1,7 +1,11 @@
 use std::{collections::HashMap, sync::mpsc::Sender};
 
 use color_eyre::Result;
+#[cfg(not(target_arch = "wasm32"))]
+use directories::ProjectDirs;
 use eframe::epaint::Color32;
+use log::warn;
+use toml::Table;
 
 mod basic_translators;
 pub mod clock;
@@ -21,48 +25,153 @@ use crate::{
     wave_container::{VariableMeta, VariableValue},
 };
 
+/// Look inside the config directory for user-defined decoders
+/// To add a new decoder named 'x', add a directory 'x' to the decoders directory
+/// Inside, multiple toml files can be added which will all be used for decoding 'x'
+/// This is useful e.g., for layering RISC-V extensions
+#[cfg(not(target_arch = "wasm32"))]
+fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
+    let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
+    if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
+        let Ok(decoder_dirs) = std::fs::read_dir(proj_dirs.config_dir().join("decoders")) else {
+            return vec![];
+        };
+
+        for decoder_dir in decoder_dirs.flatten() {
+            if decoder_dir.metadata().is_ok_and(|m| m.is_dir()) {
+                let Ok(name) = decoder_dir.file_name().into_string() else {
+                    warn!("Cannot load decoder. Invalid name.");
+                    continue;
+                };
+                let mut tomls = vec![];
+                // Keeps track of the bit width of the first parsed toml
+                // All tomls must use the same width
+                let mut width: Option<toml::Value> = None;
+
+                if let Ok(toml_files) = std::fs::read_dir(decoder_dir.path()) {
+                    for toml_file in toml_files.flatten() {
+                        if toml_file
+                            .file_name()
+                            .into_string()
+                            .is_ok_and(|file_name| file_name.ends_with(".toml"))
+                        {
+                            let Ok(text) = std::fs::read_to_string(toml_file.path()) else {
+                                warn!(
+                                    "Skipping toml file {:?}. Cannot read file.",
+                                    toml_file.path()
+                                );
+                                continue;
+                            };
+
+                            let Ok(toml_parsed) = text.parse::<Table>() else {
+                                warn!(
+                                    "Skipping toml file {:?}. Cannot parse toml.",
+                                    toml_file.path()
+                                );
+                                continue;
+                            };
+
+                            let Some(toml_width) = toml_parsed.get("width") else {
+                                warn!(
+                                    "Skipping toml file {:?}. Mandatory key 'width' is missing.",
+                                    toml_file.path()
+                                );
+                                continue;
+                            };
+
+                            if width.clone().is_some_and(|width| width != *toml_width) {
+                                warn!(
+                                    "Skipping toml file {:?}. Bit widths do not match.",
+                                    toml_file.path()
+                                );
+                                continue;
+                            } else {
+                                width = Some(toml_width.clone());
+                            }
+
+                            tomls.push(toml_parsed)
+                        }
+                    }
+                }
+
+                if let Some(width) = width.and_then(|width| width.as_integer()) {
+                    decoders.push(Box::new(InstructionTranslator {
+                        name,
+                        decoder: Decoder::new_from_table(tomls),
+                        num_bits: width.unsigned_abs(),
+                    }));
+                }
+            }
+        }
+    }
+    decoders
+}
+
 pub fn all_translators() -> TranslatorList {
+    let mut basic_decoders: Vec<Box<dyn BasicTranslator>> = vec![
+        Box::new(BitTranslator {}),
+        Box::new(HexTranslator {}),
+        Box::new(OctalTranslator {}),
+        Box::new(UnsignedTranslator {}),
+        Box::new(SignedTranslator {}),
+        Box::new(GroupingBinaryTranslator {}),
+        Box::new(BinaryTranslator {}),
+        Box::new(ASCIITranslator {}),
+        Box::new(SinglePrecisionTranslator {}),
+        Box::new(DoublePrecisionTranslator {}),
+        Box::new(HalfPrecisionTranslator {}),
+        Box::new(BFloat16Translator {}),
+        Box::new(Posit32Translator {}),
+        Box::new(Posit16Translator {}),
+        Box::new(Posit8Translator {}),
+        Box::new(PositQuire8Translator {}),
+        Box::new(PositQuire16Translator {}),
+        Box::new(E5M2Translator {}),
+        Box::new(E4M3Translator {}),
+        Box::new(InstructionTranslator {
+            name: "RV32".into(),
+            decoder: Decoder::new(&[
+                include_str!("../../instruction-decoder/toml/RV32I.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32M.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32Zicsr.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32F.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32A.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32D.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32V.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32_Zbb.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV32_Zbs.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV_Zba.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV_Zbc.toml").to_string(),
+            ]),
+            num_bits: 32,
+        }),
+        Box::new(InstructionTranslator {
+            name: "RV64".into(),
+            decoder: Decoder::new(&[
+                include_str!("../../instruction-decoder/toml/RV64_Zbb.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV64_Zbs.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV_Zba.toml").to_string(),
+                include_str!("../../instruction-decoder/toml/RV_Zbc.toml").to_string(),
+            ]),
+            num_bits: 32,
+        }),
+        Box::new(InstructionTranslator {
+            name: "Mips".into(),
+            decoder: Decoder::new(&[
+                include_str!("../../instruction-decoder/toml/mips.toml").to_string()
+            ]),
+            num_bits: 32,
+        }),
+        Box::new(LebTranslator {}),
+        #[cfg(feature = "f128")]
+        Box::new(QuadPrecisionTranslator {}),
+    ];
+
+    #[cfg(not(target_arch = "wasm32"))]
+    basic_decoders.append(&mut find_user_decoders());
+
     TranslatorList::new(
-        vec![
-            Box::new(BitTranslator {}),
-            Box::new(HexTranslator {}),
-            Box::new(OctalTranslator {}),
-            Box::new(UnsignedTranslator {}),
-            Box::new(SignedTranslator {}),
-            Box::new(GroupingBinaryTranslator {}),
-            Box::new(BinaryTranslator {}),
-            Box::new(ASCIITranslator {}),
-            Box::new(SinglePrecisionTranslator {}),
-            Box::new(DoublePrecisionTranslator {}),
-            Box::new(HalfPrecisionTranslator {}),
-            Box::new(BFloat16Translator {}),
-            Box::new(Posit32Translator {}),
-            Box::new(Posit16Translator {}),
-            Box::new(Posit8Translator {}),
-            Box::new(PositQuire8Translator {}),
-            Box::new(PositQuire16Translator {}),
-            Box::new(E5M2Translator {}),
-            Box::new(E4M3Translator {}),
-            Box::new(InstructionTranslator {
-                name: "RV32IMAFDZicsr".into(),
-                decoder: Decoder::new(&[
-                    include_str!("../../instruction-decoder/toml/RV32I.toml").to_string(),
-                    include_str!("../../instruction-decoder/toml/RV32M.toml").to_string(),
-                    include_str!("../../instruction-decoder/toml/RV32A.toml").to_string(),
-                    include_str!("../../instruction-decoder/toml/RV32F.toml").to_string(),
-                    include_str!("../../instruction-decoder/toml/RV32D.toml").to_string(),
-                ]),
-            }),
-            Box::new(InstructionTranslator {
-                name: "Mips".into(),
-                decoder: Decoder::new(&[
-                    include_str!("../../instruction-decoder/toml/mips.toml").to_string()
-                ]),
-            }),
-            Box::new(LebTranslator {}),
-            #[cfg(feature = "f128")]
-            Box::new(QuadPrecisionTranslator {}),
-        ],
+        basic_decoders,
         vec![
             Box::new(clock::ClockTranslator::new()),
             Box::new(StringTranslator {}),
