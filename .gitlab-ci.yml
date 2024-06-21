@@ -138,7 +138,13 @@ coverage:
         - rustc -V
         - cargo -V
         - shopt -s globstar
-        - cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --exclude-files spade/**/* fzcmd/**/* f128/**/* --skip-clean --color Always
+        - >
+          cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --skip-clean --color Always
+          --exclude-files
+          spade/**/*
+          fzcmd/**/*
+          f128/**/*
+          instruction-decoder/**/*
     coverage: '/^\d+.\d+% coverage/'
     artifacts:
         reports:
@@ -148,14 +154,21 @@ coverage:
         expire_in: 1 week
     allow_failure: true # Often runs out of disk space
 
-cargo-fmt:
+pre-commit:
     stage: test
-    cache: [ ] # Nothing to cache
+    variables:
+      PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+    cache:
+      paths:
+        - ${PRE_COMMIT_HOME}
     before_script:
+        - apt update -y
+        - apt install python3 pre-commit -y
+        - pre-commit install
         - rustup component add rustfmt
+        - git fetch origin ${CI_DEFAULT_BRANCH}
     script:
-        # pass --check to rustfmt to error if un-formatted
-        - cargo fmt -- --check
+        - SKIP=cargo-test,cargo-check pre-commit run --from-ref origin/${CI_DEFAULT_BRANCH} --to-ref HEAD
 
 typos-and-todos:
     stage: test
