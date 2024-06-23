@@ -195,7 +195,7 @@ impl State {
                 .inner
                 .variables_in_scope(scope)
                 .iter()
-                .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
+                .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
                 .cloned()
                 .collect_vec()
         } else {
@@ -206,7 +206,7 @@ impl State {
                     self.variable_name_filter_case_insensitive,
                 )
                 .iter()
-                .sorted_by(|a, b| human_sort::compare(&a.name, &b.name))
+                .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
                 .cloned()
                 .collect_vec()
         }
