@@ -1877,20 +1877,16 @@ impl State {
     }
 
     fn load_state(&mut self, mut loaded_state: crate::State, path: Option<PathBuf>) {
-        mem::swap(&mut self.config, &mut loaded_state.config);
-        self.show_hierarchy = loaded_state.show_hierarchy;
-        self.show_menu = loaded_state.show_menu;
-        self.show_ticks = loaded_state.show_ticks;
-        self.show_toolbar = loaded_state.show_toolbar;
-        self.show_overview = loaded_state.show_overview;
-        self.show_statusbar = loaded_state.show_statusbar;
-        self.align_names_right = loaded_state.align_names_right;
-        self.show_variable_indices = loaded_state.show_variable_indices;
+        // first swap everything, fix special cases afterwards
+        mem::swap(self, &mut loaded_state);
 
-        // skip
-        // - inner: we don't want to load a different file, just what is shown
-        // - source: ^^
-        // - format: ^^
+        // system state is not exported and instance specific, swap back
+        // we need to do this before fixing wave files which e.g. use the translator list
+        mem::swap(&mut self.sys, &mut loaded_state.sys);
+
+        // swap back waves for inner, source, format since we want to keep the file
+        // fix up all wave references from paths if a wave is loaded
+        mem::swap(&mut loaded_state.waves, &mut self.waves);
         let load_commands = if let (Some(waves), Some(new_waves)) =
             (&mut self.waves, &mut loaded_state.waves)
         {
@@ -1913,6 +1909,7 @@ impl State {
         if let Some(load_commands) = load_commands {
             self.load_variables(load_commands)
         };
+
         // reset drag to avoid confusion
         self.drag_started = false;
         self.drag_source_idx = None;
@@ -1922,31 +1919,9 @@ impl State {
         self.previous_waves = None;
         self.count = None;
 
-        self.show_about = loaded_state.show_about;
-        self.show_keys = loaded_state.show_keys;
-        self.show_gestures = loaded_state.show_gestures;
-        self.show_quick_start = loaded_state.show_quick_start;
-        self.show_license = loaded_state.show_license;
-        self.show_performance = loaded_state.show_performance;
-        self.show_logs = loaded_state.show_logs;
-        self.show_cursor_window = loaded_state.show_cursor_window;
-        self.wanted_timeunit = loaded_state.wanted_timeunit;
-        self.time_string_format = loaded_state.time_string_format;
-        self.show_url_entry = loaded_state.show_url_entry;
-        self.variable_name_filter_focused = loaded_state.variable_name_filter_focused;
-        mem::swap(
-            &mut self.variable_name_filter_type,
-            &mut loaded_state.variable_name_filter_type,
-        );
-        self.variable_name_filter_case_insensitive =
-            loaded_state.variable_name_filter_case_insensitive;
-
-        self.ui_zoom_factor = loaded_state.ui_zoom_factor;
-
-        // use just loaded path instead of stored since file might have been moved
+        // use just loaded path since path is not part of the export as it might have changed anyways
         self.state_file = path;
-
-        // skip rename target to avoid confusion from stored state
+        self.rename_target = None;
 
         self.invalidate_draw_commands();
         if let Some(waves) = &mut self.waves {
