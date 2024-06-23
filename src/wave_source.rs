@@ -2,7 +2,9 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Mutex;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
@@ -19,8 +21,10 @@ use web_time::Instant;
 
 use crate::message::{BodyResult, HeaderResult};
 use crate::remote::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::wave_container::WaveContainer;
 use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
-use crate::{message::Message, wave_container::WaveContainer, State};
+use crate::{message::Message, State};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum WaveSource {
@@ -597,10 +601,10 @@ impl State {
         let sender = self.sys.channels.msg_sender.clone();
 
         perform_async_work(async move {
-            let source = if let Some(path) = path.clone() {
+            let source = if let Some(_path) = path.clone() {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    Some(path.into())
+                    Some(_path.into())
                 }
                 #[cfg(target_arch = "wasm32")]
                 {
@@ -632,16 +636,17 @@ impl State {
     }
 
     pub fn save_state_file(&mut self, path: Option<PathBuf>) {
+        #[cfg(not(target_arch = "wasm32"))]
         let sender = self.sys.channels.msg_sender.clone();
         let Some(encoded) = self.encode_state() else {
             return;
         };
 
         perform_async_work(async move {
-            let destination = if let Some(path) = path {
+            let destination = if let Some(_path) = path {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    Some(path.into())
+                    Some(_path.into())
                 }
                 #[cfg(target_arch = "wasm32")]
                 {
@@ -660,16 +665,14 @@ impl State {
             };
 
             #[cfg(not(target_arch = "wasm32"))]
-            {
-                sender
-                    .send(Message::SetStateFile(destination.path().into()))
-                    .unwrap();
-                destination
-                    .write(encoded.as_bytes())
-                    .await
-                    .map_err(|e| error!("Failed to write state {e:#?}"))
-                    .ok();
-            }
+            sender
+                .send(Message::SetStateFile(destination.path().into()))
+                .unwrap();
+            destination
+                .write(encoded.as_bytes())
+                .await
+                .map_err(|e| error!("Failed to write state {e:#?}"))
+                .ok();
         });
     }
 }
