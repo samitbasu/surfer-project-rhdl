@@ -458,8 +458,8 @@ impl State {
             (self.sys.translators.basic_translator_names(), vec![])
         };
 
-        preferred_translators.sort_by(|a, b| human_sort::compare(a, b));
-        bad_translators.sort_by(|a, b| human_sort::compare(a, b));
+        preferred_translators.sort_by(|a, b| numeric_sort::cmp(a, b));
+        bad_translators.sort_by(|a, b| numeric_sort::cmp(a, b));
 
         let selected_translator = match displayed_item {
             DisplayedItem::Variable(var) => Some(var),
