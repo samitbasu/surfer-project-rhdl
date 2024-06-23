@@ -1518,7 +1518,13 @@ impl State {
             Message::SaveStateFile(path) => self.save_state_file(path),
             Message::LoadStateFile(path) => self.load_state_file(path),
             Message::LoadState(state, path) => self.load_state(state, path),
-            Message::SetStateFile(path) => self.state_file = Some(path),
+            Message::SetStateFile(path) => {
+                // since in wasm we can't support "save", only "save as" - never set the `state_file`
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    self.state_file = Some(path)
+                }
+            }
             Message::SetAboutVisible(s) => self.show_about = s,
             Message::SetKeyHelpVisible(s) => self.show_keys = s,
             Message::SetGestureHelpVisible(s) => self.show_gestures = s,
