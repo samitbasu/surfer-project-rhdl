@@ -148,14 +148,23 @@ coverage:
         expire_in: 1 week
     allow_failure: true # Often runs out of disk space
 
-cargo-fmt:
+pre-commit:
     stage: test
-    cache: [ ] # Nothing to cache
+    variables:
+      PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+    cache:
+      paths:
+        - ${PRE_COMMIT_HOME}
     before_script:
+        - apt update -y
+        - apt install python3 pre-commit -y
+        - git --version
+        - apt update git -y
+        - git --version
+        - pre-commit install
         - rustup component add rustfmt
     script:
-        # pass --check to rustfmt to error if un-formatted
-        - cargo fmt -- --check
+        - SKIP=cargo-test,cargo-check pre-commit run --from-ref origin/HEAD --to-ref HEAD
 
 typos-and-todos:
     stage: test
