@@ -23,7 +23,9 @@ repos:
     rev: v1.0
     hooks:
     - id: fmt
+      types: ["rust"]
     - id: cargo-check
+      types: ["rust"]
   - repo: https://github.com/shssoichiro/oxipng
     rev: v9.1.1
     hooks:
@@ -35,3 +37,4 @@ repos:
         entry: cargo test
         language: system
         pass_filenames: false
+        types: ["rust", "png", "toml"]
