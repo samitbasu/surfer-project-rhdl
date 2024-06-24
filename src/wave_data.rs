@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 
-use color_eyre::eyre::{Result, WrapErr};
+use color_eyre::eyre::{bail, Result, WrapErr};
 use log::{error, warn};
 use num::bigint::ToBigInt as _;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
+use crate::displayed_item::DisplayedGroup;
 use crate::{
     displayed_item::{
         DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
@@ -33,8 +35,9 @@ pub struct WaveData {
     /// Root items (variables, dividers, ...) to display
     pub displayed_items_order: Vec<DisplayedItemRef>,
     pub displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
+    pub item_group: HashMap<DisplayedItemRef, DisplayedItemRef>, // TODO merge into DisplayedItem
     /// Tracks the consecutive displayed item refs
-    pub display_item_ref_counter: usize,
+    pub display_item_ref_counter: NonZeroUsize,
     pub viewports: Vec<Viewport>,
     pub cursor: Option<BigInt>,
     /// When right clicking we'll create a temporary cursor that shows where right click
@@ -136,6 +139,7 @@ impl WaveData {
             active_scope,
             displayed_items_order: self.displayed_items_order,
             displayed_items: display_items,
+            item_group: self.item_group,
             display_item_ref_counter: self.display_item_ref_counter,
             viewports: self.viewports,
             cursor: self.cursor.clone(),
@@ -170,7 +174,7 @@ impl WaveData {
             .keys()
             .map(|dir| dir.0)
             .max()
-            .unwrap_or(0);
+            .unwrap_or(NonZeroUsize::new(1).unwrap());
 
         self.update_metadata(translators);
         self.load_waves()
@@ -251,7 +255,8 @@ impl WaveData {
                     // keep without a change
                     DisplayedItem::Divider(_)
                     | DisplayedItem::Marker(_)
-                    | DisplayedItem::TimeLine(_) => Some((*id, i.clone())),
+                    | DisplayedItem::TimeLine(_)
+                    | DisplayedItem::Group(_) => Some((*id, i.clone())), // TODO think about this later
                     DisplayedItem::Variable(s) => {
                         s.update(waves, keep_unavailable).map(|r| (*id, r))
                     }
@@ -367,33 +372,57 @@ impl WaveData {
         res
     }
 
-    pub fn remove_displayed_item(&mut self, count: usize, idx: DisplayedItemIndex) {
-        let idx = idx.0;
+    // TODO implement removal of groups
+    pub fn remove_displayed_items(&mut self, count: usize, idx: DisplayedItemIndex) {
         for _ in 0..count {
-            let visible_items_len = self.displayed_items_order.len();
-            if let Some(DisplayedItem::Marker(marker)) = self
+            match self
                 .displayed_items_order
-                .get(idx)
+                .get(idx.0)
                 .and_then(|id| self.displayed_items.get(id))
             {
-                self.markers.remove(&marker.idx);
-            }
-            if visible_items_len > 0 && idx <= (visible_items_len - 1) {
-                let displayed_item_id = self.displayed_items_order[idx];
+                Some(DisplayedItem::Marker(marker)) => {
+                    self.markers.remove(&marker.idx);
+                }
+                Some(DisplayedItem::Group(group)) if group.is_open => self.toggle_group(idx),
+                _ => (),
+            };
+
+            // TODO group is closed, so items are removed from display_items_order already - but all items need to be
+            // removed from display_items and item_groups to clean up
+
+            let idx = idx.0;
+
+            let visible_items_len = self.displayed_items_order.len();
+            if let Some(displayed_item_ref) = self.displayed_items_order.get(idx) {
+                if let Some(group_ref) = self.item_group.get(displayed_item_ref) {
+                    let Some(DisplayedItem::Group(group)) = self.displayed_items.get_mut(group_ref)
+                    else {
+                        panic!("Referenced group could not be found");
+                    };
+                    let item_idx = group
+                        .content
+                        .iter()
+                        .position(|i| *i == *displayed_item_ref)
+                        .expect("Could not find referenced element");
+                    group.content.remove(item_idx);
+                }
+                self.displayed_items.remove(displayed_item_ref);
+                self.item_group.remove(displayed_item_ref);
                 self.displayed_items_order.remove(idx);
-                self.displayed_items.remove(&displayed_item_id);
-                if let Some(DisplayedItemIndex(focused)) = self.focused_item {
-                    if focused == idx {
+                match self.focused_item {
+                    Some(DisplayedItemIndex(f)) if f == idx => {
                         if (idx > 0) && (idx == (visible_items_len - 1)) {
                             // if the end of list is selected
                             self.focused_item = Some((idx - 1).into());
                         }
-                    } else if idx < focused {
-                        self.focused_item = Some((focused - 1).into())
                     }
-                    if !self.any_displayed() {
+                    Some(DisplayedItemIndex(f)) if idx < f => {
+                        self.focused_item = Some((f - 1).into())
+                    }
+                    Some(DisplayedItemIndex(_)) if !self.any_displayed() => {
                         self.focused_item = None;
                     }
+                    _ => (),
                 }
             }
         }
@@ -422,21 +451,98 @@ impl WaveData {
         );
     }
 
+    pub fn group_signals(&mut self, count: usize) {
+        let Some(selected) = self.focused_item else {
+            log::error!("won't select since no start element is selected");
+            return;
+        };
+
+        // check if there are enough signals to group
+        // TODO check if we are in a group, breaking it...
+
+        if count + selected.0 > self.displayed_items_order.len() {
+            log::error!("too many elements to group");
+            return;
+        }
+
+        let items = self.displayed_items_order[selected.0..selected.0 + count].to_vec();
+        let id = self.next_displayed_item_ref();
+        items.iter().for_each(|item| {
+            self.item_group.insert(*item, id);
+        });
+
+        let group = DisplayedGroup {
+            name: format!("group {}", id.0),
+            color: None,
+            background_color: None,
+            content: items,
+            is_open: true,
+        };
+
+        self.displayed_items.insert(id, DisplayedItem::Group(group));
+        self.displayed_items_order.insert(selected.0, id);
+        // TODO fix if inserting inside group
+    }
+
+    pub fn toggle_group(&mut self, idx: DisplayedItemIndex) {
+        let Some(group_ref) = self.displayed_items_order.get(idx.0) else {
+            log::error!("can't fold, invalid id: {:?}", idx);
+            return;
+        };
+        let Some(DisplayedItem::Group(group)) = self.displayed_items.get_mut(group_ref) else {
+            log::error!("can't fold, not a group: {:?}", idx);
+            return;
+        };
+
+        match group.is_open {
+            true => {
+                self.displayed_items_order
+                    .drain(idx.0 + 1..idx.0 + 1 + group.content.len());
+            }
+            false => {
+                self.displayed_items_order
+                    .splice(idx.0 + 1..idx.0 + 1, group.content.iter().cloned());
+            }
+        }
+        group.is_open = !group.is_open;
+        // TODO fix selected item
+    }
+
     /// Insert item after item vidx if Some(vidx).
     /// If None, insert after focused item if there is one, otherwise insert at the end.
     /// Focus on the inserted item if there was a focues item.
     fn insert_item(&mut self, new_item: DisplayedItem, vidx: Option<DisplayedItemIndex>) {
-        if let Some(DisplayedItemIndex(current_idx)) = vidx {
-            let insert_idx = current_idx + 1;
+        if let Some(anchor_idx) = vidx.or(self.focused_item) {
+            let insert_idx = anchor_idx.0 + 1;
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.insert(insert_idx, id);
             self.displayed_items.insert(id, new_item);
-        } else if let Some(DisplayedItemIndex(focus_idx)) = self.focused_item {
-            let insert_idx = focus_idx + 1;
-            let id = self.next_displayed_item_ref();
-            self.displayed_items_order.insert(insert_idx, id);
-            self.displayed_items.insert(id, new_item);
-            self.focused_item = Some(insert_idx.into());
+
+            if vidx.is_none() {
+                self.focused_item = Some(insert_idx.into());
+            }
+
+            let anchor_ref = self.displayed_items_order.get(anchor_idx.0).expect("");
+            if let Some(DisplayedItem::Group(group)) = self.displayed_items.get_mut(anchor_ref) {
+                if group.is_open {
+                    group.content.insert(0, id);
+                    self.item_group.insert(id, *anchor_ref);
+                    return;
+                }
+            }
+            if let Some(group_ref) = self.item_group.get(anchor_ref) {
+                if let Some(DisplayedItem::Group(group)) = self.displayed_items.get_mut(group_ref) {
+                    let group_insert_idx = group
+                        .content
+                        .iter()
+                        .position(|d| *d == *anchor_ref)
+                        .expect("")
+                        + 1;
+                    group.content.insert(group_insert_idx, id);
+                } else {
+                    log::error!("can't fold, not a group: {:?}", group_ref);
+                }
+            }
         } else {
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.push(id);
@@ -477,6 +583,8 @@ impl WaveData {
         let remaining_ids = self.displayed_items_order.clone();
         self.displayed_items_order
             .retain(|i| remaining_ids.contains(i));
+
+        // TODO fix up all groups...
     }
 
     #[inline]
@@ -602,7 +710,10 @@ impl WaveData {
     }
 
     pub fn next_displayed_item_ref(&mut self) -> DisplayedItemRef {
-        self.display_item_ref_counter += 1;
+        self.display_item_ref_counter = self
+            .display_item_ref_counter
+            .checked_add(1)
+            .expect("Error incrementing display item ref counter");
         self.display_item_ref_counter.into()
     }
 

@@ -110,6 +110,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt::Display;
 use std::mem;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
@@ -782,6 +783,20 @@ impl State {
                     waves.add_timeline(vidx);
                 }
             }
+            Message::GroupSignals(count) => {
+                self.save_current_canvas("Group signals".into());
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.group_signals(count);
+                    self.invalidate_draw_commands();
+                }
+            }
+            Message::ToggleGroup(idx) => {
+                self.save_current_canvas("Toggling group".into());
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.toggle_group(idx);
+                    self.invalidate_draw_commands();
+                }
+            }
             Message::AddScope(scope) => {
                 self.save_current_canvas(format!("Add scope {}", scope.name()));
 
@@ -920,7 +935,7 @@ impl State {
                     .unwrap_or("".to_string());
                 self.save_current_canvas(format!("Remove item {}", name));
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.remove_displayed_item(count, idx);
+                    waves.remove_displayed_items(count, idx);
                     self.invalidate_draw_commands();
                 }
             }
@@ -1744,6 +1759,7 @@ impl State {
                     active_scope: None,
                     displayed_items_order: vec![],
                     displayed_items: HashMap::new(),
+                    item_group: HashMap::new(),
                     viewports,
                     cursor: None,
                     right_cursor: None,
@@ -1755,7 +1771,7 @@ impl State {
                     drawing_infos: vec![],
                     top_item_draw_offset: 0.,
                     total_height: 0.,
-                    display_item_ref_counter: 0,
+                    display_item_ref_counter: NonZeroUsize::new(1).unwrap(),
                     old_num_timestamps: None,
                 },
                 None,

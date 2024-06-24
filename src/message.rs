@@ -189,6 +189,9 @@ pub enum Message {
     // Argument is position to insert after, None inserts after focused item,
     // or last if no focused item
     AddTimeLine(Option<DisplayedItemIndex>),
+    // number of signals to group after selected signal
+    GroupSignals(usize),
+    ToggleGroup(DisplayedItemIndex),
     ToggleTickLines,
     ToggleVariableTooltip,
     /// Set a marker at a specific position. If it doesn't exist, it will be created

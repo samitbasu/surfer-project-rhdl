@@ -195,6 +195,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "undo",
             "redo",
             "exit",
+            "group",
+            "toggle",
         ]
     } else {
         vec![
@@ -528,6 +530,23 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "undo" => Some(Command::Terminal(Message::Undo(1))),
                 "redo" => Some(Command::Terminal(Message::Redo(1))),
                 "exit" => Some(Command::Terminal(Message::Exit)),
+                "group" => single_word(
+                    vec![],
+                    Box::new(|word| match word.parse() {
+                        Ok(n) => Some(Command::Terminal(Message::GroupSignals(n))),
+                        Err(_) => None,
+                    }),
+                ),
+                "toggle" => single_word(
+                    vec![],
+                    Box::new(|word| {
+                        let n: Result<usize, _> = word.parse();
+                        match n {
+                            Ok(n) => Some(Command::Terminal(Message::ToggleGroup(n.into()))),
+                            Err(_) => None,
+                        }
+                    }),
+                ),
                 _ => None,
             }
         }),

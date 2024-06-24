@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use eframe::egui::{Context, FontSelection, Key, RichText, Style, WidgetText, Window};
 use eframe::emath::Align;
 use eframe::epaint::{text::LayoutJob, Color32};
@@ -12,10 +14,16 @@ use crate::{
 const DEFAULT_DIVIDER_NAME: &str = "";
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct DisplayedItemRef(pub usize);
+pub struct DisplayedItemRef(pub NonZeroUsize);
 
 impl From<usize> for DisplayedItemRef {
     fn from(item: usize) -> Self {
+        DisplayedItemRef(item.try_into().expect("Invalid usize for DisplayedItemRef"))
+    }
+}
+
+impl From<NonZeroUsize> for DisplayedItemRef {
+    fn from(item: NonZeroUsize) -> Self {
         DisplayedItemRef(item)
     }
 }
@@ -44,6 +52,7 @@ impl From<DisplayedItemRef> for DisplayedFieldRef {
     }
 }
 
+// Index into the [`WaveData::display_item_order`] array
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct DisplayedItemIndex(pub usize);
 
@@ -60,6 +69,7 @@ pub enum DisplayedItem {
     Marker(DisplayedMarker),
     TimeLine(DisplayedTimeLine),
     Placeholder(DisplayedPlaceholder),
+    Group(DisplayedGroup),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -208,6 +218,15 @@ impl DisplayedPlaceholder {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DisplayedGroup {
+    pub name: String,
+    pub color: Option<String>,
+    pub background_color: Option<String>,
+    pub content: Vec<DisplayedItemRef>,
+    pub is_open: bool,
+}
+
 impl DisplayedItem {
     pub fn color(&self) -> Option<String> {
         match self {
@@ -216,6 +235,7 @@ impl DisplayedItem {
             DisplayedItem::Marker(marker) => marker.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
             DisplayedItem::Placeholder(_) => None,
+            DisplayedItem::Group(group) => group.color.clone(),
         }
     }
 
@@ -226,9 +246,11 @@ impl DisplayedItem {
             DisplayedItem::Marker(marker) => marker.color.clone_from(&color_name),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone_from(&color_name),
             DisplayedItem::Placeholder(placeholder) => placeholder.color.clone_from(&color_name),
+            DisplayedItem::Group(group) => group.color.clone_from(&color_name),
         }
     }
 
+    // TODO return a reference here?
     pub fn name(&self) -> String {
         match self {
             DisplayedItem::Variable(variable) => variable
@@ -252,6 +274,7 @@ impl DisplayedItem {
                 .as_ref()
                 .unwrap_or(&placeholder.display_name)
                 .clone(),
+            DisplayedItem::Group(group) => group.name.clone(),
         }
     }
 
@@ -285,6 +308,9 @@ impl DisplayedItem {
                     .italics()
                     .append_to(layout_job, style, FontSelection::Default, Align::Center)
             }
+            DisplayedItem::Group(group) => RichText::new(group.name.clone())
+                .color(*color)
+                .append_to(layout_job, style, FontSelection::Default, Align::Center),
         }
     }
 
@@ -305,6 +331,10 @@ impl DisplayedItem {
             DisplayedItem::Placeholder(placeholder) => {
                 placeholder.manual_name = name;
             }
+            DisplayedItem::Group(group) if name.is_some() => {
+                group.name = name.unwrap();
+            }
+            DisplayedItem::Group(_) => (),
         }
     }
 
@@ -315,6 +345,7 @@ impl DisplayedItem {
             DisplayedItem::Marker(marker) => &marker.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
             DisplayedItem::Placeholder(_) => &None,
+            DisplayedItem::Group(group) => &group.background_color,
         };
         background_color.clone()
     }
@@ -335,6 +366,9 @@ impl DisplayedItem {
             }
             DisplayedItem::Placeholder(placeholder) => {
                 placeholder.background_color.clone_from(&color_name);
+            }
+            DisplayedItem::Group(group) => {
+                group.background_color.clone_from(&color_name);
             }
         }
     }

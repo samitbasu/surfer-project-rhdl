@@ -724,6 +724,14 @@ impl State {
                             ui,
                             draw_alpha,
                         ),
+                        DisplayedItem::Group(_) => self.draw_plain_item(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        ),
                     };
                     self.draw_drag_target(
                         msgs,
@@ -1026,6 +1034,7 @@ impl State {
             }
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
+            &DisplayedItem::Group(_) => {}
         }
         label.rect
     }
