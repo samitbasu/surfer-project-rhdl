@@ -339,18 +339,21 @@ impl BasicTranslator for InstructionTranslator {
     }
 
     fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
-        let u32_value = match value {
-            VariableValue::BigUint(v) => v.to_u32_digits().last().cloned(),
+        let u64_value = match value {
+            VariableValue::BigUint(v) => v.to_u64_digits().last().cloned(),
             VariableValue::String(s) => match check_vector_variable(s) {
                 Some(v) => return v,
-                None => u32::from_str_radix(s, 2).ok(),
+                None => u64::from_str_radix(s, 2).ok(),
             },
         }
         .unwrap_or(0);
 
-        match self.decoder.decode_from_u32(u32_value, num_bits as usize) {
+        match self
+            .decoder
+            .decode_from_i64(u64_value as i64, num_bits as usize)
+        {
             Ok(iform) => (iform, ValueKind::Normal),
-            _ => (format!("UNKNOWN INSN ({:#x})", u32_value), ValueKind::Warn),
+            _ => (format!("UNKNOWN INSN ({:#x})", u64_value), ValueKind::Warn),
         }
     }
 
