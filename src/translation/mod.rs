@@ -5,6 +5,7 @@ use color_eyre::Result;
 use directories::ProjectDirs;
 use eframe::epaint::Color32;
 use log::warn;
+use std::path::Path;
 use toml::Table;
 
 mod basic_translators;
@@ -25,7 +26,7 @@ use crate::{
     wave_container::{VariableMeta, VariableValue},
 };
 
-/// Look inside the config directory for user-defined decoders
+/// Look inside the config directory and inside "$(cwd)/.surfer" for user-defined decoders
 /// To add a new decoder named 'x', add a directory 'x' to the decoders directory
 /// Inside, multiple toml files can be added which will all be used for decoding 'x'
 /// This is useful e.g., for layering RISC-V extensions
@@ -33,74 +34,86 @@ use crate::{
 fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
     let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
     if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
-        let Ok(decoder_dirs) = std::fs::read_dir(proj_dirs.config_dir().join("decoders")) else {
-            return vec![];
-        };
+        let mut config_decoders = find_user_decoders_at_path(proj_dirs.config_dir());
+        decoders.append(&mut config_decoders);
+    }
 
-        for decoder_dir in decoder_dirs.flatten() {
-            if decoder_dir.metadata().is_ok_and(|m| m.is_dir()) {
-                let Ok(name) = decoder_dir.file_name().into_string() else {
-                    warn!("Cannot load decoder. Invalid name.");
-                    continue;
-                };
-                let mut tomls = vec![];
-                // Keeps track of the bit width of the first parsed toml
-                // All tomls must use the same width
-                let mut width: Option<toml::Value> = None;
+    let mut project_decoders = find_user_decoders_at_path(Path::new(".surfer"));
+    decoders.append(&mut project_decoders);
 
-                if let Ok(toml_files) = std::fs::read_dir(decoder_dir.path()) {
-                    for toml_file in toml_files.flatten() {
-                        if toml_file
-                            .file_name()
-                            .into_string()
-                            .is_ok_and(|file_name| file_name.ends_with(".toml"))
-                        {
-                            let Ok(text) = std::fs::read_to_string(toml_file.path()) else {
-                                warn!(
-                                    "Skipping toml file {:?}. Cannot read file.",
-                                    toml_file.path()
-                                );
-                                continue;
-                            };
+    decoders
+}
 
-                            let Ok(toml_parsed) = text.parse::<Table>() else {
-                                warn!(
-                                    "Skipping toml file {:?}. Cannot parse toml.",
-                                    toml_file.path()
-                                );
-                                continue;
-                            };
+/// Look for user defined decoders in path.
+fn find_user_decoders_at_path(path: &Path) -> Vec<Box<dyn BasicTranslator>> {
+    let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
+    let Ok(decoder_dirs) = std::fs::read_dir(path.join("decoders")) else {
+        return decoders;
+    };
 
-                            let Some(toml_width) = toml_parsed.get("width") else {
-                                warn!(
-                                    "Skipping toml file {:?}. Mandatory key 'width' is missing.",
-                                    toml_file.path()
-                                );
-                                continue;
-                            };
+    for decoder_dir in decoder_dirs.flatten() {
+        if decoder_dir.metadata().is_ok_and(|m| m.is_dir()) {
+            let Ok(name) = decoder_dir.file_name().into_string() else {
+                warn!("Cannot load decoder. Invalid name.");
+                continue;
+            };
+            let mut tomls = vec![];
+            // Keeps track of the bit width of the first parsed toml
+            // All tomls must use the same width
+            let mut width: Option<toml::Value> = None;
 
-                            if width.clone().is_some_and(|width| width != *toml_width) {
-                                warn!(
-                                    "Skipping toml file {:?}. Bit widths do not match.",
-                                    toml_file.path()
-                                );
-                                continue;
-                            } else {
-                                width = Some(toml_width.clone());
-                            }
+            if let Ok(toml_files) = std::fs::read_dir(decoder_dir.path()) {
+                for toml_file in toml_files.flatten() {
+                    if toml_file
+                        .file_name()
+                        .into_string()
+                        .is_ok_and(|file_name| file_name.ends_with(".toml"))
+                    {
+                        let Ok(text) = std::fs::read_to_string(toml_file.path()) else {
+                            warn!(
+                                "Skipping toml file {:?}. Cannot read file.",
+                                toml_file.path()
+                            );
+                            continue;
+                        };
 
-                            tomls.push(toml_parsed)
+                        let Ok(toml_parsed) = text.parse::<Table>() else {
+                            warn!(
+                                "Skipping toml file {:?}. Cannot parse toml.",
+                                toml_file.path()
+                            );
+                            continue;
+                        };
+
+                        let Some(toml_width) = toml_parsed.get("width") else {
+                            warn!(
+                                "Skipping toml file {:?}. Mandatory key 'width' is missing.",
+                                toml_file.path()
+                            );
+                            continue;
+                        };
+
+                        if width.clone().is_some_and(|width| width != *toml_width) {
+                            warn!(
+                                "Skipping toml file {:?}. Bit widths do not match.",
+                                toml_file.path()
+                            );
+                            continue;
+                        } else {
+                            width = Some(toml_width.clone());
                         }
+
+                        tomls.push(toml_parsed)
                     }
                 }
+            }
 
-                if let Some(width) = width.and_then(|width| width.as_integer()) {
-                    decoders.push(Box::new(InstructionTranslator {
-                        name,
-                        decoder: Decoder::new_from_table(tomls),
-                        num_bits: width.unsigned_abs(),
-                    }));
-                }
+            if let Some(width) = width.and_then(|width| width.as_integer()) {
+                decoders.push(Box::new(InstructionTranslator {
+                    name,
+                    decoder: Decoder::new_from_table(tomls),
+                    num_bits: width.unsigned_abs(),
+                }));
             }
         }
     }
