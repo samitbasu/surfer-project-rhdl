@@ -37,4 +37,4 @@ repos:
         entry: cargo test
         language: system
         pass_filenames: false
-        types: ["rust", "png", "toml"]
+        types_or: ["rust", "png", "toml"]
