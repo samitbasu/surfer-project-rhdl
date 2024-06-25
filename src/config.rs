@@ -369,45 +369,55 @@ impl SurferTheme {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new(theme_name: Option<String>) -> color_eyre::Result<Self> {
+        use std::fs::ReadDir;
+
         use color_eyre::eyre::anyhow;
 
         let (mut theme, mut theme_names) = Self::generate_defaults(&theme_name);
 
-        if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
-            let theme_dir = proj_dirs.config_dir().join("themes");
-            let entries = std::fs::read_dir(theme_dir);
-
-            if let Ok(entries) = entries {
-                for entry in entries.flatten() {
-                    if entry
-                        .file_name()
-                        .into_string()
-                        .is_ok_and(|file_name| file_name.ends_with(".toml"))
-                    {
-                        let fname = entry
-                            .file_name()
-                            .into_string()
-                            .unwrap()
-                            .strip_suffix(".toml")
-                            .unwrap_or("")
-                            .to_string();
+        let mut add_themes_from_dir = |dir: ReadDir| {
+            for theme in dir.flatten() {
+                if let Ok(theme_path) = theme.file_name().into_string() {
+                    if theme_path.ends_with(".toml") {
+                        let fname = theme_path.strip_suffix(".toml").unwrap().to_string();
                         if !fname.is_empty() && !theme_names.contains(&fname) {
                             theme_names.push(fname);
                         }
                     }
                 }
             }
+        };
+
+        // read themes from config directory
+        if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
+            let config_themes_dir = proj_dirs.config_dir().join("themes");
+            if let Ok(config_themes_dir) = std::fs::read_dir(config_themes_dir) {
+                add_themes_from_dir(config_themes_dir);
+            }
         }
 
-        if !theme_name.clone().unwrap_or("".to_string()).is_empty() {
-            if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
-                let theme_file = proj_dirs
-                    .config_dir()
-                    .join("themes/")
-                    .join(theme_name.unwrap())
-                    .with_extension("toml");
+        // read themes from project directory
+        if let Ok(project_themes_dir) = std::fs::read_dir(Path::new(".surfer").join("themes")) {
+            add_themes_from_dir(project_themes_dir);
+        };
 
-                theme = theme.add_source(File::from(theme_file).required(false));
+        if theme_name
+            .clone()
+            .is_some_and(|theme_name| !theme_name.is_empty())
+        {
+            let theme_path = Path::new("themes").join(theme_name.unwrap() + ".toml");
+            // first check if project theme exists
+            let project_theme_path = Path::new(".surfer").join(theme_path.clone());
+            if project_theme_path.exists() {
+                theme = theme.add_source(File::from(project_theme_path).required(false));
+            } else {
+                // if not, check in config directory
+                if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
+                    let config_theme_path = proj_dirs.config_dir().join(theme_path);
+                    if config_theme_path.exists() {
+                        theme = theme.add_source(File::from(config_theme_path).required(false));
+                    }
+                }
             }
         }
 
@@ -468,6 +478,7 @@ impl SurferConfig {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new(force_default_config: bool) -> color_eyre::Result<Self> {
         use color_eyre::eyre::anyhow;
+        use log::warn;
 
         let default_config = String::from(include_str!("../default_config.toml"));
 
@@ -482,8 +493,13 @@ impl SurferConfig {
                 config = config.add_source(File::from(config_file).required(false));
             }
 
+            if Path::new("surfer.toml").exists() {
+                warn!("Configuration in 'surfer.toml' is being deprecated soon. Please move your configuration to '.surfer/config.toml'.");
+            }
+
             config
                 .add_source(File::from(Path::new("surfer.toml")).required(false))
+                .add_source(File::from(Path::new(".surfer/config.toml")).required(false))
                 .add_source(Environment::with_prefix("surfer"))
         } else {
             config
