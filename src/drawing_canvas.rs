@@ -828,10 +828,14 @@ impl State {
                             .inner
                             .query_variable(&variable.variable_ref, &utimestamp)
                         {
-                            let prev_time = &res.current.unwrap().0.to_bigint().unwrap();
+                            let prev_time = if let Some(v) = res.current {
+                                v.0.to_bigint().unwrap()
+                            } else {
+                                BigInt::ZERO
+                            };
                             let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
                             let prev = viewport.pixel_from_time(
-                                prev_time,
+                                &prev_time,
                                 frame_width,
                                 &waves.num_timestamps(),
                             );
