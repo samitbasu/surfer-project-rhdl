@@ -598,41 +598,46 @@ pub fn show_command_prompt(
                     // allow scrolling down the suggestions
                     .collect_vec();
 
-                let expanded = expand_command(input, get_parser(state)).expanded;
-                if response.lost_focus() && response.ctx.input(|i| i.key_pressed(Key::Enter)) {
+                // Expand the current input to full command and append the suggestion that is selected in the ui.
+                let append_suggestion = |input: &String| -> String {
                     let new_input = if !state.sys.command_prompt.suggestions.is_empty() {
                         // if no suggestions exist we use the last argument in the input (e.g., for divider_add)
-                        let default = (
-                            0,
-                            &(
-                                input
-                                    .split_ascii_whitespace()
-                                    .last()
-                                    .unwrap_or("")
-                                    .to_string(),
-                                vec![false; input.len()],
-                            ),
-                        );
+                        let default = input
+                            .split_ascii_whitespace()
+                            .last()
+                            .unwrap_or("")
+                            .to_string();
 
                         let selection = suggestions
                             .get(state.sys.command_prompt.selected)
+                            .map(|s| &s.1 .0)
                             .unwrap_or(&default);
 
                         if input.chars().last().is_some_and(|c| c.is_whitespace()) {
                             // if no input exists for current argument just append
-                            input.to_owned() + " " + &selection.1 .0
+                            input.to_owned() + " " + selection
                         } else {
                             // if something was already typed for this argument removed then append
                             let parts = input.split_ascii_whitespace().collect_vec();
                             parts.iter().take(parts.len().saturating_sub(1)).join(" ")
                                 + " "
-                                + &selection.1 .0
+                                + selection
                         }
                     } else {
                         input.to_string()
                     };
+                    expand_command(&new_input, get_parser(state)).expanded
+                };
 
-                    let expanded = expand_command(&new_input, get_parser(state)).expanded;
+                if response.ctx.input(|i| i.key_pressed(Key::Tab)) {
+                    let new_input = append_suggestion(input);
+                    *input = new_input;
+                    set_cursor_to_pos(input.chars().count(), ui);
+                    run_fuzzy_parser(input, state, msgs);
+                }
+
+                if response.lost_focus() && response.ctx.input(|i| i.key_pressed(Key::Enter)) {
+                    let expanded = append_suggestion(input);
                     let parsed = (
                         expanded.clone(),
                         parse_command(&expanded, get_parser(state)),
@@ -656,6 +661,7 @@ pub fn show_command_prompt(
                 response.request_focus();
 
                 // draw current expansion of input and selected suggestions
+                let expanded = expand_command(input, get_parser(state)).expanded;
                 if !expanded.is_empty() {
                     ui.horizontal(|ui| {
                         let label = ui.label(
