@@ -311,9 +311,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "variable_add" => single_word(
                     variables.clone(),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::AddVariable(
+                        Some(Command::Terminal(Message::AddVariables(vec![
                             VariableRef::from_hierarchy_string(word),
-                        )))
+                        ])))
                     }),
                 ),
                 "variable_add_from_scope" => single_word(
@@ -323,10 +323,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         .collect(),
                     Box::new(move |name| {
                         active_scope.as_ref().map(|scope| {
-                            Command::Terminal(Message::AddVariable(VariableRef::new(
+                            Command::Terminal(Message::AddVariables(vec![VariableRef::new(
                                 scope.clone(),
                                 name.to_string(),
-                            )))
+                            )]))
                         })
                     }),
                 ),
