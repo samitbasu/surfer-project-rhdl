@@ -48,7 +48,7 @@ pub enum BodyResult {
 #[derivative(Debug)]
 pub enum Message {
     SetActiveScope(ScopeRef),
-    AddVariable(VariableRef),
+    AddVariables(Vec<VariableRef>),
     AddScope(ScopeRef),
     AddCount(char),
     InvalidateCount,
