@@ -133,13 +133,7 @@ impl State {
                         // waves in the same order as the variable
                         // list
                         if let Some(active_scope) = waves.active_scope.as_ref() {
-                            for var in self
-                                .filtered_variables(waves, filter, active_scope)
-                                .into_iter()
-                                .rev()
-                            {
-                                msgs.push(Message::AddVariable(var))
-                            }
+                            msgs.push(Message::AddScope(active_scope.clone()));
                         }
                     }
                 });
