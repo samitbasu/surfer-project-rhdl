@@ -361,9 +361,9 @@ snapshot_ui!(overview_can_be_hidden, || {
             break;
         }
     }
-    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
-        "tb.dut.counter",
-    )));
+    state.update(Message::AddVariables(vec![
+        VariableRef::from_hierarchy_string("tb.dut.counter"),
+    ]));
     state.update(Message::CursorSet(BigInt::from(10)));
     state.update(Message::ToggleOverview);
     // make sure all the signals added by the proceeding messages are properly loaded
@@ -394,9 +394,9 @@ snapshot_ui!(statusbar_can_be_hidden, || {
             break;
         }
     }
-    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
-        "tb.dut.counter",
-    )));
+    state.update(Message::AddVariables(vec![
+        VariableRef::from_hierarchy_string("tb.dut.counter"),
+    ]));
     state.update(Message::CursorSet(BigInt::from(10)));
     state.update(Message::ToggleStatusbar);
     // make sure all the signals added by the proceeding messages are properly loaded
@@ -642,7 +642,7 @@ snapshot_ui_with_file_and_msgs! {
 snapshot_ui_with_file_and_msgs! {signals_are_added_at_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(1)),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.counter"))
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.counter")])
 ]}
 
 snapshot_ui_with_file_and_msgs! {dividers_are_added_at_focus, "examples/counter.vcd", [
@@ -888,7 +888,7 @@ snapshot_ui!(regex_error_indication, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
-        Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")),
+        Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
     for message in msgs.into_iter() {
@@ -904,7 +904,7 @@ snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
     Message::ToggleSidePanel,
     Message::ToggleDirection,
     Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
 ]}
 
 snapshot_ui!(fuzzy_signal_filter_works, || {
@@ -936,7 +936,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         Message::ToggleOverview,
         Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Fuzzy),
     ];
     for message in msgs.into_iter() {
@@ -977,7 +977,7 @@ snapshot_ui!(contain_signal_filter_works, || {
         Message::ToggleOverview,
         Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Contain),
     ];
     for message in msgs.into_iter() {
@@ -1018,7 +1018,7 @@ snapshot_ui!(regex_signal_filter_works, || {
         Message::ToggleOverview,
         Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
     for message in msgs.into_iter() {
@@ -1063,7 +1063,7 @@ snapshot_ui!(start_signal_filter_works, || {
         Message::ToggleOverview,
         Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
     ];
     for message in msgs.into_iter() {
@@ -1104,7 +1104,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         Message::ToggleOverview,
         Message::ToggleDirection,
         Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
-        Message::AddVariable(VariableRef::from_hierarchy_string("testbench.clk")),
+        Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
         Message::SetVariableNameFilterCaseInsensitive(false),
     ];
@@ -1250,11 +1250,19 @@ Message::SetNameAlignRight(true)
 ]}
 
 snapshot_ui_with_file_and_msgs! {add_viewport_works, "examples/counter.vcd", [
-    Message::AddViewport, Message::AddViewport, Message::SetActiveScope(ScopeRef::from_strs(&["tb"])), Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")), Message::AddTimeLine(None),
+    Message::AddViewport,
+    Message::AddViewport,
+    Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
+    Message::AddTimeLine(None),
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_viewport_works, "examples/counter.vcd", [
-    Message::AddViewport, Message::AddViewport, Message::SetActiveScope(ScopeRef::from_strs(&["tb"])), Message::AddVariable(VariableRef::from_hierarchy_string("tb.clk")), Message::AddTimeLine(None), Message::RemoveViewport
+    Message::AddViewport,
+    Message::AddViewport,
+    Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
+    Message::AddTimeLine(None), Message::RemoveViewport
 ]}
 
 snapshot_ui_with_file_and_msgs! {hierarchy_tree, "examples/counter.vcd", [
@@ -1267,22 +1275,24 @@ snapshot_ui_with_file_and_msgs! {hierarchy_tree_with_root_vars, "examples/atxmeg
     Message::ToggleSidePanel,
     Message::ToggleDirection,
     Message::SetHierarchyStyle(HierarchyStyle::Tree),
-    Message::AddVariable(VariableRef::from_strs(&["tck"])),
-    Message::AddVariable(VariableRef::from_strs(&["tms"])),
-    Message::AddVariable(VariableRef::from_strs(&["tdi"])),
-    Message::AddVariable(VariableRef::from_strs(&["tdo"])),
-    Message::AddVariable(VariableRef::from_strs(&["srst"])),
+    Message::AddVariables(vec![
+        VariableRef::from_strs(&["tck"]),
+        VariableRef::from_strs(&["tms"]),
+        VariableRef::from_strs(&["tdi"]),
+        VariableRef::from_strs(&["tdo"]),
+        VariableRef::from_strs(&["srst"])])
 ]}
 
 // makes sure that variables that are not part of a scope are properly displayed in the separate hierarchy view
 snapshot_ui_with_file_and_msgs! {hierarchy_separate_with_root_vars, "examples/atxmega256a3u-bmda-jtag_short.vcd", [
     Message::ToggleSidePanel,
     Message::ToggleDirection,
-    Message::AddVariable(VariableRef::from_strs(&["tck"])),
-    Message::AddVariable(VariableRef::from_strs(&["tms"])),
-    Message::AddVariable(VariableRef::from_strs(&["tdi"])),
-    Message::AddVariable(VariableRef::from_strs(&["tdo"])),
-    Message::AddVariable(VariableRef::from_strs(&["srst"])),
+    Message::AddVariables(vec![
+        VariableRef::from_strs(&["tck"]),
+        VariableRef::from_strs(&["tms"]),
+        VariableRef::from_strs(&["tdi"]),
+        VariableRef::from_strs(&["tdo"]),
+        VariableRef::from_strs(&["srst"])])
 ]}
 
 snapshot_ui_with_file_and_msgs! {hierarchy_separate, "examples/counter.vcd", [
@@ -1291,7 +1301,7 @@ snapshot_ui_with_file_and_msgs! {hierarchy_separate, "examples/counter.vcd", [
 ]}
 
 snapshot_ui_with_file_and_msgs! {aliasing_works_on_random_3_16, "examples/random_3_16_true.vcd", [
-    Message::AddVariable(VariableRef::from_hierarchy_string("TOP.LEB128Compressor_3_16.adaptedCounterFlagBits")),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("TOP.LEB128Compressor_3_16.adaptedCounterFlagBits")]),
 ]}
 
 snapshot_ui_with_file_and_msgs! {next_transition, "examples/counter.vcd", [
@@ -1363,14 +1373,14 @@ snapshot_ui_with_file_and_msgs! {previous_transition_skip_zero, "examples/counte
 ]}
 
 snapshot_ui_with_file_and_msgs! {toggle_variable_indices, "examples/counter.vcd", [
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.counter")),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.counter")]),
     Message::ToggleIndices
 ]}
 
 snapshot_ui_with_file_and_msgs! {direction_works, "examples/tb_recv.ghw", [
     Message::ToggleSidePanel,
     Message::SetActiveScope(ScopeRef::from_strs(&["tb_recv", "dut"])),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb_recv.dut.en")),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb_recv.dut.en")]),
 ]}
 
 snapshot_ui!(signals_can_be_added_after_file_switch, || {
@@ -1393,9 +1403,9 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleMenu);
     state.update(Message::ToggleSidePanel);
-    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
-        "tb.dut.counter",
-    )));
+    state.update(Message::AddVariables(vec![
+        VariableRef::from_hierarchy_string("tb.dut.counter"),
+    ]));
     state.update(Message::LoadWaveformFile(
         "examples/counter2.vcd".into(),
         LoadOptions {
@@ -1416,12 +1426,12 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
         }
     }
 
-    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
-        "tb.clk",
-    )));
-    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
-        "tb.reset",
-    )));
+    state.update(Message::AddVariables(vec![
+        VariableRef::from_hierarchy_string("tb.clk"),
+    ]));
+    state.update(Message::AddVariables(vec![
+        VariableRef::from_hierarchy_string("tb.reset"),
+    ]));
 
     wait_for_waves_fully_loaded(&mut state, 10);
 
@@ -1466,16 +1476,18 @@ snapshot_ui_with_file_and_msgs! {default_solarized_theme_works, "examples/counte
 ]}
 
 snapshot_ui_with_file_and_msgs! {undo_redo_works, "examples/counter.vcd", [
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.counter")),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.clk")),
+    Message::AddVariables(vec![]),
+    Message::AddVariables(vec![
+        VariableRef::from_hierarchy_string("tb.dut.counter"),
+        VariableRef::from_hierarchy_string("tb.dut.clk")]),
     Message::Undo(1),
     Message::Redo(1),
     Message::Undo(1),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.reset")]),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.reset")]),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.reset")]),
     Message::Undo(2),
-    Message::AddVariable(VariableRef::from_hierarchy_string("tb.dut.reset")),
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.reset")]),
     // the redo stack is cleared when something is added to the view
     Message::Redo(1)
 ]}
@@ -1507,9 +1519,9 @@ snapshot_ui!(rising_clock_markers, || {
     state.update(Message::ToggleSidePanel);
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleOverview);
-    state.update(Message::AddVariable(VariableRef::from_hierarchy_string(
-        "tb.clk",
-    )));
+    state.update(Message::AddVariables(vec![
+        VariableRef::from_hierarchy_string("tb.clk"),
+    ]));
     state.update(Message::VariableFormatChange(
         DisplayedFieldRef {
             item: DisplayedItemRef(1),
