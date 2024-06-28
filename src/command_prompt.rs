@@ -7,7 +7,7 @@ use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
 use eframe::egui::{self, Key, RichText, TextEdit};
 use eframe::emath::{Align, Align2, NumExt, Vec2};
 use eframe::epaint::{FontFamily, FontId};
-use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed};
+use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
 use itertools::Itertools;
 
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
@@ -630,7 +630,11 @@ pub fn show_command_prompt(
                 };
 
                 if response.ctx.input(|i| i.key_pressed(Key::Tab)) {
-                    let new_input = append_suggestion(input);
+                    let mut new_input = append_suggestion(input);
+                    let parsed = parse_command(&new_input, get_parser(state));
+                    if let Err(ParseError::MissingParameters) = parsed {
+                        new_input += " ";
+                    }
                     *input = new_input;
                     set_cursor_to_pos(input.chars().count(), ui);
                     run_fuzzy_parser(input, state, msgs);
