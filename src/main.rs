@@ -756,7 +756,7 @@ impl State {
                     let undo_msg = if vars.len() == 1 {
                         format!("Add variable {}", vars[0].name)
                     } else {
-                        format!("Add {} variable", vars.len())
+                        format!("Add {} variables", vars.len())
                     };
                     self.save_current_canvas(undo_msg);
                     if let Some(waves) = self.waves.as_mut() {
