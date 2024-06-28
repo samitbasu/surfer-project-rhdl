@@ -751,14 +751,20 @@ impl State {
                     warn!("Setting active scope to {scope} which does not exist")
                 }
             }
-            Message::AddVariable(var) => {
-                self.save_current_canvas(format!("Add variable {}", var.name));
-                if let Some(waves) = self.waves.as_mut() {
-                    if let Some(cmd) = waves.add_variables(&self.sys.translators, vec![var]) {
-                        self.load_variables(cmd);
+            Message::AddVariables(vars) => {
+                if !vars.is_empty() {
+                    let undo_msg = if vars.len() == 1 {
+                        format!("Add variable {}", vars[0].name)
+                    } else {
+                        format!("Add {} variables", vars.len())
+                    };
+                    self.save_current_canvas(undo_msg);
+                    if let Some(waves) = self.waves.as_mut() {
+                        if let Some(cmd) = waves.add_variables(&self.sys.translators, vars) {
+                            self.load_variables(cmd);
+                        }
+                        self.invalidate_draw_commands();
                     }
-
-                    self.invalidate_draw_commands();
                 }
             }
             Message::AddDivider(name, vidx) => {

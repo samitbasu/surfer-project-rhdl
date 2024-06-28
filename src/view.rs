@@ -639,7 +639,7 @@ impl State {
                     }
                     response
                         .clicked()
-                        .then(|| msgs.push(Message::AddVariable(variable.clone())));
+                        .then(|| msgs.push(Message::AddVariables(vec![variable.clone()])));
                 },
             );
         }
