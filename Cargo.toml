@@ -5,6 +5,7 @@ members = [
     "surfer",
 ]
 exclude = [
+    ".cache", # include such that packages downloaded into the CI cache are ignored
     "f128",
     "fzcmd",
     "instruction-decoder",
