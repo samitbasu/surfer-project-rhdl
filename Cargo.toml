@@ -4,6 +4,11 @@ resolver = "2"
 members = [
     "surfer",
 ]
+exclude = [
+    "f128",
+    "fzcmd",
+    "instruction-decoder",
+]
 default-members = ["surfer"]
 
 [profile.release]
