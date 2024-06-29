@@ -1704,7 +1704,6 @@ dependencies = [
 name = "f128_internal"
 version = "0.2.2"
 dependencies = [
- "bytemuck",
  "cc",
  "libc",
  "num-traits",
