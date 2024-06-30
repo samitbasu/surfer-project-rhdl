@@ -18,9 +18,8 @@ use test_log::test;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::HierarchyStyle,
-    displayed_item::DisplayedFieldRef,
-    displayed_item::DisplayedItemIndex,
-    displayed_item::DisplayedItemRef,
+    displayed_item::{DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef},
+    message::AsyncJob,
     setup_custom_font,
     variable_name_filter::VariableNameFilterType,
     wave_container::{ScopeRef, VariableRef},
@@ -1537,5 +1536,354 @@ snapshot_ui!(rising_clock_markers, || {
         viewport_idx: 0,
     });
     wait_for_waves_fully_loaded(&mut state, 10);
+    state
+});
+
+fn handle_messages_until(state: &mut State, matcher: impl Fn(&Message) -> bool, timeout_s: u64) {
+    let load_start = std::time::Instant::now();
+    loop {
+        if load_start.elapsed().as_secs() > timeout_s {
+            panic!("Timeout waiting for message after {timeout_s}s!");
+        }
+        let msg = match state.sys.channels.msg_receiver.try_recv() {
+            Ok(msg) => msg,
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                continue;
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                panic!("message sender disconnected")
+            }
+        };
+
+        let end = matcher(&msg);
+
+        state.update(msg);
+
+        if end {
+            return;
+        }
+    }
+}
+
+snapshot_ui!(save_and_start_with_state, || {
+    // FIXME refactor startup code so that we can test the actual code,
+    // not with a separate load command like here
+    let save_file = get_project_root()
+        .unwrap()
+        .join("examples/save_and_start_with_state.ron");
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/with_8_bit.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+    wait_for_waves_fully_loaded(&mut state, 10);
+
+    state.update(Message::AddVariables(
+        [
+            VariableRef::from_hierarchy_string("logic.data"),
+            VariableRef::from_hierarchy_string("logic.data_valid"),
+            VariableRef::from_hierarchy_string("logic.not_always"),
+        ]
+        .into(),
+    ));
+    state.update(Message::VariableFormatChange(
+        DisplayedFieldRef {
+            item: DisplayedItemRef(1),
+            field: vec![],
+        },
+        String::from("Binary"),
+    ));
+    state.update(Message::ZoomToFit { viewport_idx: 0 });
+
+    state.handle_async_messages();
+
+    state.update(Message::SaveStateFile(Some(save_file.clone())));
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::AsyncDone(AsyncJob::SaveState)),
+        10,
+    );
+
+    state.update(Message::VariableFormatChange(
+        DisplayedFieldRef {
+            item: DisplayedItemRef(2),
+            field: vec![],
+        },
+        String::from("RV32"),
+    ));
+
+    state.handle_async_messages();
+
+    state.update(Message::SaveStateFile(state.state_file.clone()));
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::AsyncDone(AsyncJob::SaveState)),
+        1,
+    );
+
+    let mut state = std::fs::read_to_string(save_file)
+        .map(|content| ron::from_str::<State>(&content).unwrap())
+        .unwrap()
+        .with_params(StartupParams {
+            spade_state: None,
+            spade_top: None,
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/with_8_bit.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            startup_commands: vec![],
+        });
+    wait_for_waves_fully_loaded(&mut state, 10);
+
+    state
+});
+
+snapshot_ui!(switch, || {
+    // check that variables are kept, not available ones as well
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/with_8_bit.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+
+    wait_for_waves_fully_loaded(&mut state, 10);
+
+    state.update(Message::AddVariables(
+        [
+            VariableRef::from_hierarchy_string("logic.data"),
+            VariableRef::from_hierarchy_string("logic.data_valid"),
+            VariableRef::from_hierarchy_string("logic.not_always"),
+        ]
+        .into(),
+    ));
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::SignalsLoaded(..)),
+        10,
+    );
+
+    state.update(Message::VariableFormatChange(
+        DisplayedFieldRef {
+            item: DisplayedItemRef(1),
+            field: vec![],
+        },
+        String::from("Binary"),
+    ));
+    state.update(Message::VariableFormatChange(
+        DisplayedFieldRef {
+            item: DisplayedItemRef(3),
+            field: vec![],
+        },
+        String::from("Hexadecimal"),
+    ));
+    state.update(Message::ZoomToFit { viewport_idx: 0 });
+    state.update(Message::LoadWaveformFile(
+        get_project_root()
+            .unwrap()
+            .join("examples/with_1_bit.vcd")
+            .try_into()
+            .unwrap(),
+        LoadOptions {
+            keep_variables: true,
+            keep_unavailable: true,
+        },
+    ));
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::WaveBodyLoaded(..)),
+        10,
+    );
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::SignalsLoaded(..)),
+        10,
+    );
+
+    state
+});
+
+snapshot_ui!(switch_and_switch_back, || {
+    // verify that decoder settings are remembered even if not recommended / not available
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/with_8_bit.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+
+    wait_for_waves_fully_loaded(&mut state, 10);
+
+    state.update(Message::AddVariables(
+        [
+            VariableRef::from_hierarchy_string("logic.data"),
+            VariableRef::from_hierarchy_string("logic.not_always"),
+        ]
+        .into(),
+    ));
+    state.update(Message::VariableFormatChange(
+        DisplayedFieldRef {
+            item: DisplayedItemRef(1),
+            field: vec![],
+        },
+        String::from("RV32"),
+    ));
+    state.update(Message::VariableFormatChange(
+        DisplayedFieldRef {
+            item: DisplayedItemRef(2),
+            field: vec![],
+        },
+        String::from("Hexadecimal"),
+    ));
+    state.update(Message::ZoomToFit { viewport_idx: 0 });
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::SignalsLoaded(..)),
+        10,
+    );
+
+    state.update(Message::LoadWaveformFile(
+        get_project_root()
+            .unwrap()
+            .join("examples/with_1_bit.vcd")
+            .try_into()
+            .unwrap(),
+        LoadOptions {
+            keep_variables: true,
+            keep_unavailable: true,
+        },
+    ));
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::SignalsLoaded(..)),
+        10,
+    );
+
+    state.update(Message::LoadWaveformFile(
+        get_project_root()
+            .unwrap()
+            .join("examples/with_8_bit.vcd")
+            .try_into()
+            .unwrap(),
+        LoadOptions {
+            keep_variables: true,
+            keep_unavailable: true,
+        },
+    ));
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::SignalsLoaded(..)),
+        10,
+    );
+
+    state
+});
+
+snapshot_ui!(save_and_load, || {
+    let save_file = get_project_root()
+        .unwrap()
+        .join("examples/save_and_load.ron");
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/with_8_bit.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+
+    wait_for_waves_fully_loaded(&mut state, 10);
+
+    state.update(Message::AddVariables(
+        [
+            VariableRef::from_hierarchy_string("logic.data"),
+            VariableRef::from_hierarchy_string("logic.data_valid"),
+            VariableRef::from_hierarchy_string("logic.not_always"),
+        ]
+        .into(),
+    ));
+    state.update(Message::VariableFormatChange(
+        DisplayedFieldRef {
+            item: DisplayedItemRef(1),
+            field: vec![],
+        },
+        String::from("Binary"),
+    ));
+
+    state.update(Message::ZoomToFit { viewport_idx: 0 });
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::SignalsLoaded(..)),
+        10,
+    );
+
+    state.update(Message::SaveStateFile(Some(save_file.clone())));
+
+    let mut state = State::new_default_config()
+        .unwrap()
+        .with_params(StartupParams {
+            waves: Some(WaveSource::File(
+                get_project_root()
+                    .unwrap()
+                    .join("examples/with_8_bit.vcd")
+                    .try_into()
+                    .unwrap(),
+            )),
+            spade_top: None,
+            spade_state: None,
+            startup_commands: vec![],
+        });
+    wait_for_waves_fully_loaded(&mut state, 10);
+
+    state.update(Message::LoadStateFile(Some(save_file)));
+
+    handle_messages_until(
+        &mut state,
+        |msg| matches!(&msg, Message::SignalsLoaded(..)),
+        10,
+    );
+
     state
 });

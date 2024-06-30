@@ -19,7 +19,7 @@ use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use web_time::Instant;
 
-use crate::message::{BodyResult, HeaderResult};
+use crate::message::{AsyncJob, BodyResult, HeaderResult};
 use crate::remote::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::wave_container::WaveContainer;
@@ -679,8 +679,11 @@ impl State {
             destination
                 .write(encoded.as_bytes())
                 .await
-                .map_err(|e| error!("Failed to write state {e:#?}"))
+                .map_err(|e| error!("Failed to write state to {destination:#?} {e:#?}"))
                 .ok();
+            sender
+                .send(Message::AsyncDone(AsyncJob::SaveState))
+                .unwrap();
         });
     }
 }

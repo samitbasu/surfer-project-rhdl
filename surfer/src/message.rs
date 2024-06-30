@@ -43,6 +43,11 @@ pub enum BodyResult {
     Remote(Vec<wellen::Time>, String),
 }
 
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+pub enum AsyncJob {
+    SaveState,
+}
+
 #[derive(Derivative, Deserialize)]
 #[derivative(Debug)]
 pub enum Message {
@@ -231,4 +236,5 @@ pub enum Message {
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
+    AsyncDone(AsyncJob),
 }
