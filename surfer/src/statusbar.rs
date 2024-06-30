@@ -40,6 +40,10 @@ impl State {
                 }
             }
 
+            if let Some(state_file) = &self.state_file {
+                ui.label(" | ".to_string() + &state_file.to_string_lossy());
+            }
+
             ui.add_space(10.0);
             if let Some(progress_data) = &self.sys.progress_tracker {
                 if Instant::now().duration_since(progress_data.started) > Duration::from_millis(100)
