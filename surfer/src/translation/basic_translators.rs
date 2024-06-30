@@ -761,7 +761,7 @@ mod test {
     }
 
     fn new_rv32_decoder() -> Decoder {
-        Decoder::new(&vec![
+        Decoder::new(&[
             include_str!("../../../instruction-decoder/toml/RV32I.toml").to_string(),
             include_str!("../../../instruction-decoder/toml/RV32M.toml").to_string(),
             include_str!("../../../instruction-decoder/toml/RV32A.toml").to_string(),
@@ -771,10 +771,7 @@ mod test {
     }
 
     fn new_mips_decoder() -> Decoder {
-        Decoder::new(&vec![include_str!(
-            "../../../instruction-decoder/toml/mips.toml"
-        )
-        .to_string()])
+        Decoder::new(&[include_str!("../../../instruction-decoder/toml/mips.toml").to_string()])
     }
 
     #[test]
