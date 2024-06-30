@@ -1,7 +1,8 @@
 /.vscode/
 /.idea/
 /target
-/dist
+/surfer/dist
+trunk
 
 snapshots/*.diff.png
 *.profraw
