@@ -312,11 +312,15 @@ fn main() -> Result<()> {
     let mut state = match &args.state_file {
         Some(file) => std::fs::read_to_string(file)
             .with_context(|| format!("Failed to read state from {file}"))
-            .map(|content| {
+            .and_then(|content| {
                 ron::from_str::<State>(&content)
                     .with_context(|| format!("Failed to decode state from {file}"))
             })
-            .unwrap_or_else(|e| {
+            .map(|mut s| {
+                s.state_file = Some(file.into());
+                s
+            })
+            .or_else(|e| {
                 error!("Failed to read state file. Opening fresh session\n{e:#?}");
                 State::new()
             })?,
@@ -749,6 +753,7 @@ impl State {
     }
 
     pub fn update(&mut self, message: Message) {
+        log::trace!("processing {message:#?}");
         match message {
             Message::SetActiveScope(scope) => {
                 let Some(waves) = self.waves.as_mut() else {
@@ -773,6 +778,8 @@ impl State {
                             self.load_variables(cmd);
                         }
                         self.invalidate_draw_commands();
+                    } else {
+                        error!("Could not load signals, no waveform loaded");
                     }
                 }
             }
@@ -1246,7 +1253,7 @@ impl State {
                     .expect("Waves should be loaded at this point!");
                 // add source and time table
                 let maybe_cmd = waves.inner.wellen_add_body(body).unwrap_or_else(|err| {
-                    error!("{err:?}");
+                    error!("While getting commands to lazy-load signals: {err:?}");
                     None
                 });
                 // update viewports, now that we have the time table
@@ -1718,6 +1725,7 @@ impl State {
                     }
                 }
             }
+            Message::AsyncDone(_) => (),
         }
     }
 
@@ -1733,6 +1741,7 @@ impl State {
         let viewports = [viewport].to_vec();
 
         let (new_wave, load_commands) = if load_options.keep_variables && self.waves.is_some() {
+            log::debug!("keeping stuff");
             self.waves.take().unwrap().update_with_waves(
                 new_waves,
                 filename,
