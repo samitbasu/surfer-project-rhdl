@@ -53,6 +53,7 @@ spade = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c
 spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
 spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
 spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+surfer-translation-types = { path = "../surfer-translation-types" }
 surver.workspace = true
 sys-locale = "0.3.1"
 tokio.workspace = true
