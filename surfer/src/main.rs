@@ -148,7 +148,7 @@ struct Args {
 }
 
 #[derive(clap::Subcommand)]
-pub enum Commands {
+enum Commands {
     #[cfg(not(target_arch = "wasm32"))]
     /// starts surfer in headless mode so that a user can connect to it
     Server {
