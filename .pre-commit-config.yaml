@@ -11,7 +11,7 @@ repos:
     - id: check-json
     - id: pretty-format-json
   - repo: https://github.com/crate-ci/typos
-    rev: v1.22.7
+    rev: v1.22.9
     hooks:
     - id: typos
       args: []
@@ -38,4 +38,4 @@ repos:
         language: system
         pass_filenames: false
         types_or: ["rust", "png", "toml"]
-exclude: $(fzcmd|fz128|instruction-decoder)
+exclude: $(fzcmd|f128|instruction-decoder)
