@@ -116,6 +116,7 @@ lazy_static! {
 }
 
 #[derive(clap::Parser, Default)]
+#[command(version, about)]
 struct Args {
     /// Waveform file in VCD, FST, or GHW format.
     wave_file: Option<String>,
@@ -241,7 +242,7 @@ fn main() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(Commands::Server { port, token, file }) = args.command {
         let default_port = 8911; // FIXME: make this more configurable
-        let res = runtime.block_on(remote::server_main(
+        let res = runtime.block_on(surver::server_main(
             port.unwrap_or(default_port),
             token,
             file,
