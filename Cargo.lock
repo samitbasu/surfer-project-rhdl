@@ -4922,6 +4922,7 @@ dependencies = [
  "spade-common",
  "spade-hir-lowering",
  "spade-types",
+ "surfer-translation-types",
  "surver",
  "sys-locale",
  "test-log",
@@ -4934,6 +4935,10 @@ dependencies = [
  "web-time 1.1.0",
  "wellen",
 ]
+
+[[package]]
+name = "surfer-translation-types"
+version = "0.1.0"
 
 [[package]]
 name = "surver"
