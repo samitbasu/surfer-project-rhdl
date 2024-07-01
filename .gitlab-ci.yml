@@ -140,6 +140,11 @@ coverage:
         - shopt -s globstar
         - >
           cargo tarpaulin --out Xml --root . --manifest-path Cargo.toml --skip-clean --color Always
+          --exclude-files
+          fzcmd/**/*
+          f128/**/*
+          instruction-decoder/**/*
+
     coverage: '/^\d+.\d+% coverage/'
     artifacts:
         reports:
