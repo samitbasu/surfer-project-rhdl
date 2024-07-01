@@ -1,7 +1,9 @@
 use color_eyre::eyre::{Context, Result};
 use color_eyre::Report;
 use config::builder::DefaultState;
-use config::{Config, ConfigBuilder, Environment, File};
+use config::{Config, ConfigBuilder};
+#[cfg(not(target_arch = "wasm32"))]
+use config::{Environment, File};
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
 use eframe::epaint::Color32;
