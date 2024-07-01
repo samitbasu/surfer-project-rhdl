@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "surfer",
+    "surfer-translation-types",
 ]
 exclude = [
     ".cache", # include such that packages downloaded into the CI cache are ignored
