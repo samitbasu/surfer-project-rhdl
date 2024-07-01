@@ -1,8 +1,8 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
-mod connection;
-pub use connection::server_main;
+mod server;
+pub use server::server_main;
 
 pub const HTTP_SERVER_KEY: &str = "Server";
 pub const HTTP_SERVER_VALUE_SURFER: &str = "Surfer";
@@ -15,12 +15,6 @@ pub const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::LoadOptions = wellen::LoadOptio
     multi_thread: true,
     remove_scopes_with_empty_name: true,
 };
-
-#[derive(Serialize, Deserialize)]
-pub struct HierarchyResponse {
-    pub hierarchy: wellen::Hierarchy,
-    pub file_format: wellen::FileFormat,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Status {

@@ -146,22 +146,8 @@ struct Args {
     command: Option<Commands>,
 }
 
-impl Args {
-    pub fn command_file(&self) -> &Option<Utf8PathBuf> {
-        if self.script.is_some() && self.command_file.is_some() {
-            error!("At most one of --command_file and --script can be used");
-            return &None;
-        }
-        if self.command_file.is_some() {
-            &self.command_file
-        } else {
-            &self.script
-        }
-    }
-}
-
 #[derive(clap::Subcommand)]
-enum Commands {
+pub enum Commands {
     #[cfg(not(target_arch = "wasm32"))]
     /// starts surfer in headless mode so that a user can connect to it
     Server {
@@ -175,6 +161,20 @@ enum Commands {
         #[arg(long)]
         file: String,
     },
+}
+
+impl Args {
+    pub fn command_file(&self) -> &Option<Utf8PathBuf> {
+        if self.script.is_some() && self.command_file.is_some() {
+            error!("At most one of --command_file and --script can be used");
+            return &None;
+        }
+        if self.command_file.is_some() {
+            &self.command_file
+        } else {
+            &self.script
+        }
+    }
 }
 
 struct StartupParams {
@@ -287,7 +287,7 @@ fn main() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(Commands::Server { port, token, file }) = args.command {
         let default_port = 8911; // FIXME: make this more configurable
-        let res = runtime.block_on(remote::server_main(
+        let res = runtime.block_on(surver::server_main(
             port.unwrap_or(default_port),
             token,
             file,

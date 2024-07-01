@@ -10,8 +10,10 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 rand = "0.8.5"
 
 bytesize.workspace = true
+clap.workspace = true
 color-eyre.workspace = true
 bincode.workspace = true
+fern.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 lz4_flex.workspace = true

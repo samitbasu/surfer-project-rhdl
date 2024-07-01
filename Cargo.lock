@@ -4922,9 +4922,6 @@ dependencies = [
  "fuzzy-matcher",
  "fzcmd",
  "half",
- "http-body-util",
- "hyper",
- "hyper-util",
  "image 0.25.1",
  "instruction-decoder",
  "itertools 0.13.0",
@@ -4935,7 +4932,6 @@ dependencies = [
  "numeric-sort",
  "project-root",
  "pure-rust-locales",
- "rand",
  "rayon",
  "regex",
  "reqwest",
@@ -4951,6 +4947,7 @@ dependencies = [
  "spade-common",
  "spade-hir-lowering",
  "spade-types",
+ "surver",
  "sys-locale",
  "test-log",
  "tokio",
@@ -4959,6 +4956,29 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "web-time 1.1.0",
+ "wellen",
+]
+
+[[package]]
+name = "surver"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "bytesize",
+ "clap",
+ "color-eyre",
+ "fern",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "lazy_static",
+ "log",
+ "lz4_flex",
+ "rand",
+ "serde",
+ "serde_json",
+ "tokio",
  "web-time 1.1.0",
  "wellen",
 ]

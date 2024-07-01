@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-    "surfer",
+    "surfer", "surver",
 ]
 exclude = [
     ".cache", # include such that packages downloaded into the CI cache are ignored
@@ -10,7 +10,7 @@ exclude = [
     "fzcmd",
     "instruction-decoder",
 ]
-default-members = ["surfer"]
+default-members = ["surfer", "surver"]
 
 [profile.release]
 opt-level = 3 # fast and small wasm
@@ -19,3 +19,21 @@ opt-level = 3 # fast and small wasm
 [profile.dev.package."*"]
 opt-level = 3
 debug = false
+
+[workspace.dependencies]
+surfer = { version = "0.3.0-dev", path = "surfer", default-features = false }
+surver = { version = "0.1.0", path = "surver", default-features = false }
+
+bincode = "1.3.3"
+bytesize = "1.3.0"
+clap = { version = "4.5.4", features = ['derive'] }
+color-eyre = "0.6.2"
+fern = { version = "0.6.2", features = ["colored"] }
+lazy_static = "1.4.0"
+log = "0.4"
+lz4_flex = "0.11.3"
+serde_json = "1.0.113"
+serde = { version = "1.0.197", features = ["derive"] }
+tokio = { version = "1.37", features = ["rt", "time", "macros"] }
+web-time = "1.1.0"
+wellen = { version = "0.9.14", features = ["serde1"] }
