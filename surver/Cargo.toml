@@ -1,7 +1,10 @@
 [package]
 name = "surver"
-version = "0.1.0"
+version = "0.3.0-dev"
 edition = "2021"
+license = "EUPL-1.2"
+categories = ["development-tools::debugging", "science"]
+rust-version = "1.74.1"
 
 [dependencies]
 http-body-util = "0.1"

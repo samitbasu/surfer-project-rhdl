@@ -6,13 +6,14 @@ use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
 
 #[derive(clap::Parser, Default)]
+#[command(version)]
 struct Args {
     /// Waveform file in VCD, FST, or GHW format.
     wave_file: String,
-    /// port on which server will listen
+    /// Port on which server will listen
     #[clap(long)]
     port: Option<u16>,
-    /// token used by the client to authenticate to the server
+    /// Token used by the client to authenticate to the server
     #[clap(long)]
     token: Option<String>,
 }

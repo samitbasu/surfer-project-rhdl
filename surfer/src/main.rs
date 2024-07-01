@@ -120,6 +120,7 @@ lazy_static! {
 }
 
 #[derive(clap::Parser, Default)]
+#[command(version)]
 struct Args {
     /// Waveform file in VCD, FST, or GHW format.
     wave_file: Option<String>,
