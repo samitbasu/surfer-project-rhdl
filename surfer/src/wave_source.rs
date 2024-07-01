@@ -20,11 +20,11 @@ use serde::{Deserialize, Serialize};
 use web_time::Instant;
 
 use crate::message::{AsyncJob, BodyResult, HeaderResult};
-use crate::remote::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::wave_container::WaveContainer;
 use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
 use crate::{message::Message, State};
+use surver::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, WELLEN_SURFER_DEFAULT_OPTIONS};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum WaveSource {
@@ -148,11 +148,6 @@ pub enum LoadProgressStatus {
     ReadingBody(WaveSource, u64, Arc<AtomicU64>),
     LoadingVariables(u64),
 }
-
-pub(crate) const WELLEN_SURFER_DEFAULT_OPTIONS: wellen::LoadOptions = wellen::LoadOptions {
-    multi_thread: true,
-    remove_scopes_with_empty_name: true,
-};
 
 macro_rules! spawn {
     ($task:expr) => {
