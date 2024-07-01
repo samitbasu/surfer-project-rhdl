@@ -65,7 +65,9 @@ use eframe::egui::FontData;
 use eframe::egui::FontDefinitions;
 use eframe::egui::FontFamily;
 use eframe::egui::Visuals;
-use eframe::emath::{Pos2, Rect, Vec2};
+#[cfg(not(target_arch = "wasm32"))]
+use eframe::emath::Vec2;
+use eframe::emath::{Pos2, Rect};
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 #[cfg(not(target_arch = "wasm32"))]
@@ -120,6 +122,7 @@ lazy_static! {
 }
 
 #[derive(clap::Parser, Default)]
+#[command(version)]
 struct Args {
     /// Waveform file in VCD, FST, or GHW format.
     wave_file: Option<String>,
@@ -146,20 +149,6 @@ struct Args {
     command: Option<Commands>,
 }
 
-impl Args {
-    pub fn command_file(&self) -> &Option<Utf8PathBuf> {
-        if self.script.is_some() && self.command_file.is_some() {
-            error!("At most one of --command_file and --script can be used");
-            return &None;
-        }
-        if self.command_file.is_some() {
-            &self.command_file
-        } else {
-            &self.script
-        }
-    }
-}
-
 #[derive(clap::Subcommand)]
 enum Commands {
     #[cfg(not(target_arch = "wasm32"))]
@@ -175,6 +164,20 @@ enum Commands {
         #[arg(long)]
         file: String,
     },
+}
+
+impl Args {
+    pub fn command_file(&self) -> &Option<Utf8PathBuf> {
+        if self.script.is_some() && self.command_file.is_some() {
+            error!("At most one of --command_file and --script can be used");
+            return &None;
+        }
+        if self.command_file.is_some() {
+            &self.command_file
+        } else {
+            &self.script
+        }
+    }
 }
 
 struct StartupParams {
@@ -287,7 +290,7 @@ fn main() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(Commands::Server { port, token, file }) = args.command {
         let default_port = 8911; // FIXME: make this more configurable
-        let res = runtime.block_on(remote::server_main(
+        let res = runtime.block_on(surver::server_main(
             port.unwrap_or(default_port),
             token,
             file,
