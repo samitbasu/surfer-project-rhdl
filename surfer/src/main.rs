@@ -65,7 +65,9 @@ use eframe::egui::FontData;
 use eframe::egui::FontDefinitions;
 use eframe::egui::FontFamily;
 use eframe::egui::Visuals;
-use eframe::emath::{Pos2, Rect, Vec2};
+#[cfg(not(target_arch = "wasm32"))]
+use eframe::emath::Vec2;
+use eframe::emath::{Pos2, Rect};
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use fzcmd::parse_command;
