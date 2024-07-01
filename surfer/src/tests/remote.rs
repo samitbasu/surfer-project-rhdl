@@ -4,7 +4,7 @@ use super::snapshot::{render_and_compare, wait_for_waves_fully_loaded};
 use crate::message::Message;
 use crate::wave_container::ScopeRef;
 use crate::wave_source::LoadOptions;
-use crate::{remote, State};
+use crate::State;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
@@ -21,7 +21,7 @@ fn start_server(port: u16, token: &str, filename: &str) -> String {
             .enable_all()
             .build()
             .unwrap();
-        let _res = runtime.block_on(remote::server_main(
+        let _res = runtime.block_on(surver::server_main(
             port,
             token,
             filename,
