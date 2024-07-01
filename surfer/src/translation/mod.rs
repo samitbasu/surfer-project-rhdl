@@ -45,6 +45,7 @@ fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
 }
 
 /// Look for user defined decoders in path.
+#[cfg(not(target_arch = "wasm32"))]
 fn find_user_decoders_at_path(path: &Path) -> Vec<Box<dyn BasicTranslator>> {
     let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
     let Ok(decoder_dirs) = std::fs::read_dir(path.join("decoders")) else {
