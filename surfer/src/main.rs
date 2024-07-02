@@ -68,16 +68,12 @@ use eframe::egui::Visuals;
 use eframe::emath::{Pos2, Rect, Vec2};
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
-#[cfg(not(target_arch = "wasm32"))]
-use fern::colors::ColoredLevelConfig;
-use fern::Dispatch;
 use fzcmd::parse_command;
 use lazy_static::lazy_static;
 use log::error;
 use log::info;
 use log::trace;
 use log::warn;
-use logs::EGUI_LOGGER;
 use message::Message;
 use num::BigInt;
 use ron::ser::PrettyConfig;
@@ -225,52 +221,10 @@ impl StartupParams {
     }
 }
 
-fn setup_logging(platform_logger: Dispatch) -> Result<()> {
-    let egui_log_config = fern::Dispatch::new()
-        .level(log::LevelFilter::Info)
-        .level_for("surfer", log::LevelFilter::Trace)
-        .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
-        .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
-
-    fern::Dispatch::new()
-        .chain(platform_logger)
-        .chain(egui_log_config)
-        .apply()?;
-    Ok(())
-}
-
-/// Starts the logging and error handling. Can be used by unittests to get more insights.
-#[cfg(not(target_arch = "wasm32"))]
-#[inline]
-pub fn start_logging() -> Result<()> {
-    let colors = ColoredLevelConfig::new()
-        .error(fern::colors::Color::Red)
-        .warn(fern::colors::Color::Yellow)
-        .info(fern::colors::Color::Green)
-        .debug(fern::colors::Color::Blue)
-        .trace(fern::colors::Color::White);
-
-    let stdout_config = fern::Dispatch::new()
-        .level(log::LevelFilter::Info)
-        .level_for("surfer", log::LevelFilter::Trace)
-        .format(move |out, message, record| {
-            out.finish(format_args!(
-                "[{}] {}",
-                colors.color(record.level()),
-                message
-            ))
-        })
-        .chain(std::io::stdout());
-    setup_logging(stdout_config)?;
-
-    color_eyre::install()?;
-    Ok(())
-}
-
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
-    start_logging()?;
+    logs::start_logging()?;
 
     // https://tokio.rs/tokio/topics/bridging
     // We want to run the gui in the main thread, but some long running tasks like
@@ -365,7 +319,7 @@ fn main() -> Result<()> {
         })
         .chain(Box::new(eframe::WebLogger::new(log::LevelFilter::Debug)) as Box<dyn log::Log>);
 
-    setup_logging(web_log_config)?;
+    logs::setup_logging(web_log_config)?;
 
     let web_options = eframe::WebOptions::default();
 
