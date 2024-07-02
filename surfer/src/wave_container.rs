@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
 use num::BigUint;
+use surfer_translation_types::VariableValue;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
@@ -21,12 +22,6 @@ pub enum SimulationStatus {
     Paused,
     Running,
     Finished,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum VariableValue {
-    BigUint(BigUint),
-    String(String),
 }
 
 pub struct MetaData {

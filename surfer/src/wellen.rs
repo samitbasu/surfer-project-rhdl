@@ -5,7 +5,7 @@ use color_eyre::{eyre::anyhow, eyre::bail, Result};
 use derivative::Derivative;
 use log::warn;
 use num::{BigUint, ToPrimitive};
-use surfer_translation_types::{VariableDirection, VariableEncoding, VariableType};
+use surfer_translation_types::{VariableDirection, VariableEncoding, VariableType, VariableValue};
 use wellen::{
     FileFormat, GetItem as _, Hierarchy, ScopeType, Signal, SignalEncoding, SignalRef,
     SignalSource, Time, TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
@@ -17,7 +17,7 @@ use crate::variable_direction::VariableDirectionExt;
 use crate::variable_type::VariableTypeExt;
 use crate::wave_container::{
     MetaData, QueryResult, ScopeId, ScopeRef, ScopeRefExt, VarId, VariableMeta, VariableRef,
-    VariableRefExt, VariableValue,
+    VariableRefExt,
 };
 
 static UNIQUE_ID_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

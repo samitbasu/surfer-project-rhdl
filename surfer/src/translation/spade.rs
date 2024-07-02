@@ -354,7 +354,9 @@ fn translate_concrete(
 
                             let result = if i == tag {
                                 if name == "None" {
-                                    kind = ValueKind::Custom(Color32::DARK_GRAY)
+                                    kind = ValueKind::Custom(
+                                        Color32::DARK_GRAY.to_srgba_unmultiplied(),
+                                    )
                                 }
 
                                 SubFieldTranslationResult {
@@ -414,7 +416,7 @@ fn translate_concrete(
         }
         ConcreteType::Backward(_) => TranslationResult {
             val: ValueRepr::String("*backward*".to_string()),
-            kind: ValueKind::Custom(Color32::from_gray(128)),
+            kind: ValueKind::Custom(Color32::from_gray(128).to_srgba_unmultiplied()),
             subfields: vec![],
         },
         ConcreteType::Wire(inner) => translate_concrete(val, inner, problematic)?,

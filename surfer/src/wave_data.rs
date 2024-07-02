@@ -5,18 +5,17 @@ use log::{error, warn};
 use num::bigint::ToBigInt as _;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
+use surfer_translation_types::{TranslationPreference, VariableValue};
 
 use crate::displayed_item::{
     DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
     DisplayedTimeLine, DisplayedVariable,
 };
-use crate::translation::{TranslationPreference, Translator, TranslatorList};
+use crate::translation::{Translator, TranslatorList, VariableInfoExt};
 use crate::variable_name_type::VariableNameType;
 use crate::view::ItemDrawingInfo;
 use crate::viewport::Viewport;
-use crate::wave_container::{
-    ScopeRef, VariableMeta, VariableRef, VariableRefExt, VariableValue, WaveContainer,
-};
+use crate::wave_container::{ScopeRef, VariableMeta, VariableRef, VariableRefExt, WaveContainer};
 use crate::wave_source::{WaveFormat, WaveSource};
 use crate::wellen::LoadSignalsCmd;
 
