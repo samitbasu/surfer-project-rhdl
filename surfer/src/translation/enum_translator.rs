@@ -1,14 +1,13 @@
-use crate::translation::{
-    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableInfo,
-};
-use crate::wave_container::VariableMeta;
+use crate::message::Message;
+use crate::translation::{TranslationPreference, ValueKind, VariableInfo};
+use crate::wave_container::{ScopeId, VarId, VariableMeta};
 use color_eyre::Result;
 use std::borrow::Cow;
-use surfer_translation_types::VariableValue;
+use surfer_translation_types::{TranslationResult, Translator, ValueRepr, VariableValue};
 
 pub struct EnumTranslator {}
 
-impl Translator for EnumTranslator {
+impl Translator<VarId, ScopeId, Message> for EnumTranslator {
     fn name(&self) -> String {
         "Enum".to_string()
     }

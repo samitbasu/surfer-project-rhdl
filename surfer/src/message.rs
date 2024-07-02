@@ -9,12 +9,12 @@ use num::BigInt;
 use serde::Deserialize;
 use std::path::PathBuf;
 
+use crate::translation::DynTranslator;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
     displayed_item::{DisplayedFieldRef, DisplayedItemIndex},
     time::{TimeStringFormatting, TimeUnit},
-    translation::Translator,
     variable_name_type::VariableNameType,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
@@ -127,7 +127,7 @@ pub enum Message {
     #[serde(skip)]
     Error(color_eyre::eyre::Error),
     #[serde(skip)]
-    TranslatorLoaded(#[derivative(Debug = "ignore")] Box<dyn Translator + Send>),
+    TranslatorLoaded(#[derivative(Debug = "ignore")] Box<DynTranslator>),
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified variable
     BlacklistTranslator(VariableRef, String),

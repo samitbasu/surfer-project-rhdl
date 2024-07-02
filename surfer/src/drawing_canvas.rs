@@ -10,16 +10,16 @@ use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};
 use num::{BigInt, ToPrimitive};
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
-use surfer_translation_types::{ValueKind, VariableInfo, VariableType};
+use surfer_translation_types::{
+    SubFieldFlatTranslationResult, TranslatedValue, ValueKind, VariableInfo, VariableType,
+};
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef, DisplayedVariable,
 };
-use crate::translation::{
-    SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKindExt, VariableInfoExt,
-};
+use crate::translation::{TranslationResultExt, TranslatorList, ValueKindExt, VariableInfoExt};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::viewport::Viewport;
 use crate::wave_container::{QueryResult, VariableRefExt};

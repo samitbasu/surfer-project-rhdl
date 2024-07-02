@@ -11,7 +11,9 @@ use egui_remixicon::icons;
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
-use surfer_translation_types::{VariableInfo, VariableType};
+use surfer_translation_types::{
+    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
+};
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
@@ -24,7 +26,7 @@ use crate::help::{
     draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
 };
 use crate::time::time_string;
-use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
+use crate::translation::TranslationResultExt;
 use crate::util::uint_idx_to_alpha_idx;
 use crate::variable_direction::VariableDirectionExt;
 use crate::wave_container::{
