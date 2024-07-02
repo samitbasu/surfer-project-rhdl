@@ -11,7 +11,7 @@ use egui_remixicon::icons;
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
-use surfer_translation_types::VariableType;
+use surfer_translation_types::{VariableInfo, VariableType};
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
@@ -32,8 +32,8 @@ use crate::wave_container::{
 };
 use crate::wave_source::LoadOptions;
 use crate::{
-    command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy,
-    translation::VariableInfo, wave_data::WaveData, Message, MoveDir, State,
+    command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
+    Message, MoveDir, State,
 };
 
 pub struct DrawingContext<'a> {

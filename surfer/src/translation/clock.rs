@@ -1,4 +1,5 @@
-use crate::wave_container::{VariableMeta, VariableValue};
+use crate::wave_container::VariableMeta;
+use surfer_translation_types::VariableValue;
 
 use super::{BasicTranslator, BitTranslator, Translator, VariableInfo};
 

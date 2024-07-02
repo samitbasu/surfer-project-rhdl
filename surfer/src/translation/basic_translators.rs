@@ -1,12 +1,13 @@
 use super::{
     check_single_wordlength, BasicTranslator, TranslationPreference, ValueKind, VariableInfo,
 };
-use crate::wave_container::{VariableMeta, VariableValue};
+use crate::wave_container::VariableMeta;
 
 use color_eyre::Result;
 use instruction_decoder::Decoder;
 use itertools::Itertools;
 use num::Zero;
+use surfer_translation_types::VariableValue;
 
 // Forms groups of n chars from from a string. If the string size is
 // not divisible by n, the first group will be smaller than n

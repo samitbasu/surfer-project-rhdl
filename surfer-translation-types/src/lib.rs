@@ -5,10 +5,54 @@ mod variable_ref;
 use std::collections::HashMap;
 
 use derive_more::Display;
+use num::BigUint;
 
 pub use crate::field_ref::FieldRef;
 pub use crate::scope_ref::ScopeRef;
 pub use crate::variable_ref::VariableRef;
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum VariableValue {
+    BigUint(BigUint),
+    String(String),
+}
+
+#[derive(Clone, PartialEq, Copy)]
+pub enum ValueKind {
+    Normal,
+    Undef,
+    HighImp,
+    Custom([u8; 4]),
+    Warn,
+    DontCare,
+    Weak,
+}
+
+#[derive(PartialEq)]
+pub enum TranslationPreference {
+    /// This translator prefers translating the variable, so it will be selected
+    /// as the default translator for the variable
+    Prefer,
+    /// This translator is able to translate the variable, but will not be
+    /// selected by default, the user has to select it
+    Yes,
+    No,
+}
+
+/// Static information about the structure of a variable.
+#[derive(Clone, Debug, Default)]
+pub enum VariableInfo {
+    Compound {
+        subfields: Vec<(String, VariableInfo)>,
+    },
+    Bits,
+    Bool,
+    Clock,
+    // NOTE: only used for state saving where translators will clear this out with the actual value
+    #[default]
+    String,
+    Real,
+}
 
 #[derive(Debug, Display, Clone, Copy, Eq, PartialEq)]
 pub enum VariableType {
