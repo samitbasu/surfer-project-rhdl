@@ -16,7 +16,6 @@ lazy_static! {
 
 #[wasm_bindgen]
 pub fn inject_message(message: &str) {
-    info!("Processing message {message} from wasm");
     let deser = serde_json::from_str(message);
 
     match deser {
