@@ -17,22 +17,24 @@ pub mod spade;
 pub use basic_translators::*;
 use instruction_decoder::Decoder;
 use itertools::Itertools;
-use num::BigUint;
 pub use numeric_translators::*;
 use surfer_translation_types::{
     TranslationPreference, ValueKind, VariableEncoding, VariableInfo, VariableValue,
 };
 
 use crate::config::SurferTheme;
+use crate::wave_container::{ScopeId, VarId};
 use crate::{message::Message, wave_container::VariableMeta};
+
+pub type DynBasicTranslator = dyn surfer_translation_types::BasicTranslator<VarId, ScopeId>;
 
 /// Look inside the config directory and inside "$(cwd)/.surfer" for user-defined decoders
 /// To add a new decoder named 'x', add a directory 'x' to the decoders directory
 /// Inside, multiple toml files can be added which will all be used for decoding 'x'
 /// This is useful e.g., for layering RISC-V extensions
 #[cfg(not(target_arch = "wasm32"))]
-fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
-    let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
+fn find_user_decoders() -> Vec<Box<DynBasicTranslator>> {
+    let mut decoders: Vec<Box<DynBasicTranslator>> = vec![];
     if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
         let mut config_decoders = find_user_decoders_at_path(proj_dirs.config_dir());
         decoders.append(&mut config_decoders);
@@ -45,8 +47,8 @@ fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
 }
 
 /// Look for user defined decoders in path.
-fn find_user_decoders_at_path(path: &Path) -> Vec<Box<dyn BasicTranslator>> {
-    let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
+fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
+    let mut decoders: Vec<Box<DynBasicTranslator>> = vec![];
     let Ok(decoder_dirs) = std::fs::read_dir(path.join("decoders")) else {
         return decoders;
     };
@@ -121,7 +123,7 @@ fn find_user_decoders_at_path(path: &Path) -> Vec<Box<dyn BasicTranslator>> {
 }
 
 pub fn all_translators() -> TranslatorList {
-    let mut basic_decoders: Vec<Box<dyn BasicTranslator>> = vec![
+    let mut basic_decoders: Vec<Box<DynBasicTranslator>> = vec![
         Box::new(BitTranslator {}),
         Box::new(HexTranslator {}),
         Box::new(OctalTranslator {}),
@@ -196,15 +198,12 @@ pub fn all_translators() -> TranslatorList {
 #[derive(Default)]
 pub struct TranslatorList {
     inner: HashMap<String, Box<dyn Translator>>,
-    basic: HashMap<String, Box<dyn BasicTranslator>>,
+    basic: HashMap<String, Box<DynBasicTranslator>>,
     pub default: String,
 }
 
 impl TranslatorList {
-    pub fn new(
-        basic: Vec<Box<dyn BasicTranslator>>,
-        translators: Vec<Box<dyn Translator>>,
-    ) -> Self {
+    pub fn new(basic: Vec<Box<DynBasicTranslator>>, translators: Vec<Box<dyn Translator>>) -> Self {
         Self {
             default: "Hexadecimal".to_string(),
             basic: basic.into_iter().map(|t| (t.name(), t)).collect(),
@@ -573,14 +572,6 @@ impl ValueKindExt for ValueKind {
     }
 }
 
-pub fn translates_all_bit_types(variable: &VariableMeta) -> Result<TranslationPreference> {
-    if variable.encoding == VariableEncoding::BitVector {
-        Ok(TranslationPreference::Yes)
-    } else {
-        Ok(TranslationPreference::No)
-    }
-}
-
 pub trait Translator: Send + Sync {
     fn name(&self) -> String;
 
@@ -600,18 +591,7 @@ pub trait Translator: Send + Sync {
     fn reload(&self, _sender: Sender<Message>) {}
 }
 
-pub trait BasicTranslator: Send + Sync {
-    fn name(&self) -> String;
-    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        translates_all_bit_types(variable)
-    }
-    fn variable_info(&self, _variable: &VariableMeta) -> Result<VariableInfo> {
-        Ok(VariableInfo::Bits)
-    }
-}
-
-impl Translator for Box<dyn BasicTranslator> {
+impl Translator for Box<DynBasicTranslator> {
     fn name(&self) -> String {
         self.as_ref().name()
     }
@@ -679,33 +659,6 @@ impl Translator for StringTranslator {
         } else {
             Ok(TranslationPreference::No)
         }
-    }
-}
-
-enum NumberParseResult {
-    Numerical(BigUint),
-    Unparsable(String, ValueKind),
-}
-
-/// Turn vector variable string into name and corresponding kind if it
-/// includes values other than 0 and 1. If only 0 and 1, return None.
-fn map_vector_variable(s: &str) -> NumberParseResult {
-    if let Some(val) = BigUint::parse_bytes(s.as_bytes(), 2) {
-        NumberParseResult::Numerical(val)
-    } else if s.contains('x') {
-        NumberParseResult::Unparsable("UNDEF".to_string(), ValueKind::Undef)
-    } else if s.contains('z') {
-        NumberParseResult::Unparsable("HIGHIMP".to_string(), ValueKind::HighImp)
-    } else if s.contains('-') {
-        NumberParseResult::Unparsable("DON'T CARE".to_string(), ValueKind::DontCare)
-    } else if s.contains('u') {
-        NumberParseResult::Unparsable("UNDEF".to_string(), ValueKind::Undef)
-    } else if s.contains('w') {
-        NumberParseResult::Unparsable("UNDEF WEAK".to_string(), ValueKind::Undef)
-    } else if s.contains('h') || s.contains('l') {
-        NumberParseResult::Unparsable("WEAK".to_string(), ValueKind::Weak)
-    } else {
-        NumberParseResult::Unparsable("UNKNOWN VALUES".to_string(), ValueKind::Undef)
     }
 }
 

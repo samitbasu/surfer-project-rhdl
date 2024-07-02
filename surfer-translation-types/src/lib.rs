@@ -1,5 +1,6 @@
 mod field_ref;
 mod scope_ref;
+mod translator;
 mod variable_ref;
 
 use std::collections::HashMap;
@@ -9,6 +10,7 @@ use num::BigUint;
 
 pub use crate::field_ref::FieldRef;
 pub use crate::scope_ref::ScopeRef;
+pub use crate::translator::{translates_all_bit_types, BasicTranslator, NumericTranslator};
 pub use crate::variable_ref::VariableRef;
 
 #[derive(Debug, PartialEq, Clone)]
