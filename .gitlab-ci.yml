@@ -176,7 +176,7 @@ typos-and-todos:
     before_script:
         - apt update
         - apt install -y wget
-        - wget https://github.com/crate-ci/typos/releases/download/v1.16.25/typos-v1.16.25-x86_64-unknown-linux-musl.tar.gz -O typos.tar.gz
+        - wget https://github.com/crate-ci/typos/releases/download/v1.22.9/typos-v1.22.9-x86_64-unknown-linux-musl.tar.gz -O typos.tar.gz
         # Extract only the typos executable to not get a docs folder which the typo checker
         # will find typos in
         - tar xzf typos.tar.gz ./typos
@@ -263,7 +263,7 @@ pages_build:
         - rustup target add wasm32-unknown-unknown
         - rustc -V
         - cargo -V
-        - wget -qO- https://github.com/trunk-rs/trunk/releases/download/v0.19.2/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+        - wget -qO- https://github.com/trunk-rs/trunk/releases/download/v0.20.2/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
         - ls ./trunk
         - chmod +x trunk
           # https://github.com/thedodd/trunk/pull/361#issuecomment-1308487648 trunk can not
@@ -331,8 +331,8 @@ pages_preview_stop:
 
 
 upload:
-  dependencies: [windows_build, linux_build]
-  needs: [windows_build, linux_build]
+  dependencies: [windows_build, linux_build, macos-aarch64_build]
+  needs: [windows_build, linux_build, macos-aarch64_build]
   stage: upload
   image: curlimages/curl:latest
   rules:
