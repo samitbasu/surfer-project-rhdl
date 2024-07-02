@@ -1,22 +1,20 @@
-use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
 use num::BigUint;
-use serde::{Deserialize, Serialize};
-use wellen::{self, VarRef};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::message::BodyResult;
-use crate::variable_direction::VariableDirection;
+use crate::time::{TimeScale, TimeUnit};
 use crate::wellen::{var_to_meta, LoadSignalsCmd, LoadSignalsResult, WellenContainer};
-use crate::{
-    time::{TimeScale, TimeUnit},
-    variable_type::VariableType,
-};
+
+pub type FieldRef = surfer_translation_types::FieldRef<VarId, ScopeId>;
+pub type ScopeRef = surfer_translation_types::ScopeRef<ScopeId>;
+pub type VariableRef = surfer_translation_types::VariableRef<VarId, ScopeId>;
+pub type VariableMeta = surfer_translation_types::VariableMeta<VarId, ScopeId>;
 
 #[derive(Debug, Clone)]
 pub enum SimulationStatus {
@@ -36,183 +34,121 @@ pub struct MetaData {
     pub version: Option<String>,
     pub timescale: TimeScale,
 }
-#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
-pub struct ScopeRef {
-    pub(crate) strs: Vec<String>,
-    /// Backend specific numeric ID. Performance optimization.
-    #[serde(skip, default = "__wave_container_scope_id_none")]
-    pub(crate) id: WaveContainerScopeId,
-}
-
-impl std::hash::Hash for ScopeRef {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // id is intentionally not hashed, since it is only a performance hint
-        self.strs.hash(state)
-    }
-}
-
-impl PartialEq for ScopeRef {
-    fn eq(&self, other: &Self) -> bool {
-        // id is intentionally not compared, since it is only a performance hint
-        self.strs.eq(&other.strs)
-    }
-}
 
 /// A backend-specific, numeric reference for fast access to the associated scope.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum WaveContainerScopeId {
+pub enum ScopeId {
     None,
     Wellen(wellen::ScopeRef),
 }
 
-fn __wave_container_scope_id_none() -> WaveContainerScopeId {
-    WaveContainerScopeId::None
-}
-
-impl ScopeRef {
-    pub fn empty() -> Self {
-        Self {
-            strs: vec![],
-            id: WaveContainerScopeId::None,
-        }
-    }
-
-    pub fn from_strs<S: ToString>(s: &[S]) -> Self {
-        let strs = s.iter().map(|s| s.to_string()).collect();
-        let id = WaveContainerScopeId::None;
-        Self { strs, id }
-    }
-
-    pub fn from_strs_with_wellen_id<S: ToString>(s: &[S], id: wellen::ScopeRef) -> Self {
-        let mut a = Self::from_strs(s);
-        a.id = WaveContainerScopeId::Wellen(id);
-        a
-    }
-
-    /// Creates a ScopeRef from a string with each scope separated by `.`
-    pub fn from_hierarchy_string(s: &str) -> Self {
-        let strs = s.split('.').map(|x| x.to_string()).collect();
-        let id = WaveContainerScopeId::None;
-        Self { strs, id }
-    }
-
-    pub fn with_subscope(&self, subscope: String) -> Self {
-        let mut result = self.clone();
-        result.strs.push(subscope);
-        // the result refers to a different scope, which we do not know the ID of
-        result.id = WaveContainerScopeId::None;
-        result
-    }
-
-    pub(crate) fn name(&self) -> String {
-        self.strs.last().cloned().unwrap_or_default()
-    }
-
-    pub(crate) fn strs(&self) -> &[String] {
-        &self.strs
-    }
-
-    pub(crate) fn get_wellen_id(&self) -> Option<wellen::ScopeRef> {
-        match self.id {
-            WaveContainerScopeId::Wellen(id) => Some(id),
-            _ => None,
-        }
-    }
-
-    pub(crate) fn with_wellen_id(&self, id: wellen::ScopeRef) -> Self {
-        let mut out = self.clone();
-        out.id = WaveContainerScopeId::Wellen(id);
-        out
-    }
-}
-
-impl std::fmt::Display for ScopeRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.strs.join("."))
-    }
-}
-
-// FIXME: We'll be cloning these quite a bit, I wonder if a `Cow<&str>` or Rc/Arc would be better
-#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
-pub struct VariableRef {
-    /// Path in the scope hierarchy to where this variable resides
-    pub path: ScopeRef,
-    /// Name of the variable in its hierarchy
-    pub name: String,
-    /// Backend specific numeric ID. Performance optimization.
-    #[serde(skip, default = "__wave_container_var_id_none")]
-    pub(crate) id: WaveContainerVarId,
-}
-
-impl AsRef<VariableRef> for VariableRef {
-    fn as_ref(&self) -> &VariableRef {
-        self
-    }
-}
-
-impl std::hash::Hash for VariableRef {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // id is intentionally not hashed, since it is only a performance hint
-        self.path.hash(state);
-        self.name.hash(state);
-    }
-}
-
-impl std::cmp::PartialEq for VariableRef {
-    fn eq(&self, other: &Self) -> bool {
-        // id is intentionally not compared, since it is only a performance hint
-        self.path.eq(&other.path) && self.name.eq(&other.name)
+impl Default for ScopeId {
+    fn default() -> Self {
+        Self::None
     }
 }
 
 /// A backend-specific, numeric reference for fast access to the associated variable.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum WaveContainerVarId {
+pub enum VarId {
     None,
     Wellen(wellen::VarRef),
 }
 
-fn __wave_container_var_id_none() -> WaveContainerVarId {
-    WaveContainerVarId::None
+impl Default for VarId {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
-impl VariableRef {
-    pub fn new(path: ScopeRef, name: String) -> Self {
+#[derive(Debug, Default)]
+pub struct QueryResult {
+    pub current: Option<(BigUint, VariableValue)>,
+    pub next: Option<BigUint>,
+}
+
+#[local_impl::local_impl]
+impl ScopeRefExt for ScopeRef {
+    fn empty() -> Self {
         Self {
-            path,
-            name,
-            id: WaveContainerVarId::None,
+            strs: vec![],
+            id: ScopeId::default(),
         }
     }
 
-    pub(crate) fn new_with_wave_id(path: ScopeRef, name: String, id: VarRef) -> Self {
-        Self {
-            path,
-            name,
-            id: WaveContainerVarId::Wellen(id),
-        }
+    fn from_strs<S: ToString>(s: &[S]) -> Self {
+        Self::from_strs_with_id(s, ScopeId::default())
     }
 
-    pub fn from_hierarchy_string(s: &str) -> Self {
+    fn from_strs_with_id(s: &[impl ToString], id: ScopeId) -> Self {
+        let strs = s.iter().map(|s| s.to_string()).collect();
+        Self { strs, id }
+    }
+
+    /// Creates a ScopeRef from a string with each scope separated by `.`
+    fn from_hierarchy_string(s: &str) -> Self {
+        let strs = s.split('.').map(|x| x.to_string()).collect();
+        let id = ScopeId::default();
+        Self { strs, id }
+    }
+
+    fn with_subscope(&self, subscope: String) -> Self {
+        let mut result = self.clone();
+        result.strs.push(subscope);
+        // the result refers to a different scope, which we do not know the ID of
+        result.id = ScopeId::default();
+        result
+    }
+
+    fn name(&self) -> String {
+        self.strs.last().cloned().unwrap_or_default()
+    }
+
+    fn strs(&self) -> &[String] {
+        &self.strs
+    }
+
+    fn with_id(&self, id: ScopeId) -> Self {
+        let mut out = self.clone();
+        out.id = id;
+        out
+    }
+
+    fn cxxrtl_repr(&self) -> String {
+        self.strs.join(" ")
+    }
+}
+
+#[local_impl::local_impl]
+impl VariableRefExt for VariableRef {
+    fn new(path: ScopeRef, name: String) -> Self {
+        Self::new_with_id(path, name, VarId::default())
+    }
+
+    fn new_with_id(path: ScopeRef, name: String, id: VarId) -> Self {
+        Self { path, name, id }
+    }
+
+    fn from_hierarchy_string(s: &str) -> Self {
         let components = s.split('.').map(|s| s.to_string()).collect::<Vec<_>>();
 
         if components.is_empty() {
             Self {
                 path: ScopeRef::empty(),
                 name: String::new(),
-                id: WaveContainerVarId::None,
+                id: VarId::default(),
             }
         } else {
             Self {
                 path: ScopeRef::from_strs(&components[..(components.len()) - 1]),
                 name: components.last().unwrap().to_string(),
-                id: WaveContainerVarId::None,
+                id: VarId::default(),
             }
         }
     }
 
     /// A human readable full path to the scope
-    pub fn full_path_string(&self) -> String {
+    fn full_path_string(&self) -> String {
         if self.path.strs().is_empty() {
             self.name.clone()
         } else {
@@ -220,7 +156,7 @@ impl VariableRef {
         }
     }
 
-    pub fn full_path(&self) -> Vec<String> {
+    fn full_path(&self) -> Vec<String> {
         self.path
             .strs()
             .iter()
@@ -229,60 +165,41 @@ impl VariableRef {
             .collect()
     }
 
-    #[cfg(test)]
-    pub fn from_strs(s: &[&str]) -> Self {
+    fn from_strs(s: &[&str]) -> Self {
         Self {
             path: ScopeRef::from_strs(&s[..(s.len() - 1)]),
             name: s
                 .last()
                 .expect("from_strs called with an empty string")
                 .to_string(),
-            id: WaveContainerVarId::None,
+            id: VarId::default(),
         }
     }
 
-    pub(crate) fn get_wellen_id(&self) -> Option<VarRef> {
-        match self.id {
-            WaveContainerVarId::Wellen(id) => Some(id),
-            _ => None,
-        }
+    fn clear_id(&mut self) {
+        self.id = VarId::default();
     }
 
-    /// Removes any backend specific ID.
-    pub(crate) fn clear_id(&mut self) {
-        self.id = WaveContainerVarId::None;
+    fn cxxrtl_repr(&self) -> String {
+        self.full_path().join(" ")
     }
 }
 
-/// A reference to a field of a larger variable, such as a field in a struct. The fields
-/// are the recursive path to the fields inside the (translated) root
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FieldRef {
-    pub root: VariableRef,
-    pub field: Vec<String>,
-}
-
-impl FieldRef {
-    pub fn without_fields(root: VariableRef) -> Self {
+#[local_impl::local_impl]
+impl FieldRefExt for FieldRef {
+    fn without_fields(root: VariableRef) -> Self {
         Self {
             root,
             field: vec![],
         }
     }
 
-    #[cfg(test)]
-    pub fn from_strs(root: &[&str], field: &[&str]) -> Self {
+    fn from_strs(root: &[&str], field: &[&str]) -> Self {
         Self {
             root: VariableRef::from_strs(root),
             field: field.iter().map(|s| s.to_string()).collect(),
         }
     }
-}
-
-#[derive(Debug, Default)]
-pub struct QueryResult {
-    pub current: Option<(BigUint, VariableValue)>,
-    pub next: Option<BigUint>,
 }
 
 pub enum WaveContainer {
@@ -577,25 +494,4 @@ impl WaveContainer {
             WaveContainer::Cxxrtl(_) => true,
         }
     }
-}
-
-#[derive(Clone)]
-pub struct VariableMeta {
-    pub var: VariableRef,
-    pub num_bits: Option<u32>,
-    /// Type of the variable in the HDL (on a best effort basis).
-    pub variable_type: Option<VariableType>,
-    pub index: Option<String>,
-    pub direction: Option<VariableDirection>,
-    pub enum_map: HashMap<String, String>,
-    /// Indicates how the variable is stored. A variable of "type" boolean for example
-    /// could be stored as a String or as a BitVector.
-    pub encoding: VariableEncoding,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum VariableEncoding {
-    String,
-    Real,
-    BitVector,
 }

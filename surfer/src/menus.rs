@@ -1,6 +1,7 @@
 use color_eyre::eyre::WrapErr;
 use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
 
+use crate::wave_container::{FieldRef, VariableRefExt};
 use crate::{
     clock_highlighting::clock_highlight_type_menu,
     config::{ArrowKeyBindings, HierarchyStyle},
@@ -10,7 +11,6 @@ use crate::{
     translation::TranslationPreference,
     variable_name_filter::variable_name_filter_type_menu,
     variable_name_type::VariableNameType,
-    wave_container::FieldRef,
     wave_source::OpenMode,
     State,
 };

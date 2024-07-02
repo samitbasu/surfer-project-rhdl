@@ -1,5 +1,5 @@
 use crate::message::Message;
-use crate::wave_container::ScopeRef;
+use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::State;
 use eframe::egui::{Frame, Layout, Margin, ScrollArea, Ui};
 use eframe::emath::Align;

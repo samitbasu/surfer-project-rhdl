@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::wave_container::{ScopeRefExt, VariableRefExt};
 use crate::{displayed_item::DisplayedItem, wave_container::VariableRef, wave_data::WaveData};
 
 #[derive(PartialEq, Copy, Clone, Debug, Deserialize, Serialize, Sequence)]
