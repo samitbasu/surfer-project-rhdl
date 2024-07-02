@@ -17,17 +17,14 @@ use spade_common::{
 };
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
-
-use crate::wave_container::VariableRefExt;
-use crate::{
-    message::Message, translation::SubFieldTranslationResult, wasm_util::perform_work,
-    wave_container::VariableMeta,
+use surfer_translation_types::{
+    SubFieldTranslationResult, TranslationResult, Translator, ValueRepr,
 };
 
-use super::{
-    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableInfo,
-    VariableValue,
-};
+use crate::wave_container::{ScopeId, VarId, VariableRefExt};
+use crate::{message::Message, wasm_util::perform_work, wave_container::VariableMeta};
+
+use super::{TranslationPreference, ValueKind, VariableInfo, VariableValue};
 
 pub struct SpadeTranslator {
     state: CompilerState,
@@ -82,7 +79,7 @@ impl SpadeTranslator {
     }
 }
 
-impl Translator for SpadeTranslator {
+impl Translator<VarId, ScopeId, Message> for SpadeTranslator {
     fn name(&self) -> String {
         "spade".to_string()
     }

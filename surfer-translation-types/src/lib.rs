@@ -1,4 +1,5 @@
 mod field_ref;
+mod result;
 mod scope_ref;
 mod translator;
 mod variable_ref;
@@ -9,8 +10,14 @@ use derive_more::Display;
 use num::BigUint;
 
 pub use crate::field_ref::FieldRef;
+pub use crate::result::{
+    HierFormatResult, SubFieldFlatTranslationResult, SubFieldTranslationResult, TranslatedValue,
+    TranslationResult, ValueRepr,
+};
 pub use crate::scope_ref::ScopeRef;
-pub use crate::translator::{translates_all_bit_types, BasicTranslator, NumericTranslator};
+pub use crate::translator::{
+    translates_all_bit_types, BasicTranslator, NumericTranslator, Translator,
+};
 pub use crate::variable_ref::VariableRef;
 
 #[derive(Debug, PartialEq, Clone)]
