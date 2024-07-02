@@ -1,9 +1,62 @@
+use crate::result::ValueRepr;
 use color_eyre::Result;
 use num::BigUint;
+use std::sync::mpsc::Sender;
 
+use crate::result::TranslationResult;
 use crate::{
     TranslationPreference, ValueKind, VariableEncoding, VariableInfo, VariableMeta, VariableValue,
 };
+
+pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
+    fn name(&self) -> String;
+
+    fn translate(
+        &self,
+        variable: &VariableMeta<VarId, ScopeId>,
+        value: &VariableValue,
+    ) -> Result<TranslationResult>;
+
+    fn variable_info(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo>;
+
+    fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference>;
+
+    // By default translators are stateless, but if they need to reload, they can
+    // do by defining this method.
+    // Long running translators should run the reloading in the background using `perform_work`
+    fn reload(&self, _sender: Sender<Message>) {}
+}
+
+impl<VarId, ScopeId, Message> Translator<VarId, ScopeId, Message>
+    for Box<dyn BasicTranslator<VarId, ScopeId>>
+{
+    fn name(&self) -> String {
+        self.as_ref().name()
+    }
+
+    fn translate(
+        &self,
+        variable: &VariableMeta<VarId, ScopeId>,
+        value: &VariableValue,
+    ) -> Result<TranslationResult> {
+        let (val, kind) = self
+            .as_ref()
+            .basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
+        Ok(TranslationResult {
+            val: ValueRepr::String(val),
+            kind,
+            subfields: vec![],
+        })
+    }
+
+    fn variable_info(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
+        self.as_ref().variable_info(variable)
+    }
+
+    fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
+        self.as_ref().translates(variable)
+    }
+}
 
 pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
     fn name(&self) -> String;

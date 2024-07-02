@@ -22,14 +22,17 @@ use instruction_decoder::Decoder;
 use itertools::Itertools;
 pub use numeric_translators::*;
 use surfer_translation_types::{
-    TranslationPreference, ValueKind, VariableEncoding, VariableInfo, VariableValue,
+    BasicTranslator, HierFormatResult, SubFieldFlatTranslationResult, TranslatedValue,
+    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableEncoding,
+    VariableInfo, VariableValue,
 };
 
 use crate::config::SurferTheme;
 use crate::wave_container::{ScopeId, VarId};
 use crate::{message::Message, wave_container::VariableMeta};
 
-pub type DynBasicTranslator = dyn surfer_translation_types::BasicTranslator<VarId, ScopeId>;
+pub type DynBasicTranslator = dyn BasicTranslator<VarId, ScopeId>;
+pub type DynTranslator = dyn Translator<VarId, ScopeId, Message>;
 
 /// Look inside the config directory and inside "$(cwd)/.surfer" for user-defined decoders
 /// To add a new decoder named 'x', add a directory 'x' to the decoders directory
@@ -201,16 +204,19 @@ pub fn all_translators() -> TranslatorList {
 
 #[derive(Default)]
 pub struct TranslatorList {
-    inner: HashMap<String, Box<dyn Translator>>,
+    inner: HashMap<String, Box<DynTranslator>>,
     basic: HashMap<String, Box<DynBasicTranslator>>,
     pub default: String,
 }
 
 impl TranslatorList {
-    pub fn new(basic: Vec<Box<DynBasicTranslator>>, translators: Vec<Box<dyn Translator>>) -> Self {
+    pub fn new(basic: Vec<Box<DynBasicTranslator>>, translators: Vec<Box<DynTranslator>>) -> Self {
         Self {
             default: "Hexadecimal".to_string(),
-            basic: basic.into_iter().map(|t| (t.name(), t)).collect(),
+            basic: basic
+                .into_iter()
+                .map(|t| ((&t as &DynTranslator).name(), t))
+                .collect(),
             inner: translators.into_iter().map(|t| (t.name(), t)).collect(),
         }
     }
@@ -219,7 +225,7 @@ impl TranslatorList {
         self.inner.keys().chain(self.basic.keys()).collect()
     }
 
-    pub fn all_translators(&self) -> Vec<&dyn Translator> {
+    pub fn all_translators(&self) -> Vec<&DynTranslator> {
         // This is kind of inefficient, but I don't feel like messing with lifetimes
         // and downcasting BasicTranslator to Translator again. Since this function
         // isn't run very often, this should be sufficient
@@ -233,7 +239,7 @@ impl TranslatorList {
         self.basic.keys().collect()
     }
 
-    pub fn get_translator(&self, name: &str) -> &(dyn Translator) {
+    pub fn get_translator(&self, name: &str) -> &DynTranslator {
         let full = self.inner.get(name);
         if let Some(full) = full.map(|t| t.as_ref()) {
             full
@@ -246,7 +252,7 @@ impl TranslatorList {
         }
     }
 
-    pub fn add_or_replace(&mut self, t: Box<dyn Translator>) {
+    pub fn add_or_replace(&mut self, t: Box<DynTranslator>) {
         self.inner.insert(t.name(), t);
     }
 
@@ -256,102 +262,6 @@ impl TranslatorList {
             .map(|preference| preference != TranslationPreference::No)
             .unwrap_or(false)
     }
-}
-
-/// The representation of the value, compound values can be
-/// be represented by the repr of their subfields
-#[derive(Clone)]
-pub enum ValueRepr {
-    Bit(char),
-    /// The value is `.0` raw bits, and can be translated by further translators
-    Bits(u64, String),
-    /// The value is exactly the specified string
-    String(String),
-    /// Represent the value as (f1, f2, f3...)
-    Tuple,
-    /// Represent the value as {f1: v1, f2: v2, f3: v3...}
-    Struct,
-    /// Represent as a spade-like enum with the specified field being shown.
-    /// The index is the index of the option which is currently selected, the name is
-    /// the name of that option to avoid having to look that up
-    Enum {
-        idx: usize,
-        name: String,
-    },
-    /// Represent the value as [f1, f2, f3...]
-    Array,
-    /// The variable value is not present. This is used to draw variables which are
-    /// validated by other variables.
-    NotPresent,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct TranslatedValue {
-    pub value: String,
-    pub kind: ValueKind,
-}
-
-impl TranslatedValue {
-    pub fn from_basic_translate(result: (String, ValueKind)) -> Self {
-        TranslatedValue {
-            value: result.0,
-            kind: result.1,
-        }
-    }
-
-    pub fn new(value: impl ToString, kind: ValueKind) -> Self {
-        TranslatedValue {
-            value: value.to_string(),
-            kind,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct SubFieldFlatTranslationResult {
-    pub names: Vec<String>,
-    pub value: Option<TranslatedValue>,
-}
-
-// A tree of format results for a variable, to be flattened into `SubFieldFlatTranslationResult`s
-struct HierFormatResult {
-    pub names: Vec<String>,
-    pub this: Option<TranslatedValue>,
-    /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
-    /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<HierFormatResult>,
-}
-
-impl HierFormatResult {
-    pub fn collect_into(self, into: &mut Vec<SubFieldFlatTranslationResult>) {
-        into.push(SubFieldFlatTranslationResult {
-            names: self.names,
-            value: self.this,
-        });
-        self.fields.into_iter().for_each(|r| r.collect_into(into));
-    }
-}
-
-#[derive(Clone)]
-pub struct SubFieldTranslationResult {
-    pub name: String,
-    pub result: TranslationResult,
-}
-
-impl SubFieldTranslationResult {
-    pub fn new(name: impl ToString, result: TranslationResult) -> Self {
-        SubFieldTranslationResult {
-            name: name.to_string(),
-            result,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct TranslationResult {
-    pub val: ValueRepr,
-    pub subfields: Vec<SubFieldTranslationResult>,
-    pub kind: ValueKind,
 }
 
 fn format(
@@ -452,7 +362,8 @@ fn format(
     }
 }
 
-impl TranslationResult {
+#[local_impl::local_impl]
+impl TranslationResultExt for TranslationResult {
     fn sub_format(
         &self,
         formats: &[crate::displayed_item::FieldFormat],
@@ -495,7 +406,7 @@ impl TranslationResult {
     }
 
     /// Flattens the translation result into path, value pairs
-    pub fn format_flat(
+    fn format_flat(
         &self,
         root_format: &Option<String>,
         formats: &[crate::displayed_item::FieldFormat],
@@ -576,57 +487,9 @@ impl ValueKindExt for ValueKind {
     }
 }
 
-pub trait Translator: Send + Sync {
-    fn name(&self) -> String;
-
-    fn translate(
-        &self,
-        variable: &VariableMeta,
-        value: &VariableValue,
-    ) -> Result<TranslationResult>;
-
-    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo>;
-
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference>;
-
-    // By default translators are stateless, but if they need to reload, they can
-    // do by defining this method.
-    // Long running translators should run the reloading in the background using `perform_work`
-    fn reload(&self, _sender: Sender<Message>) {}
-}
-
-impl Translator for Box<DynBasicTranslator> {
-    fn name(&self) -> String {
-        self.as_ref().name()
-    }
-
-    fn translate(
-        &self,
-        variable: &VariableMeta,
-        value: &VariableValue,
-    ) -> Result<TranslationResult> {
-        let (val, kind) = self
-            .as_ref()
-            .basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
-        Ok(TranslationResult {
-            val: ValueRepr::String(val),
-            kind,
-            subfields: vec![],
-        })
-    }
-
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        self.as_ref().translates(variable)
-    }
-
-    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo> {
-        self.as_ref().variable_info(variable)
-    }
-}
-
 pub struct StringTranslator {}
 
-impl Translator for StringTranslator {
+impl Translator<VarId, ScopeId, Message> for StringTranslator {
     fn name(&self) -> String {
         "String".to_string()
     }

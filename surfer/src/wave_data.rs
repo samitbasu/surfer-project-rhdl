@@ -11,7 +11,7 @@ use crate::displayed_item::{
     DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
     DisplayedTimeLine, DisplayedVariable,
 };
-use crate::translation::{Translator, TranslatorList, VariableInfoExt};
+use crate::translation::{DynTranslator, TranslatorList, VariableInfoExt};
 use crate::variable_name_type::VariableNameType;
 use crate::view::ItemDrawingInfo;
 use crate::viewport::Viewport;
@@ -82,7 +82,7 @@ pub fn variable_translator<'a, F>(
     field: &[String],
     translators: &'a TranslatorList,
     meta: F,
-) -> &'a dyn Translator
+) -> &'a DynTranslator
 where
     F: FnOnce() -> Result<VariableMeta>,
 {
@@ -304,7 +304,7 @@ impl WaveData {
         &'a self,
         field: &DisplayedFieldRef,
         translators: &'a TranslatorList,
-    ) -> &'a dyn Translator {
+    ) -> &'a DynTranslator {
         let Some(DisplayedItem::Variable(displayed_variable)) =
             self.displayed_items.get(&field.item)
         else {
