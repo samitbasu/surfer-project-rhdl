@@ -750,7 +750,6 @@ impl State {
     }
 
     pub fn update(&mut self, message: Message) {
-        log::trace!("processing {message:#?}");
         match message {
             Message::SetActiveScope(scope) => {
                 let Some(waves) = self.waves.as_mut() else {
@@ -1738,7 +1737,6 @@ impl State {
         let viewports = [viewport].to_vec();
 
         let (new_wave, load_commands) = if load_options.keep_variables && self.waves.is_some() {
-            log::debug!("keeping stuff");
             self.waves.take().unwrap().update_with_waves(
                 new_waves,
                 filename,
@@ -1895,6 +1893,8 @@ impl State {
         // system state is not exported and instance specific, swap back
         // we need to do this before fixing wave files which e.g. use the translator list
         mem::swap(&mut self.sys, &mut loaded_state.sys);
+        // the config is also not exported and instance specific, swap back
+        mem::swap(&mut self.config, &mut loaded_state.config);
 
         // swap back waves for inner, source, format since we want to keep the file
         // fix up all wave references from paths if a wave is loaded

@@ -17,7 +17,7 @@ use test_log::test;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
-    config::HierarchyStyle,
+    config::{HierarchyStyle, SurferConfig},
     displayed_item::{DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef},
     message::AsyncJob,
     setup_custom_font,
@@ -1649,6 +1649,9 @@ snapshot_ui!(save_and_start_with_state, || {
             )),
             startup_commands: vec![],
         });
+
+    // for the tests, we always want the default config
+    state.config = SurferConfig::new(true).unwrap();
     wait_for_waves_fully_loaded(&mut state, 10);
 
     state
