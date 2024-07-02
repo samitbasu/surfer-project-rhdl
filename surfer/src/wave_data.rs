@@ -6,19 +6,19 @@ use num::bigint::ToBigInt as _;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    displayed_item::{
-        DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
-        DisplayedTimeLine, DisplayedVariable,
-    },
-    translation::{TranslationPreference, Translator, TranslatorList},
-    variable_name_type::VariableNameType,
-    view::ItemDrawingInfo,
-    viewport::Viewport,
-    wave_container::{ScopeRef, VariableMeta, VariableRef, VariableValue, WaveContainer},
-    wave_source::{WaveFormat, WaveSource},
-    wellen::LoadSignalsCmd,
+use crate::displayed_item::{
+    DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
+    DisplayedTimeLine, DisplayedVariable,
 };
+use crate::translation::{TranslationPreference, Translator, TranslatorList};
+use crate::variable_name_type::VariableNameType;
+use crate::view::ItemDrawingInfo;
+use crate::viewport::Viewport;
+use crate::wave_container::{
+    ScopeRef, VariableMeta, VariableRef, VariableRefExt, VariableValue, WaveContainer,
+};
+use crate::wave_source::{WaveFormat, WaveSource};
+use crate::wellen::LoadSignalsCmd;
 
 pub const PER_SCROLL_EVENT: f32 = 50.0;
 pub const SCROLL_EVENTS_PER_PAGE: f32 = 20.0;

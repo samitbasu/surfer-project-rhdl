@@ -11,6 +11,7 @@ use egui_remixicon::icons;
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
+use surfer_translation_types::VariableType;
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
@@ -25,8 +26,10 @@ use crate::help::{
 use crate::time::time_string;
 use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
 use crate::util::uint_idx_to_alpha_idx;
-use crate::variable_type::VariableType;
-use crate::wave_container::{FieldRef, ScopeRef, VariableRef};
+use crate::variable_direction::VariableDirectionExt;
+use crate::wave_container::{
+    FieldRef, FieldRefExt, ScopeRef, ScopeRefExt, VariableRef, VariableRefExt,
+};
 use crate::wave_source::LoadOptions;
 use crate::{
     command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy,

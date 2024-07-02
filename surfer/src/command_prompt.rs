@@ -12,6 +12,7 @@ use itertools::Itertools;
 
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
 use crate::displayed_item::DisplayedItemIndex;
+use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt};
 use crate::wave_source::LoadOptions;
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -19,7 +20,6 @@ use crate::{
     message::Message,
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
     variable_name_type::VariableNameType,
-    wave_container::{ScopeRef, VariableRef},
     State,
 };
 
