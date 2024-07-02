@@ -1,5 +1,6 @@
 use std::{borrow::Cow, sync::Mutex};
 
+use color_eyre::Result;
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder, TableRow};
 use log::{Level, Log, Record};
@@ -106,4 +107,45 @@ impl State {
             msgs.push(Message::SetLogsVisible(false))
         }
     }
+}
+
+pub fn setup_logging(platform_logger: fern::Dispatch) -> Result<()> {
+    let egui_log_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .level_for("surfer", log::LevelFilter::Trace)
+        .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
+        .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
+
+    fern::Dispatch::new()
+        .chain(platform_logger)
+        .chain(egui_log_config)
+        .apply()?;
+    Ok(())
+}
+
+/// Starts the logging and error handling. Can be used by unittests to get more insights.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn start_logging() -> Result<()> {
+    let colors = fern::colors::ColoredLevelConfig::new()
+        .error(fern::colors::Color::Red)
+        .warn(fern::colors::Color::Yellow)
+        .info(fern::colors::Color::Green)
+        .debug(fern::colors::Color::Blue)
+        .trace(fern::colors::Color::White);
+
+    let stdout_config = fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .level_for("surfer", log::LevelFilter::Trace)
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "[{}] {}",
+                colors.color(record.level()),
+                message
+            ))
+        })
+        .chain(std::io::stdout());
+    setup_logging(stdout_config)?;
+
+    color_eyre::install()?;
+    Ok(())
 }
