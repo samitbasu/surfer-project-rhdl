@@ -1,11 +1,11 @@
 use crate::wave_container::VariableMeta;
 use surfer_translation_types::VariableValue;
 
-use super::{BasicTranslator, BitTranslator, Translator, VariableInfo};
+use super::{BitTranslator, DynBasicTranslator, Translator, VariableInfo};
 
 pub struct ClockTranslator {
     // In order to not duplicate logic, we'll re-use the bit translator internally
-    inner: Box<dyn BasicTranslator>,
+    inner: Box<DynBasicTranslator>,
 }
 
 impl ClockTranslator {
