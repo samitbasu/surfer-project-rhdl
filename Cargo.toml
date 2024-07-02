@@ -16,6 +16,7 @@ default-members = ["surfer"]
 [workspace.dependencies]
 color-eyre = "0.6.3"
 derive_more = "0.99.18"
+ecolor = "0.27.2"
 num = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0.197", features = ["derive"] }
 
