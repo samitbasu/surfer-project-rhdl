@@ -480,7 +480,7 @@ impl ValueKindExt for ValueKind {
             ValueKind::Undef => theme.variable_undef,
             ValueKind::DontCare => theme.variable_dontcare,
             ValueKind::Warn => theme.variable_undef,
-            ValueKind::Custom([r, g, b, a]) => Color32::from_rgba_unmultiplied(*r, *g, *b, *a),
+            ValueKind::Custom(custom_color) => *custom_color,
             ValueKind::Weak => theme.variable_weak,
             ValueKind::Normal => user_color,
         }

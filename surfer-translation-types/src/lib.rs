@@ -7,6 +7,7 @@ mod variable_ref;
 use std::collections::HashMap;
 
 use derive_more::Display;
+use ecolor::Color32;
 use num::BigUint;
 
 pub use crate::field_ref::FieldRef;
@@ -31,7 +32,7 @@ pub enum ValueKind {
     Normal,
     Undef,
     HighImp,
-    Custom([u8; 4]),
+    Custom(Color32),
     Warn,
     DontCare,
     Weak,
