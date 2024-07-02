@@ -2,13 +2,12 @@ use color_eyre::Result;
 use half::{bf16, f16};
 use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
+use surfer_translation_types::{translates_all_bit_types, NumericTranslator};
 
+use crate::wave_container::{ScopeId, VarId};
 use crate::{variable_type::INTEGER_TYPES, wave_container::VariableMeta};
 
-use super::{
-    check_single_wordlength, map_vector_variable, translates_all_bit_types, BasicTranslator,
-    NumberParseResult, TranslationPreference, ValueKind, VariableValue,
-};
+use super::{check_single_wordlength, TranslationPreference};
 
 #[inline]
 fn shortest_float_representation<T: std::fmt::LowerExp + std::fmt::Display>(v: T) -> String {
@@ -21,42 +20,9 @@ fn shortest_float_representation<T: std::fmt::LowerExp + std::fmt::Display>(v: T
     }
 }
 
-pub trait NumericTranslator {
-    fn name(&self) -> String;
-    fn translate_biguint(&self, _: u64, _: BigUint) -> String;
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        translates_all_bit_types(variable)
-    }
-}
-
-impl<T: NumericTranslator + Send + Sync> BasicTranslator for T {
-    fn name(&self) -> String {
-        self.name()
-    }
-
-    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
-        match value {
-            VariableValue::BigUint(v) => (
-                self.translate_biguint(num_bits, v.clone()),
-                ValueKind::Normal,
-            ),
-            VariableValue::String(s) => match map_vector_variable(s) {
-                NumberParseResult::Unparsable(v, k) => (v, k),
-                NumberParseResult::Numerical(v) => {
-                    (self.translate_biguint(num_bits, v), ValueKind::Normal)
-                }
-            },
-        }
-    }
-
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        self.translates(variable)
-    }
-}
-
 pub struct UnsignedTranslator {}
 
-impl NumericTranslator for UnsignedTranslator {
+impl NumericTranslator<VarId, ScopeId> for UnsignedTranslator {
     fn name(&self) -> String {
         String::from("Unsigned")
     }
@@ -68,7 +34,7 @@ impl NumericTranslator for UnsignedTranslator {
 
 pub struct SignedTranslator {}
 
-impl NumericTranslator for SignedTranslator {
+impl NumericTranslator<VarId, ScopeId> for SignedTranslator {
     fn name(&self) -> String {
         String::from("Signed")
     }
@@ -94,7 +60,7 @@ impl NumericTranslator for SignedTranslator {
 
 pub struct SinglePrecisionTranslator {}
 
-impl NumericTranslator for SinglePrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId> for SinglePrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 32-bit IEEE 754")
     }
@@ -110,7 +76,7 @@ impl NumericTranslator for SinglePrecisionTranslator {
 
 pub struct DoublePrecisionTranslator {}
 
-impl NumericTranslator for DoublePrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId> for DoublePrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 64-bit IEEE 754")
     }
@@ -126,7 +92,7 @@ impl NumericTranslator for DoublePrecisionTranslator {
 pub struct QuadPrecisionTranslator {}
 
 #[cfg(feature = "f128")]
-impl NumericTranslator for QuadPrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId> for QuadPrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 128-bit IEEE 754")
     }
@@ -148,7 +114,7 @@ impl NumericTranslator for QuadPrecisionTranslator {
 
 pub struct HalfPrecisionTranslator {}
 
-impl NumericTranslator for HalfPrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId> for HalfPrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 16-bit IEEE 754")
     }
@@ -164,7 +130,7 @@ impl NumericTranslator for HalfPrecisionTranslator {
 
 pub struct BFloat16Translator {}
 
-impl NumericTranslator for BFloat16Translator {
+impl NumericTranslator<VarId, ScopeId> for BFloat16Translator {
     fn name(&self) -> String {
         String::from("FP: bfloat16")
     }
@@ -180,7 +146,7 @@ impl NumericTranslator for BFloat16Translator {
 
 pub struct Posit32Translator {}
 
-impl NumericTranslator for Posit32Translator {
+impl NumericTranslator<VarId, ScopeId> for Posit32Translator {
     fn name(&self) -> String {
         String::from("Posit: 32-bit (two exponent bits)")
     }
@@ -199,7 +165,7 @@ impl NumericTranslator for Posit32Translator {
 
 pub struct Posit16Translator {}
 
-impl NumericTranslator for Posit16Translator {
+impl NumericTranslator<VarId, ScopeId> for Posit16Translator {
     fn name(&self) -> String {
         String::from("Posit: 16-bit (one exponent bit)")
     }
@@ -218,7 +184,7 @@ impl NumericTranslator for Posit16Translator {
 
 pub struct Posit8Translator {}
 
-impl NumericTranslator for Posit8Translator {
+impl NumericTranslator<VarId, ScopeId> for Posit8Translator {
     fn name(&self) -> String {
         String::from("Posit: 8-bit (no exponent bit)")
     }
@@ -237,7 +203,7 @@ impl NumericTranslator for Posit8Translator {
 
 pub struct PositQuire8Translator {}
 
-impl NumericTranslator for PositQuire8Translator {
+impl NumericTranslator<VarId, ScopeId> for PositQuire8Translator {
     fn name(&self) -> String {
         String::from("Posit: quire for 8-bit (no exponent bit)")
     }
@@ -256,7 +222,7 @@ impl NumericTranslator for PositQuire8Translator {
 
 pub struct PositQuire16Translator {}
 
-impl NumericTranslator for PositQuire16Translator {
+impl NumericTranslator<VarId, ScopeId> for PositQuire16Translator {
     fn name(&self) -> String {
         String::from("Posit: quire for 16-bit (one exponent bit)")
     }
@@ -305,7 +271,7 @@ fn decode_e5m2(v: u8) -> String {
 
 pub struct E5M2Translator {}
 
-impl NumericTranslator for E5M2Translator {
+impl NumericTranslator<VarId, ScopeId> for E5M2Translator {
     fn name(&self) -> String {
         String::from("FP: 8-bit (E5M2)")
     }
@@ -342,7 +308,7 @@ fn decode_e4m3(v: u8) -> String {
 
 pub struct E4M3Translator {}
 
-impl NumericTranslator for E4M3Translator {
+impl NumericTranslator<VarId, ScopeId> for E4M3Translator {
     fn name(&self) -> String {
         String::from("FP: 8-bit (E4M3)")
     }
@@ -358,8 +324,8 @@ impl NumericTranslator for E4M3Translator {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
+    use surfer_translation_types::{BasicTranslator, VariableValue};
 
     #[test]
     fn signed_translation_from_string() {
