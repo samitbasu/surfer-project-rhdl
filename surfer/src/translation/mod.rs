@@ -19,8 +19,8 @@ use instruction_decoder::Decoder;
 use itertools::Itertools;
 use num::BigUint;
 pub use numeric_translators::*;
+use surfer_translation_types::VariableEncoding;
 
-use crate::wave_container::VariableEncoding;
 use crate::{
     message::Message,
     wave_container::{VariableMeta, VariableValue},

@@ -43,20 +43,22 @@ mod wave_data;
 mod wave_source;
 mod wellen;
 
-#[cfg(feature = "performance_plot")]
-use benchmark::Timing;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::fmt::Display;
+use std::mem;
+use std::path::PathBuf;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Arc;
+use std::sync::RwLock;
+
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use command_prompt::get_parser;
-use config::{SurferConfig, SurferTheme};
-use displayed_item::DisplayedFieldRef;
-use displayed_item::DisplayedItem;
-use displayed_item::DisplayedItemIndex;
-use displayed_item::DisplayedItemRef;
-use displayed_item::FieldFormat;
 use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
@@ -74,42 +76,42 @@ use log::error;
 use log::info;
 use log::trace;
 use log::warn;
-use message::Message;
 use num::BigInt;
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
 use time::TimeStringFormatting;
 use time::TimeUnit;
-use translation::all_translators;
-#[cfg(feature = "spade")]
-use translation::spade::SpadeTranslator;
-use translation::TranslatorList;
-use variable_name_filter::VariableNameFilterType;
-use viewport::Viewport;
-use wasm_util::perform_work;
-use wasm_util::UrlArgs;
-use wave_container::VariableRef;
-use wave_container::WaveContainer;
-use wave_data::WaveData;
-use wave_source::string_to_wavesource;
-use wave_source::LoadOptions;
-use wave_source::LoadProgress;
-use wave_source::WaveFormat;
-use wave_source::WaveSource;
 
+#[cfg(feature = "performance_plot")]
+use crate::benchmark::Timing;
+use crate::command_prompt::get_parser;
+use crate::config::{SurferConfig, SurferTheme};
+use crate::displayed_item::DisplayedFieldRef;
+use crate::displayed_item::DisplayedItem;
+use crate::displayed_item::DisplayedItemIndex;
+use crate::displayed_item::DisplayedItemRef;
+use crate::displayed_item::FieldFormat;
 use crate::message::HeaderResult;
+use crate::message::Message;
+use crate::translation::all_translators;
+#[cfg(feature = "spade")]
+use crate::translation::spade::SpadeTranslator;
+use crate::translation::TranslatorList;
+use crate::variable_name_filter::VariableNameFilterType;
+use crate::viewport::Viewport;
+use crate::wasm_util::perform_work;
+use crate::wasm_util::UrlArgs;
+use crate::wave_container::ScopeRefExt;
+use crate::wave_container::VariableRef;
+use crate::wave_container::WaveContainer;
+use crate::wave_data::WaveData;
+use crate::wave_source::string_to_wavesource;
+use crate::wave_source::LoadOptions;
+use crate::wave_source::LoadProgress;
+use crate::wave_source::WaveFormat;
+use crate::wave_source::WaveSource;
 use crate::wellen::convert_format;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
-use std::fmt::Display;
-use std::mem;
-use std::path::PathBuf;
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
-use std::sync::RwLock;
 
 lazy_static! {
     pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);

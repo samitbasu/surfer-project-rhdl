@@ -18,7 +18,7 @@ clap = { version = "4.5.4", features = ['derive'] }
 color-eyre = "0.6.2"
 config = { version = "0.14", default-features = false, features = ["toml"] }
 derivative = "2.2.0"
-derive_more = "0.99.17"
+derive_more.workspace = true
 eframe = { version = "0.27.2", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 egui-remixicon = { version = "0.27.2", default-features = false }
 egui_extras = { version = "0.27.2", default-features = false }
@@ -34,6 +34,7 @@ half = "2.4.1"
 instruction-decoder = { path = "../instruction-decoder" }
 itertools = "0.13.0"
 lazy_static = "1.4.0"
+local-impl = "0.1.2"
 log = "0.4"
 lz4_flex = "0.11.3"
 num = { version = "0.4", features = ["serde"] }
@@ -44,7 +45,7 @@ regex = "1.10.2"
 reqwest = { version = "0.12.4", features = ["stream"] }
 rfd = { version = "0.14.0", default-features = false, features = ["tokio", "xdg-portal"] }
 ron = { version = "0.8.1", features = ["integer128"] }
-serde = { version = "1.0.197", features = ["derive"] }
+serde.workspace = true
 serde_json = "1.0.113"
 serde_stacker = { version = "0.1", optional = true }
 softposit = "0.4.0"

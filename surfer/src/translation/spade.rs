@@ -18,6 +18,7 @@ use spade_common::{
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
 
+use crate::wave_container::VariableRefExt;
 use crate::{
     message::Message, translation::SubFieldTranslationResult, wasm_util::perform_work,
     wave_container::VariableMeta,

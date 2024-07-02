@@ -15,6 +15,7 @@ use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
 use test_log::test;
 
+use crate::wave_container::{ScopeRefExt, VariableRefExt};
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::{HierarchyStyle, SurferConfig},
