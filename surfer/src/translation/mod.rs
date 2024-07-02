@@ -1,4 +1,6 @@
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 
 use color_eyre::Result;
 #[cfg(not(target_arch = "wasm32"))]
@@ -6,8 +8,6 @@ use directories::ProjectDirs;
 use eframe::epaint::Color32;
 #[cfg(not(target_arch = "wasm32"))]
 use log::warn;
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
 #[cfg(not(target_arch = "wasm32"))]
 use toml::Table;
 
@@ -22,12 +22,12 @@ use instruction_decoder::Decoder;
 use itertools::Itertools;
 use num::BigUint;
 pub use numeric_translators::*;
-use surfer_translation_types::VariableEncoding;
-
-use crate::{
-    message::Message,
-    wave_container::{VariableMeta, VariableValue},
+use surfer_translation_types::{
+    TranslationPreference, ValueKind, VariableEncoding, VariableInfo, VariableValue,
 };
+
+use crate::config::SurferTheme;
+use crate::{message::Message, wave_container::VariableMeta};
 
 /// Look inside the config directory and inside "$(cwd)/.surfer" for user-defined decoders
 /// To add a new decoder named 'x', add a directory 'x' to the decoders directory
@@ -257,17 +257,6 @@ impl TranslatorList {
             .map(|preference| preference != TranslationPreference::No)
             .unwrap_or(false)
     }
-}
-
-#[derive(Clone, PartialEq, Copy)]
-pub enum ValueKind {
-    Normal,
-    Undef,
-    HighImp,
-    Custom(Color32),
-    Warn,
-    DontCare,
-    Weak,
 }
 
 /// The representation of the value, compound values can be
@@ -537,23 +526,9 @@ impl TranslationResult {
     }
 }
 
-/// Static information about the structure of a variable.
-#[derive(Clone, Debug, Default)]
-pub enum VariableInfo {
-    Compound {
-        subfields: Vec<(String, VariableInfo)>,
-    },
-    Bits,
-    Bool,
-    Clock,
-    // NOTE: only used for state saving where translators will clear this out with the actual value
-    #[default]
-    String,
-    Real,
-}
-
-impl VariableInfo {
-    pub fn get_subinfo(&self, path: &[String]) -> &VariableInfo {
+#[local_impl::local_impl]
+impl VariableInfoExt for VariableInfo {
+    fn get_subinfo(&self, path: &[String]) -> &VariableInfo {
         match path {
             [] => self,
             [field, rest @ ..] => match self {
@@ -572,7 +547,7 @@ impl VariableInfo {
         }
     }
 
-    pub fn has_subpath(&self, path: &[String]) -> bool {
+    fn has_subpath(&self, path: &[String]) -> bool {
         match path {
             [] => true,
             [field, rest @ ..] => match self {
@@ -587,15 +562,19 @@ impl VariableInfo {
     }
 }
 
-#[derive(PartialEq)]
-pub enum TranslationPreference {
-    /// This translator prefers translating the variable, so it will be selected
-    /// as the default translator for the variable
-    Prefer,
-    /// This translator is able to translate the variable, but will not be
-    /// selected by default, the user has to select it
-    Yes,
-    No,
+#[local_impl::local_impl]
+impl ValueKindExt for ValueKind {
+    fn color(&self, user_color: Color32, theme: &SurferTheme) -> Color32 {
+        match self {
+            ValueKind::HighImp => theme.variable_highimp,
+            ValueKind::Undef => theme.variable_undef,
+            ValueKind::DontCare => theme.variable_dontcare,
+            ValueKind::Warn => theme.variable_undef,
+            ValueKind::Custom([r, g, b, a]) => Color32::from_rgba_unmultiplied(*r, *g, *b, *a),
+            ValueKind::Weak => theme.variable_weak,
+            ValueKind::Normal => user_color,
+        }
+    }
 }
 
 pub fn translates_all_bit_types(variable: &VariableMeta) -> Result<TranslationPreference> {

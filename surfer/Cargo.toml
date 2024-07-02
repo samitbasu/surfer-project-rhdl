@@ -34,17 +34,11 @@ fzcmd = { path = "../fzcmd" }
 half = "2.4.1"
 instruction-decoder = { path = "../instruction-decoder" }
 itertools = "0.13.0"
-<<<<<<< HEAD
 lazy_static.workspace = true
+local-impl = "0.1.2"
 log.workspace = true
 lz4_flex.workspace = true
-=======
-lazy_static = "1.4.0"
-local-impl = "0.1.2"
-log = "0.4"
-lz4_flex = "0.11.3"
->>>>>>> c9a67af (extract translation types)
-num = { version = "0.4", features = ["serde"] }
+num.workspace = true
 numeric-sort = "0.1.1"
 pure-rust-locales = "0.8.1"
 rayon = "1.10.0"

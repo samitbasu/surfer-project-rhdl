@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+color-eyre.workspace = true
 derive_more.workspace = true
+num.workspace = true
 serde.workspace = true
