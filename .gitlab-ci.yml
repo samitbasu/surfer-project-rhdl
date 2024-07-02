@@ -270,7 +270,7 @@ pages_build:
           # generate relative urls which we want for external pipelines to be able
           # to download our artefacts and put them wherever on their webserver. To fix this,
           # we'll build with a dummy public URL, then replace it with ./
-        - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build surfer/Cargo.toml --release --public-url /dist
+        - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build surfer/index.html --release --public-url /dist
         - cp -r surfer/dist pages_build
         - cp examples/*.vcd pages_build/
         - sed -i "s|/dist/|./|g" pages_build/index.html
