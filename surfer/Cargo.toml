@@ -48,10 +48,10 @@ serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.113"
 serde_stacker = { version = "0.1", optional = true }
 softposit = "0.4.0"
-spade = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
-spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
-spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
-spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+spade = { git = "https://gitlab.com/spade-lang/spade", rev = "1b2bde122d9464c81cb6672ff054878b0c9bf506", optional = true }
+spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "1b2bde122d9464c81cb6672ff054878b0c9bf506", optional = true }
+spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "1b2bde122d9464c81cb6672ff054878b0c9bf506", optional = true }
+spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "1b2bde122d9464c81cb6672ff054878b0c9bf506", optional = true }
 sys-locale = "0.3.1"
 tokio = { version = "1.37", features = ["rt", "time", "macros"] }
 toml = "0.8.12"

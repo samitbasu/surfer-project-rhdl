@@ -1,5 +1,5 @@
 $date
-	Thu Jan 11 10:31:21 2024
+	Wed Jul  3 12:39:18 2024
 $end
 $version
 	Icarus Verilog
@@ -11,20 +11,20 @@ $scope module proj::pipeline_ready_valid::ready_valid_pipeline $end
 $var wire 1 ! \#s1_enable $end
 $var wire 1 " \#s2_enable $end
 $var wire 1 # \#s3_enable $end
-$var wire 1 $ _e_219 $end
-$var wire 2 % _e_225 [1:0] $end
-$var wire 2 & _e_234 [1:0] $end
-$var wire 2 ' _e_243 [1:0] $end
-$var wire 2 ( _e_252 [1:0] $end
-$var wire 1 ) _e_256 $end
-$var wire 1 * _e_363 $end
-$var wire 1 + _e_365 $end
-$var wire 1 , _e_367 $end
-$var wire 1 - _e_370 $end
-$var wire 1 . _e_372 $end
-$var wire 1 / _e_375 $end
-$var wire 1 0 _e_377 $end
-$var wire 1 1 _e_381 $end
+$var wire 1 $ _e_1002 $end
+$var wire 1 % _e_1004 $end
+$var wire 1 & _e_1007 $end
+$var wire 1 ' _e_1009 $end
+$var wire 1 ( _e_1013 $end
+$var wire 1 ) _e_826 $end
+$var wire 2 * _e_832 [1:0] $end
+$var wire 2 + _e_841 [1:0] $end
+$var wire 2 , _e_850 [1:0] $end
+$var wire 2 - _e_859 [1:0] $end
+$var wire 1 . _e_863 $end
+$var wire 1 / _e_995 $end
+$var wire 1 0 _e_997 $end
+$var wire 1 1 _e_999 $end
 $var wire 1 2 clk $end
 $var wire 1 3 clk_i $end
 $var wire 4 4 enables [3:0] $end
@@ -37,36 +37,36 @@ $var wire 2 : s3 [1:0] $end
 $var wire 2 ; s2 [1:0] $end
 $var wire 2 < s1 [1:0] $end
 $var wire 2 = s0 [1:0] $end
-$var wire 1 > _e_380 $end
-$var wire 1 ? _e_379 $end
-$var wire 1 @ _e_378 $end
-$var wire 1 A _e_376 $end
-$var wire 1 B _e_374 $end
-$var wire 1 C _e_373 $end
-$var wire 1 D _e_371 $end
-$var wire 1 E _e_369 $end
-$var wire 1 F _e_368 $end
-$var wire 1 G _e_366 $end
-$var wire 1 H _e_364 $end
-$var wire 1 I _e_362 $end
-$var wire 8 J _e_361 [7:0] $end
-$var wire 8 K _e_360 [7:0] $end
-$var wire 8 L _e_359 [7:0] $end
-$var wire 8 M _e_358 [7:0] $end
-$var wire 1 N _e_286 $end
-$var wire 1 O _e_283 $end
-$var wire 1 P _e_280 $end
-$var wire 1 Q _e_277 $end
-$var wire 1 R _e_274 $end
-$var wire 1 S _e_271 $end
-$var wire 1 T _e_268 $end
-$var wire 1 U _e_265 $end
-$var wire 1 V _e_262 $end
-$var wire 1 W _e_259 $end
-$var wire 18 X _e_258 [17:0] $end
-$var wire 1 Y _e_240 $end
-$var wire 1 Z _e_231 $end
-$var wire 1 [ _e_222 $end
+$var wire 1 > _e_998 $end
+$var wire 1 ? _e_996 $end
+$var wire 1 @ _e_994 $end
+$var wire 8 A _e_993 [7:0] $end
+$var wire 8 B _e_992 [7:0] $end
+$var wire 8 C _e_991 [7:0] $end
+$var wire 8 D _e_990 [7:0] $end
+$var wire 1 E _e_893 $end
+$var wire 1 F _e_890 $end
+$var wire 1 G _e_887 $end
+$var wire 1 H _e_884 $end
+$var wire 1 I _e_881 $end
+$var wire 1 J _e_878 $end
+$var wire 1 K _e_875 $end
+$var wire 1 L _e_872 $end
+$var wire 1 M _e_869 $end
+$var wire 1 N _e_866 $end
+$var wire 18 O _e_865 [17:0] $end
+$var wire 1 P _e_847 $end
+$var wire 1 Q _e_838 $end
+$var wire 1 R _e_829 $end
+$var wire 1 S _e_1012 $end
+$var wire 1 T _e_1011 $end
+$var wire 1 U _e_1010 $end
+$var wire 1 V _e_1008 $end
+$var wire 1 W _e_1006 $end
+$var wire 1 X _e_1005 $end
+$var wire 1 Y _e_1003 $end
+$var wire 1 Z _e_1001 $end
+$var wire 1 [ _e_1000 $end
 $var wire 1 \ \#s4_enable $end
 $var reg 1 ] \#s1_valid $end
 $var reg 1 ^ \#s2_valid $end
@@ -92,34 +92,34 @@ x_
 x^
 x]
 1\
-1[
-1Z
+x[
+0Z
 1Y
-b1xxxx11111xxxxxxxx X
-1W
-xV
+xX
+0W
+1V
 xU
-xT
-xS
+0T
+1S
 1R
 1Q
 1P
-1O
+b1xxxx11111xxxxxxxx O
 1N
-bz M
-bx L
-bx K
-bx J
+xM
+xL
+xK
+xJ
 1I
-0H
+1H
 1G
-xF
-0E
-1D
-xC
-0B
-1A
-x@
+1F
+1E
+bz D
+bx C
+bx B
+bx A
+1@
 0?
 1>
 b11 =
@@ -134,54 +134,54 @@ bz 5
 b1111 4
 13
 12
-x1
-x0
-0/
-x.
-0-
-1,
-0+
-1*
+11
+00
+1/
+1.
+b11 -
+b10 ,
+b1 +
+b0 *
 1)
-b11 (
-b10 '
-b1 &
-b0 %
-1$
+x(
+x'
+0&
+x%
+0$
 1#
 1"
 1!
 $end
 #500
-b0 M
+b0 D
 b0 7
 02
 03
 #1000
-1.
-1F
+1%
+1[
 b11xxx11111xxxxxxxx 6
-b11xxx11111xxxxxxxx X
-1V
-b0 L
+b11xxx11111xxxxxxxx O
+1M
+b0 C
 b11 <
 1]
 b0 a
 12
 13
 #1500
-b1 M
+b1 D
 b1 7
 02
 03
 #2000
-10
-b1 L
-b0 K
-1C
+1'
+b1 C
+b0 B
+1X
 b111xx11111xxxxxxxx 6
-b111xx11111xxxxxxxx X
-1U
+b111xx11111xxxxxxxx O
+1L
 b1 a
 b0 b
 b11 ;
@@ -189,19 +189,19 @@ b11 ;
 12
 13
 #2500
-b10 M
+b10 D
 b10 7
 02
 03
 #3000
-11
-1@
+1(
+1U
 b1111x11111xxxxxxxx 6
-b1111x11111xxxxxxxx X
-1T
-b0 J
-b1 K
-b10 L
+b1111x11111xxxxxxxx O
+1K
+b0 A
+b1 B
+b10 C
 b11 :
 1_
 b0 c
@@ -210,36 +210,36 @@ b10 a
 12
 13
 #3500
-b11 M
+b11 D
 b11 7
 02
 03
 #4000
-b11 L
-b10 K
-b1 J
-1S
+b11 C
+b10 B
+b1 A
+1J
 b11 a
 b10 b
 b1 c
 b111111111100000000 6
-b111111111100000000 X
+b111111111100000000 O
 b0 d
 b11 9
 1`
 12
 13
 #4500
-b100 M
+b100 D
 b100 7
 02
 03
 #5000
-b10 J
-b11 K
-b100 L
+b10 A
+b11 B
+b100 C
 b111111111100000001 6
-b111111111100000001 X
+b111111111100000001 O
 b1 d
 b10 c
 b11 b
@@ -247,19 +247,19 @@ b100 a
 12
 13
 #5500
-b101 M
+b101 D
 b101 7
 02
 03
 #6000
-b101 L
-b100 K
-b11 J
+b101 C
+b100 B
+b11 A
 b101 a
 b100 b
 b11 c
 b111111111100000010 6
-b111111111100000010 X
+b111111111100000010 O
 b10 d
 12
 13
@@ -267,10 +267,10 @@ b10 d
 02
 03
 #7000
-b100 J
-b101 K
+b100 A
+b101 B
 b111111111100000011 6
-b111111111100000011 X
+b111111111100000011 O
 b11 d
 b100 c
 b101 b
@@ -280,10 +280,10 @@ b101 b
 02
 03
 #8000
-b101 J
+b101 A
 b101 c
 b111111111100000100 6
-b111111111100000100 X
+b111111111100000100 O
 b100 d
 12
 13
@@ -292,7 +292,7 @@ b100 d
 03
 #9000
 b111111111100000101 6
-b111111111100000101 X
+b111111111100000101 O
 b101 d
 12
 13
