@@ -645,13 +645,10 @@ impl State {
             let sender = self.sys.channels.msg_sender.clone();
             #[cfg(not(feature = "spade"))]
             let _ = self.sys.channels.msg_sender.clone();
+            let waves = args.waves.clone();
             perform_work(move || {
                 #[cfg(feature = "spade")]
-                if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
-                    SpadeTranslator::load(&top, &state, sender);
-                } else {
-                    info!("spade-top and spade-state not set, not loading spade translator");
-                }
+                SpadeTranslator::load(&waves, &args.spade_top, &args.spade_state, sender);
                 #[cfg(not(feature = "spade"))]
                 if let (Some(_), Some(_)) = (args.spade_top, args.spade_state) {
                     info!("Surfer is not compiled with spade support, ignoring spade_top and spade_state");
