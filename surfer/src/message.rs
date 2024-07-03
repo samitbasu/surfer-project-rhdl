@@ -9,6 +9,8 @@ use num::BigInt;
 use serde::Deserialize;
 use std::path::PathBuf;
 
+use surver::Status;
+
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
@@ -93,7 +95,7 @@ pub enum Message {
     CursorSet(BigInt),
     RightCursorSet(Option<BigInt>),
     #[serde(skip)]
-    SurferServerStatus(web_time::Instant, String, crate::remote::Status),
+    SurferServerStatus(web_time::Instant, String, Status),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
