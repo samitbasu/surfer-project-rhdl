@@ -203,7 +203,7 @@ linux_build:
         - git fetch --tags
         - rustc -V
         - cargo -V
-        - cargo build --release --locked
+        - cargo build --release --locked --features accesskit
         - cp target/release/surfer surfer
         - zip surfer_linux.zip surfer
     artifacts:
@@ -221,7 +221,7 @@ windows_build:
         - rustc -V
         - cargo -V
         - rustup target add x86_64-pc-windows-gnu
-        - cargo build --target x86_64-pc-windows-gnu --release --locked
+        - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit
         - cp target/x86_64-pc-windows-gnu/release/surfer.exe surfer.exe
         - zip surfer_win.zip surfer.exe
     artifacts:
@@ -247,7 +247,7 @@ macos-aarch64_build:
         - rustc -V
         - git fetch --tags
     script:
-        - cargo build --release --locked
+        - cargo build --release --locked --features accesskit
         - ls -alrt target/release/surfer
         - cp target/release/surfer surfer
         - zip surfer_macos-aarch64.zip surfer
@@ -270,7 +270,7 @@ pages_build:
           # generate relative urls which we want for external pipelines to be able
           # to download our artefacts and put them wherever on their webserver. To fix this,
           # we'll build with a dummy public URL, then replace it with ./
-        - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build surfer/index.html --release --public-url /dist
+        - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build surfer/index.html --release --public-url /dist --features accesskit
         - cp -r surfer/dist pages_build
         - cp examples/*.vcd pages_build/
         - sed -i "s|/dist/|./|g" pages_build/index.html

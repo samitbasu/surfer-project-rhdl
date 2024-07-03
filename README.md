@@ -29,6 +29,9 @@ The primary way to install surfer to build it from source which should work on
 Linux, Mac and Windows. For convenience we also provide pre-built Linux and Windows
 binaries.
 
+If you want to include the [AccessKit](https://accesskit.dev/) integration from eframe,
+add `--features accesskit` at the end of any `cargo build` or `cargo install` command.
+
 ### Compiling from source
 
 Surfer depends on openssl, install it via your package manager
@@ -107,7 +110,7 @@ These are the suggested solutions if it does not work for you:
 3. Compile Surfer with a change in `Cargo.toml` (replace the line defining `eframe` version, using the current one below).  Installing `libgtk-3-dev` may be required if errors remain (although most likely it is a dependency of that package that is really required).
 
 ```toml
-  eframe = { version="0.25.0",  features = ["glow", "x11", "default_fonts"], default-features = false}
+  eframe = { version="0.27.2",  features = ["glow", "x11", "default_fonts"], default-features = false}
 ```
 
 4. Install the VS Code [extension](https://marketplace.visualstudio.com/items?itemName=surfer-project.surfer). This will allow you to just write `code filename.vcd`  and
