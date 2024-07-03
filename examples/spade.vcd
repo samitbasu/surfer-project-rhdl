@@ -1,5 +1,5 @@
 $date
-	Thu Jan 11 10:31:21 2024
+	Wed Jul  3 11:57:41 2024
 $end
 $version
 	Icarus Verilog
@@ -11,20 +11,20 @@ $scope module proj::pipeline_ready_valid::ready_valid_pipeline $end
 $var wire 1 ! \#s1_enable $end
 $var wire 1 " \#s2_enable $end
 $var wire 1 # \#s3_enable $end
-$var wire 1 $ _e_219 $end
-$var wire 2 % _e_225 [1:0] $end
-$var wire 2 & _e_234 [1:0] $end
-$var wire 2 ' _e_243 [1:0] $end
-$var wire 2 ( _e_252 [1:0] $end
-$var wire 1 ) _e_256 $end
-$var wire 1 * _e_363 $end
-$var wire 1 + _e_365 $end
-$var wire 1 , _e_367 $end
-$var wire 1 - _e_370 $end
-$var wire 1 . _e_372 $end
-$var wire 1 / _e_375 $end
-$var wire 1 0 _e_377 $end
-$var wire 1 1 _e_381 $end
+$var wire 1 $ _e_659 $end
+$var wire 2 % _e_665 [1:0] $end
+$var wire 2 & _e_674 [1:0] $end
+$var wire 2 ' _e_683 [1:0] $end
+$var wire 2 ( _e_692 [1:0] $end
+$var wire 1 ) _e_696 $end
+$var wire 1 * _e_980 $end
+$var wire 1 + _e_982 $end
+$var wire 1 , _e_984 $end
+$var wire 1 - _e_987 $end
+$var wire 1 . _e_989 $end
+$var wire 1 / _e_992 $end
+$var wire 1 0 _e_994 $end
+$var wire 1 1 _e_998 $end
 $var wire 1 2 clk $end
 $var wire 1 3 clk_i $end
 $var wire 4 4 enables [3:0] $end
@@ -37,36 +37,36 @@ $var wire 2 : s3 [1:0] $end
 $var wire 2 ; s2 [1:0] $end
 $var wire 2 < s1 [1:0] $end
 $var wire 2 = s0 [1:0] $end
-$var wire 1 > _e_380 $end
-$var wire 1 ? _e_379 $end
-$var wire 1 @ _e_378 $end
-$var wire 1 A _e_376 $end
-$var wire 1 B _e_374 $end
-$var wire 1 C _e_373 $end
-$var wire 1 D _e_371 $end
-$var wire 1 E _e_369 $end
-$var wire 1 F _e_368 $end
-$var wire 1 G _e_366 $end
-$var wire 1 H _e_364 $end
-$var wire 1 I _e_362 $end
-$var wire 8 J _e_361 [7:0] $end
-$var wire 8 K _e_360 [7:0] $end
-$var wire 8 L _e_359 [7:0] $end
-$var wire 8 M _e_358 [7:0] $end
-$var wire 1 N _e_286 $end
-$var wire 1 O _e_283 $end
-$var wire 1 P _e_280 $end
-$var wire 1 Q _e_277 $end
-$var wire 1 R _e_274 $end
-$var wire 1 S _e_271 $end
-$var wire 1 T _e_268 $end
-$var wire 1 U _e_265 $end
-$var wire 1 V _e_262 $end
-$var wire 1 W _e_259 $end
-$var wire 18 X _e_258 [17:0] $end
-$var wire 1 Y _e_240 $end
-$var wire 1 Z _e_231 $end
-$var wire 1 [ _e_222 $end
+$var wire 1 > _e_997 $end
+$var wire 1 ? _e_996 $end
+$var wire 1 @ _e_995 $end
+$var wire 1 A _e_993 $end
+$var wire 1 B _e_991 $end
+$var wire 1 C _e_990 $end
+$var wire 1 D _e_988 $end
+$var wire 1 E _e_986 $end
+$var wire 1 F _e_985 $end
+$var wire 1 G _e_983 $end
+$var wire 1 H _e_981 $end
+$var wire 1 I _e_979 $end
+$var wire 8 J _e_978 [7:0] $end
+$var wire 8 K _e_977 [7:0] $end
+$var wire 8 L _e_976 [7:0] $end
+$var wire 8 M _e_975 [7:0] $end
+$var wire 1 N _e_726 $end
+$var wire 1 O _e_723 $end
+$var wire 1 P _e_720 $end
+$var wire 1 Q _e_717 $end
+$var wire 1 R _e_714 $end
+$var wire 1 S _e_711 $end
+$var wire 1 T _e_708 $end
+$var wire 1 U _e_705 $end
+$var wire 1 V _e_702 $end
+$var wire 1 W _e_699 $end
+$var wire 18 X _e_698 [17:0] $end
+$var wire 1 Y _e_680 $end
+$var wire 1 Z _e_671 $end
+$var wire 1 [ _e_662 $end
 $var wire 1 \ \#s4_enable $end
 $var reg 1 ] \#s1_valid $end
 $var reg 1 ^ \#s2_valid $end
