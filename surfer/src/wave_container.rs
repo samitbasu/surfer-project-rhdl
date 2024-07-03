@@ -151,15 +151,6 @@ impl VariableRefExt for VariableRef {
         }
     }
 
-    fn full_path(&self) -> Vec<String> {
-        self.path
-            .strs()
-            .iter()
-            .cloned()
-            .chain([self.name.clone()])
-            .collect()
-    }
-
     fn from_strs(s: &[&str]) -> Self {
         Self {
             path: ScopeRef::from_strs(&s[..(s.len() - 1)]),

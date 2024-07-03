@@ -1,6 +1,9 @@
 use crate::ValueKind;
+use extism_convert::{FromBytes, Json, ToBytes};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, FromBytes, ToBytes, Deserialize, Serialize)]
+#[encoding(Json)]
 pub struct TranslationResult {
     pub val: ValueRepr,
     pub subfields: Vec<SubFieldTranslationResult>,
@@ -9,7 +12,7 @@ pub struct TranslationResult {
 
 /// The representation of the value, compound values can be
 /// be represented by the repr of their subfields
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub enum ValueRepr {
     Bit(char),
     /// The value is `.0` raw bits, and can be translated by further translators
@@ -59,7 +62,7 @@ impl HierFormatResult {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SubFieldTranslationResult {
     pub name: String,
     pub result: TranslationResult,

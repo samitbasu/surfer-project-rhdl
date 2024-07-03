@@ -14,6 +14,18 @@ pub struct ScopeRef<ScopeId> {
     pub id: ScopeId,
 }
 
+impl<ScopeId1> ScopeRef<ScopeId1> {
+    pub fn map_id<ScopeId2>(
+        self,
+        mut scope_fn: impl FnMut(ScopeId1) -> ScopeId2,
+    ) -> ScopeRef<ScopeId2> {
+        ScopeRef {
+            strs: self.strs,
+            id: scope_fn(self.id),
+        }
+    }
+}
+
 impl<ScopeId> AsRef<ScopeRef<ScopeId>> for ScopeRef<ScopeId> {
     fn as_ref(&self) -> &ScopeRef<ScopeId> {
         self

@@ -1,149 +1,134 @@
-#![cfg(feature = "spade")]
-use std::sync::mpsc::Sender;
-
-use camino::{Utf8Path, Utf8PathBuf};
-use eframe::epaint::Color32;
+use anyhow::anyhow;
+use color_eyre::eyre::{eyre, Context, OptionExt};
+use color_eyre::Result;
+use ecolor::Color32;
+use extism_pdk::{error, plugin_fn, FnResult, FromBytes, Msgpack, ToBytes};
 use num::ToPrimitive;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use spade::compiler_state::CompilerState;
-
-use color_eyre::{
-    eyre::{anyhow, bail, Context, ContextCompat},
-    Result,
-};
-use spade_common::{
-    location_info::WithLocation,
-    name::{Identifier, NameID, Path},
-};
+use spade_common::location_info::WithLocation;
+use spade_common::name::{Identifier, NameID, Path};
 use spade_hir_lowering::MirLowerable;
 use spade_types::{ConcreteType, PrimitiveType};
+use surfer_translation_types::plugin_types::TranslateParams;
 use surfer_translation_types::{
-    SubFieldTranslationResult, TranslationResult, Translator, ValueRepr,
+    PluginConfig, SubFieldTranslationResult, TranslationPreference, TranslationResult, ValueKind,
+    ValueRepr, VariableInfo, VariableMeta, VariableValue,
 };
 
-use crate::wave_container::{ScopeId, VarId};
-use crate::{message::Message, wasm_util::perform_work, wave_container::VariableMeta};
-
-use super::{TranslationPreference, ValueKind, VariableInfo, VariableValue};
-
+#[derive(Deserialize, Serialize, ToBytes, FromBytes)]
+#[encoding(Msgpack)]
 pub struct SpadeTranslator {
-    state: CompilerState,
-    top: NameID,
-    top_name: String,
-    state_file: Utf8PathBuf,
+    pub state: CompilerState,
+    pub top: NameID,
 }
 
-impl SpadeTranslator {
-    pub fn new(top_name: &str, state_file: &Utf8Path) -> Result<Self> {
-        let file_content = std::fs::read_to_string(state_file)
-            .with_context(|| format!("Failed to read {state_file}"))?;
+#[plugin_fn]
+pub fn new(PluginConfig(config): PluginConfig) -> FnResult<()> {
+    let mut opt = ron::Options::default();
+    opt.recursion_limit = None;
 
-        let mut opt = ron::Options::default();
-        opt.recursion_limit = None;
+    let mut de = ron::Deserializer::from_str_with_options(&config.get("state").unwrap(), opt)
+        .context("Failed to initialize ron deserializer")
+        .unwrap();
+    let de = serde_stacker::Deserializer::new(&mut de);
+    let state = CompilerState::deserialize(de)
+        .context("Failed to decode compiler state")
+        .unwrap();
 
-        let mut de = ron::Deserializer::from_str_with_options(&file_content, opt)
-            .context("Failed to initialize ron deserializer")?;
-        let de = serde_stacker::Deserializer::new(&mut de);
-        let state = CompilerState::deserialize(de)
-            .with_context(|| format!("Failed to decode {state_file}"))?;
+    let top_name = config.get("top").unwrap();
+    let path = top_name
+        .split("::")
+        .map(|s| Identifier(s.to_string()).nowhere());
+    let (top, _) = state
+        .symtab
+        .symtab()
+        .lookup_unit(&Path(path.collect()).nowhere())
+        .map_err(|_| anyhow!("Did not find a unit {top_name} in compiler state"))
+        .unwrap();
 
-        let path = top_name
-            .split("::")
-            .map(|s| Identifier(s.to_string()).nowhere());
-        let (top, _) = state
-            .symtab
-            .symtab()
-            .lookup_unit(&Path(path.collect()).nowhere())
-            .map_err(|_| anyhow!("Did not find a unit {top_name} in {state_file}"))?;
+    let ctx = SpadeTranslator { state, top };
+    extism_pdk::var::set("state", &ctx).unwrap();
+    Ok(())
+}
 
-        Ok(Self {
-            state,
-            top,
-            top_name: top_name.to_string(),
-            state_file: state_file.into(),
-        })
-    }
+#[plugin_fn]
+pub fn name() -> FnResult<&'static str> {
+    Ok("spade (plugin)")
+}
 
-    pub fn load(top_name: &str, state_file: &Utf8Path, sender: Sender<Message>) {
-        let top_name = top_name.to_string();
-        let state_file = state_file.to_owned();
-        perform_work(move || {
-            let t = SpadeTranslator::new(&top_name, &state_file);
-            match t {
-                Ok(result) => sender
-                    .send(Message::TranslatorLoaded(Box::new(result)))
-                    .unwrap(),
-                Err(e) => sender.send(Message::Error(e)).unwrap(),
+#[plugin_fn]
+pub fn translate(params: TranslateParams) -> FnResult<TranslationResult> {
+    let ctx: SpadeTranslator = extism_pdk::var::get("state").unwrap().unwrap();
+    let variable = params.variable;
+    let value = params.value;
+    let ty = ctx
+        .state
+        .type_of_hierarchical_value(&ctx.top, &variable.var.full_path()[1..]).unwrap() /* ? */;
+
+    let val_vcd_raw = match value {
+        VariableValue::BigUint(v) => format!("{v:b}"),
+        VariableValue::String(v) => v.clone(),
+    };
+    let mir_ty = ty.to_mir_type();
+    let ty_size = mir_ty
+        .size()
+        .to_usize()
+        .ok_or_else(|| anyhow!("Type size does not fit in usize"))?;
+    let extra_bits = if ty_size > val_vcd_raw.len() {
+        let extra_count = ty_size - val_vcd_raw.len();
+        let extra_value = match val_vcd_raw.chars().next() {
+            Some('0') => "0",
+            Some('1') => "0",
+            Some('x') => "x",
+            Some('z') => "z",
+            other => {
+                return Err(anyhow!("Found non-bit value in vcd ({other:?})").into());
             }
-        });
-    }
+        };
+        extra_value.repeat(extra_count)
+    } else {
+        String::new()
+    };
+    let val_vcd = format!("{extra_bits}{val_vcd_raw}");
+    let result = translate_concrete(&val_vcd, &ty, &mut false).unwrap();
+    Ok(result)
 }
 
-impl Translator<VarId, ScopeId, Message> for SpadeTranslator {
-    fn name(&self) -> String {
-        "spade".to_string()
-    }
+#[plugin_fn]
+pub fn variable_info(variable: VariableMeta<(), ()>) -> FnResult<VariableInfo> {
+    let ctx: SpadeTranslator = extism_pdk::var::get("state").unwrap().unwrap();
+    let ty = ctx
+        .state
+        .type_of_hierarchical_value(&ctx.top, &variable.var.full_path()[1..]).unwrap()/*?*/;
 
-    fn translate(
-        &self,
-        variable: &VariableMeta,
-        value: &VariableValue,
-    ) -> Result<TranslationResult> {
-        let ty = self
-            .state
-            .type_of_hierarchical_value(&self.top, &variable.var.full_path()[1..])?;
+    let result = info_from_concrete(&ty).unwrap();
+    Ok(result)
+}
 
-        let val_vcd_raw = match value {
-            VariableValue::BigUint(v) => format!("{v:b}"),
-            VariableValue::String(v) => v.clone(),
-        };
-        let mir_ty = ty.to_mir_type();
-        let ty_size = mir_ty
-            .size()
-            .to_usize()
-            .context("Type size does not fit in usize")?;
-        let extra_bits = if ty_size > val_vcd_raw.len() {
-            let extra_count = ty_size - val_vcd_raw.len();
-            let extra_value = match val_vcd_raw.chars().next() {
-                Some('0') => "0",
-                Some('1') => "0",
-                Some('x') => "x",
-                Some('z') => "z",
-                other => bail!("Found non-bit value in vcd ({other:?})"),
-            };
-            extra_value.repeat(extra_count)
-        } else {
-            String::new()
-        };
-        let val_vcd = format!("{extra_bits}{val_vcd_raw}",);
-        translate_concrete(&val_vcd, &ty, &mut false)
-    }
+#[plugin_fn]
+pub fn translates(variable: VariableMeta<(), ()>) -> FnResult<TranslationPreference> {
+    let ctx: SpadeTranslator =
+        extism_pdk::var::get("state")?.ok_or_else(|| anyhow!("`new` not called"))?;
 
-    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo> {
-        let ty = self
-            .state
-            .type_of_hierarchical_value(&self.top, &variable.var.full_path()[1..])?;
+    let Ok(ty) = ctx
+        .state
+        .type_of_hierarchical_value(&ctx.top, &variable.var.full_path()[1..])
+    else {
+        error!(
+            "could not find type of value {:?}",
+            variable.var.full_path()
+        );
+        return Ok(TranslationPreference::No);
+    };
 
-        info_from_concrete(&ty)
-    }
-
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        let ty = self
-            .state
-            .type_of_hierarchical_value(&self.top, &variable.var.full_path()[1..])?;
-
-        match ty {
-            ConcreteType::Single {
-                base: PrimitiveType::Clock,
-                params: _,
-            } => Ok(TranslationPreference::Prefer),
-            ConcreteType::Single { base: _, params: _ } => Ok(TranslationPreference::No),
-            _ => Ok(TranslationPreference::Prefer),
-        }
-    }
-
-    fn reload(&self, sender: Sender<Message>) {
-        Self::load(&self.top_name, &self.state_file, sender);
+    match ty {
+        ConcreteType::Single {
+            base: PrimitiveType::Clock,
+            params: _,
+        } => Ok(TranslationPreference::Prefer),
+        ConcreteType::Single { base: _, params: _ } => Ok(TranslationPreference::No),
+        _ => Ok(TranslationPreference::Prefer),
     }
 }
 
@@ -229,7 +214,7 @@ fn translate_concrete(
                     + t.to_mir_type()
                         .size()
                         .to_usize()
-                        .context(format!("Value is wider than {} bits", usize::MAX))?;
+                        .ok_or_else(|| eyre!("Value is wider than {} bits", usize::MAX))?;
                 let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
                 offset = end;
                 subfields.push(SubFieldTranslationResult::new(i, new));
@@ -251,7 +236,7 @@ fn translate_concrete(
                     + t.to_mir_type()
                         .size()
                         .to_usize()
-                        .context(format!("Value is wider than {} bits", usize::MAX))?;
+                        .ok_or_else(|| eyre!("Value is wider than {} bits", usize::MAX))?;
                 let new = translate_concrete(&val[offset..end], t, &mut local_problematic)?;
                 *problematic |= local_problematic;
                 offset = end;
@@ -269,7 +254,7 @@ fn translate_concrete(
             let mut offset = 0;
             for n in 0..size
                 .to_usize()
-                .context(format!("Array size is greater than {}", usize::MAX))?
+                .ok_or_else(|| eyre!("Array size is greater than {}", usize::MAX))?
             {
                 let mut local_problematic = false;
                 let end = offset
@@ -277,7 +262,7 @@ fn translate_concrete(
                         .to_mir_type()
                         .size()
                         .to_usize()
-                        .context(format!("Value is wider than {} bits", usize::MAX))?;
+                        .ok_or_else(|| eyre!("Value is wider than {} bits", usize::MAX))?;
                 let new = translate_concrete(&val[offset..end], inner, &mut local_problematic)?;
                 *problematic |= local_problematic;
                 offset = end;
@@ -332,10 +317,9 @@ fn translate_concrete(
                                 .map(|(f_name, f_ty)| {
                                     let mut local_problematic = false;
                                     let end = offset
-                                        + f_ty.to_mir_type().size().to_usize().context(format!(
-                                            "Value is wider than {} bits",
-                                            usize::MAX
-                                        ))?;
+                                        + f_ty.to_mir_type().size().to_usize().ok_or_else(
+                                            || eyre!("Value is wider than {} bits", usize::MAX),
+                                        )?;
                                     let new = translate_concrete(
                                         &val[offset..end],
                                         f_ty,
@@ -402,7 +386,10 @@ fn translate_concrete(
         ConcreteType::Single { base: _, params: _ } | ConcreteType::Integer(_) => {
             TranslationResult {
                 val: ValueRepr::Bits(
-                    mir_ty.size().to_u64().context("Size did not fit in u64")?,
+                    mir_ty
+                        .size()
+                        .to_u64()
+                        .ok_or_eyre("Size did not fit in u64")?,
                     val.to_string(),
                 ),
                 kind: ValueKind::Normal,
@@ -435,7 +422,7 @@ fn info_from_concrete(ty: &ConcreteType) -> Result<VariableInfo> {
                 .collect::<Result<_>>()?,
         },
         ConcreteType::Array { inner, size } => VariableInfo::Compound {
-            subfields: (0..size.to_u64().context("Array size did not fit in u64")?)
+            subfields: (0..size.to_u64().ok_or_eyre("Array size did not fit in u64")?)
                 .map(|i| Ok((format!("{i}"), info_from_concrete(inner)?)))
                 .collect::<Result<_>>()?,
         },

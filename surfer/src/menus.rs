@@ -2,7 +2,7 @@ use color_eyre::eyre::WrapErr;
 use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
 use surfer_translation_types::TranslationPreference;
 
-use crate::wave_container::{FieldRef, VariableRefExt};
+use crate::wave_container::FieldRef;
 use crate::{
     clock_highlighting::clock_highlight_type_menu,
     config::{ArrowKeyBindings, HierarchyStyle},

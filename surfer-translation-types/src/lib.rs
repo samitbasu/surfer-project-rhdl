@@ -1,4 +1,5 @@
 mod field_ref;
+pub mod plugin_types;
 mod result;
 mod scope_ref;
 mod translator;
@@ -8,7 +9,9 @@ use std::collections::HashMap;
 
 use derive_more::Display;
 use ecolor::Color32;
+use extism_convert::{FromBytes, Json, ToBytes};
 use num::BigUint;
+use serde::{Deserialize, Serialize};
 
 pub use crate::field_ref::FieldRef;
 pub use crate::result::{
@@ -21,13 +24,17 @@ pub use crate::translator::{
 };
 pub use crate::variable_ref::VariableRef;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Deserialize, Serialize, FromBytes, ToBytes)]
+#[encoding(Json)]
+pub struct PluginConfig(pub HashMap<String, String>);
+
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 pub enum VariableValue {
     BigUint(BigUint),
     String(String),
 }
 
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, PartialEq, Copy, Deserialize, Serialize)]
 pub enum ValueKind {
     Normal,
     Undef,
@@ -38,7 +45,8 @@ pub enum ValueKind {
     Weak,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Deserialize, Serialize, ToBytes, FromBytes)]
+#[encoding(Json)]
 pub enum TranslationPreference {
     /// This translator prefers translating the variable, so it will be selected
     /// as the default translator for the variable
@@ -50,7 +58,8 @@ pub enum TranslationPreference {
 }
 
 /// Static information about the structure of a variable.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ToBytes, FromBytes)]
+#[encoding(Json)]
 pub enum VariableInfo {
     Compound {
         subfields: Vec<(String, VariableInfo)>,
@@ -64,7 +73,7 @@ pub enum VariableInfo {
     Real,
 }
 
-#[derive(Debug, Display, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Display, Clone, Copy, Eq, PartialEq, Deserialize, Serialize)]
 pub enum VariableType {
     // VCD-specific types
     #[display(fmt = "event")]
@@ -145,7 +154,7 @@ pub enum VariableType {
     StdULogicVector,
 }
 
-#[derive(Clone, Display)]
+#[derive(Clone, Display, Deserialize, Serialize)]
 pub enum VariableDirection {
     #[display(fmt = "unknown")]
     Unknown,
@@ -163,8 +172,10 @@ pub enum VariableDirection {
     Linkage,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize, ToBytes, FromBytes)]
+#[encoding(Json)]
 pub struct VariableMeta<VarId, ScopeId> {
+    #[serde(bound(deserialize = "ScopeId: Default, VarId: Default", serialize = ""))]
     pub var: VariableRef<VarId, ScopeId>,
     pub num_bits: Option<u32>,
     /// Type of the variable in the HDL (on a best effort basis).
@@ -177,7 +188,25 @@ pub struct VariableMeta<VarId, ScopeId> {
     pub encoding: VariableEncoding,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+impl<VarId1, ScopeId1> VariableMeta<VarId1, ScopeId1> {
+    pub fn map_ids<VarId2, ScopeId2>(
+        self,
+        var_fn: impl FnMut(VarId1) -> VarId2,
+        scope_fn: impl FnMut(ScopeId1) -> ScopeId2,
+    ) -> VariableMeta<VarId2, ScopeId2> {
+        VariableMeta {
+            var: self.var.map_ids(var_fn, scope_fn),
+            num_bits: self.num_bits,
+            variable_type: self.variable_type,
+            index: self.index,
+            direction: self.direction,
+            enum_map: self.enum_map,
+            encoding: self.encoding,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub enum VariableEncoding {
     String,
     Real,

@@ -13,7 +13,7 @@ description = "Waveform viewer for VCD, FST, and GHW"
 bincode.workspace = true
 bytes = "1.6.0"
 bytesize.workspace = true
-camino = { version = "1.1.6", features = ["serde1"] }
+camino.workspace = true
 chrono = "0.4.31"
 clap.workspace = true
 color-eyre.workspace = true
@@ -25,6 +25,7 @@ egui-remixicon = { version = "0.27.2", default-features = false }
 egui_extras = { version = "0.27.2", default-features = false }
 egui_plot = { version = "0.27.2", optional = true }
 enum-iterator = "2.0"
+extism = { version = "1.4.1", default-features= false }
 f128 = { path = "../f128", optional = true }
 fern.workspace = true
 futures-core = "0.3.29"
@@ -54,7 +55,7 @@ spade = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c
 spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
 spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
 spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
-surfer-translation-types = { path = "../surfer-translation-types" }
+surfer-translation-types.workspace = true
 surver.workspace = true
 sys-locale = "0.3.1"
 tokio.workspace = true

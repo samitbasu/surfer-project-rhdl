@@ -15,6 +15,7 @@ mod basic_translators;
 pub mod clock;
 mod enum_translator;
 pub mod numeric_translators;
+mod plugin_translators;
 pub mod spade;
 
 pub use basic_translators::*;
