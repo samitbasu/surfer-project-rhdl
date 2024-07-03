@@ -31,6 +31,7 @@ binaries.
 
 If you want to include the [AccessKit](https://accesskit.dev/) integration from eframe,
 add `--features accesskit` at the end of any `cargo build` or `cargo install` command.
+This is enabled by default for the pre-built binaries.
 
 ### Compiling from source
 
