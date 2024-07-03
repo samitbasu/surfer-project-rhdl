@@ -878,7 +878,7 @@ mod test {
                 &VariableValue::BigUint(0b1000_0001_0011_0101_0000_0101_1001_0011_u32.into())
             )
             .0,
-            "addi a1, a0, -0x7ed"
+            "addi a1, a0, -2029"
         );
         assert_eq!(
             InstructionTranslator {
@@ -911,7 +911,7 @@ mod test {
                 &VariableValue::BigUint(0b1000_0001_0011_0101_0000_0101_1001_0011_u32.into())
             )
             .0,
-            "addi a1, a0, -0x7ed"
+            "addi a1, a0, -2029"
         );
     }
     #[test]
