@@ -17,9 +17,9 @@ use std::sync::{Arc, RwLock};
 use tokio::net::TcpListener;
 use wellen::{viewers, FileFormat, Hierarchy, Signal, SignalRef, Time};
 
-use super::{
+use crate::{
     Status, BINCODE_OPTIONS, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, SURFER_VERSION,
-    WELLEN_VERSION, X_SURFER_VERSION, X_WELLEN_VERSION,
+    WELLEN_SURFER_DEFAULT_OPTIONS, WELLEN_VERSION, X_SURFER_VERSION, X_WELLEN_VERSION,
 };
 
 struct ReadOnly {
@@ -60,8 +60,8 @@ fn get_info_page(shared: Arc<ReadOnly>) -> String {
     format!(
         r#"
     <!DOCTYPE html><html lang="en">
-    <head><title>Surfer Remote Server</title></head><body>
-    <h1>Surfer Remote Server</h1>
+    <head><title>Surver - Surfer Remote Server</title></head><body>
+    <h1>Surver - Surfer Remote Server</h1>
     <b>To connect, run:</b> <code>surfer {}</code><br>
     <b>Wellen version:</b> {WELLEN_VERSION}<br>
     <b>Surfer version:</b> {SURFER_VERSION}<br>
@@ -294,12 +294,10 @@ pub async fn server_main(
 
     // load file
     let start_read_header = web_time::Instant::now();
-    let header_result = wellen::viewers::read_header(
-        filename.as_str(),
-        &crate::wave_source::WELLEN_SURFER_DEFAULT_OPTIONS,
-    )
-    .map_err(|e| anyhow!("{e:?}"))
-    .with_context(|| format!("Failed to parse wave file: {filename}"))?;
+    let header_result =
+        wellen::viewers::read_header(filename.as_str(), &WELLEN_SURFER_DEFAULT_OPTIONS)
+            .map_err(|e| anyhow!("{e:?}"))
+            .with_context(|| format!("Failed to parse wave file: {filename}"))?;
     info!(
         "Loaded header of {filename} in {:?}",
         start_read_header.elapsed()

@@ -65,7 +65,9 @@ use eframe::egui::FontData;
 use eframe::egui::FontDefinitions;
 use eframe::egui::FontFamily;
 use eframe::egui::Visuals;
-use eframe::emath::{Pos2, Rect, Vec2};
+#[cfg(not(target_arch = "wasm32"))]
+use eframe::emath::Vec2;
+use eframe::emath::{Pos2, Rect};
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use fzcmd::parse_command;
@@ -116,6 +118,7 @@ lazy_static! {
 }
 
 #[derive(clap::Parser, Default)]
+#[command(version, about)]
 struct Args {
     /// Waveform file in VCD, FST, or GHW format.
     wave_file: Option<String>,
@@ -241,7 +244,7 @@ fn main() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(Commands::Server { port, token, file }) = args.command {
         let default_port = 8911; // FIXME: make this more configurable
-        let res = runtime.block_on(remote::server_main(
+        let res = runtime.block_on(surver::server_main(
             port.unwrap_or(default_port),
             token,
             file,
