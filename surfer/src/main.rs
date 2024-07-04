@@ -99,6 +99,7 @@ use crate::message::Message;
 use crate::translation::all_translators;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
+use crate::translation::PluginTranslator;
 use crate::translation::TranslatorList;
 use crate::variable_name_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
@@ -649,6 +650,23 @@ impl State {
             perform_work(move || {
                 #[cfg(feature = "spade")]
                 if let (Some(top), Some(state)) = (args.spade_top, args.spade_state) {
+                    info!("loading spade plugin translator");
+                    let config = [
+                        ("top".to_string(), top.clone()),
+                        (
+                            "state".to_string(),
+                            std::fs::read_to_string(&state).unwrap(),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect();
+                    sender
+                        .send(Message::TranslatorLoaded(Box::new(PluginTranslator::new(
+                            include_bytes!("../../spade-translator.wasm"),
+                            config,
+                        ))))
+                        .unwrap();
+                    info!("loading spade translator");
                     SpadeTranslator::load(&top, &state, sender);
                 } else {
                     info!("spade-top and spade-state not set, not loading spade translator");

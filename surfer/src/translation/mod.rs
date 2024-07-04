@@ -22,6 +22,7 @@ pub use basic_translators::*;
 use instruction_decoder::Decoder;
 use itertools::Itertools;
 pub use numeric_translators::*;
+pub use plugin_translators::PluginTranslator;
 use surfer_translation_types::{
     BasicTranslator, HierFormatResult, SubFieldFlatTranslationResult, TranslatedValue,
     TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableEncoding,
