@@ -14,7 +14,7 @@ repos:
     rev: v1.22.9
     hooks:
     - id: typos
-      args: []
+      args: [-c, .typos.toml]
   - repo: https://github.com/DevinR528/cargo-sort
     rev: v1.0.9
     hooks:
