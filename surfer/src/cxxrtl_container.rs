@@ -12,12 +12,12 @@ use tokio::{
 };
 
 use color_eyre::{eyre::Context, Result};
-use itertools::Itertools;
 use log::{error, info, trace, warn};
 use num::{bigint::ToBigInt, BigUint};
 use serde::Deserialize;
+use surfer_translation_types::VariableEncoding;
 
-use crate::wave_container::VariableEncoding;
+use crate::wave_container::ScopeRefExt;
 use crate::{
     cxxrtl::{
         command::{CxxrtlCommand, Diagnostic},
@@ -30,24 +30,12 @@ use crate::{
     },
     message::Message,
     wave_container::{
-        QueryResult, ScopeRef, SimulationStatus, VariableMeta, VariableRef, WaveContainerScopeId,
-        WaveContainerVarId,
+        QueryResult, ScopeId, ScopeRef, SimulationStatus, VarId, VariableMeta, VariableRef,
+        VariableRefExt,
     },
 };
 
 const DEFAULT_REFERENCE: &str = "ALL_VARIABLES";
-
-impl ScopeRef {
-    fn cxxrtl_repr(&self) -> String {
-        self.strs().iter().join(" ")
-    }
-}
-
-impl VariableRef {
-    fn cxxrtl_repr(&self) -> String {
-        self.full_path().join(" ")
-    }
-}
 
 #[derive(Deserialize, Debug, Clone)]
 pub(crate) struct CxxrtlScope {}
@@ -352,7 +340,7 @@ impl CxxrtlContainer {
                             (
                                 ScopeRef {
                                     strs: name.split(' ').map(|s| s.to_string()).collect(),
-                                    id: WaveContainerScopeId::None,
+                                    id: ScopeId::None,
                                 },
                                 s,
                             )
@@ -450,7 +438,7 @@ impl CxxrtlContainer {
                                     .collect::<Vec<_>>(),
                             ),
                             name: sp.last().unwrap().to_string(),
-                            id: WaveContainerVarId::None,
+                            id: VarId::None,
                         },
                         v,
                     ))
@@ -476,7 +464,7 @@ impl CxxrtlContainer {
         if self.scopes().is_some() {
             vec![ScopeRef {
                 strs: vec![],
-                id: WaveContainerScopeId::None,
+                id: ScopeId::None,
             }]
         } else {
             vec![]

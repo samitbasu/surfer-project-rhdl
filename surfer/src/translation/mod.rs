@@ -1,4 +1,6 @@
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 
 use color_eyre::Result;
 #[cfg(not(target_arch = "wasm32"))]
@@ -6,8 +8,6 @@ use directories::ProjectDirs;
 use eframe::epaint::Color32;
 #[cfg(not(target_arch = "wasm32"))]
 use log::warn;
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
 #[cfg(not(target_arch = "wasm32"))]
 use toml::Table;
 
@@ -20,22 +20,27 @@ pub mod spade;
 pub use basic_translators::*;
 use instruction_decoder::Decoder;
 use itertools::Itertools;
-use num::BigUint;
 pub use numeric_translators::*;
-
-use crate::wave_container::VariableEncoding;
-use crate::{
-    message::Message,
-    wave_container::{VariableMeta, VariableValue},
+use surfer_translation_types::{
+    BasicTranslator, HierFormatResult, SubFieldFlatTranslationResult, TranslatedValue,
+    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableEncoding,
+    VariableInfo, VariableValue,
 };
+
+use crate::config::SurferTheme;
+use crate::wave_container::{ScopeId, VarId};
+use crate::{message::Message, wave_container::VariableMeta};
+
+pub type DynBasicTranslator = dyn BasicTranslator<VarId, ScopeId>;
+pub type DynTranslator = dyn Translator<VarId, ScopeId, Message>;
 
 /// Look inside the config directory and inside "$(cwd)/.surfer" for user-defined decoders
 /// To add a new decoder named 'x', add a directory 'x' to the decoders directory
 /// Inside, multiple toml files can be added which will all be used for decoding 'x'
 /// This is useful e.g., for layering RISC-V extensions
 #[cfg(not(target_arch = "wasm32"))]
-fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
-    let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
+fn find_user_decoders() -> Vec<Box<DynBasicTranslator>> {
+    let mut decoders: Vec<Box<DynBasicTranslator>> = vec![];
     if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
         let mut config_decoders = find_user_decoders_at_path(proj_dirs.config_dir());
         decoders.append(&mut config_decoders);
@@ -49,8 +54,8 @@ fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
 
 /// Look for user defined decoders in path.
 #[cfg(not(target_arch = "wasm32"))]
-fn find_user_decoders_at_path(path: &Path) -> Vec<Box<dyn BasicTranslator>> {
-    let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
+fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
+    let mut decoders: Vec<Box<DynBasicTranslator>> = vec![];
     let Ok(decoder_dirs) = std::fs::read_dir(path.join("decoders")) else {
         return decoders;
     };
@@ -125,7 +130,7 @@ fn find_user_decoders_at_path(path: &Path) -> Vec<Box<dyn BasicTranslator>> {
 }
 
 pub fn all_translators() -> TranslatorList {
-    let mut basic_decoders: Vec<Box<dyn BasicTranslator>> = vec![
+    let mut basic_decoders: Vec<Box<DynBasicTranslator>> = vec![
         Box::new(BitTranslator {}),
         Box::new(HexTranslator {}),
         Box::new(OctalTranslator {}),
@@ -199,19 +204,19 @@ pub fn all_translators() -> TranslatorList {
 
 #[derive(Default)]
 pub struct TranslatorList {
-    inner: HashMap<String, Box<dyn Translator>>,
-    basic: HashMap<String, Box<dyn BasicTranslator>>,
+    inner: HashMap<String, Box<DynTranslator>>,
+    basic: HashMap<String, Box<DynBasicTranslator>>,
     pub default: String,
 }
 
 impl TranslatorList {
-    pub fn new(
-        basic: Vec<Box<dyn BasicTranslator>>,
-        translators: Vec<Box<dyn Translator>>,
-    ) -> Self {
+    pub fn new(basic: Vec<Box<DynBasicTranslator>>, translators: Vec<Box<DynTranslator>>) -> Self {
         Self {
             default: "Hexadecimal".to_string(),
-            basic: basic.into_iter().map(|t| (t.name(), t)).collect(),
+            basic: basic
+                .into_iter()
+                .map(|t| ((&t as &DynTranslator).name(), t))
+                .collect(),
             inner: translators.into_iter().map(|t| (t.name(), t)).collect(),
         }
     }
@@ -220,7 +225,7 @@ impl TranslatorList {
         self.inner.keys().chain(self.basic.keys()).collect()
     }
 
-    pub fn all_translators(&self) -> Vec<&dyn Translator> {
+    pub fn all_translators(&self) -> Vec<&DynTranslator> {
         // This is kind of inefficient, but I don't feel like messing with lifetimes
         // and downcasting BasicTranslator to Translator again. Since this function
         // isn't run very often, this should be sufficient
@@ -234,7 +239,7 @@ impl TranslatorList {
         self.basic.keys().collect()
     }
 
-    pub fn get_translator(&self, name: &str) -> &(dyn Translator) {
+    pub fn get_translator(&self, name: &str) -> &DynTranslator {
         let full = self.inner.get(name);
         if let Some(full) = full.map(|t| t.as_ref()) {
             full
@@ -247,7 +252,7 @@ impl TranslatorList {
         }
     }
 
-    pub fn add_or_replace(&mut self, t: Box<dyn Translator>) {
+    pub fn add_or_replace(&mut self, t: Box<DynTranslator>) {
         self.inner.insert(t.name(), t);
     }
 
@@ -257,113 +262,6 @@ impl TranslatorList {
             .map(|preference| preference != TranslationPreference::No)
             .unwrap_or(false)
     }
-}
-
-#[derive(Clone, PartialEq, Copy)]
-pub enum ValueKind {
-    Normal,
-    Undef,
-    HighImp,
-    Custom(Color32),
-    Warn,
-    DontCare,
-    Weak,
-}
-
-/// The representation of the value, compound values can be
-/// be represented by the repr of their subfields
-#[derive(Clone)]
-pub enum ValueRepr {
-    Bit(char),
-    /// The value is `.0` raw bits, and can be translated by further translators
-    Bits(u64, String),
-    /// The value is exactly the specified string
-    String(String),
-    /// Represent the value as (f1, f2, f3...)
-    Tuple,
-    /// Represent the value as {f1: v1, f2: v2, f3: v3...}
-    Struct,
-    /// Represent as a spade-like enum with the specified field being shown.
-    /// The index is the index of the option which is currently selected, the name is
-    /// the name of that option to avoid having to look that up
-    Enum {
-        idx: usize,
-        name: String,
-    },
-    /// Represent the value as [f1, f2, f3...]
-    Array,
-    /// The variable value is not present. This is used to draw variables which are
-    /// validated by other variables.
-    NotPresent,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct TranslatedValue {
-    pub value: String,
-    pub kind: ValueKind,
-}
-
-impl TranslatedValue {
-    pub fn from_basic_translate(result: (String, ValueKind)) -> Self {
-        TranslatedValue {
-            value: result.0,
-            kind: result.1,
-        }
-    }
-
-    pub fn new(value: impl ToString, kind: ValueKind) -> Self {
-        TranslatedValue {
-            value: value.to_string(),
-            kind,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct SubFieldFlatTranslationResult {
-    pub names: Vec<String>,
-    pub value: Option<TranslatedValue>,
-}
-
-// A tree of format results for a variable, to be flattened into `SubFieldFlatTranslationResult`s
-struct HierFormatResult {
-    pub names: Vec<String>,
-    pub this: Option<TranslatedValue>,
-    /// A list of subfields of arbitrary depth, flattened to remove hierarchy.
-    /// i.e. `{a: {b: 0}, c: 0}` is flattened to `vec![a: {b: 0}, [a, b]: 0, c: 0]`
-    pub fields: Vec<HierFormatResult>,
-}
-
-impl HierFormatResult {
-    pub fn collect_into(self, into: &mut Vec<SubFieldFlatTranslationResult>) {
-        into.push(SubFieldFlatTranslationResult {
-            names: self.names,
-            value: self.this,
-        });
-        self.fields.into_iter().for_each(|r| r.collect_into(into));
-    }
-}
-
-#[derive(Clone)]
-pub struct SubFieldTranslationResult {
-    pub name: String,
-    pub result: TranslationResult,
-}
-
-impl SubFieldTranslationResult {
-    pub fn new(name: impl ToString, result: TranslationResult) -> Self {
-        SubFieldTranslationResult {
-            name: name.to_string(),
-            result,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct TranslationResult {
-    pub val: ValueRepr,
-    pub subfields: Vec<SubFieldTranslationResult>,
-    pub kind: ValueKind,
 }
 
 fn format(
@@ -464,7 +362,8 @@ fn format(
     }
 }
 
-impl TranslationResult {
+#[local_impl::local_impl]
+impl TranslationResultExt for TranslationResult {
     fn sub_format(
         &self,
         formats: &[crate::displayed_item::FieldFormat],
@@ -507,7 +406,7 @@ impl TranslationResult {
     }
 
     /// Flattens the translation result into path, value pairs
-    pub fn format_flat(
+    fn format_flat(
         &self,
         root_format: &Option<String>,
         formats: &[crate::displayed_item::FieldFormat],
@@ -537,23 +436,9 @@ impl TranslationResult {
     }
 }
 
-/// Static information about the structure of a variable.
-#[derive(Clone, Debug, Default)]
-pub enum VariableInfo {
-    Compound {
-        subfields: Vec<(String, VariableInfo)>,
-    },
-    Bits,
-    Bool,
-    Clock,
-    // NOTE: only used for state saving where translators will clear this out with the actual value
-    #[default]
-    String,
-    Real,
-}
-
-impl VariableInfo {
-    pub fn get_subinfo(&self, path: &[String]) -> &VariableInfo {
+#[local_impl::local_impl]
+impl VariableInfoExt for VariableInfo {
+    fn get_subinfo(&self, path: &[String]) -> &VariableInfo {
         match path {
             [] => self,
             [field, rest @ ..] => match self {
@@ -572,7 +457,7 @@ impl VariableInfo {
         }
     }
 
-    pub fn has_subpath(&self, path: &[String]) -> bool {
+    fn has_subpath(&self, path: &[String]) -> bool {
         match path {
             [] => true,
             [field, rest @ ..] => match self {
@@ -587,87 +472,24 @@ impl VariableInfo {
     }
 }
 
-#[derive(PartialEq)]
-pub enum TranslationPreference {
-    /// This translator prefers translating the variable, so it will be selected
-    /// as the default translator for the variable
-    Prefer,
-    /// This translator is able to translate the variable, but will not be
-    /// selected by default, the user has to select it
-    Yes,
-    No,
-}
-
-pub fn translates_all_bit_types(variable: &VariableMeta) -> Result<TranslationPreference> {
-    if variable.encoding == VariableEncoding::BitVector {
-        Ok(TranslationPreference::Yes)
-    } else {
-        Ok(TranslationPreference::No)
-    }
-}
-
-pub trait Translator: Send + Sync {
-    fn name(&self) -> String;
-
-    fn translate(
-        &self,
-        variable: &VariableMeta,
-        value: &VariableValue,
-    ) -> Result<TranslationResult>;
-
-    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo>;
-
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference>;
-
-    // By default translators are stateless, but if they need to reload, they can
-    // do by defining this method.
-    // Long running translators should run the reloading in the background using `perform_work`
-    fn reload(&self, _sender: Sender<Message>) {}
-}
-
-pub trait BasicTranslator: Send + Sync {
-    fn name(&self) -> String;
-    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        translates_all_bit_types(variable)
-    }
-    fn variable_info(&self, _variable: &VariableMeta) -> Result<VariableInfo> {
-        Ok(VariableInfo::Bits)
-    }
-}
-
-impl Translator for Box<dyn BasicTranslator> {
-    fn name(&self) -> String {
-        self.as_ref().name()
-    }
-
-    fn translate(
-        &self,
-        variable: &VariableMeta,
-        value: &VariableValue,
-    ) -> Result<TranslationResult> {
-        let (val, kind) = self
-            .as_ref()
-            .basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
-        Ok(TranslationResult {
-            val: ValueRepr::String(val),
-            kind,
-            subfields: vec![],
-        })
-    }
-
-    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
-        self.as_ref().translates(variable)
-    }
-
-    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo> {
-        self.as_ref().variable_info(variable)
+#[local_impl::local_impl]
+impl ValueKindExt for ValueKind {
+    fn color(&self, user_color: Color32, theme: &SurferTheme) -> Color32 {
+        match self {
+            ValueKind::HighImp => theme.variable_highimp,
+            ValueKind::Undef => theme.variable_undef,
+            ValueKind::DontCare => theme.variable_dontcare,
+            ValueKind::Warn => theme.variable_undef,
+            ValueKind::Custom(custom_color) => *custom_color,
+            ValueKind::Weak => theme.variable_weak,
+            ValueKind::Normal => user_color,
+        }
     }
 }
 
 pub struct StringTranslator {}
 
-impl Translator for StringTranslator {
+impl Translator<VarId, ScopeId, Message> for StringTranslator {
     fn name(&self) -> String {
         "String".to_string()
     }
@@ -704,33 +526,6 @@ impl Translator for StringTranslator {
         } else {
             Ok(TranslationPreference::No)
         }
-    }
-}
-
-enum NumberParseResult {
-    Numerical(BigUint),
-    Unparsable(String, ValueKind),
-}
-
-/// Turn vector variable string into name and corresponding kind if it
-/// includes values other than 0 and 1. If only 0 and 1, return None.
-fn map_vector_variable(s: &str) -> NumberParseResult {
-    if let Some(val) = BigUint::parse_bytes(s.as_bytes(), 2) {
-        NumberParseResult::Numerical(val)
-    } else if s.contains('x') {
-        NumberParseResult::Unparsable("UNDEF".to_string(), ValueKind::Undef)
-    } else if s.contains('z') {
-        NumberParseResult::Unparsable("HIGHIMP".to_string(), ValueKind::HighImp)
-    } else if s.contains('-') {
-        NumberParseResult::Unparsable("DON'T CARE".to_string(), ValueKind::DontCare)
-    } else if s.contains('u') {
-        NumberParseResult::Unparsable("UNDEF".to_string(), ValueKind::Undef)
-    } else if s.contains('w') {
-        NumberParseResult::Unparsable("UNDEF WEAK".to_string(), ValueKind::Undef)
-    } else if s.contains('h') || s.contains('l') {
-        NumberParseResult::Unparsable("WEAK".to_string(), ValueKind::Weak)
-    } else {
-        NumberParseResult::Unparsable("UNKNOWN VALUES".to_string(), ValueKind::Undef)
     }
 }
 

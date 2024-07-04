@@ -19,7 +19,7 @@ clap.workspace = true
 color-eyre.workspace = true
 config = { version = "0.14", default-features = false, features = ["toml"] }
 derivative = "2.2.0"
-derive_more = "0.99.17"
+derive_more.workspace = true
 eframe = { version = "0.27.2", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 egui-remixicon = { version = "0.27.2", default-features = false }
 egui_extras = { version = "0.27.2", default-features = false }
@@ -35,9 +35,10 @@ half = "2.4.1"
 instruction-decoder = { path = "../instruction-decoder" }
 itertools = "0.13.0"
 lazy_static.workspace = true
+local-impl = "0.1.2"
 log.workspace = true
 lz4_flex.workspace = true
-num = { version = "0.4", features = ["serde"] }
+num.workspace = true
 numeric-sort = "0.1.1"
 pure-rust-locales = "0.8.1"
 rayon = "1.10.0"
@@ -53,6 +54,7 @@ spade = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c
 spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
 spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
 spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+surfer-translation-types = { path = "../surfer-translation-types" }
 surver.workspace = true
 sys-locale = "0.3.1"
 tokio.workspace = true

@@ -2,11 +2,12 @@ use eframe::egui::{Context, FontSelection, Key, RichText, Style, WidgetText, Win
 use eframe::emath::Align;
 use eframe::epaint::{text::LayoutJob, Color32};
 use serde::{Deserialize, Serialize};
+use surfer_translation_types::VariableInfo;
 
-use crate::wave_container::WaveContainer;
+use crate::wave_container::{VariableRef, VariableRefExt, WaveContainer};
 use crate::{
     marker::DEFAULT_MARKER_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
-    translation::VariableInfo, variable_name_type::VariableNameType, wave_container::VariableRef,
+    variable_name_type::VariableNameType,
 };
 
 const DEFAULT_DIVIDER_NAME: &str = "";

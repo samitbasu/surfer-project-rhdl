@@ -2,7 +2,7 @@
 
 use super::snapshot::{render_and_compare, wait_for_waves_fully_loaded};
 use crate::message::Message;
-use crate::wave_container::ScopeRef;
+use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::wave_source::LoadOptions;
 use crate::State;
 use std::path::PathBuf;

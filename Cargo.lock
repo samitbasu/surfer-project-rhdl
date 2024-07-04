@@ -1289,15 +1289,15 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
-version = "0.99.17"
+version = "0.99.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+checksum = "5f33878137e4dafd7fa914ad4e259e18a4e8e532b9617a2d0150262bf53abfce"
 dependencies = [
  "convert_case",
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn 1.0.109",
+ "syn 2.0.66",
 ]
 
 [[package]]
@@ -4901,6 +4901,7 @@ dependencies = [
  "instruction-decoder",
  "itertools 0.13.0",
  "lazy_static",
+ "local-impl",
  "log",
  "lz4_flex",
  "num",
@@ -4922,6 +4923,7 @@ dependencies = [
  "spade-common",
  "spade-hir-lowering",
  "spade-types",
+ "surfer-translation-types",
  "surver",
  "sys-locale",
  "test-log",
@@ -4933,6 +4935,17 @@ dependencies = [
  "web-sys",
  "web-time 1.1.0",
  "wellen",
+]
+
+[[package]]
+name = "surfer-translation-types"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "derive_more",
+ "ecolor",
+ "num",
+ "serde",
 ]
 
 [[package]]

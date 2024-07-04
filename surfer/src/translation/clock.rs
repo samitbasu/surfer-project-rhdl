@@ -1,10 +1,12 @@
-use crate::wave_container::{VariableMeta, VariableValue};
+use crate::message::Message;
+use crate::wave_container::{ScopeId, VarId, VariableMeta};
+use surfer_translation_types::{TranslationResult, Translator, VariableValue};
 
-use super::{BasicTranslator, BitTranslator, Translator, VariableInfo};
+use super::{BitTranslator, DynBasicTranslator, DynTranslator, VariableInfo};
 
 pub struct ClockTranslator {
     // In order to not duplicate logic, we'll re-use the bit translator internally
-    inner: Box<dyn BasicTranslator>,
+    inner: Box<DynBasicTranslator>,
 }
 
 impl ClockTranslator {
@@ -15,7 +17,7 @@ impl ClockTranslator {
     }
 }
 
-impl Translator for ClockTranslator {
+impl Translator<VarId, ScopeId, Message> for ClockTranslator {
     fn name(&self) -> String {
         "Clock".to_string()
     }
@@ -24,8 +26,8 @@ impl Translator for ClockTranslator {
         &self,
         variable: &VariableMeta,
         value: &VariableValue,
-    ) -> color_eyre::Result<super::TranslationResult> {
-        self.inner.translate(variable, value)
+    ) -> color_eyre::Result<TranslationResult> {
+        (&self.inner as &DynTranslator).translate(variable, value)
     }
 
     fn variable_info(&self, _variable: &VariableMeta) -> color_eyre::Result<super::VariableInfo> {

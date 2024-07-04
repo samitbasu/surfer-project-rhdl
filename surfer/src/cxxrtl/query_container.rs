@@ -7,6 +7,7 @@ use base64::{prelude::BASE64_STANDARD, Engine as _};
 use futures::executor::block_on;
 use num::{bigint::ToBigInt as _, BigInt, BigUint};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use surfer_translation_types::VariableValue;
 use tokio::{
     sync::RwLock,
     task::{spawn_blocking, JoinHandle},
@@ -15,7 +16,7 @@ use tokio::{
 use crate::{
     cxxrtl_container::CxxrtlItem,
     message::Message,
-    wave_container::{QueryResult, VariableRef, VariableValue},
+    wave_container::{QueryResult, VariableRef},
 };
 
 use super::sc_message::CxxrtlSample;
