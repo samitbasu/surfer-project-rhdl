@@ -385,7 +385,7 @@ impl State {
         }
 
         if ui.button("Remove").clicked() {
-            msgs.push(Message::RemoveItem(vidx, 1));
+            msgs.push(Message::RemoveItemByIndex(vidx));
             msgs.push(Message::InvalidateCount);
             ui.close_menu();
         }

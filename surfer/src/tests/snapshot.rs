@@ -787,30 +787,25 @@ snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::RemoveItem(DisplayedItemIndex(1), 1)
-]}
-
-snapshot_ui_with_file_and_msgs! {remove_items, "examples/counter.vcd", [
-    Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::RemoveItem(DisplayedItemIndex(2), 6)
+    Message::RemoveItemByIndex(DisplayedItemIndex(1))
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_with_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(1)),
-    Message::RemoveItem(DisplayedItemIndex(1), 1)
+    Message::RemoveItemByIndex(DisplayedItemIndex(1))
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_before_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(3)),
-    Message::RemoveItem(DisplayedItemIndex(1), 1)
+    Message::RemoveItemByIndex(DisplayedItemIndex(1))
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_after_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(1)),
-    Message::RemoveItem(DisplayedItemIndex(2), 1)
+    Message::RemoveItemByIndex(DisplayedItemIndex(2))
 ]}
 
 snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [

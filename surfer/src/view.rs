@@ -723,7 +723,7 @@ impl State {
                             self.draw_variable(
                                 msgs,
                                 vidx,
-                                WidgetText::LayoutJob(layout_job),
+                                WidgetText::RichText(RichText::new(layout_job.text)),
                                 *displayed_item_id,
                                 FieldRef::without_fields(var.variable_ref.clone()),
                                 &mut item_offsets,
@@ -734,6 +734,7 @@ impl State {
                         DisplayedItem::Divider(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
@@ -742,6 +743,7 @@ impl State {
                         DisplayedItem::Marker(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
@@ -750,6 +752,7 @@ impl State {
                         DisplayedItem::Placeholder(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
@@ -758,6 +761,7 @@ impl State {
                         DisplayedItem::TimeLine(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
@@ -874,8 +878,26 @@ impl State {
         ui: &mut egui::Ui,
     ) -> Rect {
         let draw_label = |ui: &mut egui::Ui| {
+            let style = ui.style_mut();
+            if self.item_is_focused(vidx) {
+                style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
+                style.visuals.override_text_color = Some(self.config.theme.accent_info.foreground);
+            } else if self.item_is_selected(displayed_id) {
+                style.visuals.selection.bg_fill =
+                    self.config.theme.selected_elements_colors.background;
+                style.visuals.override_text_color =
+                    Some(self.config.theme.selected_elements_colors.foreground);
+            } else {
+                style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
+                style.visuals.override_text_color =
+                    Some(self.config.theme.primary_ui_color.foreground);
+            }
+
             let mut variable_label = ui
-                .selectable_label(self.item_is_selected(vidx), name)
+                .selectable_label(
+                    self.item_is_selected(displayed_id) || self.item_is_focused(vidx),
+                    name,
+                )
                 .interact(Sense::drag());
             variable_label.context_menu(|ui| {
                 self.item_context_menu(Some(&field), msgs, ui, vidx);
@@ -1061,6 +1083,7 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: DisplayedItemIndex,
+        displayed_id: DisplayedItemRef,
         displayed_item: &DisplayedItem,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
@@ -1077,7 +1100,7 @@ impl State {
             self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
             let item_label = ui
                 .selectable_label(
-                    self.item_is_selected(vidx),
+                    self.item_is_selected(displayed_id),
                     WidgetText::LayoutJob(layout_job),
                 )
                 .interact(Sense::drag());
@@ -1160,9 +1183,17 @@ impl State {
         }
     }
 
-    fn item_is_selected(&self, vidx: DisplayedItemIndex) -> bool {
+    fn item_is_focused(&self, vidx: DisplayedItemIndex) -> bool {
         if let Some(waves) = &self.waves {
             waves.focused_item == Some(vidx)
+        } else {
+            false
+        }
+    }
+
+    fn item_is_selected(&self, id: DisplayedItemRef) -> bool {
+        if let Some(waves) = &self.waves {
+            waves.selected_items.contains(&id)
         } else {
             false
         }

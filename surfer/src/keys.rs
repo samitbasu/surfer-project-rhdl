@@ -88,6 +88,7 @@ impl State {
                     (Key::S, true, false, false) => {
                         msgs.push(Message::GoToStart { viewport_idx: 0 })
                     }
+                    (Key::A, true, false, false) => msgs.push(Message::ToggleFocusedItemSelected),
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd { viewport_idx: 0 }),
                     (Key::R, true, false, false) => msgs.push(Message::ReloadWaveform(
                         self.config.behavior.keep_during_reload,
@@ -202,10 +203,12 @@ impl State {
                     }
                     (Key::Delete | Key::X, true, false, false) => {
                         if let Some(waves) = &self.waves {
-                            if let Some(idx) = waves.focused_item {
-                                msgs.push(Message::RemoveItem(idx, self.get_count()));
-                                msgs.push(Message::InvalidateCount);
+                            let mut remove_ids =
+                                waves.selected_items.clone().into_iter().collect::<Vec<_>>();
+                            if let Some(focus) = waves.focused_item {
+                                remove_ids.append(&mut vec![waves.displayed_items_order[focus.0]]);
                             }
+                            msgs.push(Message::RemoveItems(remove_ids));
                         }
                     }
                     (Key::ArrowUp, true, true, false) => msgs.push(Message::SelectPrevCommand),
