@@ -4944,6 +4944,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "fern",
+ "gethostname",
  "http-body-util",
  "hyper",
  "hyper-util",
