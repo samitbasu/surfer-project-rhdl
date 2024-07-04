@@ -27,10 +27,11 @@ use crate::{message::Message, wasm_util::perform_work, wave_container::VariableM
 
 use super::{TranslationPreference, ValueKind, VariableInfo, VariableValue};
 
+/// Same as the swim::SurferInfo struct
 #[derive(Deserialize, Clone)]
 pub struct SpadeTestInfo {
     state_file: Utf8PathBuf,
-    top_names: HashMap<Utf8PathBuf, String>
+    top_names: HashMap<Utf8PathBuf, String>,
 }
 
 pub struct SpadeTranslator {
@@ -95,32 +96,37 @@ impl SpadeTranslator {
             // we'll look for `build/surfer.toml` to find what the Spade context is if
             // it exists
             (Some(WaveSource::File(file)), _, _) => {
-                let toml_file = Utf8PathBuf::from("build/surfer.ron");
-                if toml_file.exists() {
-                    std::fs::read_to_string(&toml_file)
-                        .map_err(|e| error!("Spade translator failed to read {toml_file}. {e}"))
+                let ron_file = Utf8PathBuf::from("build/surfer.ron");
+                if ron_file.exists() {
+                    std::fs::read_to_string(&ron_file)
+                        .map_err(|e| error!("Spade translator failed to read {ron_file}. {e}"))
                         .ok()
                         .and_then(|content| {
                             ron::from_str::<SpadeTestInfo>(&content)
-                                .map_err(|e| error!("Failed to decode {toml_file}. {e}"))
+                                // .map_err().ok() for  the side effect
+                                .map_err(|e| error!("Failed to decode {ron_file}. {e}"))
                                 .ok()
                         })
                         .and_then(|info| {
                             if let Some(top) = info.top_names.get(file) {
                                 Some((top.clone(), info.state_file.clone()))
                             } else {
-                                warn!("Found no spade info for {file}. Disabling spade translation");
+                                warn!(
+                                    "Found no spade info for {file}. Disabling spade translation"
+                                );
                                 None
                             }
                         })
                 } else {
-                    info!("Did not find {toml_file} nor --spade-state and --spade-top. Spade translator will not run");
+                    info!("Did not find {ron_file} nor --spade-state and --spade-top. Spade translator will not run");
                     None
                 }
             }
             _ => None,
         };
-        let Some((top_name, state_file)) = spade_info else {return};
+        let Some((top_name, state_file)) = spade_info else {
+            return;
+        };
         perform_work(move || {
             let t = SpadeTranslator::new(&top_name, &state_file);
             match t {
@@ -199,7 +205,12 @@ impl Translator<VarId, ScopeId, Message> for SpadeTranslator {
     fn reload(&self, sender: Sender<Message>) {
         // At this point, we have already loaded the spade info on the first load, so can just
         // pass None as the wave source
-        Self::load(&None, &Some(self.top_name.clone()), &Some(self.state_file.clone()), sender);
+        Self::load(
+            &None,
+            &Some(self.top_name.clone()),
+            &Some(self.state_file.clone()),
+            sender,
+        );
     }
 }
 
