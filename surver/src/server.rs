@@ -307,6 +307,7 @@ pub async fn server_main(
     // immutable read-only data
     let url = format!("http://{addr:?}/{}", token);
     let url_copy = url.clone();
+    let token_copy = token.clone();
     let shared = Arc::new(ReadOnly {
         url,
         token,
@@ -329,8 +330,20 @@ pub async fn server_main(
     // print out status
     info!("Starting server on {addr:?}. To use:");
     info!("1. Setup an ssh tunnel: -L {port}:localhost:{port}");
-    info!("2. Start Surfer: surfer {url_copy} ");
+    let hostname = whoami::fallible::hostname();
+    if let Ok(hostname) = hostname.as_ref() {
+        let username = whoami::username();
+        info!(
+            "   The correct command may be: ssh -L {port}:localhost:{port} {username}@{hostname} "
+        );
+    }
 
+    info!("2. Start Surfer: surfer {url_copy} ");
+    if let Ok(hostname) = hostname {
+        let hosturl = format!("http://{hostname}:{port}/{}", token_copy);
+        info!("or, if the host is directly accessible:");
+        info!("1. Start Surfer: surfer {hosturl} ");
+    }
     // create listener and serve it
     let listener = TcpListener::bind(&addr).await?;
 
