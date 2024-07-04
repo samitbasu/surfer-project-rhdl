@@ -17,9 +17,9 @@ use std::sync::{Arc, RwLock};
 use tokio::net::TcpListener;
 use wellen::{viewers, FileFormat, Hierarchy, Signal, SignalRef, Time};
 
-use super::{
+use crate::{
     Status, BINCODE_OPTIONS, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, SURFER_VERSION,
-    WELLEN_VERSION, X_SURFER_VERSION, X_WELLEN_VERSION,
+    WELLEN_SURFER_DEFAULT_OPTIONS, WELLEN_VERSION, X_SURFER_VERSION, X_WELLEN_VERSION,
 };
 
 struct ReadOnly {
@@ -60,8 +60,8 @@ fn get_info_page(shared: Arc<ReadOnly>) -> String {
     format!(
         r#"
     <!DOCTYPE html><html lang="en">
-    <head><title>Surfer Remote Server</title></head><body>
-    <h1>Surfer Remote Server</h1>
+    <head><title>Surver - Surfer Remote Server</title></head><body>
+    <h1>Surver - Surfer Remote Server</h1>
     <b>To connect, run:</b> <code>surfer {}</code><br>
     <b>Wellen version:</b> {WELLEN_VERSION}<br>
     <b>Surfer version:</b> {SURFER_VERSION}<br>
@@ -294,12 +294,10 @@ pub async fn server_main(
 
     // load file
     let start_read_header = web_time::Instant::now();
-    let header_result = wellen::viewers::read_header(
-        filename.as_str(),
-        &crate::wave_source::WELLEN_SURFER_DEFAULT_OPTIONS,
-    )
-    .map_err(|e| anyhow!("{e:?}"))
-    .with_context(|| format!("Failed to parse wave file: {filename}"))?;
+    let header_result =
+        wellen::viewers::read_header(filename.as_str(), &WELLEN_SURFER_DEFAULT_OPTIONS)
+            .map_err(|e| anyhow!("{e:?}"))
+            .with_context(|| format!("Failed to parse wave file: {filename}"))?;
     info!(
         "Loaded header of {filename} in {:?}",
         start_read_header.elapsed()
@@ -309,6 +307,7 @@ pub async fn server_main(
     // immutable read-only data
     let url = format!("http://{addr:?}/{}", token);
     let url_copy = url.clone();
+    let token_copy = token.clone();
     let shared = Arc::new(ReadOnly {
         url,
         token,
@@ -331,8 +330,20 @@ pub async fn server_main(
     // print out status
     info!("Starting server on {addr:?}. To use:");
     info!("1. Setup an ssh tunnel: -L {port}:localhost:{port}");
-    info!("2. Start Surfer: surfer {url_copy} ");
+    let hostname = whoami::fallible::hostname();
+    if let Ok(hostname) = hostname.as_ref() {
+        let username = whoami::username();
+        info!(
+            "This may be the correct command: ssh {username}@{hostname} -L {port}:localhost:{port}"
+        );
+    }
 
+    info!("2. Start Surfer: surfer {url_copy} ");
+    if let Ok(hostname) = hostname {
+        let hosturl = format!("http://{hostname}:{port}/{}", token_copy);
+        info!("or, if the host is directly accessible:");
+        info!("1. Start Surfer: surfer {hosturl} ");
+    }
     // create listener and serve it
     let listener = TcpListener::bind(&addr).await?;
 

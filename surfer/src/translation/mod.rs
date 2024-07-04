@@ -4,8 +4,11 @@ use color_eyre::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
 use eframe::epaint::Color32;
+#[cfg(not(target_arch = "wasm32"))]
 use log::warn;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
+#[cfg(not(target_arch = "wasm32"))]
 use toml::Table;
 
 mod basic_translators;
@@ -45,6 +48,7 @@ fn find_user_decoders() -> Vec<Box<dyn BasicTranslator>> {
 }
 
 /// Look for user defined decoders in path.
+#[cfg(not(target_arch = "wasm32"))]
 fn find_user_decoders_at_path(path: &Path) -> Vec<Box<dyn BasicTranslator>> {
     let mut decoders: Vec<Box<dyn BasicTranslator>> = vec![];
     let Ok(decoder_dirs) = std::fs::read_dir(path.join("decoders")) else {
