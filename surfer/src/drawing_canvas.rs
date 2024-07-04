@@ -10,19 +10,19 @@ use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};
 use num::{BigInt, ToPrimitive};
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
+use surfer_translation_types::{
+    SubFieldFlatTranslationResult, TranslatedValue, ValueKind, VariableInfo, VariableType,
+};
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef, DisplayedVariable,
 };
-use crate::translation::{
-    SubFieldFlatTranslationResult, TranslatedValue, TranslatorList, ValueKind, VariableInfo,
-};
-use crate::variable_type::VariableType;
+use crate::translation::{TranslationResultExt, TranslatorList, ValueKindExt, VariableInfoExt};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::viewport::Viewport;
-use crate::wave_container::QueryResult;
+use crate::wave_container::{QueryResult, VariableRefExt};
 use crate::wave_data::WaveData;
 use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
 
@@ -892,20 +892,6 @@ trait VariableExt {
         theme: &SurferTheme,
         value_kind: ValueKind,
     ) -> (f32, Color32, Option<Color32>);
-}
-
-impl ValueKind {
-    fn color(&self, user_color: Color32, theme: &SurferTheme) -> Color32 {
-        match self {
-            ValueKind::HighImp => theme.variable_highimp,
-            ValueKind::Undef => theme.variable_undef,
-            ValueKind::DontCare => theme.variable_dontcare,
-            ValueKind::Warn => theme.variable_undef,
-            ValueKind::Custom(custom_color) => *custom_color,
-            ValueKind::Weak => theme.variable_weak,
-            ValueKind::Normal => user_color,
-        }
-    }
 }
 
 impl VariableExt for String {

@@ -5,20 +5,19 @@ use log::{error, warn};
 use num::bigint::ToBigInt as _;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
+use surfer_translation_types::{TranslationPreference, VariableValue};
 
-use crate::{
-    displayed_item::{
-        DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
-        DisplayedTimeLine, DisplayedVariable,
-    },
-    translation::{TranslationPreference, Translator, TranslatorList},
-    variable_name_type::VariableNameType,
-    view::ItemDrawingInfo,
-    viewport::Viewport,
-    wave_container::{ScopeRef, VariableMeta, VariableRef, VariableValue, WaveContainer},
-    wave_source::{WaveFormat, WaveSource},
-    wellen::LoadSignalsCmd,
+use crate::displayed_item::{
+    DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
+    DisplayedTimeLine, DisplayedVariable,
 };
+use crate::translation::{DynTranslator, TranslatorList, VariableInfoExt};
+use crate::variable_name_type::VariableNameType;
+use crate::view::ItemDrawingInfo;
+use crate::viewport::Viewport;
+use crate::wave_container::{ScopeRef, VariableMeta, VariableRef, VariableRefExt, WaveContainer};
+use crate::wave_source::{WaveFormat, WaveSource};
+use crate::wellen::LoadSignalsCmd;
 
 pub const PER_SCROLL_EVENT: f32 = 50.0;
 pub const SCROLL_EVENTS_PER_PAGE: f32 = 20.0;
@@ -83,7 +82,7 @@ pub fn variable_translator<'a, F>(
     field: &[String],
     translators: &'a TranslatorList,
     meta: F,
-) -> &'a dyn Translator
+) -> &'a DynTranslator
 where
     F: FnOnce() -> Result<VariableMeta>,
 {
@@ -305,7 +304,7 @@ impl WaveData {
         &'a self,
         field: &DisplayedFieldRef,
         translators: &'a TranslatorList,
-    ) -> &'a dyn Translator {
+    ) -> &'a DynTranslator {
         let Some(DisplayedItem::Variable(displayed_variable)) =
             self.displayed_items.get(&field.item)
         else {
