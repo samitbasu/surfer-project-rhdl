@@ -352,7 +352,14 @@ impl BasicTranslator<VarId, ScopeId> for InstructionTranslator {
             .decode_from_i64(u64_value as i64, num_bits as usize)
         {
             Ok(iform) => (iform, ValueKind::Normal),
-            _ => (format!("UNKNOWN INSN ({:#x})", u64_value), ValueKind::Warn),
+            _ => (
+                format!(
+                    "UNKNOWN INSN ({:#0width$x})",
+                    u64_value,
+                    width = no_of_digits(num_bits, 4) + 2
+                ),
+                ValueKind::Warn,
+            ),
         }
     }
 
@@ -865,7 +872,7 @@ mod test {
             }
             .basic_translate(32, &VariableValue::BigUint(0b1000000010011111u32.into()))
             .0,
-            "UNKNOWN INSN (0x809f)"
+            "UNKNOWN INSN (0x0000809f)"
         );
         assert_eq!(
             InstructionTranslator {
@@ -898,7 +905,7 @@ mod test {
             }
             .basic_translate(32, &VariableValue::BigUint(0b1000000010011111u32.into()))
             .0,
-            "UNKNOWN INSN (0x809f)"
+            "UNKNOWN INSN (0x0000809f)"
         );
         assert_eq!(
             InstructionTranslator {
@@ -990,7 +997,7 @@ mod test {
             }
             .basic_translate(32, &VariableValue::BigUint(0x3a873u32.into()))
             .0,
-            "UNKNOWN INSN (0x3a873)"
+            "UNKNOWN INSN (0x0003a873)"
         );
         assert_eq!(
             InstructionTranslator {
