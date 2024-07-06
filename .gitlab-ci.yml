@@ -196,7 +196,6 @@ typos-and-todos:
 
 linux_build:
     stage: deploy
-    extends: .if-release
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
@@ -215,7 +214,6 @@ linux_build:
 
 windows_build:
     stage: deploy
-    extends: .if-release
     script:
         - apt-get update -y
         - apt-get install -y mingw-w64 zip
@@ -235,7 +233,6 @@ windows_build:
 
 macos-aarch64_build:
     stage: deploy
-    extends: .if-release
     variables:
         HOMEBREW_NO_AUTO_UPDATE: 1
         HOMEBREW_NO_ENV_HINTS: 1
