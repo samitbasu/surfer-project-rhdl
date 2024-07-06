@@ -204,8 +204,10 @@ linux_build:
         - rustc -V
         - cargo -V
         - cargo build --release --locked --features accesskit
-        - cp target/release/surfer surfer
-        - zip surfer_linux.zip surfer
+        - mkdir dist
+        - cp target/release/surfer dist/surfer
+        - cd dist
+        - zip ../surfer_linux.zip surfer
     artifacts:
         paths:
             - surfer_linux.zip
@@ -222,8 +224,10 @@ windows_build:
         - cargo -V
         - rustup target add x86_64-pc-windows-gnu
         - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit
-        - cp target/x86_64-pc-windows-gnu/release/surfer.exe surfer.exe
-        - zip surfer_win.zip surfer.exe
+        - mkdir dist
+        - cp target/x86_64-pc-windows-gnu/release/surfer.exe dist/surfer.exe
+        - cd dist
+        - zip ../surfer_win.zip surfer.exe
     artifacts:
         paths:
             - surfer_win.zip
@@ -249,8 +253,10 @@ macos-aarch64_build:
     script:
         - cargo build --release --locked --features accesskit
         - ls -alrt target/release/surfer
-        - cp target/release/surfer surfer
-        - zip surfer_macos-aarch64.zip surfer
+        - mkdir dist
+        - cp target/release/surfer dist/surfer
+        - cd dist
+        - zip ../surfer_macos-aarch64.zip surfer
     artifacts:
         paths:
             - surfer_macos-aarch64.zip
