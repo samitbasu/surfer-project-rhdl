@@ -196,7 +196,6 @@ typos-and-todos:
 
 linux_build:
     stage: deploy
-    extends: .if-release
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
@@ -204,16 +203,17 @@ linux_build:
         - rustc -V
         - cargo -V
         - cargo build --release --locked --features accesskit
-        - cp target/release/surfer surfer
+        - mkdir dist
+        - cp target/release/surfer dist/surfer
+        - cd dist
         - zip surfer_linux.zip surfer
     artifacts:
         paths:
-            - surfer_linux.zip
+            - dist/surfer_linux.zip
         expire_in: 1 week
 
 windows_build:
     stage: deploy
-    extends: .if-release
     script:
         - apt-get update -y
         - apt-get install -y mingw-w64 zip
@@ -222,16 +222,17 @@ windows_build:
         - cargo -V
         - rustup target add x86_64-pc-windows-gnu
         - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit
-        - cp target/x86_64-pc-windows-gnu/release/surfer.exe surfer.exe
+        - mkdir dist
+        - cp target/x86_64-pc-windows-gnu/release/surfer.exe dist/surfer.exe
+        - cd dist
         - zip surfer_win.zip surfer.exe
     artifacts:
         paths:
-            - surfer_win.zip
+            - dist/surfer_win.zip
         expire_in: 1 week
 
 macos-aarch64_build:
     stage: deploy
-    extends: .if-release
     variables:
         HOMEBREW_NO_AUTO_UPDATE: 1
         HOMEBREW_NO_ENV_HINTS: 1
@@ -249,11 +250,13 @@ macos-aarch64_build:
     script:
         - cargo build --release --locked --features accesskit
         - ls -alrt target/release/surfer
-        - cp target/release/surfer surfer
+        - mkdir dist
+        - cp target/release/surfer dist/surfer
+        - cd dist
         - zip surfer_macos-aarch64.zip surfer
     artifacts:
         paths:
-            - surfer_macos-aarch64.zip
+            - dist/surfer_macos-aarch64.zip
         expire_in: 1 week
 
 pages_build:
