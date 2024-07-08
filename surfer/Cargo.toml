@@ -4,8 +4,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 categories.workspace = true
+rust-version.workspace = true
 build = "build.rs"
-rust-version = "1.75"
 description = "Waveform viewer for VCD, FST, and GHW"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,10 +20,11 @@ color-eyre.workspace = true
 config = { version = "0.14", default-features = false, features = ["toml"] }
 derivative = "2.2.0"
 derive_more.workspace = true
-eframe = { version = "0.27.2", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+eframe = { version = "0.28.0", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = { version = "0.28.0", default-features = false, features = ["serde"] }
 egui-remixicon = { version = "0.27.2", default-features = false }
-egui_extras = { version = "0.27.2", default-features = false }
-egui_plot = { version = "0.27.2", optional = true }
+egui_extras = { version = "0.28.0", default-features = false }
+egui_plot = { version = "0.28.0", optional = true }
 enum-iterator = "2.0"
 f128 = { path = "../f128", optional = true }
 fern.workspace = true
@@ -83,7 +84,7 @@ web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
 
 [dev-dependencies]
 dssim = "3.3.0"
-egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer" }
+egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "c13a8bbfc622ae28ee7b7f6d1c576a761e8b8bbe" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 project-root = "0.2.2"
 rgb = "0.8.37"
