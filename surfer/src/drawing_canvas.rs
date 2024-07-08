@@ -736,20 +736,15 @@ impl State {
             }
 
             if let Some(old_bg) = old_bg {
-                ctx.painter.add(RectShape {
-                    fill: old_bg,
-                    rect: Rect {
+                ctx.painter.add(RectShape::new(
+                    Rect {
                         min: (ctx.to_screen)(*old_x, offset),
                         max: (ctx.to_screen)(*new_x, offset + ctx.cfg.line_height),
                     },
-                    rounding: Rounding::ZERO,
-                    stroke: Stroke {
-                        width: 0.,
-                        ..Default::default()
-                    },
-                    fill_texture_id: Default::default(),
-                    uv: Rect::ZERO,
-                });
+                    Rounding::ZERO,
+                    old_bg,
+                    Stroke::new(0.0, Color32::BLACK),
+                ));
             }
         }
     }
