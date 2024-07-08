@@ -5,7 +5,7 @@ use std::path::Path;
 use color_eyre::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
-use eframe::epaint::Color32;
+use ecolor::Color32;
 #[cfg(not(target_arch = "wasm32"))]
 use log::warn;
 #[cfg(not(target_arch = "wasm32"))]

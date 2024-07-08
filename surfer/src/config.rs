@@ -6,7 +6,7 @@ use config::{Config, ConfigBuilder};
 use config::{Environment, File};
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
-use eframe::epaint::Color32;
+use ecolor::Color32;
 use enum_iterator::Sequence;
 use serde::de;
 use serde::{Deserialize, Deserializer};

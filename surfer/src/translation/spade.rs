@@ -2,7 +2,7 @@
 use std::sync::mpsc::Sender;
 
 use camino::{Utf8Path, Utf8PathBuf};
-use eframe::epaint::Color32;
+use ecolor::Color32;
 use num::ToPrimitive;
 use serde::Deserialize;
 use spade::compiler_state::CompilerState;

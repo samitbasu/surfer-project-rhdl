@@ -1,6 +1,6 @@
 // Utility functions, typically inlined, for more readable code
 
-use eframe::epaint::Color32;
+use ecolor::Color32;
 
 use crate::{displayed_item::DisplayedItem, State};
 
