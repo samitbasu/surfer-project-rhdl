@@ -50,10 +50,10 @@ serde.workspace = true
 serde_json.workspace = true
 serde_stacker = { version = "0.1", optional = true }
 softposit = "0.4.0"
-spade = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
-spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
-spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
-spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "2199e8438699a2566c3b3d24665fbd4644ba4e4d", optional = true }
+spade = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
+spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
+spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
+spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
 surfer-translation-types = { path = "../surfer-translation-types" }
 surver.workspace = true
 sys-locale = "0.3.1"
