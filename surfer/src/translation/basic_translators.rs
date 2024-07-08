@@ -1,12 +1,11 @@
-use super::{
-    check_single_wordlength, BasicTranslator, TranslationPreference, ValueKind, VariableInfo,
-};
-use crate::wave_container::{VariableMeta, VariableValue};
+use super::{check_single_wordlength, TranslationPreference, ValueKind, VariableInfo};
+use crate::wave_container::{ScopeId, VarId, VariableMeta};
 
 use color_eyre::Result;
 use instruction_decoder::Decoder;
 use itertools::Itertools;
 use num::Zero;
+use surfer_translation_types::{BasicTranslator, VariableValue};
 
 // Forms groups of n chars from from a string. If the string size is
 // not divisible by n, the first group will be smaller than n
@@ -172,7 +171,7 @@ fn check_wordlength(
 
 pub struct HexTranslator {}
 
-impl BasicTranslator for HexTranslator {
+impl BasicTranslator<VarId, ScopeId> for HexTranslator {
     fn name(&self) -> String {
         String::from("Hexadecimal")
     }
@@ -190,7 +189,7 @@ impl BasicTranslator for HexTranslator {
 
 pub struct BitTranslator {}
 
-impl BasicTranslator for BitTranslator {
+impl BasicTranslator<VarId, ScopeId> for BitTranslator {
     fn name(&self) -> String {
         String::from("Bit")
     }
@@ -230,7 +229,7 @@ impl BasicTranslator for BitTranslator {
 
 pub struct OctalTranslator {}
 
-impl BasicTranslator for OctalTranslator {
+impl BasicTranslator<VarId, ScopeId> for OctalTranslator {
     fn name(&self) -> String {
         String::from("Octal")
     }
@@ -248,7 +247,7 @@ impl BasicTranslator for OctalTranslator {
 
 pub struct GroupingBinaryTranslator {}
 
-impl BasicTranslator for GroupingBinaryTranslator {
+impl BasicTranslator<VarId, ScopeId> for GroupingBinaryTranslator {
     fn name(&self) -> String {
         String::from("Binary (with groups)")
     }
@@ -271,7 +270,7 @@ impl BasicTranslator for GroupingBinaryTranslator {
 
 pub struct BinaryTranslator {}
 
-impl BasicTranslator for BinaryTranslator {
+impl BasicTranslator<VarId, ScopeId> for BinaryTranslator {
     fn name(&self) -> String {
         String::from("Binary")
     }
@@ -292,7 +291,7 @@ impl BasicTranslator for BinaryTranslator {
 
 pub struct ASCIITranslator {}
 
-impl BasicTranslator for ASCIITranslator {
+impl BasicTranslator<VarId, ScopeId> for ASCIITranslator {
     fn name(&self) -> String {
         String::from("ASCII")
     }
@@ -333,7 +332,7 @@ pub struct InstructionTranslator {
     pub num_bits: u64,
 }
 
-impl BasicTranslator for InstructionTranslator {
+impl BasicTranslator<VarId, ScopeId> for InstructionTranslator {
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -381,7 +380,7 @@ fn decode_lebxxx(value: &num::BigUint) -> Result<num::BigUint, &'static str> {
 
 pub struct LebTranslator {}
 
-impl BasicTranslator for LebTranslator {
+impl BasicTranslator<VarId, ScopeId> for LebTranslator {
     fn name(&self) -> String {
         "LEBxxx".to_string()
     }

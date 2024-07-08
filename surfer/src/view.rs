@@ -11,6 +11,9 @@ use egui_remixicon::icons;
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
+use surfer_translation_types::{
+    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
+};
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
@@ -23,14 +26,16 @@ use crate::help::{
     draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
 };
 use crate::time::time_string;
-use crate::translation::{SubFieldFlatTranslationResult, TranslatedValue};
+use crate::translation::TranslationResultExt;
 use crate::util::uint_idx_to_alpha_idx;
-use crate::variable_type::VariableType;
-use crate::wave_container::{FieldRef, ScopeRef, VariableRef};
+use crate::variable_direction::VariableDirectionExt;
+use crate::wave_container::{
+    FieldRef, FieldRefExt, ScopeRef, ScopeRefExt, VariableRef, VariableRefExt,
+};
 use crate::wave_source::LoadOptions;
 use crate::{
-    command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy,
-    translation::VariableInfo, wave_data::WaveData, Message, MoveDir, State,
+    command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
+    Message, MoveDir, State,
 };
 
 pub struct DrawingContext<'a> {

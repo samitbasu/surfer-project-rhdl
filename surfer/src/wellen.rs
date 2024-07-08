@@ -1,20 +1,23 @@
-use crate::message::BodyResult;
-use crate::time::{TimeScale, TimeUnit};
-use crate::variable_direction::VariableDirection;
-use crate::variable_type::VariableType;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
+
 use color_eyre::{eyre::anyhow, eyre::bail, Result};
 use derivative::Derivative;
 use log::warn;
 use num::{BigUint, ToPrimitive};
-use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
+use surfer_translation_types::{VariableDirection, VariableEncoding, VariableType, VariableValue};
 use wellen::{
     FileFormat, GetItem as _, Hierarchy, ScopeType, Signal, SignalEncoding, SignalRef,
     SignalSource, Time, TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
 };
 
+use crate::message::BodyResult;
+use crate::time::{TimeScale, TimeUnit};
+use crate::variable_direction::VariableDirectionExt;
+use crate::variable_type::VariableTypeExt;
 use crate::wave_container::{
-    MetaData, QueryResult, ScopeRef, VariableEncoding, VariableMeta, VariableRef, VariableValue,
+    MetaData, QueryResult, ScopeId, ScopeRef, ScopeRefExt, VarId, VariableMeta, VariableRef,
+    VariableRefExt,
 };
 
 static UNIQUE_ID_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -193,9 +196,9 @@ impl WellenContainer {
     }
 
     fn lookup_scope(&self, scope: &ScopeRef) -> Option<wellen::ScopeRef> {
-        match scope.get_wellen_id() {
-            Some(id) => Some(id),
-            None => self.hierarchy.lookup_scope(scope.strs()),
+        match scope.id {
+            ScopeId::Wellen(id) => Some(id),
+            ScopeId::None => self.hierarchy.lookup_scope(scope.strs()),
         }
     }
     pub fn variables(&self) -> Vec<VariableRef> {
@@ -211,10 +214,10 @@ impl WellenContainer {
         if scope_ref.strs().is_empty() {
             h.vars()
                 .map(|id| {
-                    VariableRef::new_with_wave_id(
+                    VariableRef::new_with_id(
                         scope_ref.clone(),
                         h.get(id).name(h).to_string(),
-                        id,
+                        VarId::Wellen(id),
                     )
                 })
                 .collect::<Vec<_>>()
@@ -229,10 +232,10 @@ impl WellenContainer {
             scope
                 .vars(h)
                 .map(|id| {
-                    VariableRef::new_with_wave_id(
+                    VariableRef::new_with_id(
                         scope_ref.clone(),
                         h.get(id).name(h).to_string(),
-                        id,
+                        VarId::Wellen(id),
                     )
                 })
                 .collect::<Vec<_>>()
@@ -245,7 +248,7 @@ impl WellenContainer {
 
         // first we lookup the scope in order to update the scope reference
         let scope = h.lookup_scope(variable.path.strs())?;
-        let new_scope_ref = variable.path.with_wellen_id(scope);
+        let new_scope_ref = variable.path.with_id(ScopeId::Wellen(scope));
 
         // now we lookup the variable
         let var = h
@@ -253,7 +256,7 @@ impl WellenContainer {
             .vars(h)
             .find(|r| h.get(*r).name(h) == variable.name)?;
         let new_variable_ref =
-            VariableRef::new_with_wave_id(new_scope_ref, variable.name.clone(), var);
+            VariableRef::new_with_id(new_scope_ref, variable.name.clone(), VarId::Wellen(var));
         Some(new_variable_ref)
     }
 
@@ -274,9 +277,9 @@ impl WellenContainer {
     }
 
     fn get_var_ref(&self, r: &VariableRef) -> Result<VarRef> {
-        match r.get_wellen_id() {
-            Some(id) => Ok(id),
-            None => {
+        match r.id {
+            VarId::Wellen(id) => Ok(id),
+            VarId::None => {
                 let h = &self.hierarchy;
                 let var = match h.lookup_var(r.path.strs(), &r.name) {
                     None => bail!("Failed to find variable: {r:?}"),
@@ -437,7 +440,7 @@ impl WellenContainer {
     pub fn root_scopes(&self) -> Vec<ScopeRef> {
         let h = &self.hierarchy;
         h.scopes()
-            .map(|id| ScopeRef::from_strs_with_wellen_id(&[h.get(id).name(h)], id))
+            .map(|id| ScopeRef::from_strs_with_id(&[h.get(id).name(h)], ScopeId::Wellen(id)))
             .collect::<Vec<_>>()
     }
 
@@ -551,9 +554,9 @@ pub(crate) fn var_to_meta(
     VariableMeta {
         var: r.clone(),
         num_bits: var.length(),
-        variable_type: Some(var.var_type().into()),
+        variable_type: Some(VariableType::from_wellen_type(var.var_type())),
         index: var.index().map(index_to_string),
-        direction: Some(VariableDirection::from(var.direction())),
+        direction: Some(VariableDirection::from_wellen_direction(var.direction())),
         enum_map,
         encoding,
     }
@@ -567,7 +570,8 @@ fn index_to_string(index: wellen::VarIndex) -> String {
     }
 }
 
-impl From<VarType> for VariableType {
+#[local_impl::local_impl]
+impl FromVarType for VariableType {
     fn from(signaltype: VarType) -> Self {
         match signaltype {
             VarType::Reg => VariableType::VCDReg,
