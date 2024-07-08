@@ -1,10 +1,8 @@
 use bytes::Bytes;
 use camino::Utf8PathBuf;
 use derivative::Derivative;
-use eframe::{
-    egui::DroppedFile,
-    emath::{Pos2, Vec2},
-};
+use eframe::emath::{Pos2, Vec2};
+use egui::DroppedFile;
 use num::BigInt;
 use serde::Deserialize;
 use std::path::PathBuf;

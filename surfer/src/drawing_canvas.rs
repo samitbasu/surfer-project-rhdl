@@ -2,9 +2,9 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{PointerButton, Response, Sense, Ui};
 use eframe::emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{Color32, FontId, PathShape, RectShape, Rounding, Stroke};
+use egui::{PointerButton, Response, Sense, Ui};
 use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};
@@ -736,20 +736,15 @@ impl State {
             }
 
             if let Some(old_bg) = old_bg {
-                ctx.painter.add(RectShape {
-                    fill: old_bg,
-                    rect: Rect {
+                ctx.painter.add(RectShape::new(
+                    Rect {
                         min: (ctx.to_screen)(*old_x, offset),
                         max: (ctx.to_screen)(*new_x, offset + ctx.cfg.line_height),
                     },
-                    rounding: Rounding::ZERO,
-                    stroke: Stroke {
-                        width: 0.,
-                        ..Default::default()
-                    },
-                    fill_texture_id: Default::default(),
-                    uv: Rect::ZERO,
-                });
+                    Rounding::ZERO,
+                    old_bg,
+                    Stroke::new(0.0, Color32::BLACK),
+                ));
             }
         }
     }
