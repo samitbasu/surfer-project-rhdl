@@ -1,8 +1,9 @@
 #![cfg(feature = "spade")]
-use std::sync::mpsc::Sender;
+use std::{collections::HashMap, sync::mpsc::Sender};
 
 use camino::{Utf8Path, Utf8PathBuf};
 use eframe::epaint::Color32;
+use log::{error, info, warn};
 use num::ToPrimitive;
 use serde::Deserialize;
 use spade::compiler_state::CompilerState;
@@ -22,9 +23,16 @@ use surfer_translation_types::{
 };
 
 use crate::wave_container::{ScopeId, VarId, VariableRefExt};
-use crate::{message::Message, wasm_util::perform_work, wave_container::VariableMeta};
+use crate::{message::Message, wasm_util::perform_work, wave_container::VariableMeta, WaveSource};
 
 use super::{TranslationPreference, ValueKind, VariableInfo, VariableValue};
+
+/// Same as the swim::SurferInfo struct
+#[derive(Deserialize, Clone)]
+pub struct SpadeTestInfo {
+    state_file: Utf8PathBuf,
+    top_names: HashMap<Utf8PathBuf, String>,
+}
 
 pub struct SpadeTranslator {
     state: CompilerState,
@@ -64,9 +72,61 @@ impl SpadeTranslator {
         })
     }
 
-    pub fn load(top_name: &str, state_file: &Utf8Path, sender: Sender<Message>) {
-        let top_name = top_name.to_string();
-        let state_file = state_file.to_owned();
+    pub fn load(
+        waves: &Option<WaveSource>,
+        top_name_cli: &Option<String>,
+        state_file_cli: &Option<Utf8PathBuf>,
+        sender: Sender<Message>,
+    ) {
+        let spade_info = match (waves, top_name_cli, state_file_cli) {
+            (_, Some(top), Some(state)) => Some((top.clone(), state.clone())),
+            (_, Some(_), None) => {
+                warn!(
+                    "spade-top was specified on the command line but spade-state was not. Ignoring"
+                );
+                None
+            }
+            (_, None, Some(_)) => {
+                warn!(
+                    "spade-state was specified on the command line but spade-top was not. Ignoring"
+                );
+                None
+            }
+            // If we have a file but no spade stuff specified on the command line,
+            // we'll look for `build/surfer.toml` to find what the Spade context is if
+            // it exists
+            (Some(WaveSource::File(file)), _, _) => {
+                let ron_file = Utf8PathBuf::from("build/surfer.ron");
+                if ron_file.exists() {
+                    std::fs::read_to_string(&ron_file)
+                        .map_err(|e| error!("Spade translator failed to read {ron_file}. {e}"))
+                        .ok()
+                        .and_then(|content| {
+                            ron::from_str::<SpadeTestInfo>(&content)
+                                // .map_err().ok() for  the side effect
+                                .map_err(|e| error!("Failed to decode {ron_file}. {e}"))
+                                .ok()
+                        })
+                        .and_then(|info| {
+                            if let Some(top) = info.top_names.get(file) {
+                                Some((top.clone(), info.state_file.clone()))
+                            } else {
+                                warn!(
+                                    "Found no spade info for {file}. Disabling spade translation"
+                                );
+                                None
+                            }
+                        })
+                } else {
+                    info!("Did not find {ron_file} nor --spade-state and --spade-top. Spade translator will not run");
+                    None
+                }
+            }
+            _ => None,
+        };
+        let Some((top_name, state_file)) = spade_info else {
+            return;
+        };
         perform_work(move || {
             let t = SpadeTranslator::new(&top_name, &state_file);
             match t {
@@ -143,7 +203,14 @@ impl Translator<VarId, ScopeId, Message> for SpadeTranslator {
     }
 
     fn reload(&self, sender: Sender<Message>) {
-        Self::load(&self.top_name, &self.state_file, sender);
+        // At this point, we have already loaded the spade info on the first load, so can just
+        // pass None as the wave source
+        Self::load(
+            &None,
+            &Some(self.top_name.clone()),
+            &Some(self.state_file.clone()),
+            sender,
+        );
     }
 }
 

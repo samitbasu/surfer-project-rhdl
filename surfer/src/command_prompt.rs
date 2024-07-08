@@ -163,6 +163,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "show_controls",
             "show_mouse_gestures",
             "show_quick_start",
+            "show_logs",
             "load_url",
             "scroll_to_start",
             "scroll_to_end",
@@ -208,6 +209,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "show_controls",
             "show_mouse_gestures",
             "show_quick_start",
+            "show_logs",
             "exit",
         ]
     };
