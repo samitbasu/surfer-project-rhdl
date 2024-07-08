@@ -1,5 +1,5 @@
+use eframe::egui::{Context, Grid, RichText, ScrollArea, Ui, Window};
 use eframe::emath::{Align2, Pos2};
-use egui::{Context, Grid, RichText, ScrollArea, Ui, Window};
 use egui_remixicon::icons;
 
 use crate::wave_source::LoadOptions;

@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use eframe::egui;
 use egui_plot::{Legend, Line, Plot, PlotPoints, PlotUi};
 use itertools::Itertools;
 use log::warn;

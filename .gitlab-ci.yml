@@ -77,7 +77,7 @@ test-no-default-features:
 
 test-oldest-supported:
     # This version should match rust-version in Cargo.toml
-    image: rust:1.76
+    image: rust:1.75
     stage: test
     extends: .snapshots
     script:

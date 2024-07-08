@@ -1,6 +1,6 @@
+use eframe::egui::{Context, Grid, RichText, WidgetText, Window};
 use eframe::emath::{Align2, Pos2, Rect, Vec2};
 use eframe::epaint::{FontId, Rounding, Stroke};
-use egui::{Context, Grid, RichText, WidgetText, Window};
 use itertools::Itertools;
 use num::BigInt;
 
