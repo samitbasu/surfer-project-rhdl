@@ -59,7 +59,6 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use eframe::egui;
 use eframe::egui::style::Selection;
 use eframe::egui::style::WidgetVisuals;
 use eframe::egui::style::Widgets;
@@ -303,7 +302,7 @@ fn main() -> Result<()> {
             state.sys.context = Some(ctx_arc.clone());
             cc.egui_ctx.set_visuals(state.get_visuals());
             setup_custom_font(&cc.egui_ctx);
-            Box::new(state)
+            Ok(Box::new(state))
         }),
     )
     .unwrap();
@@ -343,7 +342,7 @@ fn main() -> Result<()> {
                     state.sys.context = Some(ctx_arc.clone());
                     cc.egui_ctx.set_visuals(state.get_visuals());
                     setup_custom_font(&cc.egui_ctx);
-                    Box::new(state)
+                    Ok(Box::new(state))
                 }),
             )
             .await
