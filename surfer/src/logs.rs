@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Mutex};
 
 use color_eyre::Result;
-use eframe::egui::{self, Color32, RichText, TextWrapMode};
+use egui::{self, Color32, RichText, TextWrapMode};
 use egui_extras::{Column, TableBuilder, TableRow};
 use log::{Level, Log, Record};
 
