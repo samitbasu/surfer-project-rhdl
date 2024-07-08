@@ -1,6 +1,6 @@
 use eframe::egui::{Button, Layout, TextEdit, Ui};
-use eframe::emath::{Align, Vec2};
 use egui_remixicon::icons;
+use emath::{Align, Vec2};
 use enum_iterator::Sequence;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::Itertools;

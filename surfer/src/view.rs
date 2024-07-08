@@ -6,9 +6,9 @@ use eframe::egui::{
     self, FontSelection, Frame, Layout, Margin, Painter, RichText, ScrollArea, Sense, Style,
     TextStyle, WidgetText,
 };
-use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{text::LayoutJob, Rounding, Stroke};
 use egui_remixicon::icons;
+use emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};

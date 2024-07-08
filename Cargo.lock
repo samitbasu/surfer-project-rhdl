@@ -4868,6 +4868,7 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "egui_skia_renderer",
+ "emath",
  "enum-iterator",
  "f128",
  "fern",
