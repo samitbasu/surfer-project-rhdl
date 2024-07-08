@@ -1,5 +1,5 @@
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{menu, Button, Context, TextWrapMode, TopBottomPanel, Ui};
+use egui::{menu, Button, Context, TextWrapMode, TopBottomPanel, Ui};
 use surfer_translation_types::TranslationPreference;
 
 use crate::wave_container::{FieldRef, VariableRefExt};
