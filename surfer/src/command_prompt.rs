@@ -5,8 +5,8 @@ use std::{fs, str::FromStr};
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
 use eframe::egui::{self, Key, RichText, TextEdit};
-use eframe::emath::{Align, Align2, NumExt, Vec2};
 use eframe::epaint::{FontFamily, FontId};
+use emath::{Align, Align2, NumExt, Vec2};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
 use itertools::Itertools;
 
