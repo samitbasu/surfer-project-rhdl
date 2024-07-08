@@ -93,7 +93,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
             state.draw(ctx, Some(size));
         },
         Some(egui_skia_renderer::RasterizeOptions {
-            frames_before_screenshot: 5,
+            frames_before_screenshot: 2,
             ..Default::default()
         }),
     );

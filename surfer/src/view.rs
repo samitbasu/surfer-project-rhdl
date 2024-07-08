@@ -1,12 +1,12 @@
 use color_eyre::eyre::Context;
+#[cfg(not(target_arch = "wasm32"))]
+use eframe::egui::ViewportCommand;
+use eframe::egui::{
+    self, ecolor::Color32, FontSelection, Frame, Layout, Margin, Painter, RichText, ScrollArea,
+    Sense, Style, TextStyle, WidgetText,
+};
 use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{text::LayoutJob, Rounding, Stroke};
-#[cfg(not(target_arch = "wasm32"))]
-use egui::ViewportCommand;
-use egui::{
-    ecolor::Color32, FontSelection, Frame, Layout, Margin, Painter, RichText, ScrollArea, Sense,
-    Style, TextStyle, TextWrapMode, WidgetText,
-};
 use egui_remixicon::icons;
 use fzcmd::expand_command;
 use itertools::Itertools;
@@ -311,7 +311,7 @@ impl State {
                     .default_width(200.)
                     .width_range(20.0..=max_width)
                     .show(ctx, |ui| {
-                        ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                        ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         let response = ScrollArea::both()
                             .vertical_scroll_offset(scroll_offset)
@@ -336,7 +336,7 @@ impl State {
                     .default_width(100.)
                     .width_range(10.0..=max_width)
                     .show(ctx, |ui| {
-                        ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                        ui.style_mut().wrap = Some(false);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         ui.with_layout(
                             Layout::top_down(Align::LEFT).with_cross_justify(true),

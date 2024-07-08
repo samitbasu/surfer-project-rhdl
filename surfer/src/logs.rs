@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Mutex};
 
 use color_eyre::Result;
-use egui::{self, Color32, RichText, TextWrapMode};
+use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder, TableRow};
 use log::{Level, Log, Record};
 
@@ -56,7 +56,7 @@ impl State {
             .collapsible(true)
             .resizable(true)
             .show(ctx, |ui| {
-                ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                ui.style_mut().wrap = Some(false);
 
                 egui::ScrollArea::new([true, false]).show(ui, |ui| {
                     TableBuilder::new(ui)
