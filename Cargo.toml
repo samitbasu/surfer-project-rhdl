@@ -19,6 +19,7 @@ version = "0.3.0-dev"
 license = "EUPL-1.2"
 categories = ["development-tools::debugging", "science"]
 edition = "2021"
+rust-version = "1.76"
 
 [profile.release]
 opt-level = 3 # fast and small wasm
@@ -37,7 +38,7 @@ bytesize = "1.3.0"
 clap = { version = "4.5.8", features = ['derive'] }
 color-eyre = "0.6.3"
 derive_more = "0.99.18"
-ecolor = "0.27.2"
+ecolor = "0.28.1"
 fern = { version = "0.6.2", features = ["colored"] }
 lazy_static = "1.5.0"
 log = "0.4.22"
