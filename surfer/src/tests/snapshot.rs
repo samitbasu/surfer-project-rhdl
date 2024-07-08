@@ -98,11 +98,9 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
         }),
     );
 
-    // NOTE: The warning suggests a method which rust-analyzer doesn't find
-    #[allow(deprecated)]
     let data = surface
         .image_snapshot()
-        .encode_to_data(EncodedImageFormat::PNG)
+        .encode(None, EncodedImageFormat::PNG, None)
         .expect("Failed to encode image");
     let new = image::load_from_memory(&data).expect("Failed to decode png with image crate");
 
