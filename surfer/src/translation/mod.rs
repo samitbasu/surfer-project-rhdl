@@ -161,10 +161,8 @@ pub fn all_translators() -> TranslatorList {
             num_bits: 32,
         }),
         Box::new(InstructionTranslator {
-            name: "Mips".into(),
-            decoder: Decoder::new(&[
-                include_str!("../../../instruction-decoder/toml/mips.toml").to_string()
-            ]),
+            name: "MIPS".into(),
+            decoder: new_mips_decoder(),
             num_bits: 32,
         }),
         Box::new(LebTranslator {}),
@@ -399,7 +397,7 @@ impl TranslationResultExt for TranslationResult {
 
         // FIXME for consistency we should not fall back to `translators.default` here, but fetch the
         // preferred translator - but doing that ATM will break if the spade translator is used, since
-        // on the first render the spade translator seems to not have loaded it's information yet.
+        // on the first render the spade translator seems to not have loaded its information yet.
         let formatted = format(
             &self.val,
             self.kind,
