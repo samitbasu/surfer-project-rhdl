@@ -17,6 +17,7 @@ pub mod clock;
 mod enum_translator;
 mod instruction_translators;
 pub mod numeric_translators;
+mod python_translators;
 pub mod spade;
 
 pub use basic_translators::*;
@@ -25,6 +26,7 @@ use instruction_decoder::Decoder;
 pub use instruction_translators::*;
 use itertools::Itertools;
 pub use numeric_translators::*;
+use python_translators::PythonTranslator;
 use surfer_translation_types::{
     BasicTranslator, HierFormatResult, NumericTranslator, SubFieldFlatTranslationResult,
     TranslatedValue, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
