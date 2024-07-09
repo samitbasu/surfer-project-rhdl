@@ -8,4 +8,5 @@ color-eyre.workspace = true
 derive_more.workspace = true
 ecolor.workspace = true
 num.workspace = true
+pyo3.workspace = true
 serde.workspace = true
