@@ -14,11 +14,13 @@ use toml::Table;
 mod basic_translators;
 pub mod clock;
 mod enum_translator;
+mod instruction_translators;
 pub mod numeric_translators;
 pub mod spade;
 
 pub use basic_translators::*;
 use instruction_decoder::Decoder;
+pub use instruction_translators::*;
 use itertools::Itertools;
 pub use numeric_translators::*;
 use surfer_translation_types::{
@@ -150,21 +152,9 @@ pub fn all_translators() -> TranslatorList {
         Box::new(PositQuire16Translator {}),
         Box::new(E5M2Translator {}),
         Box::new(E4M3Translator {}),
-        Box::new(InstructionTranslator {
-            name: "RV32".into(),
-            decoder: new_rv32_decoder(),
-            num_bits: 32,
-        }),
-        Box::new(InstructionTranslator {
-            name: "RV64".into(),
-            decoder: new_rv64_decoder(),
-            num_bits: 32,
-        }),
-        Box::new(InstructionTranslator {
-            name: "MIPS".into(),
-            decoder: new_mips_decoder(),
-            num_bits: 32,
-        }),
+        Box::new(new_rv32_translator()),
+        Box::new(new_rv64_translator()),
+        Box::new(new_mips_translator()),
         Box::new(LebTranslator {}),
         #[cfg(feature = "f128")]
         Box::new(QuadPrecisionTranslator {}),
