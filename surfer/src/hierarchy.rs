@@ -1,8 +1,8 @@
 use crate::message::Message;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::State;
-use eframe::egui::{Frame, Layout, Margin, ScrollArea, Ui};
 use eframe::emath::Align;
+use egui::{Frame, Layout, Margin, ScrollArea, TextWrapMode, Ui};
 
 pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     ui.visuals_mut().override_text_color = Some(state.config.theme.primary_ui_color.foreground);
@@ -21,7 +21,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                     ui.add_space(3.0);
 
                     ScrollArea::both().id_source("scopes").show(ui, |ui| {
-                        ui.style_mut().wrap = Some(false);
+                        ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         if let Some(waves) = &state.waves {
                             state.draw_all_scopes(msgs, waves, false, ui, "");
                         }
@@ -73,7 +73,7 @@ pub fn tree(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                     ui.add_space(3.0);
 
                     ScrollArea::both().id_source("hierarchy").show(ui, |ui| {
-                        ui.style_mut().wrap = Some(false);
+                        ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         if let Some(waves) = &state.waves {
                             state.draw_all_scopes(msgs, waves, true, ui, filter);
                         }

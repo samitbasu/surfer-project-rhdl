@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
-use eframe::egui::scroll_area::ScrollBarVisibility;
-use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
-use eframe::egui::{self, Key, RichText, TextEdit};
 use eframe::emath::{Align, Align2, NumExt, Vec2};
 use eframe::epaint::{FontFamily, FontId};
+use egui::scroll_area::ScrollBarVisibility;
+use egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
+use egui::{Key, RichText, TextEdit};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
 use itertools::Itertools;
 

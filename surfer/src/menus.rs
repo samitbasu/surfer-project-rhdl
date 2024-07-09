@@ -1,5 +1,5 @@
 use color_eyre::eyre::WrapErr;
-use eframe::egui::{menu, Button, Context, TopBottomPanel, Ui};
+use egui::{menu, Button, Context, TextWrapMode, TopBottomPanel, Ui};
 use surfer_translation_types::TranslationPreference;
 
 use crate::wave_container::{FieldRef, VariableRefExt};
@@ -103,7 +103,7 @@ impl State {
             b("Exit", Message::Exit).add_closing_menu(msgs, ui);
         });
         ui.menu_button("View", |ui: &mut Ui| {
-            ui.style_mut().wrap = Some(false);
+            ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
             if waves_loaded {
                 b(
                     "Zoom in",
