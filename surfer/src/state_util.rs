@@ -1,4 +1,4 @@
-// Utility functions, typically inlined, for more readable code
+//! Utility functions, typically inlined, for more readable code
 
 use eframe::epaint::Color32;
 

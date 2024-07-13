@@ -1,3 +1,4 @@
+//! Command prompt handling.
 use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};

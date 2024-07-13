@@ -483,6 +483,7 @@ impl WaveData {
         !self.displayed_items.is_empty()
     }
 
+    /// Find the top-most of the currently visible items.
     pub fn get_top_item(&self) -> usize {
         let default = if self.drawing_infos.is_empty() {
             0
@@ -497,6 +498,7 @@ impl WaveData {
             .unwrap_or(default)
     }
 
+    /// Find the item at a given y-location.
     pub fn get_item_at_y(&self, y: f32) -> Option<usize> {
         if self.drawing_infos.is_empty() {
             return None;
@@ -528,6 +530,9 @@ impl WaveData {
             .top();
         self.scroll_offset = item_y - first_element_y;
     }
+
+    /// Set cursor at next (or previous, if `next` is false) transition of `variable`. If `skip_zero` is true,
+    /// use the next transition to a non-zero value.
     pub fn set_cursor_at_transition(
         &mut self,
         next: bool,
@@ -608,7 +613,7 @@ impl WaveData {
     /// Returns the number of timestamps in the current waves. For now, this adjusts the
     /// number of timestamps as returned by wave sources if they specify 0 timestamps. This is
     /// done to avoid having to consider what happens with the viewport. In the future,
-    /// we should probably make this an Option<BigInt>
+    /// we should probably make this an [`Option<BigInt>`].
     pub fn num_timestamps(&self) -> BigInt {
         self.inner
             .max_timestamp()

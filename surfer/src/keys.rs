@@ -1,3 +1,4 @@
+//! Keyboard handling.
 use eframe::emath::Vec2;
 use egui::{Context, Event, Key, Modifiers};
 
