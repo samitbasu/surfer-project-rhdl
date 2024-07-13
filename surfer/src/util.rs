@@ -1,3 +1,4 @@
+//! Utility functions.
 use crate::displayed_item::DisplayedItemIndex;
 
 /// This function takes a number and converts it's digits into the range

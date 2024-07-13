@@ -1,3 +1,4 @@
+//! Code related to the mouse gesture handling.
 use egui::{Context, Painter, PointerButton, Response, RichText, Sense, Window};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use epaint::{FontId, Stroke};
@@ -7,6 +8,7 @@ use crate::time::time_string;
 use crate::view::DrawingContext;
 use crate::{wave_data::WaveData, Message, State};
 
+/// The supported mouse gesture operations.
 #[derive(Clone, PartialEq, Copy)]
 enum GestureKind {
     ZoomToFit,
@@ -17,6 +19,7 @@ enum GestureKind {
 }
 
 impl State {
+    /// Draw the mouse gesture widget, i.e., the line(s) and text showing which gesture is being drawn.
     pub fn draw_mouse_gesture_widget(
         &self,
         waves: &WaveData,
@@ -133,6 +136,7 @@ impl State {
         }
     }
 
+    /// Draw the line used by most mouse gestures.
     fn draw_gesture_line(
         &self,
         start: Pos2,
@@ -164,6 +168,7 @@ impl State {
         );
     }
 
+    /// Draw the lines used for the zoom-in gesture.
     fn draw_zoom_in_gesture(
         &self,
         start_location: Pos2,
@@ -235,6 +240,7 @@ impl State {
         );
     }
 
+    /// Draw the mouse gesture help window.
     pub fn mouse_gesture_help(&self, ctx: &Context, msgs: &mut Vec<Message>) {
         let mut open = true;
         Window::new("Mouse gestures")
@@ -260,6 +266,7 @@ impl State {
         }
     }
 
+    /// Draw the "compass" showing the boundaries for different gestures.
     fn draw_gesture_help(
         &self,
         response: &Response,
@@ -403,6 +410,7 @@ impl State {
     }
 }
 
+/// Determine which mouse gesture ([`GestureKind`]) is currently drawn.
 fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind> {
     let tan225 = 0.41421357;
     let delta = end_location - start_location;

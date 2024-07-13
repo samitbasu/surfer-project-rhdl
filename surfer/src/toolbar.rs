@@ -1,3 +1,4 @@
+//! Toolbar handling.
 use egui::{Button, Context, Layout, RichText, TopBottomPanel, Ui};
 use egui_remixicon::icons;
 use emath::{Align, Vec2};
@@ -10,6 +11,7 @@ use crate::{
     State,
 };
 
+/// Helper function to add a new toolbar button, setting up icon, hover text etc.
 fn add_toolbar_button(
     ui: &mut Ui,
     msgs: &mut Vec<Message>,
@@ -26,6 +28,7 @@ fn add_toolbar_button(
 }
 
 impl State {
+    /// Add panel and draw toolbar.
     pub fn add_toolbar_panel(&self, ctx: &Context, msgs: &mut Vec<Message>) {
         TopBottomPanel::top("toolbar").show(ctx, |ui| {
             self.draw_toolbar(ui, msgs);

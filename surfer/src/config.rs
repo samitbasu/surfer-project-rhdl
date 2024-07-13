@@ -4,6 +4,7 @@ use config::builder::DefaultState;
 use config::{Config, ConfigBuilder};
 #[cfg(not(target_arch = "wasm32"))]
 use config::{Environment, File};
+use derive_more::Display;
 #[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
 use ecolor::Color32;
@@ -11,26 +12,19 @@ use enum_iterator::Sequence;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
-use std::fmt;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
 use crate::time::TimeFormat;
 use crate::{clock_highlighting::ClockHighlightType, variable_name_type::VariableNameType};
 
-#[derive(Debug, Deserialize, PartialEq, Eq, Sequence)]
+#[derive(Debug, Deserialize, Display, PartialEq, Eq, Sequence)]
 pub enum HierarchyStyle {
+    #[display(fmt = "Separate")]
     Separate,
-    Tree,
-}
 
-impl fmt::Display for HierarchyStyle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            HierarchyStyle::Separate => write!(f, "Separate"),
-            HierarchyStyle::Tree => write!(f, "Tree"),
-        }
-    }
+    #[display(fmt = "Tree")]
+    Tree,
 }
 
 impl From<String> for HierarchyStyle {
@@ -44,21 +38,15 @@ impl From<String> for HierarchyStyle {
 }
 
 /// Selects the function of the arrow keys
-#[derive(Debug, Deserialize, PartialEq, Eq, Sequence)]
+#[derive(Debug, Deserialize, Display, PartialEq, Eq, Sequence)]
 pub enum ArrowKeyBindings {
     /// The left/right arrow keys step to the next edge
+    #[display(fmt = "Edge")]
     Edge,
-    /// The left/right arrow keys scroll the viewport left/right
-    Scroll,
-}
 
-impl fmt::Display for ArrowKeyBindings {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ArrowKeyBindings::Edge => write!(f, "Edge"),
-            ArrowKeyBindings::Scroll => write!(f, "Scroll"),
-        }
-    }
+    /// The left/right arrow keys scroll the viewport left/right
+    #[display(fmt = "Scroll")]
+    Scroll,
 }
 
 impl From<String> for ArrowKeyBindings {

@@ -1,3 +1,5 @@
+//! Filtering of the variable list.
+use derive_more::Display;
 use egui::{Button, Layout, TextEdit, Ui};
 use egui_remixicon::icons;
 use emath::{Align, Vec2};
@@ -10,23 +12,19 @@ use serde::{Deserialize, Serialize};
 use crate::wave_container::ScopeRef;
 use crate::{message::Message, wave_container::VariableRef, wave_data::WaveData, State};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Sequence)]
+#[derive(Debug, Display, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum VariableNameFilterType {
+    #[display(fmt = "Fuzzy")]
     Fuzzy,
-    Regex,
-    Start,
-    Contain,
-}
 
-impl std::fmt::Display for VariableNameFilterType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VariableNameFilterType::Fuzzy => write!(f, "Fuzzy"),
-            VariableNameFilterType::Regex => write!(f, "Regular expression"),
-            VariableNameFilterType::Start => write!(f, "Variable starts with"),
-            VariableNameFilterType::Contain => write!(f, "Variable contains"),
-        }
-    }
+    #[display(fmt = "Regular expression")]
+    Regex,
+
+    #[display(fmt = "Variable starts with")]
+    Start,
+
+    #[display(fmt = "Variable contains")]
+    Contain,
 }
 
 impl VariableNameFilterType {

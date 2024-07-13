@@ -1,9 +1,11 @@
+//! Functions for drawing the left hand panel showing scopes and variables.
 use crate::message::Message;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::State;
 use egui::{Frame, Layout, Margin, ScrollArea, TextWrapMode, Ui};
 use emath::Align;
 
+/// Scopes and variables in two separate lists
 pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     ui.visuals_mut().override_text_color = Some(state.config.theme.primary_ui_color.foreground);
 
@@ -55,6 +57,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     );
 }
 
+/// Scopes and variables in a joint tree.
 pub fn tree(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     ui.visuals_mut().override_text_color = Some(state.config.theme.primary_ui_color.foreground);
 
