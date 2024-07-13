@@ -1,5 +1,7 @@
-use std::{fmt, str::FromStr};
+/// Time handling and formatting.
+use std::str::FromStr;
 
+use derive_more::Display;
 use eframe::emath::{Align2, Pos2};
 use eframe::epaint::{Color32, FontId, Stroke};
 use egui::Ui;
@@ -21,35 +23,35 @@ pub struct TimeScale {
     pub multiplier: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Sequence)]
+#[derive(Debug, Clone, Copy, Display, Eq, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum TimeUnit {
+    #[display(fmt = "fs")]
     FemtoSeconds,
+
+    #[display(fmt = "ps")]
     PicoSeconds,
+
+    #[display(fmt = "ns")]
     NanoSeconds,
+
+    #[display(fmt = "μs")]
     MicroSeconds,
+
+    #[display(fmt = "ms")]
     MilliSeconds,
+
+    #[display(fmt = "s")]
     Seconds,
+
+    #[display(fmt = "No unit")]
     None,
+
+    #[display(fmt = "Auto")]
     Auto,
 }
 
 pub const DEFAULT_TIMELINE_NAME: &str = "Time";
 pub const THIN_SPACE: &str = "\u{2009}";
-
-impl fmt::Display for TimeUnit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TimeUnit::FemtoSeconds => write!(f, "fs"),
-            TimeUnit::PicoSeconds => write!(f, "ps"),
-            TimeUnit::NanoSeconds => write!(f, "ns"),
-            TimeUnit::MicroSeconds => write!(f, "μs"),
-            TimeUnit::MilliSeconds => write!(f, "ms"),
-            TimeUnit::Seconds => write!(f, "s"),
-            TimeUnit::None => write!(f, "No unit"),
-            TimeUnit::Auto => write!(f, "Auto"),
-        }
-    }
-}
 
 impl From<wellen::TimescaleUnit> for TimeUnit {
     fn from(timescale: wellen::TimescaleUnit) -> Self {
@@ -91,6 +93,7 @@ impl TimeUnit {
     }
 }
 
+/// Create menu for selecting preferred time unit.
 pub fn timeunit_menu(ui: &mut Ui, msgs: &mut Vec<Message>, wanted_timeunit: &TimeUnit) {
     for timeunit in enum_iterator::all::<TimeUnit>() {
         ui.radio(*wanted_timeunit == timeunit, timeunit.to_string())
@@ -124,6 +127,7 @@ impl Default for TimeFormat {
 }
 
 impl TimeFormat {
+    /// Utility function to get a copy, but with some values changed.
     pub fn get_with_changes(
         &self,
         format: Option<TimeStringFormatting>,
@@ -160,25 +164,20 @@ pub fn timeformat_menu(ui: &mut Ui, msgs: &mut Vec<Message>, current_timeformat:
 }
 
 /// How to format the numeric part of the time string
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Sequence)]
+#[derive(Debug, Clone, Copy, Display, Eq, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum TimeStringFormatting {
     /// No additional formatting
+    #[display(fmt = "No")]
     No,
+
     /// Use the current locale to determine decimal separator, thousands separator, and grouping
+    #[display(fmt = "Locale")]
     Locale,
+
     /// Use the SI standard: split into groups of three digits, unless there are exactly four
     /// for both integer and fractional part. Use space as group separator.
+    #[display(fmt = "SI")]
     SI,
-}
-
-impl fmt::Display for TimeStringFormatting {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TimeStringFormatting::No => write!(f, "No"),
-            TimeStringFormatting::Locale => write!(f, "Locale"),
-            TimeStringFormatting::SI => write!(f, "SI"),
-        }
-    }
 }
 
 impl FromStr for TimeStringFormatting {
@@ -197,6 +196,8 @@ impl FromStr for TimeStringFormatting {
     }
 }
 
+/// Get rid of trailing zeros if the string contains a ., i.e., being fractional
+/// If the resulting string ends with ., remove that as well.
 fn strip_trailing_zeros_and_period(time: String) -> String {
     if time.contains('.') {
         time.trim_end_matches('0').trim_end_matches('.').to_string()
@@ -205,6 +206,8 @@ fn strip_trailing_zeros_and_period(time: String) -> String {
     }
 }
 
+/// Format number based on [`TimeStringFormatting`], i.e., possibly group digits together
+/// and use correct separator for each group.
 fn split_and_format_number(time: String, format: &TimeStringFormatting) -> String {
     match format {
         TimeStringFormatting::No => time,
@@ -261,6 +264,7 @@ fn split_and_format_number(time: String, format: &TimeStringFormatting) -> Strin
     }
 }
 
+/// Heuristically find a suitable time unit for the given time.
 fn find_auto_scale(time: &BigInt, timescale: &TimeScale) -> TimeUnit {
     // In case of seconds, nothing to do as it is the largest supported unit
     // (unless we want to support minutes etc...)
@@ -277,6 +281,7 @@ fn find_auto_scale(time: &BigInt, timescale: &TimeScale) -> TimeUnit {
     timescale.unit
 }
 
+/// Format the time string taking all settings into account.
 pub fn time_string(
     time: &BigInt,
     timescale: &TimeScale,
@@ -325,6 +330,9 @@ pub fn time_string(
 }
 
 impl WaveData {
+    /// Get suitable tick locations for the current view port.
+    /// The method is based on guessing the length of the time string and
+    /// is inspired by the corresponding code in Matplotlib.
     pub fn get_ticks(
         &self,
         viewport: &Viewport,
@@ -405,6 +413,7 @@ impl WaveData {
         );
     }
 
+    /// Draw the text for each tick location.
     pub fn draw_ticks(
         &self,
         color: Option<&Color32>,
