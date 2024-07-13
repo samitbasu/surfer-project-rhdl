@@ -1,3 +1,4 @@
+/// Menu handling.
 use color_eyre::eyre::WrapErr;
 use egui::{menu, Button, Context, TextWrapMode, TopBottomPanel, Ui};
 use surfer_translation_types::TranslationPreference;
@@ -69,6 +70,7 @@ impl State {
     }
 
     pub fn menu_contents(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
+        /// Helper function to get a new ButtonBuilder.
         fn b(text: impl Into<String>, message: Message) -> ButtonBuilder {
             ButtonBuilder::new(text, message)
         }
