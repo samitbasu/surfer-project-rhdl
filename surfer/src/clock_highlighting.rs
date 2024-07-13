@@ -1,5 +1,7 @@
+//! Drawing and handling of clock highlighting.
 use std::str::FromStr;
 
+use derive_more::Display;
 use egui::Ui;
 use emath::{Pos2, Rect};
 use enum_iterator::Sequence;
@@ -8,11 +10,19 @@ use serde::Deserialize;
 
 use crate::{config::SurferConfig, message::Message, view::DrawingContext};
 
-#[derive(PartialEq, Copy, Clone, Debug, Deserialize, Sequence)]
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize, Display, Sequence)]
 pub enum ClockHighlightType {
-    Line,  // Draw a line at every posedge of the clokcs
-    Cycle, // Highlight every other cycle
-    None,  // No highlighting
+    /// Draw a line at every posedge of the clokcs
+    #[display(fmt = "Line")]
+    Line,
+
+    /// Highlight every other cycle
+    #[display(fmt = "Cycle")]
+    Cycle,
+
+    // No highlighting
+    #[display(fmt = "None")]
+    None,
 }
 
 impl FromStr for ClockHighlightType {
@@ -27,16 +37,6 @@ impl FromStr for ClockHighlightType {
                 "'{}' is not a valid ClockHighlightType (Valid options: Line|Cycle|None)",
                 input
             )),
-        }
-    }
-}
-
-impl std::fmt::Display for ClockHighlightType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ClockHighlightType::Line => write!(f, "Line"),
-            ClockHighlightType::Cycle => write!(f, "Cycle"),
-            ClockHighlightType::None => write!(f, "None"),
         }
     }
 }

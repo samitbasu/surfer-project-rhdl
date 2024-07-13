@@ -1,3 +1,4 @@
+//! Help texts and dialogs.
 use egui::{Context, Grid, RichText, ScrollArea, Ui, Window};
 use egui_remixicon::icons;
 use emath::{Align2, Pos2};

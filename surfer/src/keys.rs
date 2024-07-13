@@ -1,3 +1,4 @@
+//! Keyboard handling.
 use egui::{Context, Event, Key, Modifiers};
 use emath::Vec2;
 

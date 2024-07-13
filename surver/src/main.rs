@@ -1,3 +1,4 @@
+//! Code for the `surver` executable.
 use clap::Parser;
 use color_eyre::Result;
 use fern::colors::ColoredLevelConfig;
