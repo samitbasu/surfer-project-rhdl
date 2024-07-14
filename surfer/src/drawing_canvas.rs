@@ -3,9 +3,9 @@ use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
 use ecolor::Color32;
-use eframe::emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{FontId, PathShape, RectShape, Rounding, Stroke};
 use egui::{PointerButton, Response, Sense, Ui};
+use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};

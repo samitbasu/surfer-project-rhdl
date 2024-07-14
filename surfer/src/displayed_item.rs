@@ -1,7 +1,7 @@
 use ecolor::Color32;
-use eframe::emath::Align;
 use eframe::epaint::text::LayoutJob;
 use egui::{Context, FontSelection, Key, RichText, Style, WidgetText, Window};
+use emath::Align;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::VariableInfo;
 

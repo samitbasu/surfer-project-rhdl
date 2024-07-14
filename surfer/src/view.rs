@@ -1,6 +1,5 @@
 use color_eyre::eyre::Context;
 use ecolor::Color32;
-use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{
     text::{LayoutJob, TextWrapMode},
     Margin, Rounding, Stroke,
@@ -12,6 +11,7 @@ use egui::{
     WidgetText,
 };
 use egui_remixicon::icons;
+use emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
