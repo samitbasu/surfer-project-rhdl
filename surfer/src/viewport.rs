@@ -92,14 +92,17 @@ impl Viewport {
         }
     }
 
+    /// The time at the left edge of the viewport.
     pub fn left_edge_time(self, num_timestamps: &BigInt) -> BigInt {
         BigInt::from(self.curr_left.absolute(num_timestamps).0 as i64)
     }
+
+    /// The time at the right edge of the viewport.
     pub fn right_edge_time(self, num_timestamps: &BigInt) -> BigInt {
         BigInt::from(self.curr_right.absolute(num_timestamps).0 as i64)
     }
 
-    pub fn as_time_f64(&self, x: f64, view_width: f32, num_timestamps: &BigInt) -> Absolute {
+    pub fn as_absolute_time(&self, x: f64, view_width: f32, num_timestamps: &BigInt) -> Absolute {
         let time_spacing = self.width_absolute(num_timestamps) / view_width as f64;
 
         self.curr_left.absolute(num_timestamps) + time_spacing * x
@@ -124,7 +127,7 @@ impl Viewport {
         time.round().to_integer()
     }
 
-    /// Computes which x-pixel corresponds to the specified time adduming the viewport is rendered
+    /// Computes which x-pixel corresponds to the specified time assuming the viewport is rendered
     /// into a viewport of `view_width`
     pub fn pixel_from_time(&self, time: &BigInt, view_width: f32, num_timestamps: &BigInt) -> f32 {
         let distance_from_left =
@@ -134,7 +137,7 @@ impl Viewport {
             as f32
     }
 
-    pub fn pixel_from_time_f64(
+    pub fn pixel_from_absolute_time(
         &self,
         time: Absolute,
         view_width: f32,
@@ -205,17 +208,20 @@ impl Viewport {
         self.curr_right = (center_point + half_width).relative(num_timestamps);
     }
 
+    /// Set viewport so that the whole simulation time is visible.
     pub fn zoom_to_fit(&mut self) {
         self.curr_left = Relative(0.0);
         self.curr_right = Relative(1.0);
     }
 
+    /// Set viewport with current width starting at time 0.
     pub fn go_to_start(&mut self) {
         let old_width = self.width();
         self.curr_left = Relative(0.0);
         self.curr_right = old_width;
     }
 
+    /// Set viewport with current width ending at the last time in the wave form.
     pub fn go_to_end(&mut self) {
         self.curr_left = Relative(1.0) - self.width();
         self.curr_right = Relative(1.0);
@@ -282,6 +288,7 @@ impl Viewport {
         self.curr_right = Absolute::from(right).relative(num_timestamps);
     }
 
+    /// Center viewport at cursor if cursor not visible, keeping the current width.
     pub fn go_to_cursor_if_not_in_view(
         &mut self,
         cursor: &BigInt,
@@ -291,14 +298,15 @@ impl Viewport {
         if fcursor <= self.curr_left.absolute(num_timestamps)
             || fcursor >= self.curr_right.absolute(num_timestamps)
         {
-            self.go_to_time_f64(fcursor, num_timestamps);
+            self.go_to_absolute_time(fcursor, num_timestamps);
             true
         } else {
             false
         }
     }
 
-    pub fn go_to_time_f64(&mut self, center: Absolute, num_timestamps: &BigInt) {
+    /// Set viewport with current width and a provided center time.
+    pub fn go_to_absolute_time(&mut self, center: Absolute, num_timestamps: &BigInt) {
         let half_width = (self.curr_right.absolute(num_timestamps)
             - self.curr_left.absolute(num_timestamps))
             / 2.;

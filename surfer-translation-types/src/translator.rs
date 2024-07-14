@@ -1,3 +1,5 @@
+//! Definition of the main [`Translator`] type and the simplified versions
+//! [`BasicTranslator`] and [`NumericTranslator`].
 use crate::result::ValueRepr;
 use color_eyre::Result;
 use num::BigUint;
@@ -8,6 +10,7 @@ use crate::{
     TranslationPreference, ValueKind, VariableEncoding, VariableInfo, VariableMeta, VariableValue,
 };
 
+/// The most general translator type.
 pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
     fn name(&self) -> String;
 
@@ -19,11 +22,12 @@ pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
 
     fn variable_info(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo>;
 
+    /// Return [`TranslationPreference`] based on if the translator can handle this variable.
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference>;
 
-    // By default translators are stateless, but if they need to reload, they can
-    // do by defining this method.
-    // Long running translators should run the reloading in the background using `perform_work`
+    /// By default translators are stateless, but if they need to reload, they can
+    /// do by defining this method.
+    /// Long running translators should run the reloading in the background using `perform_work`
     fn reload(&self, _sender: Sender<Message>) {}
 }
 
@@ -58,6 +62,7 @@ impl<VarId, ScopeId, Message> Translator<VarId, ScopeId, Message>
     }
 }
 
+/// Simplified translator.
 pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
     fn name(&self) -> String;
     fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
@@ -69,6 +74,8 @@ pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
     }
 }
 
+/// Simplified translator that only handles vectors with 0 and 1 (other values are handled by the trait).
+/// This is handled by defining the method [`NumericTranslator::translate_biguint`].
 pub trait NumericTranslator<VarId, ScopeId> {
     fn name(&self) -> String;
     fn translate_biguint(&self, _: u64, _: BigUint) -> String;

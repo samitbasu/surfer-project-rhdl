@@ -1,3 +1,4 @@
+//! Handling of external communication in Surver.
 use bincode::Options;
 use color_eyre::eyre::{anyhow, bail, Context};
 use color_eyre::Result;

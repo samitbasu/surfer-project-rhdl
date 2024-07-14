@@ -450,7 +450,7 @@ impl WaveContainer {
         }
     }
 
-    /// If [simulation_status] is `Some(SimulationStatus::Paused)`, attempt to unpause the
+    /// If [`WaveContainer::simulation_status`] is `Some(SimulationStatus::Paused)`, attempt to unpause the
     /// simulation otherwise does nothing
     pub fn unpause_simulation(&self) {
         match self {
@@ -461,7 +461,7 @@ impl WaveContainer {
         }
     }
 
-    /// See [unpause_simulation]
+    /// See [`WaveContainer::unpause_simulation`]
     pub fn pause_simulation(&self) {
         match self {
             WaveContainer::Wellen(_) => {}
