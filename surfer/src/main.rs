@@ -59,9 +59,6 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-#[cfg(not(target_arch = "wasm32"))]
-use eframe::emath::Vec2;
-use eframe::emath::{Pos2, Rect};
 use eframe::epaint::Rounding;
 use eframe::epaint::Stroke;
 use egui::style::Selection;
@@ -71,6 +68,9 @@ use egui::FontData;
 use egui::FontDefinitions;
 use egui::FontFamily;
 use egui::Visuals;
+#[cfg(not(target_arch = "wasm32"))]
+use emath::Vec2;
+use emath::{Pos2, Rect};
 use fzcmd::parse_command;
 use lazy_static::lazy_static;
 use log::error;

@@ -2,9 +2,9 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use color_eyre::eyre::WrapErr;
-use eframe::emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{Color32, FontId, PathShape, RectShape, Rounding, Stroke};
 use egui::{PointerButton, Response, Sense, Ui};
+use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use itertools::Itertools;
 use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};

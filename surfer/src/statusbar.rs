@@ -1,5 +1,5 @@
-use eframe::emath::Align;
 use egui::{Context, Frame, Layout, Margin, TopBottomPanel, Ui};
+use emath::Align;
 use web_time::{Duration, Instant};
 
 use crate::time::{time_string, timeunit_menu};

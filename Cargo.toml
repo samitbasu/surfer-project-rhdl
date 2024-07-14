@@ -39,6 +39,7 @@ clap = { version = "4.5.8", features = ['derive'] }
 color-eyre = "0.6.3"
 derive_more = "0.99.18"
 ecolor = "0.28.1"
+emath = "0.28.1"
 fern = { version = "0.6.2", features = ["colored"] }
 lazy_static = "1.5.0"
 log = "0.4.22"
