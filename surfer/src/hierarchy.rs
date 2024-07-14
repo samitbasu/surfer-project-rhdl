@@ -1,8 +1,8 @@
 use crate::message::Message;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::State;
-use eframe::emath::Align;
 use egui::{Frame, Layout, Margin, ScrollArea, TextWrapMode, Ui};
+use emath::Align;
 
 pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     ui.visuals_mut().override_text_color = Some(state.config.theme.primary_ui_color.foreground);

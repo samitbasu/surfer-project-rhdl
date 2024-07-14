@@ -1,9 +1,9 @@
 use std::{fmt, str::FromStr};
 
 use ecolor::Color32;
-use eframe::emath::{Align2, Pos2};
 use eframe::epaint::{FontId, Stroke};
 use egui::Ui;
+use emath::{Align2, Pos2};
 use enum_iterator::Sequence;
 use itertools::Itertools;
 use num::{BigInt, BigRational, ToPrimitive};
