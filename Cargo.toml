@@ -37,7 +37,7 @@ bincode = "1.3.3"
 bytesize = "1.3.0"
 clap = { version = "4.5.8", features = ['derive'] }
 color-eyre = "0.6.3"
-derive_more = "0.99.18"
+derive_more = { version = "0.99.18", default-features = false, features = ["add", "add_assign", "mul", "display", "not" ] }
 ecolor = "0.28.1"
 emath = "0.28.1"
 fern = { version = "0.6.2", features = ["colored"] }
