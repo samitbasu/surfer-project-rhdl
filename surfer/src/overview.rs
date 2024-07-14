@@ -37,14 +37,14 @@ impl State {
 
         let viewport_all = waves.viewport_all();
         for vidx in 0..waves.viewports.len() {
-            let minx = viewport_all.pixel_from_time_f64(
+            let minx = viewport_all.pixel_from_absolute_time(
                 waves.viewports[vidx]
                     .curr_left
                     .absolute(&waves.num_timestamps()),
                 frame_width,
                 &waves.num_timestamps(),
             );
-            let maxx = viewport_all.pixel_from_time_f64(
+            let maxx = viewport_all.pixel_from_absolute_time(
                 waves.viewports[vidx]
                     .curr_right
                     .absolute(&waves.num_timestamps()),

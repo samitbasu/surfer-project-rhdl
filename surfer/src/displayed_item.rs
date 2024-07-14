@@ -1,3 +1,4 @@
+//! The items that are drawn in the main wave form view: waves, dividers, etc.
 use eframe::emath::Align;
 use eframe::epaint::{text::LayoutJob, Color32};
 use egui::{Context, FontSelection, Key, RichText, Style, WidgetText, Window};
