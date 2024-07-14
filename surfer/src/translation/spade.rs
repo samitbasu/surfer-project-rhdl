@@ -2,7 +2,7 @@
 use std::{collections::HashMap, sync::mpsc::Sender};
 
 use camino::{Utf8Path, Utf8PathBuf};
-use eframe::epaint::Color32;
+use ecolor::Color32;
 use log::{error, info, warn};
 use num::ToPrimitive;
 use serde::Deserialize;
