@@ -1,9 +1,9 @@
 use crate::message::Message;
 use crate::view::{DrawConfig, DrawingContext};
 use crate::{wave_data::WaveData, State};
-use eframe::epaint::Rounding;
 use egui::{Context, Frame, PointerButton, Sense, TopBottomPanel, Ui};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
+use epaint::Rounding;
 
 impl State {
     pub fn add_overview_panel(&self, ctx: &Context, waves: &WaveData, msgs: &mut Vec<Message>) {

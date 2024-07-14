@@ -28,6 +28,7 @@ egui_extras = { version = "0.28.1", default-features = false }
 egui_plot = { version = "0.28.1", optional = true }
 emath.workspace = true
 enum-iterator = "2.0"
+epaint = "0.28.1"
 f128 = { path = "../f128", optional = true }
 fern.workspace = true
 futures-core = "0.3.29"

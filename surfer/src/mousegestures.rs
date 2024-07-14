@@ -1,6 +1,6 @@
-use eframe::epaint::{FontId, Stroke};
 use egui::{Context, Painter, PointerButton, Response, RichText, Sense, Window};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
+use epaint::{FontId, Stroke};
 
 use crate::config::SurferTheme;
 use crate::time::time_string;
