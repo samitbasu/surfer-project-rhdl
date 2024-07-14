@@ -4812,6 +4812,7 @@ dependencies = [
  "derive_more",
  "directories",
  "dssim",
+ "ecolor",
  "eframe",
  "egui",
  "egui-remixicon",

@@ -1,7 +1,8 @@
 use std::{fmt, str::FromStr};
 
+use ecolor::Color32;
 use eframe::emath::{Align2, Pos2};
-use eframe::epaint::{Color32, FontId, Stroke};
+use eframe::epaint::{FontId, Stroke};
 use egui::Ui;
 use enum_iterator::Sequence;
 use itertools::Itertools;

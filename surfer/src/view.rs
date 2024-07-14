@@ -1,11 +1,15 @@
 use color_eyre::eyre::Context;
+use ecolor::Color32;
 use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
-use eframe::epaint::{text::LayoutJob, Rounding, Stroke};
+use eframe::epaint::{
+    text::{LayoutJob, TextWrapMode},
+    Margin, Rounding, Stroke,
+};
 #[cfg(not(target_arch = "wasm32"))]
 use egui::ViewportCommand;
 use egui::{
-    ecolor::Color32, FontSelection, Frame, Layout, Margin, Painter, RichText, ScrollArea, Sense,
-    Style, TextStyle, TextWrapMode, WidgetText,
+    FontSelection, Frame, Layout, Painter, RichText, ScrollArea, Sense, Style, TextStyle,
+    WidgetText,
 };
 use egui_remixicon::icons;
 use fzcmd::expand_command;
