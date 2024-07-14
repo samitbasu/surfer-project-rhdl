@@ -1,6 +1,6 @@
-use eframe::emath::{Align2, Pos2};
 use egui::{Context, Grid, RichText, ScrollArea, Ui, Window};
 use egui_remixicon::icons;
+use emath::{Align2, Pos2};
 
 use crate::wave_source::LoadOptions;
 use crate::{message::Message, State};

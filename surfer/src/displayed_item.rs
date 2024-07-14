@@ -1,6 +1,6 @@
-use eframe::emath::Align;
 use eframe::epaint::{text::LayoutJob, Color32};
 use egui::{Context, FontSelection, Key, RichText, Style, WidgetText, Window};
+use emath::Align;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::VariableInfo;
 

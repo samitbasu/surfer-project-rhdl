@@ -1,5 +1,5 @@
-use eframe::emath::Vec2;
 use egui::{Context, Event, Key, Modifiers};
+use emath::Vec2;
 
 use crate::config::ArrowKeyBindings;
 use crate::{

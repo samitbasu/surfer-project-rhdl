@@ -1,5 +1,4 @@
 use color_eyre::eyre::Context;
-use eframe::emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use eframe::epaint::{text::LayoutJob, Rounding, Stroke};
 #[cfg(not(target_arch = "wasm32"))]
 use egui::ViewportCommand;
@@ -8,6 +7,7 @@ use egui::{
     Style, TextStyle, TextWrapMode, WidgetText,
 };
 use egui_remixicon::icons;
+use emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
