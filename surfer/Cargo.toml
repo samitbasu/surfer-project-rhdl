@@ -95,4 +95,4 @@ skia-safe = "0.75.0"
 test-log = "0.2.15"
 
 [build-dependencies]
-vergen = { version = "8.3.1", features = ["build", "git", "git2"] }
+vergen-git2 = { version = "1.0", features=["build"] }
