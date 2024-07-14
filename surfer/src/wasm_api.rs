@@ -11,7 +11,7 @@ use crate::State;
 
 lazy_static! {
     pub static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
-    pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);
+    pub static ref EGUI_CONTEXT: RwLock<Option<Arc<egui::Context>>> = RwLock::new(None);
 }
 
 #[wasm_bindgen]

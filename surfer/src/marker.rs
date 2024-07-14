@@ -1,6 +1,6 @@
-use eframe::epaint::{FontId, Rounding, Stroke};
 use egui::{Context, Grid, RichText, WidgetText, Window};
 use emath::{Align2, Pos2, Rect, Vec2};
+use epaint::{FontId, Rounding, Stroke};
 use itertools::Itertools;
 use num::BigInt;
 

@@ -1,10 +1,10 @@
 use std::{fmt, str::FromStr};
 
 use ecolor::Color32;
-use eframe::epaint::{FontId, Stroke};
 use egui::Ui;
 use emath::{Align2, Pos2};
 use enum_iterator::Sequence;
+use epaint::{FontId, Stroke};
 use itertools::Itertools;
 use num::{BigInt, BigRational, ToPrimitive};
 use pure_rust_locales::{locale_match, Locale};

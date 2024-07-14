@@ -59,8 +59,6 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use eframe::epaint::Rounding;
-use eframe::epaint::Stroke;
 use egui::style::Selection;
 use egui::style::WidgetVisuals;
 use egui::style::Widgets;
@@ -71,6 +69,8 @@ use egui::Visuals;
 #[cfg(not(target_arch = "wasm32"))]
 use emath::Vec2;
 use emath::{Pos2, Rect};
+use epaint::Rounding;
+use epaint::Stroke;
 use fzcmd::parse_command;
 use lazy_static::lazy_static;
 use log::error;
@@ -115,7 +115,7 @@ use crate::wave_source::WaveSource;
 use crate::wellen::convert_format;
 
 lazy_static! {
-    pub static ref EGUI_CONTEXT: RwLock<Option<Arc<eframe::egui::Context>>> = RwLock::new(None);
+    pub static ref EGUI_CONTEXT: RwLock<Option<Arc<egui::Context>>> = RwLock::new(None);
 }
 
 #[derive(clap::Parser, Default)]
@@ -431,7 +431,7 @@ pub struct SystemState {
     command_prompt: command_prompt::CommandPrompt,
 
     /// The context to egui, we need this to change the visual settings when the config is reloaded
-    context: Option<Arc<eframe::egui::Context>>,
+    context: Option<Arc<egui::Context>>,
 
     /// List of batch commands which will executed as soon as possible
     batch_commands: VecDeque<Message>,

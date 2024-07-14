@@ -6,8 +6,8 @@ use std::{
 
 use base64::{engine::general_purpose, Engine};
 use dssim::Dssim;
-use eframe::epaint::Vec2;
 use egui_skia_renderer::draw_onto_surface;
+use emath::Vec2;
 use image::{DynamicImage, ImageFormat, RgbImage};
 use log::info;
 use num::BigInt;

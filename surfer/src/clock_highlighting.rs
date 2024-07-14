@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
-use eframe::epaint::Stroke;
 use egui::Ui;
 use emath::{Pos2, Rect};
 use enum_iterator::Sequence;
+use epaint::Stroke;
 use serde::Deserialize;
 
 use crate::{config::SurferConfig, message::Message, view::DrawingContext};
