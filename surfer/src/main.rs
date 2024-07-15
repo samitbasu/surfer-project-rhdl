@@ -47,7 +47,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::fmt::Display;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -59,6 +58,7 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
+use derive_more::Display;
 use egui::style::Selection;
 use egui::style::WidgetVisuals;
 use egui::style::Widgets;
@@ -369,19 +369,13 @@ fn setup_custom_font(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Display)]
 pub enum MoveDir {
+    #[display(fmt = "up")]
     Up,
-    Down,
-}
 
-impl Display for MoveDir {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MoveDir::Up => write!(f, "up"),
-            MoveDir::Down => write!(f, "down"),
-        }
-    }
+    #[display(fmt = "down")]
+    Down,
 }
 
 pub enum ColorSpecifier {

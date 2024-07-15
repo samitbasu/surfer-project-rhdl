@@ -1,3 +1,4 @@
+//! Drawing and handling of the performance plot.
 #![cfg(feature = "performance_plot")]
 use std::{
     cmp::Ordering,

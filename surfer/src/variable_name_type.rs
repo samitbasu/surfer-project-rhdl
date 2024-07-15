@@ -1,3 +1,4 @@
+use derive_more::Display;
 use enum_iterator::Sequence;
 use itertools::Itertools;
 use std::str::FromStr;
@@ -7,11 +8,19 @@ use serde::{Deserialize, Serialize};
 use crate::wave_container::{ScopeRefExt, VariableRefExt};
 use crate::{displayed_item::DisplayedItem, wave_container::VariableRef, wave_data::WaveData};
 
-#[derive(PartialEq, Copy, Clone, Debug, Deserialize, Serialize, Sequence)]
+#[derive(PartialEq, Copy, Clone, Debug, Deserialize, Display, Serialize, Sequence)]
 pub enum VariableNameType {
-    Local,  // local variable name only (i.e. for tb.dut.clk => clk)
-    Unique, // add unique prefix, prefix + local
-    Global, // full variable name (i.e. tb.dut.clk => tb.dut.clk)
+    /// Local variable name only (i.e. for tb.dut.clk => clk)
+    #[display(fmt = "Local")]
+    Local,
+
+    /// Add unique prefix, prefix + local
+    #[display(fmt = "Unique")]
+    Unique,
+
+    /// Full variable name (i.e. tb.dut.clk => tb.dut.clk)
+    #[display(fmt = "Global")]
+    Global,
 }
 
 impl FromStr for VariableNameType {
@@ -26,16 +35,6 @@ impl FromStr for VariableNameType {
                 "'{}' is not a valid VariableNameType (Valid options: Local|Unique|Global)",
                 input
             )),
-        }
-    }
-}
-
-impl std::fmt::Display for VariableNameType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VariableNameType::Local => write!(f, "Local"),
-            VariableNameType::Unique => write!(f, "Unique"),
-            VariableNameType::Global => write!(f, "Global"),
         }
     }
 }

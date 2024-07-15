@@ -275,7 +275,7 @@ impl State {
                 .par_bridge()
                 .filter_map(|x| {
                     let time = waves.viewports[viewport_idx]
-                        .as_time_f64(x as f64, frame_width, &num_timestamps)
+                        .as_absolute_time(x as f64, frame_width, &num_timestamps)
                         .0;
                     if time < 0. || time > max_time {
                         None
