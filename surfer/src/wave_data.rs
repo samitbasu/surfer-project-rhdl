@@ -57,7 +57,7 @@ pub struct WaveData {
 }
 
 fn select_preferred_translator(var: &VariableMeta, translators: &TranslatorList) -> String {
-    translators
+    let mut preferred: Vec<_> = translators
         .all_translators()
         .iter()
         .filter_map(|t| match t.translates(var) {
@@ -73,7 +73,19 @@ fn select_preferred_translator(var: &VariableMeta, translators: &TranslatorList)
                 None
             }
         })
-        .next()
+        .collect();
+    if preferred.len() > 1 {
+        warn!(
+            "more than one preferred translator for variable {} in scope {}: {}",
+            var.var.name,
+            var.var.path.strs.join("."),
+            preferred.join(", ")
+        );
+        preferred.sort();
+    }
+    // make sure we always pick the same translator, at least
+    preferred
+        .pop()
         .unwrap_or_else(|| translators.default.clone())
 }
 
