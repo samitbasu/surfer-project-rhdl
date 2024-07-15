@@ -332,7 +332,7 @@ fn format(
             let AnyTranslator::Basic(subtranslator) =
                 translators.get_translator(subtranslator_name)
             else {
-                panic!("Subtranslator was not a basic translator");
+                panic!("Subtranslator '{subtranslator_name}' was not a basic translator");
             };
 
             Some(TranslatedValue::from_basic_translate(
@@ -343,7 +343,7 @@ fn format(
             let AnyTranslator::Basic(subtranslator) =
                 translators.get_translator(subtranslator_name)
             else {
-                panic!("Subtranslator was not a basic translator");
+                panic!("Subtranslator '{subtranslator_name}' was not a basic translator");
             };
 
             Some(TranslatedValue::from_basic_translate(
