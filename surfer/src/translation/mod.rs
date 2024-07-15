@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
+use std::sync::mpsc::Sender;
 
 use color_eyre::Result;
 #[cfg(not(target_arch = "wasm32"))]
@@ -19,22 +20,100 @@ pub mod numeric_translators;
 pub mod spade;
 
 pub use basic_translators::*;
+use clock::ClockTranslator;
 use instruction_decoder::Decoder;
 pub use instruction_translators::*;
 use itertools::Itertools;
 pub use numeric_translators::*;
 use surfer_translation_types::{
-    BasicTranslator, HierFormatResult, SubFieldFlatTranslationResult, TranslatedValue,
-    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableEncoding,
-    VariableInfo, VariableValue,
+    BasicTranslator, HierFormatResult, NumericTranslator, SubFieldFlatTranslationResult,
+    TranslatedValue, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
+    VariableEncoding, VariableInfo, VariableValue,
 };
 
 use crate::config::SurferTheme;
 use crate::wave_container::{ScopeId, VarId};
 use crate::{message::Message, wave_container::VariableMeta};
 
-pub type DynBasicTranslator = dyn BasicTranslator<VarId, ScopeId>;
 pub type DynTranslator = dyn Translator<VarId, ScopeId, Message>;
+pub type DynBasicTranslator = dyn BasicTranslator<VarId, ScopeId>;
+pub type DynNumericTranslator = dyn NumericTranslator<VarId, ScopeId, Message>;
+
+pub enum AnyTranslator {
+    Full(Box<DynTranslator>),
+    Basic(Box<DynBasicTranslator>),
+    Numeric(Box<DynNumericTranslator>),
+}
+
+impl AnyTranslator {
+    pub fn is_basic(&self) -> bool {
+        matches!(self, AnyTranslator::Basic(_))
+    }
+}
+
+impl Translator<VarId, ScopeId, Message> for AnyTranslator {
+    fn name(&self) -> String {
+        match self {
+            AnyTranslator::Full(t) => t.name(),
+            AnyTranslator::Basic(t) => t.name(),
+            AnyTranslator::Numeric(t) => t.name(),
+        }
+    }
+
+    fn translate(
+        &self,
+        variable: &VariableMeta,
+        value: &VariableValue,
+    ) -> Result<TranslationResult> {
+        match self {
+            AnyTranslator::Full(t) => t.translate(variable, value),
+            AnyTranslator::Basic(t) => {
+                let (val, kind) = t.basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
+                Ok(TranslationResult {
+                    val: ValueRepr::String(val),
+                    kind,
+                    subfields: vec![],
+                })
+            }
+            AnyTranslator::Numeric(t) => {
+                let num_bits = variable.num_bits.unwrap_or(0) as u64;
+                let (val, kind) = match value.clone().parse_biguint() {
+                    Ok(v) => (t.translate_biguint(num_bits, v), ValueKind::Normal),
+                    Err((v, k)) => (v, k),
+                };
+                Ok(TranslationResult {
+                    val: ValueRepr::String(val),
+                    kind,
+                    subfields: vec![],
+                })
+            }
+        }
+    }
+
+    fn variable_info(&self, variable: &VariableMeta) -> Result<VariableInfo> {
+        match self {
+            AnyTranslator::Full(t) => t.variable_info(variable),
+            AnyTranslator::Basic(t) => t.variable_info(variable),
+            AnyTranslator::Numeric(t) => t.variable_info(variable),
+        }
+    }
+
+    fn translates(&self, variable: &VariableMeta) -> Result<TranslationPreference> {
+        match self {
+            AnyTranslator::Full(t) => t.translates(variable),
+            AnyTranslator::Basic(t) => t.translates(variable),
+            AnyTranslator::Numeric(t) => t.translates(variable),
+        }
+    }
+
+    fn reload(&self, sender: Sender<Message>) {
+        match self {
+            AnyTranslator::Full(t) => t.reload(sender),
+            AnyTranslator::Basic(_) => (),
+            AnyTranslator::Numeric(t) => t.reload(sender),
+        }
+    }
+}
 
 /// Look inside the config directory and inside "$(cwd)/.surfer" for user-defined decoders
 /// To add a new decoder named 'x', add a directory 'x' to the decoders directory
@@ -132,15 +211,25 @@ fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
 }
 
 pub fn all_translators() -> TranslatorList {
-    let mut basic_decoders: Vec<Box<DynBasicTranslator>> = vec![
+    let mut basic_translators: Vec<Box<DynBasicTranslator>> = vec![
         Box::new(BitTranslator {}),
         Box::new(HexTranslator {}),
         Box::new(OctalTranslator {}),
-        Box::new(UnsignedTranslator {}),
-        Box::new(SignedTranslator {}),
         Box::new(GroupingBinaryTranslator {}),
         Box::new(BinaryTranslator {}),
         Box::new(ASCIITranslator {}),
+        Box::new(new_rv32_translator()),
+        Box::new(new_rv64_translator()),
+        Box::new(new_mips_translator()),
+        Box::new(LebTranslator {}),
+    ];
+
+    #[cfg(not(target_arch = "wasm32"))]
+    basic_translators.append(&mut find_user_decoders());
+
+    let numeric_translators: Vec<Box<DynNumericTranslator>> = vec![
+        Box::new(UnsignedTranslator {}),
+        Box::new(SignedTranslator {}),
         Box::new(SinglePrecisionTranslator {}),
         Box::new(DoublePrecisionTranslator {}),
         Box::new(HalfPrecisionTranslator {}),
@@ -152,21 +241,15 @@ pub fn all_translators() -> TranslatorList {
         Box::new(PositQuire16Translator {}),
         Box::new(E5M2Translator {}),
         Box::new(E4M3Translator {}),
-        Box::new(new_rv32_translator()),
-        Box::new(new_rv64_translator()),
-        Box::new(new_mips_translator()),
-        Box::new(LebTranslator {}),
         #[cfg(feature = "f128")]
         Box::new(QuadPrecisionTranslator {}),
     ];
 
-    #[cfg(not(target_arch = "wasm32"))]
-    basic_decoders.append(&mut find_user_decoders());
-
     TranslatorList::new(
-        basic_decoders,
+        basic_translators,
+        numeric_translators,
         vec![
-            Box::new(clock::ClockTranslator::new()),
+            Box::new(ClockTranslator::new()),
             Box::new(StringTranslator {}),
             Box::new(enum_translator::EnumTranslator {}),
         ],
@@ -175,55 +258,57 @@ pub fn all_translators() -> TranslatorList {
 
 #[derive(Default)]
 pub struct TranslatorList {
-    inner: HashMap<String, Box<DynTranslator>>,
-    basic: HashMap<String, Box<DynBasicTranslator>>,
+    inner: HashMap<String, AnyTranslator>,
     pub default: String,
 }
 
 impl TranslatorList {
-    pub fn new(basic: Vec<Box<DynBasicTranslator>>, translators: Vec<Box<DynTranslator>>) -> Self {
+    pub fn new(
+        basic: Vec<Box<DynBasicTranslator>>,
+        numeric: Vec<Box<DynNumericTranslator>>,
+        translators: Vec<Box<DynTranslator>>,
+    ) -> Self {
         Self {
             default: "Hexadecimal".to_string(),
-            basic: basic
+            inner: basic
                 .into_iter()
-                .map(|t| ((&t as &DynTranslator).name(), t))
+                .map(|t| (t.name(), AnyTranslator::Basic(t)))
+                .chain(
+                    numeric
+                        .into_iter()
+                        .map(|t| (t.name(), AnyTranslator::Numeric(t))),
+                )
+                .chain(
+                    translators
+                        .into_iter()
+                        .map(|t| (t.name(), AnyTranslator::Full(t))),
+                )
                 .collect(),
-            inner: translators.into_iter().map(|t| (t.name(), t)).collect(),
         }
     }
 
     pub fn all_translator_names(&self) -> Vec<&String> {
-        self.inner.keys().chain(self.basic.keys()).collect()
+        self.inner.keys().collect()
     }
 
-    pub fn all_translators(&self) -> Vec<&DynTranslator> {
-        // This is kind of inefficient, but I don't feel like messing with lifetimes
-        // and downcasting BasicTranslator to Translator again. Since this function
-        // isn't run very often, this should be sufficient
-        self.all_translator_names()
-            .into_iter()
-            .map(|name| self.get_translator(name))
-            .collect()
+    pub fn all_translators(&self) -> Vec<&AnyTranslator> {
+        self.inner.values().collect()
     }
 
     pub fn basic_translator_names(&self) -> Vec<&String> {
-        self.basic.keys().collect()
+        self.inner
+            .iter()
+            .filter_map(|(name, t)| t.is_basic().then_some(name))
+            .collect()
     }
 
-    pub fn get_translator(&self, name: &str) -> &DynTranslator {
-        let full = self.inner.get(name);
-        if let Some(full) = full.map(|t| t.as_ref()) {
-            full
-        } else {
-            let basic = self
-                .basic
-                .get(name)
-                .unwrap_or_else(|| panic! {"No translator called {name}"});
-            basic
-        }
+    pub fn get_translator(&self, name: &str) -> &AnyTranslator {
+        self.inner
+            .get(name)
+            .unwrap_or_else(|| panic! {"No translator called {name}"})
     }
 
-    pub fn add_or_replace(&mut self, t: Box<DynTranslator>) {
+    pub fn add_or_replace(&mut self, t: AnyTranslator) {
         self.inner.insert(t.name(), t);
     }
 
@@ -244,27 +329,25 @@ fn format(
 ) -> Option<TranslatedValue> {
     match val {
         ValueRepr::Bit(val) => {
-            let subtranslator = translators
-                .basic
-                .get(subtranslator_name)
-                .unwrap_or_else(|| panic!("Did not find a translator named {subtranslator_name}"));
+            let AnyTranslator::Basic(subtranslator) =
+                translators.get_translator(subtranslator_name)
+            else {
+                panic!("Subtranslator '{subtranslator_name}' was not a basic translator");
+            };
 
             Some(TranslatedValue::from_basic_translate(
-                subtranslator
-                    .as_ref()
-                    .basic_translate(1, &VariableValue::String(val.to_string())),
+                subtranslator.basic_translate(1, &VariableValue::String(val.to_string())),
             ))
         }
         ValueRepr::Bits(bit_count, bits) => {
-            let subtranslator = translators
-                .basic
-                .get(subtranslator_name)
-                .unwrap_or_else(|| panic!("Did not find a translator named {subtranslator_name}"));
+            let AnyTranslator::Basic(subtranslator) =
+                translators.get_translator(subtranslator_name)
+            else {
+                panic!("Subtranslator '{subtranslator_name}' was not a basic translator");
+            };
 
             Some(TranslatedValue::from_basic_translate(
-                subtranslator
-                    .as_ref()
-                    .basic_translate(*bit_count, &VariableValue::String(bits.clone())),
+                subtranslator.basic_translate(*bit_count, &VariableValue::String(bits.clone())),
             ))
         }
         ValueRepr::String(sval) => Some(TranslatedValue {
