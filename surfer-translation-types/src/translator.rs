@@ -1,6 +1,5 @@
-//! Definition of the main [`Translator`] type and the simplified versions
+//! Definition of the main [`Translator`] trait and the simplified versions
 //! [`BasicTranslator`] and [`NumericTranslator`].
-use crate::result::ValueRepr;
 use color_eyre::Result;
 use num::BigUint;
 use std::sync::mpsc::Sender;
@@ -10,7 +9,7 @@ use crate::{
     TranslationPreference, ValueKind, VariableEncoding, VariableInfo, VariableMeta, VariableValue,
 };
 
-/// The most general translator type.
+/// The most general translator trait.
 pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
     fn name(&self) -> String;
 
@@ -31,83 +30,35 @@ pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
     fn reload(&self, _sender: Sender<Message>) {}
 }
 
-impl<VarId, ScopeId, Message> Translator<VarId, ScopeId, Message>
-    for Box<dyn BasicTranslator<VarId, ScopeId>>
-{
-    fn name(&self) -> String {
-        self.as_ref().name()
-    }
-
-    fn translate(
-        &self,
-        variable: &VariableMeta<VarId, ScopeId>,
-        value: &VariableValue,
-    ) -> Result<TranslationResult> {
-        let (val, kind) = self
-            .as_ref()
-            .basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
-        Ok(TranslationResult {
-            val: ValueRepr::String(val),
-            kind,
-            subfields: vec![],
-        })
-    }
-
-    fn variable_info(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
-        self.as_ref().variable_info(variable)
-    }
-
-    fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
-        self.as_ref().translates(variable)
-    }
-}
-
 /// Simplified translator.
 pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
     fn name(&self) -> String;
+
     fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
+
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
         translates_all_bit_types(variable)
     }
+
     fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
         Ok(VariableInfo::Bits)
     }
 }
 
 /// Simplified translator that only handles vectors with 0 and 1 (other values are handled by the trait).
+///
 /// This is handled by defining the method [`NumericTranslator::translate_biguint`].
-pub trait NumericTranslator<VarId, ScopeId> {
+pub trait NumericTranslator<VarId, ScopeId>: Send + Sync {
     fn name(&self) -> String;
-    fn translate_biguint(&self, _: u64, _: BigUint) -> String;
+
+    fn translate_biguint(&self, num_bits: u64, value: BigUint) -> String;
+
+    fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
+        Ok(VariableInfo::Bits)
+    }
+
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
         translates_all_bit_types(variable)
-    }
-}
-
-impl<T: NumericTranslator<VarId, ScopeId> + Send + Sync, VarId, ScopeId>
-    BasicTranslator<VarId, ScopeId> for T
-{
-    fn name(&self) -> String {
-        self.name()
-    }
-
-    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
-        match value {
-            VariableValue::BigUint(v) => (
-                self.translate_biguint(num_bits, v.clone()),
-                ValueKind::Normal,
-            ),
-            VariableValue::String(s) => match map_vector_variable(s) {
-                NumberParseResult::Unparsable(v, k) => (v, k),
-                NumberParseResult::Numerical(v) => {
-                    (self.translate_biguint(num_bits, v), ValueKind::Normal)
-                }
-            },
-        }
-    }
-
-    fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
-        self.translates(variable)
     }
 }
 
@@ -135,6 +86,18 @@ fn map_vector_variable(s: &str) -> NumberParseResult {
         NumberParseResult::Unparsable("WEAK".to_string(), ValueKind::Weak)
     } else {
         NumberParseResult::Unparsable("UNKNOWN VALUES".to_string(), ValueKind::Undef)
+    }
+}
+
+impl VariableValue {
+    pub fn parse_biguint(self) -> Result<BigUint, (String, ValueKind)> {
+        match self {
+            VariableValue::BigUint(v) => Ok(v),
+            VariableValue::String(s) => match map_vector_variable(&s) {
+                NumberParseResult::Unparsable(v, k) => Err((v, k)),
+                NumberParseResult::Numerical(v) => Ok(v),
+            },
+        }
     }
 }
 

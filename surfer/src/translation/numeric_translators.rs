@@ -325,7 +325,17 @@ impl NumericTranslator<VarId, ScopeId> for E4M3Translator {
 #[cfg(test)]
 mod test {
     use super::*;
-    use surfer_translation_types::{BasicTranslator, VariableValue};
+    use surfer_translation_types::{NumericTranslator, ValueKind, VariableValue};
+
+    #[local_impl::local_impl]
+    impl<T: NumericTranslator<VarId, ScopeId>> NumericTranslatorExt for T {
+        fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
+            match value.clone().parse_biguint() {
+                Ok(v) => (self.translate_biguint(num_bits, v), ValueKind::Normal),
+                Err((v, k)) => (v, k),
+            }
+        }
+    }
 
     #[test]
     fn signed_translation_from_string() {
