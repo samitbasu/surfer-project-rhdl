@@ -4,6 +4,7 @@ use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
 use surfer_translation_types::{translates_all_bit_types, NumericTranslator};
 
+use crate::message::Message;
 use crate::wave_container::{ScopeId, VarId};
 use crate::{variable_type::INTEGER_TYPES, wave_container::VariableMeta};
 
@@ -22,7 +23,7 @@ fn shortest_float_representation<T: std::fmt::LowerExp + std::fmt::Display>(v: T
 
 pub struct UnsignedTranslator {}
 
-impl NumericTranslator<VarId, ScopeId> for UnsignedTranslator {
+impl NumericTranslator<VarId, ScopeId, Message> for UnsignedTranslator {
     fn name(&self) -> String {
         String::from("Unsigned")
     }
@@ -34,7 +35,7 @@ impl NumericTranslator<VarId, ScopeId> for UnsignedTranslator {
 
 pub struct SignedTranslator {}
 
-impl NumericTranslator<VarId, ScopeId> for SignedTranslator {
+impl NumericTranslator<VarId, ScopeId, Message> for SignedTranslator {
     fn name(&self) -> String {
         String::from("Signed")
     }
@@ -60,7 +61,7 @@ impl NumericTranslator<VarId, ScopeId> for SignedTranslator {
 
 pub struct SinglePrecisionTranslator {}
 
-impl NumericTranslator<VarId, ScopeId> for SinglePrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId, Message> for SinglePrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 32-bit IEEE 754")
     }
@@ -76,7 +77,7 @@ impl NumericTranslator<VarId, ScopeId> for SinglePrecisionTranslator {
 
 pub struct DoublePrecisionTranslator {}
 
-impl NumericTranslator<VarId, ScopeId> for DoublePrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId, Message> for DoublePrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 64-bit IEEE 754")
     }
@@ -92,7 +93,7 @@ impl NumericTranslator<VarId, ScopeId> for DoublePrecisionTranslator {
 pub struct QuadPrecisionTranslator {}
 
 #[cfg(feature = "f128")]
-impl NumericTranslator<VarId, ScopeId> for QuadPrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId, Message> for QuadPrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 128-bit IEEE 754")
     }
@@ -114,7 +115,7 @@ impl NumericTranslator<VarId, ScopeId> for QuadPrecisionTranslator {
 
 pub struct HalfPrecisionTranslator {}
 
-impl NumericTranslator<VarId, ScopeId> for HalfPrecisionTranslator {
+impl NumericTranslator<VarId, ScopeId, Message> for HalfPrecisionTranslator {
     fn name(&self) -> String {
         String::from("FP: 16-bit IEEE 754")
     }
@@ -130,7 +131,7 @@ impl NumericTranslator<VarId, ScopeId> for HalfPrecisionTranslator {
 
 pub struct BFloat16Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for BFloat16Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for BFloat16Translator {
     fn name(&self) -> String {
         String::from("FP: bfloat16")
     }
@@ -146,7 +147,7 @@ impl NumericTranslator<VarId, ScopeId> for BFloat16Translator {
 
 pub struct Posit32Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for Posit32Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for Posit32Translator {
     fn name(&self) -> String {
         String::from("Posit: 32-bit (two exponent bits)")
     }
@@ -165,7 +166,7 @@ impl NumericTranslator<VarId, ScopeId> for Posit32Translator {
 
 pub struct Posit16Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for Posit16Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for Posit16Translator {
     fn name(&self) -> String {
         String::from("Posit: 16-bit (one exponent bit)")
     }
@@ -184,7 +185,7 @@ impl NumericTranslator<VarId, ScopeId> for Posit16Translator {
 
 pub struct Posit8Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for Posit8Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for Posit8Translator {
     fn name(&self) -> String {
         String::from("Posit: 8-bit (no exponent bit)")
     }
@@ -203,7 +204,7 @@ impl NumericTranslator<VarId, ScopeId> for Posit8Translator {
 
 pub struct PositQuire8Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for PositQuire8Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for PositQuire8Translator {
     fn name(&self) -> String {
         String::from("Posit: quire for 8-bit (no exponent bit)")
     }
@@ -222,7 +223,7 @@ impl NumericTranslator<VarId, ScopeId> for PositQuire8Translator {
 
 pub struct PositQuire16Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for PositQuire16Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for PositQuire16Translator {
     fn name(&self) -> String {
         String::from("Posit: quire for 16-bit (one exponent bit)")
     }
@@ -271,7 +272,7 @@ fn decode_e5m2(v: u8) -> String {
 
 pub struct E5M2Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for E5M2Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for E5M2Translator {
     fn name(&self) -> String {
         String::from("FP: 8-bit (E5M2)")
     }
@@ -308,7 +309,7 @@ fn decode_e4m3(v: u8) -> String {
 
 pub struct E4M3Translator {}
 
-impl NumericTranslator<VarId, ScopeId> for E4M3Translator {
+impl NumericTranslator<VarId, ScopeId, Message> for E4M3Translator {
     fn name(&self) -> String {
         String::from("FP: 8-bit (E4M3)")
     }
@@ -328,7 +329,7 @@ mod test {
     use surfer_translation_types::{NumericTranslator, ValueKind, VariableValue};
 
     #[local_impl::local_impl]
-    impl<T: NumericTranslator<VarId, ScopeId>> NumericTranslatorExt for T {
+    impl<T: NumericTranslator<VarId, ScopeId, Message>> NumericTranslatorExt for T {
         fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
             match value.clone().parse_biguint() {
                 Ok(v) => (self.translate_biguint(num_bits, v), ValueKind::Normal),

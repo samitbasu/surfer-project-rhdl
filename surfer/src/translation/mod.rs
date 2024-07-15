@@ -37,7 +37,7 @@ use crate::{message::Message, wave_container::VariableMeta};
 
 pub type DynTranslator = dyn Translator<VarId, ScopeId, Message>;
 pub type DynBasicTranslator = dyn BasicTranslator<VarId, ScopeId>;
-pub type DynNumericTranslator = dyn NumericTranslator<VarId, ScopeId>;
+pub type DynNumericTranslator = dyn NumericTranslator<VarId, ScopeId, Message>;
 
 pub enum AnyTranslator {
     Full(Box<DynTranslator>),
@@ -110,7 +110,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
         match self {
             AnyTranslator::Full(t) => t.reload(sender),
             AnyTranslator::Basic(_) => (),
-            AnyTranslator::Numeric(_) => (),
+            AnyTranslator::Numeric(t) => t.reload(sender),
         }
     }
 }

@@ -48,7 +48,7 @@ pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
 /// Simplified translator that only handles vectors with 0 and 1 (other values are handled by the trait).
 ///
 /// This is handled by defining the method [`NumericTranslator::translate_biguint`].
-pub trait NumericTranslator<VarId, ScopeId>: Send + Sync {
+pub trait NumericTranslator<VarId, ScopeId, Message>: Send + Sync {
     fn name(&self) -> String;
 
     fn translate_biguint(&self, num_bits: u64, value: BigUint) -> String;
@@ -60,6 +60,8 @@ pub trait NumericTranslator<VarId, ScopeId>: Send + Sync {
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
         translates_all_bit_types(variable)
     }
+
+    fn reload(&self, _sender: Sender<Message>) {}
 }
 
 enum NumberParseResult {
