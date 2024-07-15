@@ -27,6 +27,17 @@ pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
     fn reload(&self, _sender: Sender<Message>) {}
 }
 
+pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
+    fn name(&self) -> String;
+    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
+    fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
+        translates_all_bit_types(variable)
+    }
+    fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
+        Ok(VariableInfo::Bits)
+    }
+}
+
 impl<VarId, ScopeId, Message> Translator<VarId, ScopeId, Message>
     for Box<dyn BasicTranslator<VarId, ScopeId>>
 {
@@ -55,17 +66,6 @@ impl<VarId, ScopeId, Message> Translator<VarId, ScopeId, Message>
 
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
         self.as_ref().translates(variable)
-    }
-}
-
-pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
-    fn name(&self) -> String;
-    fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
-    fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
-        translates_all_bit_types(variable)
-    }
-    fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
-        Ok(VariableInfo::Bits)
     }
 }
 
