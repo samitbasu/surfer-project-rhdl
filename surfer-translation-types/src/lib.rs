@@ -27,7 +27,7 @@ pub enum VariableValue {
     String(String),
 }
 
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, PartialEq, Copy, Debug)]
 pub enum ValueKind {
     Normal,
     Undef,

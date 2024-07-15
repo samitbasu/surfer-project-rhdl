@@ -33,22 +33,30 @@ pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
 /// Simplified translator.
 pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
     fn name(&self) -> String;
+
     fn basic_translate(&self, num_bits: u64, value: &VariableValue) -> (String, ValueKind);
+
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
         translates_all_bit_types(variable)
     }
+
     fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
         Ok(VariableInfo::Bits)
     }
 }
 
-
 /// Simplified translator that only handles vectors with 0 and 1 (other values are handled by the trait).
 ///
 /// This is handled by defining the method [`NumericTranslator::translate_biguint`].
-pub trait NumericTranslator<VarId, ScopeId> {
+pub trait NumericTranslator<VarId, ScopeId>: Send + Sync {
     fn name(&self) -> String;
-    fn translate_biguint(&self, _: u64, _: BigUint) -> String;
+
+    fn translate_biguint(&self, num_bits: u64, value: BigUint) -> String;
+
+    fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
+        Ok(VariableInfo::Bits)
+    }
+
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
         translates_all_bit_types(variable)
     }
@@ -78,6 +86,18 @@ fn map_vector_variable(s: &str) -> NumberParseResult {
         NumberParseResult::Unparsable("WEAK".to_string(), ValueKind::Weak)
     } else {
         NumberParseResult::Unparsable("UNKNOWN VALUES".to_string(), ValueKind::Undef)
+    }
+}
+
+impl VariableValue {
+    pub fn parse_biguint(self) -> Result<BigUint, (String, ValueKind)> {
+        match self {
+            VariableValue::BigUint(v) => Ok(v),
+            VariableValue::String(s) => match map_vector_variable(&s) {
+                NumberParseResult::Unparsable(v, k) => Err((v, k)),
+                NumberParseResult::Numerical(v) => Ok(v),
+            },
+        }
     }
 }
 
