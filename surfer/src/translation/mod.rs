@@ -222,8 +222,6 @@ pub fn all_translators() -> TranslatorList {
         Box::new(new_rv64_translator()),
         Box::new(new_mips_translator()),
         Box::new(LebTranslator {}),
-        #[cfg(feature = "f128")]
-        Box::new(QuadPrecisionTranslator {}),
     ];
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -243,6 +241,8 @@ pub fn all_translators() -> TranslatorList {
         Box::new(PositQuire16Translator {}),
         Box::new(E5M2Translator {}),
         Box::new(E4M3Translator {}),
+        #[cfg(feature = "f128")]
+        Box::new(QuadPrecisionTranslator {}),
     ];
 
     TranslatorList::new(
