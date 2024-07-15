@@ -81,6 +81,7 @@ use num::BigInt;
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
+use surfer_translation_types::Translator;
 use time::TimeStringFormatting;
 use time::TimeUnit;
 
@@ -95,10 +96,10 @@ use crate::displayed_item::DisplayedItemRef;
 use crate::displayed_item::FieldFormat;
 use crate::message::HeaderResult;
 use crate::message::Message;
-use crate::translation::all_translators;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::TranslatorList;
+use crate::translation::{all_translators, AnyTranslator};
 use crate::variable_name_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
 use crate::wasm_util::perform_work;
@@ -1246,7 +1247,7 @@ impl State {
             }
             Message::TranslatorLoaded(t) => {
                 info!("Translator {} loaded", t.name());
-                self.sys.translators.add_or_replace(t)
+                self.sys.translators.add_or_replace(AnyTranslator::Full(t))
             }
             Message::ToggleSidePanel => {
                 let new = match self.show_hierarchy {

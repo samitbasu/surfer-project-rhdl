@@ -5,7 +5,7 @@ use log::{error, warn};
 use num::bigint::ToBigInt as _;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
-use surfer_translation_types::{TranslationPreference, VariableValue};
+use surfer_translation_types::{TranslationPreference, Translator, VariableValue};
 
 use crate::displayed_item::{
     DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
