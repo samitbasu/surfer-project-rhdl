@@ -44,75 +44,52 @@ mod wave_source;
 mod wellen;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Display;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
-use egui::style::Selection;
-use egui::style::WidgetVisuals;
-use egui::style::Widgets;
-use egui::FontData;
-use egui::FontDefinitions;
-use egui::FontFamily;
-use egui::Visuals;
+use egui::{
+    style::Selection, style::WidgetVisuals, style::Widgets, FontData, FontDefinitions, FontFamily,
+    Visuals,
+};
 #[cfg(not(target_arch = "wasm32"))]
 use emath::Vec2;
 use emath::{Pos2, Rect};
-use epaint::Rounding;
-use epaint::Stroke;
+use epaint::{Rounding, Stroke};
 use fzcmd::parse_command;
 use lazy_static::lazy_static;
-use log::error;
-use log::info;
-use log::trace;
-use log::warn;
+use log::{error, info, trace, warn};
 use num::BigInt;
 use ron::ser::PrettyConfig;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use surfer_translation_types::Translator;
-use time::TimeStringFormatting;
-use time::TimeUnit;
+use time::{TimeStringFormatting, TimeUnit};
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::Timing;
 use crate::command_prompt::get_parser;
 use crate::config::{SurferConfig, SurferTheme};
-use crate::displayed_item::DisplayedFieldRef;
-use crate::displayed_item::DisplayedItem;
-use crate::displayed_item::DisplayedItemIndex;
-use crate::displayed_item::DisplayedItemRef;
-use crate::displayed_item::FieldFormat;
-use crate::message::HeaderResult;
-use crate::message::Message;
+use crate::displayed_item::{
+    DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef, FieldFormat,
+};
+use crate::message::{HeaderResult, Message};
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
-use crate::translation::TranslatorList;
-use crate::translation::{all_translators, AnyTranslator};
+use crate::translation::{all_translators, AnyTranslator, TranslatorList};
 use crate::variable_name_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
-use crate::wasm_util::perform_work;
-use crate::wasm_util::UrlArgs;
-use crate::wave_container::ScopeRefExt;
-use crate::wave_container::VariableRef;
-use crate::wave_container::WaveContainer;
+use crate::wasm_util::{perform_work, UrlArgs};
+use crate::wave_container::{ScopeRefExt, VariableRef, WaveContainer};
 use crate::wave_data::WaveData;
-use crate::wave_source::string_to_wavesource;
-use crate::wave_source::LoadOptions;
-use crate::wave_source::LoadProgress;
-use crate::wave_source::WaveFormat;
-use crate::wave_source::WaveSource;
+use crate::wave_source::{string_to_wavesource, LoadOptions, LoadProgress, WaveFormat, WaveSource};
 use crate::wellen::convert_format;
 
 lazy_static! {
