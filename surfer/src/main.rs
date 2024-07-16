@@ -1454,6 +1454,16 @@ impl State {
             Message::OpenPythonPluginDialog => {
                 self.open_python_file_dialog();
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            Message::ReloadPythonPlugin => {
+                try_log_error!(
+                    self.sys.translators.reload_python_translator(),
+                    "Error reloading Python translator"
+                );
+                if let Some(ctx) = &self.sys.context {
+                    ctx.request_repaint();
+                }
+            }
             Message::SaveStateFile(path) => self.save_state_file(path),
             Message::LoadStateFile(path) => self.load_state_file(path),
             Message::LoadState(state, path) => self.load_state(state, path),

@@ -105,7 +105,8 @@ impl State {
             {
                 b("Open Python translator", Message::OpenPythonPluginDialog)
                     .add_closing_menu(msgs, ui);
-                // TODO: b("Reload Python translator", Message::ReloadPythonPlugin).add_closing_menu(msgs, ui);
+                b("Reload Python translator", Message::ReloadPythonPlugin)
+                    .add_closing_menu(msgs, ui);
                 b("Exit", Message::Exit).add_closing_menu(msgs, ui);
             }
         });
