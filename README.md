@@ -190,6 +190,7 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [ ] Mips
   - [ ] Compressed integers
     - [x] LEB128 (also for other bitwidths than 128)
+  - [x] Number of ones
   - [ ] Custom translation via Python API
 - [x] Dividers
 - [x] Wave file reloading

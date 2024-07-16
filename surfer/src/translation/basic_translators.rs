@@ -379,6 +379,26 @@ impl BasicTranslator<VarId, ScopeId> for LebTranslator {
     }
 }
 
+pub struct NumberOfOnesTranslator {}
+
+impl BasicTranslator<VarId, ScopeId> for NumberOfOnesTranslator {
+    fn name(&self) -> String {
+        String::from("Number of ones")
+    }
+
+    fn basic_translate(&self, _num_bits: u64, value: &VariableValue) -> (String, ValueKind) {
+        match value {
+            VariableValue::BigUint(v) => {
+                (format!("{ones}", ones = v.count_ones()), ValueKind::Normal)
+            }
+            VariableValue::String(s) => (
+                format!("{ones}", ones = s.bytes().filter(|b| *b == b'1').count()),
+                color_for_binary_representation(s),
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -721,5 +741,43 @@ mod test {
                 .0,
             "127"
         )
+    }
+
+    #[test]
+    fn number_of_ones_translation_string() {
+        assert_eq!(
+            NumberOfOnesTranslator {}
+                .basic_translate(5, &VariableValue::String("10000".to_string()))
+                .0,
+            "1"
+        );
+        assert_eq!(
+            NumberOfOnesTranslator {}
+                .basic_translate(5, &VariableValue::String("101".to_string()))
+                .0,
+            "2"
+        );
+        assert_eq!(
+            NumberOfOnesTranslator {}
+                .basic_translate(9, &VariableValue::String("x100".to_string()))
+                .0,
+            "1"
+        );
+    }
+
+    #[test]
+    fn number_of_ones_translation_bigint() {
+        assert_eq!(
+            NumberOfOnesTranslator {}
+                .basic_translate(17, &VariableValue::BigUint(BigUint::from(0b101110000u32)))
+                .0,
+            "4"
+        );
+        assert_eq!(
+            NumberOfOnesTranslator {}
+                .basic_translate(40, &VariableValue::BigUint(BigUint::from(0b00100u32)))
+                .0,
+            "1"
+        );
     }
 }
