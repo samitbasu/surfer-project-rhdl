@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use log::error;
+use log::{error, info};
 use pyo3::types::{PyAnyMethods, PyDict, PyModule, PyStringMethods};
 use pyo3::{Bound, Py, Python};
 use surfer_translation_types::python::{surfer_pyo3_module, PythonValueKind};
@@ -13,6 +13,7 @@ pub struct PythonTranslator {
 
 impl PythonTranslator {
     pub fn new(code: &str) -> Result<Self> {
+        info!("Loading Python translator");
         let plugin = Python::with_gil(|py| -> pyo3::PyResult<_> {
             let surfer_module = PyModule::new_bound(py, "surfer")?;
             surfer_pyo3_module(&surfer_module)?;

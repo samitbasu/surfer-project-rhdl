@@ -968,7 +968,7 @@ impl State {
                     .sys
                     .translators
                     .all_translator_names()
-                    .contains(&&format)
+                    .contains(&format.as_str())
                 {
                     warn!("No translator {format}");
                     return;
@@ -1112,6 +1112,13 @@ impl State {
             }
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            Message::LoadPythonTranslator(filename) => {
+                try_log_error!(
+                    self.sys.translators.load_python_translator(filename),
+                    "Error loading Python translator",
+                )
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
@@ -1442,6 +1449,10 @@ impl State {
             }
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            Message::OpenPythonPluginDialog => {
+                self.open_python_file_dialog();
             }
             Message::SaveStateFile(path) => self.save_state_file(path),
             Message::LoadStateFile(path) => self.load_state_file(path),
