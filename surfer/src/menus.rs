@@ -21,6 +21,7 @@ struct ButtonBuilder {
     text: String,
     shortcut: Option<String>,
     message: Message,
+    enabled: bool,
 }
 
 impl ButtonBuilder {
@@ -29,11 +30,17 @@ impl ButtonBuilder {
             text: text.into(),
             message,
             shortcut: None,
+            enabled: true,
         }
     }
 
     fn shortcut(mut self, shortcut: impl Into<String>) -> Self {
         self.shortcut = Some(shortcut.into());
+        self
+    }
+
+    fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 
@@ -51,7 +58,7 @@ impl ButtonBuilder {
         } else {
             button
         };
-        if ui.add(button).clicked() {
+        if ui.add_enabled(self.enabled, button).clicked() {
             msgs.push(self.message);
             if close_menu {
                 ui.close_menu();
@@ -105,7 +112,9 @@ impl State {
             {
                 b("Add Python translator", Message::OpenPythonPluginDialog)
                     .add_closing_menu(msgs, ui);
-                // TODO: b("Reload Python translator", Message::ReloadPythonPlugin).add_closing_menu(msgs, ui);
+                b("Reload Python translator", Message::ReloadPythonPlugin)
+                    .enabled(self.sys.translators.has_python_translator())
+                    .add_closing_menu(msgs, ui);
                 b("Exit", Message::Exit).add_closing_menu(msgs, ui);
             }
         });
