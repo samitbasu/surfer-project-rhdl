@@ -391,6 +391,11 @@ impl TranslatorList {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub fn has_python_translator(&self) -> bool {
+        self.python_translator.is_some()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn reload_python_translator(&mut self) -> Result<()> {
         if let Some((path, _, _)) = self.python_translator.take() {
             self.load_python_translator(path)?;

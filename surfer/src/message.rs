@@ -173,6 +173,8 @@ pub enum Message {
     OpenFileDialog(OpenMode),
     #[cfg(not(target_arch = "wasm32"))]
     OpenPythonPluginDialog,
+    #[cfg(not(target_arch = "wasm32"))]
+    ReloadPythonPlugin,
     SaveStateFile(Option<PathBuf>),
     LoadStateFile(Option<PathBuf>),
     LoadState(crate::State, Option<PathBuf>),

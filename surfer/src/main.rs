@@ -1482,6 +1482,14 @@ impl State {
             Message::OpenPythonPluginDialog => {
                 self.open_python_file_dialog();
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            Message::ReloadPythonPlugin => {
+                try_log_error!(
+                    self.sys.translators.reload_python_translator(),
+                    "Error reloading Python translator"
+                );
+                self.invalidate_draw_commands();
+            }
             Message::SaveStateFile(path) => self.save_state_file(path),
             Message::LoadStateFile(path) => self.load_state_file(path),
             Message::LoadState(state, path) => self.load_state(state, path),
