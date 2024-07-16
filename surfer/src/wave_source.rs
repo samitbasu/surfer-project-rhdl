@@ -552,52 +552,85 @@ impl State {
         )));
     }
 
-    pub fn open_file_dialog(&mut self, mode: OpenMode) {
+    fn create_file_dialog(filter: (String, Vec<String>)) -> AsyncFileDialog {
+        AsyncFileDialog::new()
+            .set_title("Open waveform file")
+            .add_filter(filter.0, &filter.1)
+            .add_filter("All files", &["*"])
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn file_dialog<F>(&mut self, filter: (String, Vec<String>), message: F)
+    where
+        F: FnOnce(PathBuf) -> Message + Send + 'static,
+    {
         let sender = self.sys.channels.msg_sender.clone();
-        let keep_unavailable = self.config.behavior.keep_during_reload;
 
         perform_async_work(async move {
-            if let Some(file) = AsyncFileDialog::new()
-                .set_title("Open waveform file")
-                .add_filter(
-                    "Waveform-files (*.vcd, *.fst, *.ghw)",
-                    &["vcd", "fst", "ghw"],
-                )
-                .add_filter("All files", &["*"])
-                .pick_file()
-                .await
-            {
-                let keep_variables = match mode {
-                    OpenMode::Open => false,
-                    OpenMode::Switch => true,
-                };
-
-                #[cfg(not(target_arch = "wasm32"))]
-                sender
-                    .send(Message::LoadWaveformFile(
-                        Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
-                        LoadOptions {
-                            keep_variables,
-                            keep_unavailable,
-                        },
-                    ))
-                    .unwrap();
-
-                #[cfg(target_arch = "wasm32")]
-                {
-                    let data = file.read().await;
-                    sender
-                        .send(Message::LoadWaveformFileFromData(
-                            data,
-                            LoadOptions {
-                                keep_variables,
-                                keep_unavailable,
-                            },
-                        ))
-                        .unwrap();
-                }
+            if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
+                sender.send(message(file.path().to_path_buf())).unwrap();
             }
         });
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn file_dialog<F>(&mut self, filter: (String, Vec<String>), message: F)
+    where
+        F: FnOnce(Vec<u8>) -> Message + Send + 'static,
+    {
+        let sender = self.sys.channels.msg_sender.clone();
+
+        perform_async_work(async move {
+            if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
+                sender.send(message(file.read().await)).unwrap();
+            }
+        });
+    }
+
+    pub fn open_file_dialog(&mut self, mode: OpenMode) {
+        let keep_unavailable = self.config.behavior.keep_during_reload;
+        let keep_variables = match mode {
+            OpenMode::Open => false,
+            OpenMode::Switch => true,
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let message = move |file: PathBuf| {
+            Message::LoadWaveformFile(
+                Utf8PathBuf::from_path_buf(file).unwrap(),
+                LoadOptions {
+                    keep_variables,
+                    keep_unavailable,
+                },
+            )
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let message = move |file: Vec<u8>|{
+            Message::LoadWaveformFileFromData(
+                file,
+                LoadOptions {
+                    keep_variables,
+                    keep_unavailable,
+                },
+            )
+        };
+
+        self.file_dialog(
+            (
+                "Waveform-files (*.vcd, *.fst, *.ghw)".to_string(),
+                vec!["vcd".to_string(), "fst".to_string(), "ghw".to_string()],
+            ),
+            message,
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn open_python_file_dialog(&mut self) {
+        self.file_dialog(
+            ("Python files (*.py)".to_string(), vec!["py".to_string()]),
+            |file| Message::LoadPythonTranslator(Utf8PathBuf::from_path_buf(file).unwrap()),
+        );
     }
 
     pub fn load_state_file(&mut self, path: Option<PathBuf>) {
