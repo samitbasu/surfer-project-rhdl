@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
@@ -26,6 +27,7 @@ use clock::ClockTranslator;
 use instruction_decoder::Decoder;
 pub use instruction_translators::*;
 use itertools::Itertools;
+use log::debug;
 pub use numeric_translators::*;
 use surfer_translation_types::{
     BasicTranslator, HierFormatResult, NumericTranslator, SubFieldFlatTranslationResult,
@@ -42,10 +44,42 @@ pub type DynTranslator = dyn Translator<VarId, ScopeId, Message>;
 pub type DynBasicTranslator = dyn BasicTranslator<VarId, ScopeId>;
 pub type DynNumericTranslator = dyn NumericTranslator<VarId, ScopeId, Message>;
 
+fn translate_with_basic(
+    t: &DynBasicTranslator,
+    variable: &VariableMeta,
+    value: &VariableValue,
+) -> Result<TranslationResult> {
+    let (val, kind) = t.basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
+    Ok(TranslationResult {
+        val: ValueRepr::String(val),
+        kind,
+        subfields: vec![],
+    })
+}
+
+fn translate_with_numeric(
+    t: &DynNumericTranslator,
+    variable: &VariableMeta,
+    value: &VariableValue,
+) -> Result<TranslationResult> {
+    let num_bits = variable.num_bits.unwrap_or(0) as u64;
+    let (val, kind) = match value.clone().parse_biguint() {
+        Ok(v) => (t.translate_biguint(num_bits, v), ValueKind::Normal),
+        Err((v, k)) => (v, k),
+    };
+    Ok(TranslationResult {
+        val: ValueRepr::String(val),
+        kind,
+        subfields: vec![],
+    })
+}
+
 pub enum AnyTranslator {
     Full(Box<DynTranslator>),
     Basic(Box<DynBasicTranslator>),
     Numeric(Box<DynNumericTranslator>),
+    #[cfg(not(target_arch = "wasm32"))]
+    Python(python_translators::PythonTranslator),
 }
 
 impl AnyTranslator {
@@ -60,6 +94,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.name(),
             AnyTranslator::Basic(t) => t.name(),
             AnyTranslator::Numeric(t) => t.name(),
+            AnyTranslator::Python(t) => t.name(),
         }
     }
 
@@ -70,26 +105,9 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
     ) -> Result<TranslationResult> {
         match self {
             AnyTranslator::Full(t) => t.translate(variable, value),
-            AnyTranslator::Basic(t) => {
-                let (val, kind) = t.basic_translate(variable.num_bits.unwrap_or(0) as u64, value);
-                Ok(TranslationResult {
-                    val: ValueRepr::String(val),
-                    kind,
-                    subfields: vec![],
-                })
-            }
-            AnyTranslator::Numeric(t) => {
-                let num_bits = variable.num_bits.unwrap_or(0) as u64;
-                let (val, kind) = match value.clone().parse_biguint() {
-                    Ok(v) => (t.translate_biguint(num_bits, v), ValueKind::Normal),
-                    Err((v, k)) => (v, k),
-                };
-                Ok(TranslationResult {
-                    val: ValueRepr::String(val),
-                    kind,
-                    subfields: vec![],
-                })
-            }
+            AnyTranslator::Basic(t) => translate_with_basic(&**t, variable, value),
+            AnyTranslator::Numeric(t) => translate_with_numeric(&**t, variable, value),
+            AnyTranslator::Python(t) => translate_with_basic(t, variable, value),
         }
     }
 
@@ -98,6 +116,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.variable_info(variable),
             AnyTranslator::Basic(t) => t.variable_info(variable),
             AnyTranslator::Numeric(t) => t.variable_info(variable),
+            AnyTranslator::Python(t) => t.variable_info(variable),
         }
     }
 
@@ -106,14 +125,15 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.translates(variable),
             AnyTranslator::Basic(t) => t.translates(variable),
             AnyTranslator::Numeric(t) => t.translates(variable),
+            AnyTranslator::Python(t) => t.translates(variable),
         }
     }
 
     fn reload(&self, sender: Sender<Message>) {
         match self {
             AnyTranslator::Full(t) => t.reload(sender),
-            AnyTranslator::Basic(_) => (),
             AnyTranslator::Numeric(t) => t.reload(sender),
+            AnyTranslator::Basic(_) | AnyTranslator::Python(_) => (),
         }
     }
 }
@@ -225,13 +245,6 @@ pub fn all_translators() -> TranslatorList {
         Box::new(new_rv64_translator()),
         Box::new(new_mips_translator()),
         Box::new(LebTranslator {}),
-        #[cfg(not(target_arch = "wasm32"))]
-        Box::new(
-            python_translators::PythonTranslator::new(include_str!(
-                "../../../examples/hexadecimal.py"
-            ))
-            .unwrap(),
-        ),
     ];
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -269,6 +282,8 @@ pub fn all_translators() -> TranslatorList {
 #[derive(Default)]
 pub struct TranslatorList {
     inner: HashMap<String, AnyTranslator>,
+    #[cfg(not(target_arch = "wasm32"))]
+    python_translator: Option<(Utf8PathBuf, String, AnyTranslator)>,
     pub default: String,
 }
 
@@ -294,28 +309,47 @@ impl TranslatorList {
                         .map(|t| (t.name(), AnyTranslator::Full(t))),
                 )
                 .collect(),
+            #[cfg(not(target_arch = "wasm32"))]
+            python_translator: None,
         }
     }
 
-    pub fn all_translator_names(&self) -> Vec<&String> {
-        self.inner.keys().collect()
+    pub fn all_translator_names(&self) -> Vec<&str> {
+        self.inner
+            .keys()
+            .map(String::as_str)
+            .chain(
+                self.python_translator
+                    .as_ref()
+                    .map(|(_, name, _)| name.as_str()),
+            )
+            .collect()
     }
 
     pub fn all_translators(&self) -> Vec<&AnyTranslator> {
-        self.inner.values().collect()
+        self.inner
+            .values()
+            .chain(self.python_translator.as_ref().map(|(_, _, t)| t))
+            .collect()
     }
 
-    pub fn basic_translator_names(&self) -> Vec<&String> {
+    pub fn basic_translator_names(&self) -> Vec<&str> {
         self.inner
             .iter()
-            .filter_map(|(name, t)| t.is_basic().then_some(name))
+            .filter_map(|(name, t)| t.is_basic().then(|| name.as_str()))
             .collect()
     }
 
     pub fn get_translator(&self, name: &str) -> &AnyTranslator {
         self.inner
             .get(name)
-            .unwrap_or_else(|| panic! {"No translator called {name}"})
+            .or_else(|| {
+                self.python_translator
+                    .as_ref()
+                    .filter(|(_, python_name, _)| python_name == name)
+                    .map(|(_, _, t)| t)
+            })
+            .unwrap_or_else(|| panic!("No translator called {name}"))
     }
 
     pub fn add_or_replace(&mut self, t: AnyTranslator) {
@@ -327,6 +361,25 @@ impl TranslatorList {
             .translates(meta)
             .map(|preference| preference != TranslationPreference::No)
             .unwrap_or(false)
+    }
+
+    pub fn load_python_translator(&mut self, filename: Utf8PathBuf) -> Result<()> {
+        debug!("Reading Python code from disk: {filename}");
+        let code = std::fs::read_to_string(&filename)?;
+        let translator = python_translators::PythonTranslator::new(&code)?;
+        self.python_translator = Some((
+            filename,
+            translator.name(),
+            AnyTranslator::Python(translator),
+        ));
+        Ok(())
+    }
+
+    pub fn reload_python_translator(&mut self) -> Result<()> {
+        if let Some((path, _, _)) = self.python_translator.take() {
+            self.load_python_translator(path)?;
+        }
+        Ok(())
     }
 }
 
