@@ -76,7 +76,7 @@ fn select_preferred_translator(var: &VariableMeta, translators: &TranslatorList)
         .collect();
     if preferred.len() > 1 {
         warn!(
-            "more than one preferred translator for variable {} in scope {}: {}",
+            "More than one preferred translator for variable {} in scope {}: {}",
             var.var.name,
             var.var.path.strs.join("."),
             preferred.join(", ")

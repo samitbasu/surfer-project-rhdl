@@ -12,6 +12,15 @@ pub static EGUI_LOGGER: EguiLogger = EguiLogger {
     records: Mutex::new(vec![]),
 };
 
+#[macro_export]
+macro_rules! try_log_error {
+    ($expr:expr, $what:expr) => {
+        if let Err(e) = $expr {
+            error!("{}: {}", $what, e)
+        }
+    };
+}
+
 #[derive(Clone)]
 pub struct LogMessage<'a> {
     pub msg: Cow<'a, str>,
