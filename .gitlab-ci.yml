@@ -29,7 +29,13 @@ workflow:
   rules:
     - when: always
 
+.build-dependencies:
+  before_script:
+    - apt update -y
+    - apt install -y python3-dev
+
 .snapshots:
+  extends: .build-dependencies
   artifacts:
     paths:
       - snapshots
@@ -46,6 +52,7 @@ workflow:
 
 clippy:
     stage: test
+    extends: .build-dependencies
     before_script:
         - rustup component add clippy
         - cargo install gitlab_clippy
@@ -133,6 +140,7 @@ test-macos-aarch64:
 coverage:
     image: xd009642/tarpaulin
     stage: test
+    extends: .build-dependencies
     interruptible: true
     script:
         - rustc -V
@@ -200,7 +208,7 @@ linux_build:
     extends: .if-release
     script:
         - apt-get update -y
-        - apt-get install -y openssl libssl-dev zip
+        - apt-get install -y openssl libssl-dev zip python3-dev
         - git fetch --tags
         - rustc -V
         - cargo -V
@@ -219,7 +227,7 @@ windows_build:
     extends: .if-release
     script:
         - apt-get update -y
-        - apt-get install -y mingw-w64 zip
+        - apt-get install -y mingw-w64 zip python3-dev
         - git fetch --tags
         - rustc -V
         - cargo -V
@@ -273,6 +281,7 @@ trigger-docs:
 
 pages_build:
     stage: test
+    extends: .build-dependencies
     script:
         - git fetch --tags
         - rustup target add wasm32-unknown-unknown
