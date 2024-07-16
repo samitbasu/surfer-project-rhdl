@@ -2,7 +2,8 @@ use color_eyre::Result;
 use log::error;
 use pyo3::types::{PyAnyMethods, PyDict, PyModule, PyStringMethods};
 use pyo3::{Bound, Py, Python};
-use surfer_translation_types::{BasicTranslator, PythonValueKind, ValueKind, VariableValue};
+use surfer_translation_types::python::{surfer_pyo3_module, PythonValueKind};
+use surfer_translation_types::{BasicTranslator, ValueKind, VariableValue};
 
 use crate::wave_container::{ScopeId, VarId};
 
@@ -14,7 +15,7 @@ impl PythonTranslator {
     pub fn new(code: &str) -> Result<Self> {
         let plugin = Python::with_gil(|py| -> pyo3::PyResult<_> {
             let surfer_module = PyModule::new_bound(py, "surfer")?;
-            surfer_translation_types::surfer_pyo3_module(&surfer_module)?;
+            surfer_pyo3_module(&surfer_module)?;
             let sys = PyModule::import_bound(py, "sys")?;
             let py_modules: Bound<'_, PyDict> = sys.getattr("modules")?.downcast_into()?;
             py_modules.set_item("surfer", surfer_module)?;
