@@ -239,6 +239,12 @@ pub fn all_translators() -> TranslatorList {
         Box::new(PositQuire16Translator {}),
         Box::new(E5M2Translator {}),
         Box::new(E4M3Translator {}),
+        Box::new(NumberOfOnesTranslator {}),
+        Box::new(LeadingOnesTranslator {}),
+        Box::new(TrailingOnesTranslator {}),
+        Box::new(LeadingZerosTranslator {}),
+        Box::new(TrailingZerosTranslator {}),
+        Box::new(IdenticalMSBsTranslator {}),
         #[cfg(feature = "f128")]
         Box::new(QuadPrecisionTranslator {}),
     ];
