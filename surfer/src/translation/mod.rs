@@ -17,6 +17,7 @@ pub mod clock;
 mod enum_translator;
 mod instruction_translators;
 pub mod numeric_translators;
+#[cfg(not(target_arch = "wasm32"))]
 mod python_translators;
 pub mod spade;
 
@@ -26,7 +27,6 @@ use instruction_decoder::Decoder;
 pub use instruction_translators::*;
 use itertools::Itertools;
 pub use numeric_translators::*;
-use python_translators::PythonTranslator;
 use surfer_translation_types::{
     BasicTranslator, HierFormatResult, NumericTranslator, SubFieldFlatTranslationResult,
     TranslatedValue, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
@@ -225,7 +225,13 @@ pub fn all_translators() -> TranslatorList {
         Box::new(new_rv64_translator()),
         Box::new(new_mips_translator()),
         Box::new(LebTranslator {}),
-        Box::new(PythonTranslator::new(include_str!("../../../examples/hexadecimal.py")).unwrap()),
+        #[cfg(not(target_arch = "wasm32"))]
+        Box::new(
+            python_translators::PythonTranslator::new(include_str!(
+                "../../../examples/hexadecimal.py"
+            ))
+            .unwrap(),
+        ),
     ];
 
     #[cfg(not(target_arch = "wasm32"))]

@@ -1893,7 +1893,7 @@ snapshot_ui!(save_and_load, || {
 
 snapshot_ui_with_file_and_msgs!(
     python_example_translator,
-    "examples/with_8_bit.vcd",
+    "examples/with_8_bitrunkt.vcd",
     [
         Message::AddScope(ScopeRef::from_strs(&["logic"])),
         Message::VariableFormatChange(
