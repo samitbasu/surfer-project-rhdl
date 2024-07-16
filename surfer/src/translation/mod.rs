@@ -94,6 +94,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.name(),
             AnyTranslator::Basic(t) => t.name(),
             AnyTranslator::Numeric(t) => t.name(),
+            #[cfg(not(target_arch = "wasm32"))]
             AnyTranslator::Python(t) => t.name(),
         }
     }
@@ -107,6 +108,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.translate(variable, value),
             AnyTranslator::Basic(t) => translate_with_basic(&**t, variable, value),
             AnyTranslator::Numeric(t) => translate_with_numeric(&**t, variable, value),
+            #[cfg(not(target_arch = "wasm32"))]
             AnyTranslator::Python(t) => translate_with_basic(t, variable, value),
         }
     }
@@ -116,6 +118,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.variable_info(variable),
             AnyTranslator::Basic(t) => t.variable_info(variable),
             AnyTranslator::Numeric(t) => t.variable_info(variable),
+            #[cfg(not(target_arch = "wasm32"))]
             AnyTranslator::Python(t) => t.variable_info(variable),
         }
     }
@@ -125,6 +128,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.translates(variable),
             AnyTranslator::Basic(t) => t.translates(variable),
             AnyTranslator::Numeric(t) => t.translates(variable),
+            #[cfg(not(target_arch = "wasm32"))]
             AnyTranslator::Python(t) => t.translates(variable),
         }
     }
@@ -133,7 +137,9 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
         match self {
             AnyTranslator::Full(t) => t.reload(sender),
             AnyTranslator::Numeric(t) => t.reload(sender),
-            AnyTranslator::Basic(_) | AnyTranslator::Python(_) => (),
+            AnyTranslator::Basic(_) => (),
+            #[cfg(not(target_arch = "wasm32"))]
+            AnyTranslator::Python(_) => (),
         }
     }
 }
@@ -315,22 +321,26 @@ impl TranslatorList {
     }
 
     pub fn all_translator_names(&self) -> Vec<&str> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let python_name = self
+            .python_translator
+            .as_ref()
+            .map(|(_, name, _)| name.as_str());
+        #[cfg(target_arch = "wasm32")]
+        let python_name = None;
         self.inner
             .keys()
             .map(String::as_str)
-            .chain(
-                self.python_translator
-                    .as_ref()
-                    .map(|(_, name, _)| name.as_str()),
-            )
+            .chain(python_name)
             .collect()
     }
 
     pub fn all_translators(&self) -> Vec<&AnyTranslator> {
-        self.inner
-            .values()
-            .chain(self.python_translator.as_ref().map(|(_, _, t)| t))
-            .collect()
+        #[cfg(not(target_arch = "wasm32"))]
+        let python_translator = self.python_translator.as_ref().map(|(_, _, t)| t);
+        #[cfg(target_arch = "wasm32")]
+        let python_translator = None;
+        self.inner.values().chain(python_translator).collect()
     }
 
     pub fn basic_translator_names(&self) -> Vec<&str> {
@@ -341,14 +351,18 @@ impl TranslatorList {
     }
 
     pub fn get_translator(&self, name: &str) -> &AnyTranslator {
+        #[cfg(not(target_arch = "wasm32"))]
+        let python_translator = || {
+            self.python_translator
+                .as_ref()
+                .filter(|(_, python_name, _)| python_name == name)
+                .map(|(_, _, t)| t)
+        };
+        #[cfg(target_arch = "wasm32")]
+        let python_translator = || None;
         self.inner
             .get(name)
-            .or_else(|| {
-                self.python_translator
-                    .as_ref()
-                    .filter(|(_, python_name, _)| python_name == name)
-                    .map(|(_, _, t)| t)
-            })
+            .or_else(python_translator)
             .unwrap_or_else(|| panic!("No translator called {name}"))
     }
 
@@ -363,6 +377,7 @@ impl TranslatorList {
             .unwrap_or(false)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load_python_translator(&mut self, filename: Utf8PathBuf) -> Result<()> {
         debug!("Reading Python code from disk: {filename}");
         let code = std::fs::read_to_string(&filename)?;
@@ -375,6 +390,7 @@ impl TranslatorList {
         Ok(())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn reload_python_translator(&mut self) -> Result<()> {
         if let Some((path, _, _)) = self.python_translator.take() {
             self.load_python_translator(path)?;
