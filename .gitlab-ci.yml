@@ -121,8 +121,8 @@ test-macos-aarch64:
         - rustup install 1.77
         - rustup override set 1.77
     script:
-      - rustc -V
-      - cargo -V
+        - rustc -V
+        - cargo -V
         - cargo test
   # macOS runners are not available for "normal" GitLab users, but we are
   # part of the open source program.
