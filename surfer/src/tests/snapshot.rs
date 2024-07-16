@@ -1890,3 +1890,18 @@ snapshot_ui!(save_and_load, || {
 
     state
 });
+
+snapshot_ui_with_file_and_msgs!(
+    python_example_translator,
+    "examples/with_8_bitrunkt.vcd",
+    [
+        Message::AddScope(ScopeRef::from_strs(&["logic"])),
+        Message::VariableFormatChange(
+            DisplayedFieldRef {
+                item: DisplayedItemRef(1),
+                field: vec![],
+            },
+            String::from("Hexadecimal (Python)"),
+        ),
+    ]
+);
