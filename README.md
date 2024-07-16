@@ -187,9 +187,12 @@ As an indication of the status of the project, here is an incomplete list of sup
       - [x] D
     - [ ] RV64
     - [ ] arm
-    - [ ] Mips
+    - [ ] MIPS
   - [ ] Compressed integers
     - [x] LEB128 (also for other bitwidths than 128)
+  - [x] Number of ones
+  - [x] Leading/trailing zeros/ones
+  - [x] Sign-bits
   - [ ] Custom translation via Python API
 - [x] Dividers
 - [x] Wave file reloading
