@@ -97,6 +97,7 @@ pub enum Message {
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    #[cfg(not(target_arch = "wasm32"))]
     LoadPythonTranslator(Utf8PathBuf),
     #[cfg(not(target_arch = "wasm32"))]
     ConnectToCxxrtl(String),
@@ -166,6 +167,7 @@ pub enum Message {
     SelectPrevCommand,
     SelectNextCommand,
     OpenFileDialog(OpenMode),
+    #[cfg(not(target_arch = "wasm32"))]
     OpenPythonPluginDialog,
     SaveStateFile(Option<PathBuf>),
     LoadStateFile(Option<PathBuf>),

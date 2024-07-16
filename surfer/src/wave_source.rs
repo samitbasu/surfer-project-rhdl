@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter};
-use std::future::Future;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
@@ -15,7 +14,7 @@ use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
 use futures_util::FutureExt;
 use log::{error, info, warn};
-use rfd::{AsyncFileDialog, FileHandle};
+use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use web_time::Instant;
 
@@ -553,22 +552,37 @@ impl State {
         )));
     }
 
-    fn file_dialog<F, O>(&mut self, filter: (String, Vec<String>), message: F)
+    fn create_file_dialog(filter: (String, Vec<String>)) -> AsyncFileDialog {
+        AsyncFileDialog::new()
+            .set_title("Open waveform file")
+            .add_filter(filter.0, &filter.1)
+            .add_filter("All files", &["*"])
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn file_dialog<F>(&mut self, filter: (String, Vec<String>), message: F)
     where
-        F: FnOnce(FileHandle) -> O + Send + 'static,
-        O: Future<Output = Message> + Send + 'static,
+        F: FnOnce(PathBuf) -> Message + Send + 'static,
     {
         let sender = self.sys.channels.msg_sender.clone();
 
         perform_async_work(async move {
-            if let Some(file) = AsyncFileDialog::new()
-                .set_title("Open waveform file")
-                .add_filter(filter.0, &filter.1)
-                .add_filter("All files", &["*"])
-                .pick_file()
-                .await
-            {
-                sender.send(message(file).await).unwrap();
+            if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
+                sender.send(message(file.path().to_path_buf())).unwrap();
+            }
+        });
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn file_dialog<F>(&mut self, filter: (String, Vec<String>), message: F)
+    where
+        F: FnOnce(Vec<u8>) -> Message + Send + 'static,
+    {
+        let sender = self.sys.channels.msg_sender.clone();
+
+        perform_async_work(async move {
+            if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
+                sender.send(message(file.read().await)).unwrap();
             }
         });
     }
@@ -579,24 +593,27 @@ impl State {
             OpenMode::Open => false,
             OpenMode::Switch => true,
         };
-        let message = move |file: FileHandle| async move {
-            if cfg!(target_arch = "wasm32") {
-                Message::LoadWaveformFileFromData(
-                    file.read().await,
-                    LoadOptions {
-                        keep_variables,
-                        keep_unavailable,
-                    },
-                )
-            } else {
-                Message::LoadWaveformFile(
-                    Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
-                    LoadOptions {
-                        keep_variables,
-                        keep_unavailable,
-                    },
-                )
-            }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let message = move |file: PathBuf| {
+            Message::LoadWaveformFile(
+                Utf8PathBuf::from_path_buf(file).unwrap(),
+                LoadOptions {
+                    keep_variables,
+                    keep_unavailable,
+                },
+            )
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let message = move |file: Vec<u8>|{
+            Message::LoadWaveformFileFromData(
+                file,
+                LoadOptions {
+                    keep_variables,
+                    keep_unavailable,
+                },
+            )
         };
 
         self.file_dialog(
@@ -608,14 +625,11 @@ impl State {
         );
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn open_python_file_dialog(&mut self) {
         self.file_dialog(
             ("Python files (*.py)".to_string(), vec!["py".to_string()]),
-            |file| async move {
-                Message::LoadPythonTranslator(
-                    Utf8PathBuf::from_path_buf(file.path().to_path_buf()).unwrap(),
-                )
-            },
+            |file| Message::LoadPythonTranslator(Utf8PathBuf::from_path_buf(file).unwrap()),
         );
     }
 
