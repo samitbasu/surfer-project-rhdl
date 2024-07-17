@@ -435,6 +435,8 @@ impl State {
                     } else {
                         match waves
                             .inner
+                            .to_waves()
+                            .unwrap()
                             .variable_meta(&path.root)
                             .and_then(|meta| t.translates(&meta))
                             .context(format!(

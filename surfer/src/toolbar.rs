@@ -34,7 +34,7 @@ impl State {
 
     fn simulation_status_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         let Some(waves) = &self.waves else { return };
-        let Some(status) = waves.inner.simulation_status() else {
+        let Some(status) = waves.inner.to_waves().unwrap().simulation_status() else {
             return;
         };
 

@@ -7,3 +7,6 @@
 [submodule "instruction-decoder"]
 	path = instruction-decoder
 	url = https://github.com/ics-jku/instruction-decoder.git
+[submodule "ftr_parser"]
+	path = ftr_parser
+	url = https://github.com/christiandattinger/ftr_parser.git
