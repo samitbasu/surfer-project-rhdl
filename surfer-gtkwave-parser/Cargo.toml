@@ -1,0 +1,13 @@
+[package]
+name = "surfer-gtkwave-parser"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+aho-corasick = "1.1.3"
+bitflags = "2.6.0"
+
+[dev-dependencies]
+insta = "1.39.0"
