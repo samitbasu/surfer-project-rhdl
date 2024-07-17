@@ -4,6 +4,7 @@ use eframe::emath::{Align2, Pos2};
 use eframe::epaint::{Color32, FontId, Stroke};
 use egui::Ui;
 use enum_iterator::Sequence;
+use ftr_parser::types::Timescale;
 use itertools::Itertools;
 use num::{BigInt, BigRational, ToPrimitive};
 use pure_rust_locales::{locale_match, Locale};
@@ -61,6 +62,21 @@ impl From<wellen::TimescaleUnit> for TimeUnit {
             wellen::TimescaleUnit::MilliSeconds => TimeUnit::MilliSeconds,
             wellen::TimescaleUnit::Seconds => TimeUnit::Seconds,
             wellen::TimescaleUnit::Unknown => TimeUnit::None,
+        }
+    }
+}
+
+impl From<ftr_parser::types::Timescale> for TimeUnit {
+    fn from(timescale: Timescale) -> Self {
+        match timescale {
+            Timescale::Fs => TimeUnit::FemtoSeconds,
+            Timescale::Ps => TimeUnit::PicoSeconds,
+            Timescale::Ns => TimeUnit::NanoSeconds,
+            Timescale::Us => TimeUnit::MicroSeconds,
+            Timescale::Ms => TimeUnit::MilliSeconds,
+            Timescale::S => TimeUnit::Seconds,
+            Timescale::Unit => TimeUnit::None,
+            Timescale::None => TimeUnit::None,
         }
     }
 }

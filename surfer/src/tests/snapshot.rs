@@ -16,6 +16,7 @@ use skia_safe::EncodedImageFormat;
 use test_log::test;
 
 use crate::wave_container::{ScopeRefExt, VariableRefExt};
+use crate::wave_data::ScopeType;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::{HierarchyStyle, SurferConfig},
@@ -892,7 +893,7 @@ snapshot_ui!(regex_error_indication, || {
         Message::ToggleMenu,
         Message::ToggleToolbar,
         Message::ToggleOverview,
-        Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
+        Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&["tb"]))),
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
@@ -908,7 +909,7 @@ snapshot_ui!(regex_error_indication, || {
 snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
     Message::ToggleSidePanel,
     Message::ToggleDirection,
-    Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
+    Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&["tb"]))),
     Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
 ]}
 
@@ -940,7 +941,11 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
-        Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
+        Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+            "testbench",
+            "top",
+            "mem",
+        ]))),
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Fuzzy),
     ];
@@ -981,7 +986,11 @@ snapshot_ui!(contain_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
-        Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
+        Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+            "testbench",
+            "top",
+            "mem",
+        ]))),
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Contain),
     ];
@@ -1022,7 +1031,11 @@ snapshot_ui!(regex_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
-        Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
+        Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+            "testbench",
+            "top",
+            "mem",
+        ]))),
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
@@ -1067,7 +1080,11 @@ snapshot_ui!(start_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
-        Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
+        Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+            "testbench",
+            "top",
+            "mem",
+        ]))),
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
     ];
@@ -1108,7 +1125,11 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
-        Message::SetActiveScope(ScopeRef::from_strs(&["testbench", "top", "mem"])),
+        Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+            "testbench",
+            "top",
+            "mem",
+        ]))),
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
         Message::SetVariableNameFilterCaseInsensitive(false),
@@ -1257,7 +1278,7 @@ Message::SetNameAlignRight(true)
 snapshot_ui_with_file_and_msgs! {add_viewport_works, "examples/counter.vcd", [
     Message::AddViewport,
     Message::AddViewport,
-    Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
+    Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&["tb"]))),
     Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
     Message::AddTimeLine(None),
 ]}
@@ -1265,7 +1286,7 @@ snapshot_ui_with_file_and_msgs! {add_viewport_works, "examples/counter.vcd", [
 snapshot_ui_with_file_and_msgs! {remove_viewport_works, "examples/counter.vcd", [
     Message::AddViewport,
     Message::AddViewport,
-    Message::SetActiveScope(ScopeRef::from_strs(&["tb"])),
+    Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&["tb"]))),
     Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
     Message::AddTimeLine(None), Message::RemoveViewport
 ]}
@@ -1384,7 +1405,7 @@ snapshot_ui_with_file_and_msgs! {toggle_variable_indices, "examples/counter.vcd"
 
 snapshot_ui_with_file_and_msgs! {direction_works, "examples/tb_recv.ghw", [
     Message::ToggleSidePanel,
-    Message::SetActiveScope(ScopeRef::from_strs(&["tb_recv", "dut"])),
+    Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&["tb_recv", "dut"]))),
     Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb_recv.dut.en")]),
 ]}
 

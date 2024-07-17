@@ -9,6 +9,7 @@ members = [
 exclude = [
     ".cache", # include such that packages downloaded into the CI cache are ignored
     "f128",
+    "ftr_parser",
     "fzcmd",
     "instruction-decoder",
 ]

@@ -107,6 +107,8 @@ impl WaveData {
                         if self.display_variable_indices {
                             let index = self
                                 .inner
+                                .to_waves()
+                                .unwrap()
                                 .variable_meta(&variable.variable_ref)
                                 .ok()
                                 .as_ref()

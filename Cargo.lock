@@ -1884,6 +1884,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ftr_parser"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "lz4_flex",
+ "num-bigint",
+ "serde",
+]
+
+[[package]]
 name = "futures"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4821,6 +4831,7 @@ dependencies = [
  "enum-iterator",
  "f128",
  "fern",
+ "ftr_parser",
  "futures",
  "futures-core",
  "futures-util",
