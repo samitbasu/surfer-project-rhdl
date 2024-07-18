@@ -5,9 +5,14 @@ use crate::ValueKind;
 #[pyo3::pymodule]
 #[pyo3(name = "surfer")]
 pub fn surfer_pyo3_module(m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<()> {
+    m.add_class::<PythonBasicTranslator>().unwrap();
     m.add_class::<PythonValueKind>().unwrap();
     Ok(())
 }
+
+#[pyo3::pyclass(name = "BasicTranslator", subclass)]
+struct PythonBasicTranslator {}
+// NOTE: No implementation for the PythonBasicTranslator here. Will be done later.
 
 #[derive(Clone)]
 #[pyo3::pyclass(name = "ValueKind")]
