@@ -208,7 +208,7 @@ macro_rules! snapshot_ui {
     ($name:ident, $state:expr) => {
         #[test]
         fn $name() {
-            render_and_compare(&PathBuf::from(stringify!($name)), $state)
+            render_and_compare(&PathBuf::from(stringify!($name)), $state);
         }
     };
 }
@@ -1890,3 +1890,25 @@ snapshot_ui!(save_and_load, || {
 
     state
 });
+
+snapshot_ui_with_file_and_msgs!(
+    python_example_translator,
+    "examples/with_8_bit.vcd",
+    [
+        Message::AddScope(ScopeRef::from_strs(&["logic"])),
+        Message::LoadPythonTranslator(
+            get_project_root()
+                .unwrap()
+                .join("examples/hexadecimal.py")
+                .try_into()
+                .unwrap()
+        ),
+        Message::VariableFormatChange(
+            DisplayedFieldRef {
+                item: DisplayedItemRef(1),
+                field: vec![],
+            },
+            String::from("Hexadecimal (Python)"),
+        ),
+    ]
+);

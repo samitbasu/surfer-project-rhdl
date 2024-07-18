@@ -1,4 +1,6 @@
 mod field_ref;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod python;
 mod result;
 mod scope_ref;
 mod translator;
@@ -21,9 +23,11 @@ pub use crate::translator::{
 };
 pub use crate::variable_ref::VariableRef;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Display)]
 pub enum VariableValue {
+    #[display(fmt = "{_0}")]
     BigUint(BigUint),
+    #[display(fmt = "{_0}")]
     String(String),
 }
 
