@@ -21,6 +21,7 @@ struct ButtonBuilder {
     text: String,
     shortcut: Option<String>,
     message: Message,
+    enabled: bool,
 }
 
 impl ButtonBuilder {
@@ -29,11 +30,17 @@ impl ButtonBuilder {
             text: text.into(),
             message,
             shortcut: None,
+            enabled: true,
         }
     }
 
     fn shortcut(mut self, shortcut: impl Into<String>) -> Self {
         self.shortcut = Some(shortcut.into());
+        self
+    }
+
+    fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 
@@ -51,7 +58,7 @@ impl ButtonBuilder {
         } else {
             button
         };
-        if ui.add(button).clicked() {
+        if ui.add_enabled(self.enabled, button).clicked() {
             msgs.push(self.message);
             if close_menu {
                 ui.close_menu();
@@ -102,7 +109,14 @@ impl State {
             b("Save state as...", Message::SaveStateFile(None)).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
             #[cfg(not(target_arch = "wasm32"))]
-            b("Exit", Message::Exit).add_closing_menu(msgs, ui);
+            {
+                b("Add Python translator", Message::OpenPythonPluginDialog)
+                    .add_closing_menu(msgs, ui);
+                b("Reload Python translator", Message::ReloadPythonPlugin)
+                    .enabled(self.sys.translators.has_python_translator())
+                    .add_closing_menu(msgs, ui);
+                b("Exit", Message::Exit).add_closing_menu(msgs, ui);
+            }
         });
         ui.menu_button("View", |ui: &mut Ui| {
             ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
@@ -431,7 +445,7 @@ impl State {
 
                     if self
                         .blacklisted_translators
-                        .contains(&(path.root.clone(), (*translator_name).clone()))
+                        .contains(&(path.root.clone(), translator_name.to_string()))
                     {
                         false
                     } else {
@@ -449,7 +463,7 @@ impl State {
                             Err(e) => {
                                 msgs.push(Message::BlacklistTranslator(
                                     path.root.clone(),
-                                    (*translator_name).clone(),
+                                    translator_name.to_string(),
                                 ));
                                 msgs.push(Message::Error(e));
                                 false
@@ -470,7 +484,7 @@ impl State {
         }
         .and_then(|displayed_variable| displayed_variable.get_format(&displayed_field_ref.field));
 
-        let mut menu_entry = |ui: &mut Ui, name: &String| {
+        let mut menu_entry = |ui: &mut Ui, name: &str| {
             ui.radio(
                 selected_translator.map(|st| st == name).unwrap_or(false),
                 name,
