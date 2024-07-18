@@ -8,6 +8,8 @@
 use aho_corasick::AhoCorasick;
 
 pub type Result<T> = std::result::Result<T, Error>;
+pub type BitRange = (u32, Option<u32>);
+pub type Path = (String, Option<BitRange>);
 
 #[derive(Debug)]
 pub enum Color {
@@ -46,10 +48,22 @@ impl TryFrom<i32> for Color {
 pub enum Directive {
     /// Path to wave file to open
     Dumpfile(String),
+    Markers,
+    /// Add a single variable
     Trace {
-        path: String,
-        bit_range: Option<(u32, u32)>,
+        path: Path,
         color: Option<Color>,
+        flags: Option<Flags>,
+    },
+    TraceMany {
+        path: Path,
+        rest: Vec<Path>,
+        color: Option<Color>,
+        flags: Option<Flags>,
+    },
+    Group {
+        name: String,
+        // Flags contain either `grp_begin` or `grp_end`
         flags: Option<Flags>,
     },
 }
@@ -168,7 +182,9 @@ impl<'s> Parser<'s> {
         let line = self.peek_line()?;
         let dir = if line.starts_with('[') {
             self.bracketed()?
-        } else if let Some(trace) = self.try_trace()? {
+        } else if line.starts_with('*') {
+            self.markers()?
+        } else if let Some(trace) = self.try_signal()? {
             trace
         } else {
             Err(Error::UnknownLine(self.peek_line()?.to_string()))?
@@ -197,8 +213,12 @@ impl<'s> Parser<'s> {
         Ok(Directive::Dumpfile(path.to_string()))
     }
 
-    fn try_trace(&mut self) -> Result<Option<Directive>> {
-        // TODO: loop try_[flag,color,...] until a trace shows up (using a combinator)
+    fn markers(&mut self) -> Result<Directive> {
+        Ok(Directive::Markers)
+    }
+
+    fn try_signal(&mut self) -> Result<Option<Directive>> {
+        // TODO: loop try_[flag,color,...] using a combinator
         let flags = self.try_flags()?;
         if flags.is_some() {
             self.next_line()?;
@@ -209,37 +229,73 @@ impl<'s> Parser<'s> {
         }
 
         let line = self.peek_line()?;
-        // heurestic: lines containing spaces are probably not traces
-        // FIXME: this could be better
-        if flags.is_none() && color.is_none() && line.contains(' ') {
-            return Ok(None);
-        }
 
-        let (path, bit_range) = if line.contains('[') {
-            let (path, bit_range) = line.split_once('[').unwrap();
-            // trim `]`
-            let bit_range = &bit_range[0..bit_range.len() - 1];
+        if line.starts_with('-') {
+            self.group_directive(flags).map(Some)
+        } else if line.starts_with('#') {
+            self.trace_many(flags, color).map(Some)
+        } else {
+            self.trace(flags, color).map(Some)
+        }
+    }
+
+    fn group_directive(&mut self, flags: Option<Flags>) -> Result<Directive> {
+        // trim `-`
+        let name = self.peek_line()?[1..].to_string();
+        Ok(Directive::Group { name, flags })
+    }
+
+    fn trace_many(&mut self, flags: Option<Flags>, color: Option<Color>) -> Result<Directive> {
+        let line = self.peek_line()?;
+        let (first, rest) = line.split_once(' ').ok_or_else(|| "".to_string())?;
+        // trim `#{` and `}`
+        assert!(first.starts_with("#{"));
+        assert!(first.ends_with("}"));
+        let path = self.trace_path(&first[2..first.len() - 1])?;
+        Ok(Directive::TraceMany {
+            path,
+            rest: rest
+                .split(' ')
+                .map(|part| self.trace_path(part))
+                .collect::<Result<Vec<_>>>()?,
+            flags,
+            color,
+        })
+    }
+
+    fn trace(&mut self, flags: Option<Flags>, color: Option<Color>) -> Result<Directive> {
+        let line = self.peek_line()?;
+        let path = if line.contains('[') {
+            self.trace_path(line)?
+        } else {
+            (line.to_string(), None)
+        };
+
+        Ok(Directive::Trace { path, color, flags })
+    }
+
+    fn trace_path(&self, path: &str) -> Result<Path> {
+        let (path, bit_range) = path.split_once('[').unwrap();
+        // trim `]`
+        let bit_range = &bit_range[0..bit_range.len() - 1];
+        let (start, end) = if bit_range.contains(':') {
             let (start, end) = bit_range
                 .split_once(':')
                 .ok_or_else(|| format!("Didn't understand bit range in trace: '{bit_range}'"))?;
-            dbg!(bit_range, start, end);
             let start = start
                 .parse()
                 .map_err(|e| format!("Couldn't parse start of bit range '{bit_range}': {e}"))?;
             let end = end
                 .parse()
                 .map_err(|e| format!("Couldn't parse end of bit range '{bit_range}': {e}"))?;
-            (path.to_string(), Some((start, end)))
+            (start, Some(end))
         } else {
-            (line.to_string(), None)
+            let bit = bit_range
+                .parse()
+                .map_err(|e| format!("Couldn't parse bit '{bit_range}': {e}"))?;
+            (bit, None)
         };
-
-        Ok(Some(Directive::Trace {
-            path,
-            bit_range,
-            color,
-            flags,
-        }))
+        Ok((path.to_string(), Some((start, end))))
     }
 
     fn try_color(&self) -> Result<Option<Color>> {

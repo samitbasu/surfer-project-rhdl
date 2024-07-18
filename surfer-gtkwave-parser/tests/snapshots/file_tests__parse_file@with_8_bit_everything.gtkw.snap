@@ -40,7 +40,6 @@ UnknownDirective("[savefile] \"/home/gustav/surfer/surfer/examples/with_8_bit_ev
 UnknownDirective("[timestart] 0")
 UnknownDirective("[size] 1280 1346")
 UnknownDirective("[pos] -781 -374")
-UnknownLine("*-3.711389 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1")
 UnknownDirective("[sst_width] 266")
 UnknownDirective("[signals_width] 110")
 UnknownDirective("[sst_expanded] 1")
@@ -51,6 +50,7 @@ UnknownDirective("[pattern_trace] 0")
 ## Directives ##
 
 Dumpfile("/home/gustav/surfer/surfer/examples/with_8_bit.vcd")
-Trace { path: "logic.data", bit_range: Some((7, 0)), color: None, flags: Some(Flags(hex | rjustify)) }
-Trace { path: "logic.data_valid", bit_range: None, color: None, flags: Some(Flags(bin | rjustify)) }
-Trace { path: "logic.not_always", bit_range: None, color: None, flags: None }
+Markers
+Trace { path: ("logic.data", Some((7, Some(0)))), color: None, flags: Some(Flags(hex | rjustify)) }
+Trace { path: ("logic.data_valid", None), color: None, flags: Some(Flags(bin | rjustify)) }
+Trace { path: ("logic.not_always", None), color: None, flags: None }
