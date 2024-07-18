@@ -9,6 +9,7 @@ mod config;
 mod cxxrtl;
 #[cfg(not(target_arch = "wasm32"))]
 mod cxxrtl_container;
+mod data_container;
 mod displayed_item;
 mod drawing_canvas;
 mod help;
@@ -27,6 +28,7 @@ mod statusbar;
 mod tests;
 mod time;
 mod toolbar;
+mod transaction_container;
 mod translation;
 mod util;
 mod variable_direction;
@@ -75,10 +77,13 @@ use time::{TimeStringFormatting, TimeUnit};
 use crate::benchmark::Timing;
 use crate::command_prompt::get_parser;
 use crate::config::{SurferConfig, SurferTheme};
+use crate::data_container::DataContainer;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef, FieldFormat,
 };
+use crate::drawing_canvas::TxDrawingCommands;
 use crate::message::{HeaderResult, Message};
+use crate::transaction_container::{TransactionRef, TransactionStreamRef};
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::{all_translators, AnyTranslator, TranslatorList};
@@ -359,10 +364,22 @@ pub enum ColorSpecifier {
     Name(String),
 }
 
-struct CachedDrawData {
+enum CachedDrawData {
+    WaveDrawData(CachedWaveDrawData),
+    TransactionDrawData(CachedTransactionDrawData),
+}
+
+struct CachedWaveDrawData {
     pub draw_commands: HashMap<DisplayedFieldRef, drawing_canvas::DrawingCommands>,
     pub clock_edges: Vec<f32>,
     pub ticks: Vec<(String, f32)>,
+}
+
+struct CachedTransactionDrawData {
+    pub draw_commands: HashMap<TransactionRef, TxDrawingCommands>,
+    pub stream_to_displayed_transactions: HashMap<TransactionStreamRef, Vec<TransactionRef>>,
+    pub inc_relation_tx_ids: Vec<TransactionRef>,
+    pub out_relation_tx_ids: Vec<TransactionRef>,
 }
 
 struct Channels {
@@ -724,7 +741,7 @@ impl State {
                     return;
                 };
 
-                let variables = waves.inner.variables_in_scope(&scope);
+                let variables = waves.inner.to_waves().unwrap().variables_in_scope(&scope);
                 if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
                     self.load_variables(cmd);
                 }
@@ -737,6 +754,8 @@ impl State {
                     self.count = Some(digit.to_string())
                 }
             }
+            Message::AddStreamOrGenerator(_s) => {}
+            Message::AddStreamOrGeneratorFromName(_scope, _name) => {}
             Message::InvalidateCount => self.count = None,
             Message::SetNameAlignRight(align_right) => {
                 self.align_names_right = Some(align_right);
@@ -983,6 +1002,8 @@ impl State {
                 if displayed_field_ref.field.is_empty() {
                     let Ok(meta) = waves
                         .inner
+                        .to_waves()
+                        .unwrap()
                         .variable_meta(&displayed_variable.variable_ref)
                         .map_err(|e| warn!("{e:#?}"))
                     else {
@@ -1173,10 +1194,15 @@ impl State {
                     .as_mut()
                     .expect("Waves should be loaded at this point!");
                 // add source and time table
-                let maybe_cmd = waves.inner.wellen_add_body(body).unwrap_or_else(|err| {
-                    error!("While getting commands to lazy-load signals: {err:?}");
-                    None
-                });
+                let maybe_cmd = waves
+                    .inner
+                    .to_waves_mut()
+                    .unwrap()
+                    .wellen_add_body(body)
+                    .unwrap_or_else(|err| {
+                        error!("While getting commands to lazy-load signals: {err:?}");
+                        None
+                    });
                 // update viewports, now that we have the time table
                 waves.update_viewports();
                 // make sure we redraw
@@ -1193,7 +1219,7 @@ impl State {
                     .waves
                     .as_mut()
                     .expect("Waves should be loaded at this point!");
-                match waves.inner.on_signals_loaded(res) {
+                match waves.inner.to_waves_mut().unwrap().on_signals_loaded(res) {
                     Err(err) => error!("{err:?}"),
                     Ok(Some(cmd)) => self.load_variables(cmd),
                     _ => {}
@@ -1507,12 +1533,12 @@ impl State {
             Message::InvalidateDrawCommands => self.invalidate_draw_commands(),
             Message::UnpauseSimulation => {
                 if let Some(waves) = &self.waves {
-                    waves.inner.unpause_simulation()
+                    waves.inner.to_waves().unwrap().unpause_simulation()
                 }
             }
             Message::PauseSimulation => {
                 if let Some(waves) = &self.waves {
-                    waves.inner.pause_simulation()
+                    waves.inner.to_waves().unwrap().pause_simulation()
                 }
             }
             Message::Batch(messages) => {
@@ -1680,7 +1706,7 @@ impl State {
         } else {
             (
                 WaveData {
-                    inner: *new_waves,
+                    inner: DataContainer::Waves(*new_waves),
                     source: filename,
                     format,
                     active_scope: None,
@@ -1872,7 +1898,7 @@ impl State {
     pub fn waves_fully_loaded(&self) -> bool {
         self.waves
             .as_ref()
-            .map(|w| w.inner.is_fully_loaded())
+            .map(|w| w.inner.to_waves().unwrap().is_fully_loaded())
             .unwrap_or(false)
     }
 

@@ -9,7 +9,9 @@ use std::path::PathBuf;
 
 use surver::Status;
 
+use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
 use crate::translation::DynTranslator;
+use crate::wave_data::ScopeType;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
@@ -51,10 +53,12 @@ pub enum AsyncJob {
 #[derive(Derivative, Deserialize)]
 #[derivative(Debug)]
 pub enum Message {
-    SetActiveScope(ScopeRef),
+    SetActiveScope(ScopeType),
     AddVariables(Vec<VariableRef>),
     AddScope(ScopeRef),
     AddCount(char),
+    AddStreamOrGenerator(TransactionStreamRef),
+    AddStreamOrGeneratorFromName(StreamScopeRef, String),
     InvalidateCount,
     RemoveItem(DisplayedItemIndex, CommandCount),
     FocusItem(DisplayedItemIndex),

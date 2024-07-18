@@ -366,7 +366,7 @@ impl State {
         let body_loaded = self
             .waves
             .as_ref()
-            .map(|w| w.inner.body_loaded())
+            .map(|w| w.inner.to_waves().unwrap().body_loaded())
             .unwrap_or(false);
         if !body_loaded {
             // the progress tracker will be cleared once the hierarchy is returned from the server

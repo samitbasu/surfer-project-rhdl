@@ -9,7 +9,10 @@ use itertools::Itertools;
 use regex::{escape, Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 
+use crate::data_container::DataContainer::Transactions;
+use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
 use crate::wave_container::ScopeRef;
+use crate::wave_data::ScopeType;
 use crate::{message::Message, wave_container::VariableRef, wave_data::WaveData, State};
 
 #[derive(Debug, Display, PartialEq, Serialize, Deserialize, Sequence)]
@@ -131,11 +134,54 @@ impl State {
                         // waves in the same order as the variable
                         // list
                         if let Some(active_scope) = waves.active_scope.as_ref() {
-                            msgs.push(Message::AddVariables(self.filtered_variables(
-                                waves,
-                                filter,
-                                active_scope,
-                            )))
+                            match active_scope {
+                                ScopeType::WaveScope(active_scope) => {
+                                    msgs.push(Message::AddVariables(self.filtered_variables(
+                                        waves,
+                                        filter,
+                                        active_scope,
+                                    )))
+                                }
+                                ScopeType::StreamScope(active_scope) => {
+                                    let Transactions(streams) = &waves.inner else {
+                                        return;
+                                    };
+                                    match active_scope {
+                                        StreamScopeRef::Root => {
+                                            for (id, stream) in &streams.inner.tx_streams {
+                                                msgs.push(Message::AddStreamOrGenerator(
+                                                    TransactionStreamRef::new_stream(
+                                                        *id,
+                                                        stream.name.clone(),
+                                                    ),
+                                                ));
+                                            }
+                                        }
+                                        StreamScopeRef::Stream(s) => {
+                                            for gen_id in &streams
+                                                .inner
+                                                .tx_streams
+                                                .get(&s.stream_id)
+                                                .unwrap()
+                                                .generators
+                                            {
+                                                let gen = streams
+                                                    .inner
+                                                    .tx_generators
+                                                    .get(&gen_id)
+                                                    .unwrap();
+                                                msgs.push(Message::AddStreamOrGenerator(
+                                                    TransactionStreamRef::new_gen(
+                                                        gen.stream_id,
+                                                        gen.id,
+                                                        gen.name.clone(),
+                                                    ),
+                                                ));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 });
@@ -189,6 +235,8 @@ impl State {
         if filter.is_empty() {
             waves
                 .inner
+                .to_waves()
+                .unwrap()
                 .variables_in_scope(scope)
                 .iter()
                 .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
@@ -197,7 +245,7 @@ impl State {
         } else {
             self.variable_name_filter_type
                 .matching_variables(
-                    &waves.inner.variables_in_scope(scope),
+                    &waves.inner.to_waves().unwrap().variables_in_scope(scope),
                     filter,
                     self.variable_name_filter_case_insensitive,
                 )
