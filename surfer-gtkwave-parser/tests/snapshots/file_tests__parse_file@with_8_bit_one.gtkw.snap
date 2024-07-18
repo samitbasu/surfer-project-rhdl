@@ -48,4 +48,4 @@ UnknownDirective("[pattern_trace] 0")
 ## Directives ##
 
 Dumpfile("/home/gustav/surfer/surfer/examples/with_8_bit.vcd")
-Trace { path: "logic.data", bit_range: Some((7, 0)), flags: Some(Flags(hex | rjustify)) }
+Trace { path: "logic.data", bit_range: Some((7, 0)), color: None, flags: Some(Flags(hex | rjustify)) }
