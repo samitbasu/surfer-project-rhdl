@@ -65,7 +65,7 @@ test:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --color=always --locked --workspace
 
 test-no-default-features:
     stage: test
@@ -73,7 +73,7 @@ test-no-default-features:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked --no-default-features
+        - cargo test --color=always --locked --no-default-features --workspace
 
 test-oldest-supported:
     # This version should match rust-version in Cargo.toml
@@ -83,7 +83,7 @@ test-oldest-supported:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --color=always --locked --workspace
 
 test-beta:
     image: "instrumentisto/rust:beta"
@@ -92,7 +92,7 @@ test-beta:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --color=always --locked --workspace
     allow_failure: true
 
 test-nightly:
@@ -102,7 +102,7 @@ test-nightly:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --color=always --locked --workspace
     allow_failure: true
 
 test-macos-aarch64:
@@ -123,7 +123,7 @@ test-macos-aarch64:
     script:
         - rustc -V
         - cargo -V
-        - cargo test
+        - cargo test --locked --workspace
   # macOS runners are not available for "normal" GitLab users, but we are
   # part of the open source program.
     rules:
