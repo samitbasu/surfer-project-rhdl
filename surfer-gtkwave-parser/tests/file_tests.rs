@@ -32,3 +32,8 @@ fn with_8_bit_everything() {
 fn with_8_bit_one() {
     parse_file("with_8_bit_one.gtkw");
 }
+
+#[test]
+fn stimuli3() {
+    parse_file("stimuli3.gtkw")
+}
