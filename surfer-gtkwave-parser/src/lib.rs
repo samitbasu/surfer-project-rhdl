@@ -49,6 +49,10 @@ pub enum Directive {
     /// Path to wave file to open
     Dumpfile(String),
     Markers,
+    Blank {
+        // Will probably contain `blank`
+        flags: Option<Flags>,
+    },
     /// Add a single variable
     Trace {
         path: Path,
@@ -230,7 +234,10 @@ impl<'s> Parser<'s> {
 
         let line = self.peek_line()?;
 
-        if line.starts_with('-') {
+        if line == "-" {
+            assert!(color.is_none());
+            Ok(Some(Directive::Blank { flags }))
+        } else if line.starts_with('-') {
             self.group_directive(flags).map(Some)
         } else if line.starts_with('#') {
             self.trace_many(flags, color).map(Some)
