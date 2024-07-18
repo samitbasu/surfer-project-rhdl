@@ -1,4 +1,5 @@
 use camino::Utf8PathBuf;
+use color_eyre::eyre::bail;
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
@@ -381,7 +382,11 @@ impl TranslatorList {
     pub fn load_python_translator(&mut self, filename: Utf8PathBuf) -> Result<()> {
         debug!("Reading Python code from disk: {filename}");
         let code = std::fs::read_to_string(&filename)?;
-        let translator = python_translators::PythonTranslator::new(&code)?;
+        let mut translators = python_translators::PythonTranslator::new(&code)?;
+        if translators.len() != 1 {
+            bail!("Only one Python translator per file is supported for now");
+        }
+        let translator = translators.pop().unwrap();
         self.python_translator = Some((
             filename,
             translator.name(),

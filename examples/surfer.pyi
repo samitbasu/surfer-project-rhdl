@@ -1,3 +1,13 @@
+from typing import ClassVar
+
+
+class BasicTranslator:
+    name: ClassVar[str]
+
+    @staticmethod
+    def basic_translate(self, num_bits: int, value: str) -> tuple[str, ValueKind]: ...
+
+
 class ValueKind:
     @classmethod
     def Normal(cls): ...
