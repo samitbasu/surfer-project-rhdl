@@ -74,6 +74,7 @@ impl DrawingCommands {
     }
 }
 
+#[allow(dead_code)]
 pub struct TxDrawingCommands {
     min: Pos2,
     max: Pos2,

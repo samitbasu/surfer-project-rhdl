@@ -151,6 +151,7 @@ impl TransactionStreamRef {
     }
 }
 
+#[allow(dead_code)]
 pub struct TransactionRef {
     id: usize,
 }

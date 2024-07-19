@@ -366,6 +366,7 @@ pub enum ColorSpecifier {
 
 enum CachedDrawData {
     WaveDrawData(CachedWaveDrawData),
+    #[allow(dead_code)]
     TransactionDrawData(CachedTransactionDrawData),
 }
 
@@ -375,6 +376,7 @@ struct CachedWaveDrawData {
     pub ticks: Vec<(String, f32)>,
 }
 
+#[allow(dead_code)]
 struct CachedTransactionDrawData {
     pub draw_commands: HashMap<TransactionRef, TxDrawingCommands>,
     pub stream_to_displayed_transactions: HashMap<TransactionStreamRef, Vec<TransactionRef>>,
