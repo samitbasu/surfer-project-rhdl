@@ -1880,6 +1880,7 @@ name = "ftr_parser"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "half",
  "lz4_flex",
  "num-bigint",
  "serde",
