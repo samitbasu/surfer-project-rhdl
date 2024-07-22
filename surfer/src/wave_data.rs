@@ -428,8 +428,28 @@ impl WaveData {
             .enumerate()
             .find(|(_, local_id)| **local_id == id)
         {
+            if let Some(fidx) = self.focused_item {
+                // move focus up if if signal was removed below focus
+                if fidx.0 > idx.0 {
+                    self.focused_item = Some(DisplayedItemIndex(
+                        fidx.0
+                            .saturating_sub(1)
+                            .min(self.displayed_items_order.len().saturating_sub(2)),
+                    ));
+                // if the focus was removed move if it was the last element
+                } else if fidx.0 == idx.0 {
+                    self.focused_item = Some(DisplayedItemIndex(
+                        fidx.0
+                            .min(self.displayed_items_order.len().saturating_sub(2)),
+                    ));
+                }
+                // when the removed item is above the focus, the focus does not move
+            }
             self.displayed_items_order.remove(idx.0);
             self.displayed_items.remove(&id);
+            if self.displayed_items_order.is_empty() {
+                self.focused_item = None;
+            }
         }
     }
 
@@ -562,7 +582,10 @@ impl WaveData {
             .get(idx)
             .unwrap_or_else(|| self.drawing_infos.last().unwrap())
             .top();
-        self.scroll_offset = item_y - first_element_y;
+        // only scroll if new location is outside of visible area
+        if self.scroll_offset > self.total_height {
+            self.scroll_offset = item_y - first_element_y;
+        }
     }
 
     /// Set cursor at next (or previous, if `next` is false) transition of `variable`. If `skip_zero` is true,

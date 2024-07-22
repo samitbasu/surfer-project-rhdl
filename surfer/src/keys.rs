@@ -63,16 +63,19 @@ impl State {
                             }
                         }
                     }
-                    (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                    (Key::Escape, true, true, false) => {
-                        msgs.push(Message::ShowCommandPrompt(false))
+                    (Key::Space, true, false, false) => {
+                        msgs.push(Message::ShowCommandPrompt(Some("".to_string())))
                     }
+                    (Key::Escape, true, true, false) => msgs.push(Message::ShowCommandPrompt(None)),
                     (Key::G, true, true, false) => {
                         if modifiers.command {
-                            msgs.push(Message::ShowCommandPrompt(false))
+                            msgs.push(Message::ShowCommandPrompt(None))
                         }
                     }
-                    (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
+                    (Key::Escape, true, false, false) => {
+                        msgs.push(Message::InvalidateCount);
+                        msgs.push(Message::ItemSelectionClear);
+                    }
                     (Key::Escape, true, _, true) => msgs.push(Message::SetFilterFocused(false)),
                     (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
@@ -85,10 +88,13 @@ impl State {
                             msgs.push(Message::Undo(self.get_count()));
                         }
                     }
+                    (Key::F, true, false, false) => {
+                        msgs.push(Message::ShowCommandPrompt(Some("item_focus ".to_string())))
+                    }
                     (Key::S, true, false, false) => {
                         msgs.push(Message::GoToStart { viewport_idx: 0 })
                     }
-                    (Key::A, true, false, false) => msgs.push(Message::ToggleFocusedItemSelected),
+                    (Key::A, true, false, false) => msgs.push(Message::ToggleItemSelected(None)),
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd { viewport_idx: 0 }),
                     (Key::R, true, false, false) => msgs.push(Message::ReloadWaveform(
                         self.config.behavior.keep_during_reload,
@@ -163,7 +169,11 @@ impl State {
                     }
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Down,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
@@ -173,7 +183,11 @@ impl State {
                     }
                     (Key::K, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Up,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
@@ -183,7 +197,11 @@ impl State {
                     }
                     (Key::ArrowDown, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Down,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
@@ -193,7 +211,11 @@ impl State {
                     }
                     (Key::ArrowUp, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Up,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
