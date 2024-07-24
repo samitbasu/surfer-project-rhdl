@@ -235,7 +235,7 @@ impl State {
         if filter.is_empty() {
             waves
                 .inner
-                .to_waves()
+                .as_waves()
                 .unwrap()
                 .variables_in_scope(scope)
                 .iter()
@@ -245,7 +245,7 @@ impl State {
         } else {
             self.variable_name_filter_type
                 .matching_variables(
-                    &waves.inner.to_waves().unwrap().variables_in_scope(scope),
+                    &waves.inner.as_waves().unwrap().variables_in_scope(scope),
                     filter,
                     self.variable_name_filter_case_insensitive,
                 )

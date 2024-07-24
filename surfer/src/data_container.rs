@@ -3,9 +3,7 @@ use crate::transaction_container::{StreamScopeRef, TransactionContainer, Transac
 use crate::wave_container::{MetaData, SimulationStatus, VariableRef, WaveContainer};
 use crate::wave_data::ScopeType;
 use crate::wave_data::ScopeType::{StreamScope, WaveScope};
-use ftr_parser::types::AttributeType::NONE;
 use num::BigUint;
-use std::ops::Not;
 
 pub enum DataContainer {
     Waves(WaveContainer),
@@ -32,7 +30,7 @@ impl DataContainer {
     pub fn __new_empty() -> Self {
         DataContainer::Empty
     }
-    pub fn to_waves(&self) -> Option<&WaveContainer> {
+    pub fn as_waves(&self) -> Option<&WaveContainer> {
         match self {
             DataContainer::Waves(w) => Some(w),
             DataContainer::Transactions(_) => None,
@@ -40,7 +38,7 @@ impl DataContainer {
         }
     }
 
-    pub fn to_waves_mut(&mut self) -> Option<&mut WaveContainer> {
+    pub fn as_waves_mut(&mut self) -> Option<&mut WaveContainer> {
         match self {
             DataContainer::Waves(w) => Some(w),
             DataContainer::Transactions(_) => None,
@@ -48,7 +46,7 @@ impl DataContainer {
         }
     }
 
-    pub fn to_transactions(&self) -> Option<&TransactionContainer> {
+    pub fn as_transactions(&self) -> Option<&TransactionContainer> {
         match self {
             DataContainer::Waves(_) => None,
             DataContainer::Transactions(t) => Some(t),
@@ -56,7 +54,7 @@ impl DataContainer {
         }
     }
 
-    pub fn to_transactions_mut(&mut self) -> Option<&mut TransactionContainer> {
+    pub fn as_transactions_mut(&mut self) -> Option<&mut TransactionContainer> {
         match self {
             DataContainer::Waves(_) => None,
             DataContainer::Transactions(t) => Some(t),
@@ -73,10 +71,10 @@ impl DataContainer {
     }
 
     pub fn is_transactions(&self) -> bool {
-        if let DataContainer::Empty = self {
-            false
-        } else {
-            self.is_waves().not()
+        match self {
+            DataContainer::Waves(_) => false,
+            DataContainer::Transactions(_) => true,
+            DataContainer::Empty => false,
         }
     }
 

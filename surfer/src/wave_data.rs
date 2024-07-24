@@ -196,7 +196,7 @@ impl WaveData {
     ) -> Option<LoadSignalsCmd> {
         self.displayed_items_order = order;
         self.displayed_items = self.update_displayed_items(
-            self.inner.to_waves().unwrap(),
+            self.inner.as_waves().unwrap(),
             new_items,
             true,
             translators,
@@ -223,7 +223,7 @@ impl WaveData {
 
             let meta = self
                 .inner
-                .to_waves()
+                .as_waves()
                 .unwrap()
                 .variable_meta(&displayed_variable.variable_ref.clone())
                 .unwrap();
@@ -251,7 +251,7 @@ impl WaveData {
             _ => None,
         });
         self.inner
-            .to_waves_mut()
+            .as_waves_mut()
             .unwrap()
             .load_variables(variables)
             .expect("internal error: failed to load variables")
@@ -358,7 +358,7 @@ impl WaveData {
             translators,
             || {
                 self.inner
-                    .to_waves()
+                    .as_waves()
                     .unwrap()
                     .variable_meta(&displayed_variable.variable_ref)
             },
@@ -373,7 +373,7 @@ impl WaveData {
         // load variables from waveform
         let res = match self
             .inner
-            .to_waves_mut()
+            .as_waves_mut()
             .unwrap()
             .load_variables(variables.iter())
         {
@@ -388,7 +388,7 @@ impl WaveData {
         for variable in variables.into_iter() {
             let Ok(meta) = self
                 .inner
-                .to_waves()
+                .as_waves()
                 .unwrap()
                 .variable_meta(&variable)
                 .context("When adding variable")
@@ -599,7 +599,7 @@ impl WaveData {
                     .get(vidx)
                     .and_then(|id| self.displayed_items.get(id))
                 {
-                    if let Ok(Some(res)) = self.inner.to_waves().unwrap().query_variable(
+                    if let Ok(Some(res)) = self.inner.as_waves().unwrap().query_variable(
                         &variable.variable_ref,
                         &cursor.to_biguint().unwrap_or_default(),
                     ) {
@@ -619,7 +619,7 @@ impl WaveData {
                             if stime == *cursor && *cursor >= bigone {
                                 // If so, subtract cursor position by one
                                 if let Ok(Some(newres)) =
-                                    self.inner.to_waves().unwrap().query_variable(
+                                    self.inner.as_waves().unwrap().query_variable(
                                         &variable.variable_ref,
                                         &(cursor - bigone).to_biguint().unwrap_or_default(),
                                     )
@@ -638,7 +638,7 @@ impl WaveData {
                             // check if the next transition is 0, if so and requested, go to
                             // next positive transition
                             if let Some(time) = &self.cursor {
-                                let next_value = self.inner.to_waves().unwrap().query_variable(
+                                let next_value = self.inner.as_waves().unwrap().query_variable(
                                     &variable.variable_ref,
                                     &time.to_biguint().unwrap_or_default(),
                                 );

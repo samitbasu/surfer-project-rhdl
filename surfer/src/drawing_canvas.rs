@@ -102,7 +102,7 @@ fn variable_draw_commands(
 
     let meta = match waves
         .inner
-        .to_waves()
+        .as_waves()
         .unwrap()
         .variable_meta(&displayed_variable.variable_ref)
         .context("failed to get variable meta")
@@ -142,7 +142,7 @@ fn variable_draw_commands(
 
         let query_result = waves
             .inner
-            .to_waves()
+            .as_waves()
             .unwrap()
             .query_variable(&displayed_variable.variable_ref, time);
         next_change = match &query_result {
@@ -218,7 +218,7 @@ fn variable_draw_commands(
             // translators
             let anti_alias = &change_time > prev_time
                 && names.is_empty()
-                && waves.inner.to_waves().unwrap().wants_anti_aliasing();
+                && waves.inner.as_waves().unwrap().wants_anti_aliasing();
             let new_value = prev != Some(&value);
 
             // This is not the value we drew last time
@@ -537,7 +537,7 @@ impl State {
                                     {
                                         waves
                                             .inner
-                                            .to_waves()
+                                            .as_waves()
                                             .unwrap()
                                             .variable_meta(&variable.variable_ref)
                                             .ok()
@@ -844,7 +844,7 @@ impl State {
                     if let DisplayedItem::Variable(variable) = &waves.displayed_items[id] {
                         if let Ok(Some(res)) = waves
                             .inner
-                            .to_waves()
+                            .as_waves()
                             .unwrap()
                             .query_variable(&variable.variable_ref, &utimestamp)
                         {

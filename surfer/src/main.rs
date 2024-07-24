@@ -743,7 +743,7 @@ impl State {
                     return;
                 };
 
-                let variables = waves.inner.to_waves().unwrap().variables_in_scope(&scope);
+                let variables = waves.inner.as_waves().unwrap().variables_in_scope(&scope);
                 if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
                     self.load_variables(cmd);
                 }
@@ -1004,7 +1004,7 @@ impl State {
                 if displayed_field_ref.field.is_empty() {
                     let Ok(meta) = waves
                         .inner
-                        .to_waves()
+                        .as_waves()
                         .unwrap()
                         .variable_meta(&displayed_variable.variable_ref)
                         .map_err(|e| warn!("{e:#?}"))
@@ -1198,7 +1198,7 @@ impl State {
                 // add source and time table
                 let maybe_cmd = waves
                     .inner
-                    .to_waves_mut()
+                    .as_waves_mut()
                     .unwrap()
                     .wellen_add_body(body)
                     .unwrap_or_else(|err| {
@@ -1221,7 +1221,7 @@ impl State {
                     .waves
                     .as_mut()
                     .expect("Waves should be loaded at this point!");
-                match waves.inner.to_waves_mut().unwrap().on_signals_loaded(res) {
+                match waves.inner.as_waves_mut().unwrap().on_signals_loaded(res) {
                     Err(err) => error!("{err:?}"),
                     Ok(Some(cmd)) => self.load_variables(cmd),
                     _ => {}
@@ -1535,12 +1535,12 @@ impl State {
             Message::InvalidateDrawCommands => self.invalidate_draw_commands(),
             Message::UnpauseSimulation => {
                 if let Some(waves) = &self.waves {
-                    waves.inner.to_waves().unwrap().unpause_simulation()
+                    waves.inner.as_waves().unwrap().unpause_simulation()
                 }
             }
             Message::PauseSimulation => {
                 if let Some(waves) = &self.waves {
-                    waves.inner.to_waves().unwrap().pause_simulation()
+                    waves.inner.as_waves().unwrap().pause_simulation()
                 }
             }
             Message::Batch(messages) => {

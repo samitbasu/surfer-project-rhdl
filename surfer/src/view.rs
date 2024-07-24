@@ -545,7 +545,7 @@ impl State {
     ) {
         let Some(child_scopes) = wave
             .inner
-            .to_waves()
+            .as_waves()
             .unwrap()
             .child_scopes(scope)
             .context("Failed to get child scopes")
@@ -591,7 +591,7 @@ impl State {
     ) {
         let Some(child_scopes) = wave
             .inner
-            .to_waves()
+            .as_waves()
             .unwrap()
             .child_scopes(root_scope)
             .context("Failed to get child scopes")
@@ -622,7 +622,7 @@ impl State {
         filter: &str,
     ) {
         for variable in self.filtered_variables(wave, filter, scope) {
-            let meta = wave.inner.to_waves().unwrap().variable_meta(&variable).ok();
+            let meta = wave.inner.as_waves().unwrap().variable_meta(&variable).ok();
             let index = meta
                 .as_ref()
                 .and_then(|meta| meta.index.clone())
@@ -808,7 +808,7 @@ impl State {
             );
         })
         .body(|ui| {
-            for (id, stream) in &streams.inner.to_transactions().unwrap().inner.tx_streams {
+            for (id, stream) in &streams.inner.as_transactions().unwrap().inner.tx_streams {
                 let name = stream.name.clone();
                 let response = ui.add(egui::SelectableLabel::new(
                     streams.active_scope.as_ref().is_some_and(|s| {
@@ -1303,11 +1303,11 @@ impl State {
             let variable = &displayed_variable.variable_ref;
             let translator = waves
                 .variable_translator(&displayed_field_ref.without_field(), &self.sys.translators);
-            let meta = waves.inner.to_waves().unwrap().variable_meta(variable);
+            let meta = waves.inner.as_waves().unwrap().variable_meta(variable);
 
             let translation_result = waves
                 .inner
-                .to_waves()
+                .as_waves()
                 .unwrap()
                 .query_variable(variable, ucursor)
                 .ok()
@@ -1386,7 +1386,7 @@ impl State {
 }
 
 fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
-    let meta = wave.inner.to_waves().unwrap().variable_meta(variable).ok();
+    let meta = wave.inner.as_waves().unwrap().variable_meta(variable).ok();
     format!(
         "{}\nNum bits: {}\nType: {}\nDirection: {}",
         variable.full_path_string(),
@@ -1405,7 +1405,7 @@ fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
 }
 
 fn scope_tooltip_text(wave: &WaveData, scope: &ScopeRef) -> String {
-    let other = wave.inner.to_waves().unwrap().get_scope_tooltip_data(scope);
+    let other = wave.inner.as_waves().unwrap().get_scope_tooltip_data(scope);
     if other.is_empty() {
         format!("{scope}")
     } else {
