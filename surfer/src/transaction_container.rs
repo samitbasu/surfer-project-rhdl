@@ -85,6 +85,14 @@ impl TransactionContainer {
             },
         }
     }
+
+    pub fn body_loaded(&self) -> bool {
+        true // for now
+    }
+
+    pub fn is_fully_loaded(&self) -> bool {
+        true // for now
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

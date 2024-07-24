@@ -1900,7 +1900,7 @@ impl State {
     pub fn waves_fully_loaded(&self) -> bool {
         self.waves
             .as_ref()
-            .map(|w| w.inner.to_waves().unwrap().is_fully_loaded())
+            .map(|w| w.inner.is_fully_loaded())
             .unwrap_or(false)
     }
 

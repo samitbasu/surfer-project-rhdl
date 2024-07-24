@@ -1,8 +1,9 @@
 use crate::time::{TimeScale, TimeUnit};
 use crate::transaction_container::{StreamScopeRef, TransactionContainer, TransactionStreamRef};
-use crate::wave_container::{MetaData, VariableRef, WaveContainer};
+use crate::wave_container::{MetaData, SimulationStatus, VariableRef, WaveContainer};
 use crate::wave_data::ScopeType;
 use crate::wave_data::ScopeType::{StreamScope, WaveScope};
+use ftr_parser::types::AttributeType::NONE;
 use num::BigUint;
 use std::ops::Not;
 
@@ -161,6 +162,30 @@ impl DataContainer {
                     multiplier: None,
                 },
             },
+        }
+    }
+
+    pub fn body_loaded(&self) -> bool {
+        match self {
+            DataContainer::Waves(w) => w.body_loaded(),
+            DataContainer::Transactions(t) => t.body_loaded(),
+            DataContainer::Empty => true,
+        }
+    }
+
+    pub fn is_fully_loaded(&self) -> bool {
+        match self {
+            DataContainer::Waves(w) => w.is_fully_loaded(),
+            DataContainer::Transactions(t) => t.is_fully_loaded(),
+            DataContainer::Empty => true,
+        }
+    }
+
+    pub fn simulation_status(&self) -> Option<SimulationStatus> {
+        match self {
+            DataContainer::Waves(w) => w.simulation_status(),
+            DataContainer::Transactions(_) => None,
+            DataContainer::Empty => None,
         }
     }
 }
