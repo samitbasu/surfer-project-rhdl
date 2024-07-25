@@ -275,6 +275,15 @@ impl WaveContainer {
         }
     }
 
+    pub fn no_variables_in_scope(&self, scope: &ScopeRef) -> bool {
+        match self {
+            WaveContainer::Wellen(f) => f.no_variables_in_scope(scope),
+            WaveContainer::Empty => true,
+            #[cfg(not(target_arch = "wasm32"))]
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().no_variables_in_module(scope),
+        }
+    }
+
     /// Loads multiple variables at once. This is useful when we want to add multiple variables in one go.
     pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(
         &mut self,
