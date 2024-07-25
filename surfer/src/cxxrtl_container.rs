@@ -504,6 +504,10 @@ impl CxxrtlContainer {
         self.fetch_items_in_module(module).keys().cloned().collect()
     }
 
+    pub fn no_variables_in_module(&mut self, module: &ScopeRef) -> bool {
+        self.fetch_items_in_module(module).is_empty()
+    }
+
     pub fn variable_meta(&mut self, variable: &VariableRef) -> Result<VariableMeta> {
         Ok(self
             .fetch_item(variable)

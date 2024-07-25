@@ -555,7 +555,9 @@ impl State {
             return;
         };
 
-        if child_scopes.is_empty() && !draw_variables {
+        if child_scopes.is_empty()
+            && (!draw_variables || wave.inner.as_waves().unwrap().no_variables_in_scope(scope))
+        {
             self.add_scope_selectable_label(msgs, wave, scope, ui);
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
