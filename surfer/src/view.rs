@@ -15,6 +15,7 @@ use epaint::{
 use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
+
 use surfer_translation_types::{
     SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
 };
@@ -30,12 +31,14 @@ use crate::help::{
     draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
 };
 use crate::time::time_string;
+use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
 use crate::translation::TranslationResultExt;
 use crate::util::uint_idx_to_alpha_idx;
 use crate::variable_direction::VariableDirectionExt;
 use crate::wave_container::{
     FieldRef, FieldRefExt, ScopeRef, ScopeRefExt, VariableRef, VariableRefExt,
 };
+use crate::wave_data::ScopeType;
 use crate::wave_source::LoadOptions;
 use crate::{
     command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
@@ -488,14 +491,21 @@ impl State {
         filter: &str,
     ) {
         for scope in wave.inner.root_scopes() {
-            self.draw_selectable_child_or_orphan_scope(
-                msgs,
-                wave,
-                &scope,
-                draw_variables,
-                ui,
-                filter,
-            );
+            match scope {
+                ScopeType::WaveScope(scope) => {
+                    self.draw_selectable_child_or_orphan_scope(
+                        msgs,
+                        wave,
+                        &scope,
+                        draw_variables,
+                        ui,
+                        filter,
+                    );
+                }
+                ScopeType::StreamScope(_) => {
+                    self.draw_transaction_root(msgs, wave, ui);
+                }
+            }
         }
         if draw_variables {
             let scope = ScopeRef::empty();
@@ -512,7 +522,7 @@ impl State {
     ) {
         let name = scope.name();
         let mut response = ui.add(egui::SelectableLabel::new(
-            wave.active_scope == Some(scope.clone()),
+            wave.active_scope == Some(ScopeType::WaveScope(scope.clone())),
             name,
         ));
 
@@ -521,7 +531,7 @@ impl State {
         }
         response
             .clicked()
-            .then(|| msgs.push(Message::SetActiveScope(scope.clone())));
+            .then(|| msgs.push(Message::SetActiveScope(ScopeType::WaveScope(scope.clone()))));
     }
 
     fn draw_selectable_child_or_orphan_scope(
@@ -535,6 +545,8 @@ impl State {
     ) {
         let Some(child_scopes) = wave
             .inner
+            .as_waves()
+            .unwrap()
             .child_scopes(scope)
             .context("Failed to get child scopes")
             .map_err(|e| warn!("{e:#?}"))
@@ -579,6 +591,8 @@ impl State {
     ) {
         let Some(child_scopes) = wave
             .inner
+            .as_waves()
+            .unwrap()
             .child_scopes(root_scope)
             .context("Failed to get child scopes")
             .map_err(|e| warn!("{e:#?}"))
@@ -608,7 +622,7 @@ impl State {
         filter: &str,
     ) {
         for variable in self.filtered_variables(wave, filter, scope) {
-            let meta = wave.inner.variable_meta(&variable).ok();
+            let meta = wave.inner.as_waves().unwrap().variable_meta(&variable).ok();
             let index = meta
                 .as_ref()
                 .and_then(|meta| meta.index.clone())
@@ -762,6 +776,58 @@ impl State {
         });
 
         self.waves.as_mut().unwrap().drawing_infos = item_offsets;
+    }
+
+    fn draw_transaction_root(
+        &self,
+        msgs: &mut Vec<Message>,
+        streams: &WaveData,
+        ui: &mut egui::Ui,
+    ) {
+        egui::collapsing_header::CollapsingState::load_with_default_open(
+            ui.ctx(),
+            egui::Id::from("Streams"),
+            false,
+        )
+        .show_header(ui, |ui| {
+            ui.with_layout(
+                Layout::top_down(Align::LEFT).with_cross_justify(true),
+                |ui| {
+                    let root_name = String::from("tr");
+                    let response = ui.add(egui::SelectableLabel::new(
+                        streams.active_scope == Some(ScopeType::StreamScope(StreamScopeRef::Root)),
+                        root_name,
+                    ));
+
+                    response.clicked().then(|| {
+                        msgs.push(Message::SetActiveScope(ScopeType::StreamScope(
+                            StreamScopeRef::Root,
+                        )))
+                    });
+                },
+            );
+        })
+        .body(|ui| {
+            for (id, stream) in &streams.inner.as_transactions().unwrap().inner.tx_streams {
+                let name = stream.name.clone();
+                let response = ui.add(egui::SelectableLabel::new(
+                    streams.active_scope.as_ref().is_some_and(|s| {
+                        if let ScopeType::StreamScope(StreamScopeRef::Stream(scope_stream)) = s {
+                            scope_stream.stream_id == *id
+                        } else {
+                            false
+                        }
+                    }),
+                    name.clone(),
+                ));
+
+                response.clicked().then(|| {
+                    msgs.push(Message::SetActiveScope(ScopeType::StreamScope(
+                        StreamScopeRef::Stream(TransactionStreamRef::new_stream(*id, name)),
+                    )))
+                });
+            }
+        });
     }
 
     fn get_name_alignment(&self) -> Align {
@@ -1237,10 +1303,12 @@ impl State {
             let variable = &displayed_variable.variable_ref;
             let translator = waves
                 .variable_translator(&displayed_field_ref.without_field(), &self.sys.translators);
-            let meta = waves.inner.variable_meta(variable);
+            let meta = waves.inner.as_waves().unwrap().variable_meta(variable);
 
             let translation_result = waves
                 .inner
+                .as_waves()
+                .unwrap()
                 .query_variable(variable, ucursor)
                 .ok()
                 .flatten()
@@ -1318,7 +1386,7 @@ impl State {
 }
 
 fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
-    let meta = wave.inner.variable_meta(variable).ok();
+    let meta = wave.inner.as_waves().unwrap().variable_meta(variable).ok();
     format!(
         "{}\nNum bits: {}\nType: {}\nDirection: {}",
         variable.full_path_string(),
@@ -1337,7 +1405,7 @@ fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
 }
 
 fn scope_tooltip_text(wave: &WaveData, scope: &ScopeRef) -> String {
-    let other = wave.inner.get_scope_tooltip_data(scope);
+    let other = wave.inner.as_waves().unwrap().get_scope_tooltip_data(scope);
     if other.is_empty() {
         format!("{scope}")
     } else {

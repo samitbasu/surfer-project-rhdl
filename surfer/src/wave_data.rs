@@ -7,10 +7,12 @@ use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::{TranslationPreference, Translator, VariableValue};
 
+use crate::data_container::DataContainer;
 use crate::displayed_item::{
     DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
     DisplayedTimeLine, DisplayedVariable,
 };
+use crate::transaction_container::StreamScopeRef;
 use crate::translation::{DynTranslator, TranslatorList, VariableInfoExt};
 use crate::variable_name_type::VariableNameType;
 use crate::view::ItemDrawingInfo;
@@ -18,17 +20,33 @@ use crate::viewport::Viewport;
 use crate::wave_container::{ScopeRef, VariableMeta, VariableRef, VariableRefExt, WaveContainer};
 use crate::wave_source::{WaveFormat, WaveSource};
 use crate::wellen::LoadSignalsCmd;
+use std::fmt::Formatter;
 
 pub const PER_SCROLL_EVENT: f32 = 50.0;
 pub const SCROLL_EVENTS_PER_PAGE: f32 = 20.0;
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ScopeType {
+    WaveScope(ScopeRef),
+    StreamScope(StreamScopeRef),
+}
+
+impl std::fmt::Display for ScopeType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScopeType::WaveScope(w) => w.fmt(f),
+            ScopeType::StreamScope(s) => s.fmt(f),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct WaveData {
-    #[serde(skip, default = "WaveContainer::__new_empty")]
-    pub inner: WaveContainer,
+    #[serde(skip, default = "DataContainer::__new_empty")]
+    pub inner: DataContainer,
     pub source: WaveSource,
     pub format: WaveFormat,
-    pub active_scope: Option<ScopeRef>,
+    pub active_scope: Option<ScopeType>,
     /// Root items (variables, dividers, ...) to display
     pub displayed_items_order: Vec<DisplayedItemRef>,
     pub displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
@@ -128,10 +146,13 @@ impl WaveData {
         translators: &TranslatorList,
         keep_unavailable: bool,
     ) -> (WaveData, Option<LoadSignalsCmd>) {
-        let active_scope = self
-            .active_scope
-            .take()
-            .filter(|m| new_waves.scope_exists(m));
+        let active_scope = self.active_scope.take().filter(|m| {
+            if let ScopeType::WaveScope(w) = m {
+                new_waves.scope_exists(w)
+            } else {
+                false
+            }
+        });
         let display_items = self.update_displayed_items(
             &new_waves,
             &self.displayed_items,
@@ -141,7 +162,7 @@ impl WaveData {
 
         let old_num_timestamps = Some(self.num_timestamps());
         let mut new_wavedata = WaveData {
-            inner: *new_waves,
+            inner: DataContainer::Waves(*new_waves),
             source,
             format,
             active_scope,
@@ -174,8 +195,12 @@ impl WaveData {
         translators: &TranslatorList,
     ) -> Option<LoadSignalsCmd> {
         self.displayed_items_order = order;
-        self.displayed_items =
-            self.update_displayed_items(&self.inner, new_items, true, translators);
+        self.displayed_items = self.update_displayed_items(
+            self.inner.as_waves().unwrap(),
+            new_items,
+            true,
+            translators,
+        );
         self.display_item_ref_counter = self
             .displayed_items
             .keys()
@@ -198,6 +223,8 @@ impl WaveData {
 
             let meta = self
                 .inner
+                .as_waves()
+                .unwrap()
                 .variable_meta(&displayed_variable.variable_ref.clone())
                 .unwrap();
             let translator =
@@ -224,6 +251,8 @@ impl WaveData {
             _ => None,
         });
         self.inner
+            .as_waves_mut()
+            .unwrap()
             .load_variables(variables)
             .expect("internal error: failed to load variables")
     }
@@ -327,7 +356,12 @@ impl WaveData {
             displayed_variable.get_format(&field.field),
             &field.field,
             translators,
-            || self.inner.variable_meta(&displayed_variable.variable_ref),
+            || {
+                self.inner
+                    .as_waves()
+                    .unwrap()
+                    .variable_meta(&displayed_variable.variable_ref)
+            },
         )
     }
 
@@ -337,7 +371,12 @@ impl WaveData {
         variables: Vec<VariableRef>,
     ) -> Option<LoadSignalsCmd> {
         // load variables from waveform
-        let res = match self.inner.load_variables(variables.iter()) {
+        let res = match self
+            .inner
+            .as_waves_mut()
+            .unwrap()
+            .load_variables(variables.iter())
+        {
             Err(e) => {
                 error!("{e:#?}");
                 return None;
@@ -349,6 +388,8 @@ impl WaveData {
         for variable in variables.into_iter() {
             let Ok(meta) = self
                 .inner
+                .as_waves()
+                .unwrap()
                 .variable_meta(&variable)
                 .context("When adding variable")
                 .map_err(|e| error!("{e:#?}"))
@@ -558,7 +599,7 @@ impl WaveData {
                     .get(vidx)
                     .and_then(|id| self.displayed_items.get(id))
                 {
-                    if let Ok(Some(res)) = self.inner.query_variable(
+                    if let Ok(Some(res)) = self.inner.as_waves().unwrap().query_variable(
                         &variable.variable_ref,
                         &cursor.to_biguint().unwrap_or_default(),
                     ) {
@@ -577,10 +618,12 @@ impl WaveData {
                             // Check if we are on a transition
                             if stime == *cursor && *cursor >= bigone {
                                 // If so, subtract cursor position by one
-                                if let Ok(Some(newres)) = self.inner.query_variable(
-                                    &variable.variable_ref,
-                                    &(cursor - bigone).to_biguint().unwrap_or_default(),
-                                ) {
+                                if let Ok(Some(newres)) =
+                                    self.inner.as_waves().unwrap().query_variable(
+                                        &variable.variable_ref,
+                                        &(cursor - bigone).to_biguint().unwrap_or_default(),
+                                    )
+                                {
                                     if let Some(newstime) = newres.current.unwrap().0.to_bigint() {
                                         self.cursor = Some(newstime);
                                     }
@@ -595,7 +638,7 @@ impl WaveData {
                             // check if the next transition is 0, if so and requested, go to
                             // next positive transition
                             if let Some(time) = &self.cursor {
-                                let next_value = self.inner.query_variable(
+                                let next_value = self.inner.as_waves().unwrap().query_variable(
                                     &variable.variable_ref,
                                     &time.to_biguint().unwrap_or_default(),
                                 );

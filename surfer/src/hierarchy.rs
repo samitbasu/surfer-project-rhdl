@@ -1,6 +1,7 @@
 //! Functions for drawing the left hand panel showing scopes and variables.
 use crate::message::Message;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
+use crate::wave_data::ScopeType;
 use crate::State;
 use egui::{Frame, Layout, Margin, ScrollArea, TextWrapMode, Ui};
 use emath::Align;
@@ -46,10 +47,15 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                         .id_source("variables")
                         .show(ui, |ui| {
                             if let Some(waves) = &state.waves {
-                                let empty_scope = ScopeRef::empty();
+                                let empty_scope = ScopeType::WaveScope(ScopeRef::empty());
                                 let active_scope =
                                     waves.active_scope.as_ref().unwrap_or(&empty_scope);
-                                state.draw_variable_list(msgs, waves, ui, active_scope, filter);
+                                match active_scope {
+                                    ScopeType::WaveScope(w) => {
+                                        state.draw_variable_list(msgs, waves, ui, w, filter)
+                                    }
+                                    ScopeType::StreamScope(_s) => {}
+                                }
                             }
                         });
                 });
