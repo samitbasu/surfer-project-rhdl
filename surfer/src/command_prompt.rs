@@ -14,6 +14,7 @@ use itertools::Itertools;
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
 use crate::displayed_item::DisplayedItemIndex;
 use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt};
+use crate::wave_data::ScopeType;
 use crate::wave_source::LoadOptions;
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -304,7 +305,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     scopes.clone(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SetActiveScope(
-                            ScopeRef::from_hierarchy_string(word),
+                            ScopeType::WaveScope(ScopeRef::from_hierarchy_string(word)),
                         )))
                     }),
                 ),
@@ -324,14 +325,19 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "variable_add_from_scope" => single_word(
                     variables_in_active_scope
                         .into_iter()
-                        .map(|s| s.name)
+                        .map(|s| s.name())
                         .collect(),
                     Box::new(move |name| {
-                        active_scope.as_ref().map(|scope| {
-                            Command::Terminal(Message::AddVariables(vec![VariableRef::new(
-                                scope.clone(),
-                                name.to_string(),
-                            )]))
+                        active_scope.as_ref().map(|scope| match scope {
+                            ScopeType::WaveScope(w) => Command::Terminal(Message::AddVariables(
+                                vec![VariableRef::new(w.clone(), name.to_string())],
+                            )),
+                            ScopeType::StreamScope(stream_scope) => {
+                                Command::Terminal(Message::AddStreamOrGeneratorFromName(
+                                    stream_scope.clone(),
+                                    name.to_string(),
+                                ))
+                            }
                         })
                     }),
                 ),

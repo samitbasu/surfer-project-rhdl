@@ -31,6 +31,7 @@ enum-iterator = "2.0"
 epaint = "0.28.1"
 f128 = { path = "../f128", optional = true }
 fern.workspace = true
+ftr_parser = { path = "../ftr_parser" }
 futures-core = "0.3.29"
 futures-util = "0.3.29"
 fuzzy-matcher = "0.3.7"

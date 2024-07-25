@@ -20,12 +20,13 @@ use crate::config::SurferTheme;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef, DisplayedVariable,
 };
+use crate::transaction_container::TransactionStreamRef;
 use crate::translation::{TranslationResultExt, TranslatorList, ValueKindExt, VariableInfoExt};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::viewport::Viewport;
 use crate::wave_container::{QueryResult, VariableRefExt};
 use crate::wave_data::WaveData;
-use crate::{displayed_item::DisplayedItem, CachedDrawData, Message, State};
+use crate::{displayed_item::DisplayedItem, CachedDrawData, CachedWaveDrawData, Message, State};
 
 pub struct DrawnRegion {
     inner: Option<TranslatedValue>,
@@ -73,6 +74,13 @@ impl DrawingCommands {
     }
 }
 
+#[allow(dead_code)]
+pub struct TxDrawingCommands {
+    min: Pos2,
+    max: Pos2,
+    gen_id: TransactionStreamRef,
+}
+
 struct VariableDrawCommands {
     clock_edges: Vec<f32>,
     display_id: DisplayedItemRef,
@@ -94,6 +102,8 @@ fn variable_draw_commands(
 
     let meta = match waves
         .inner
+        .as_waves()
+        .unwrap()
         .variable_meta(&displayed_variable.variable_ref)
         .context("failed to get variable meta")
     {
@@ -132,6 +142,8 @@ fn variable_draw_commands(
 
         let query_result = waves
             .inner
+            .as_waves()
+            .unwrap()
             .query_variable(&displayed_variable.variable_ref, time);
         next_change = match &query_result {
             Ok(Some(QueryResult {
@@ -204,8 +216,9 @@ fn variable_draw_commands(
             // only want to do this for root variables, because resolving when a
             // sub-field change is tricky without more information from the
             // translators
-            let anti_alias =
-                &change_time > prev_time && names.is_empty() && waves.inner.wants_anti_aliasing();
+            let anti_alias = &change_time > prev_time
+                && names.is_empty()
+                && waves.inner.as_waves().unwrap().wants_anti_aliasing();
             let new_value = prev != Some(&value);
 
             // This is not the value we drew last time
@@ -339,11 +352,12 @@ impl State {
                 &self.config,
             );
 
-            self.sys.draw_data.borrow_mut()[viewport_idx] = Some(CachedDrawData {
-                draw_commands,
-                clock_edges,
-                ticks,
-            });
+            self.sys.draw_data.borrow_mut()[viewport_idx] =
+                Some(CachedDrawData::WaveDrawData(CachedWaveDrawData {
+                    draw_commands,
+                    clock_edges,
+                    ticks,
+                }));
         }
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Generate draw commands");
@@ -456,133 +470,141 @@ impl State {
 
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Wave drawing");
-        if let Some(draw_data) = &self.sys.draw_data.borrow()[viewport_idx] {
-            let clock_edges = &draw_data.clock_edges;
-            let draw_commands = &draw_data.draw_commands;
-            let draw_clock_edges = match clock_edges.as_slice() {
-                [] => false,
-                [_single] => true,
-                [first, second, ..] => second - first > 20.,
-            };
-            let draw_clock_rising_marker =
-                draw_clock_edges && self.config.theme.clock_rising_marker;
-            let ticks = &draw_data.ticks;
-            if !ticks.is_empty() && self.show_ticks() {
-                let stroke = Stroke {
-                    color: self.config.ticks.style.color,
-                    width: self.config.ticks.style.width,
+
+        match &self.sys.draw_data.borrow()[viewport_idx] {
+            Some(CachedDrawData::WaveDrawData(draw_data)) => {
+                let clock_edges = &draw_data.clock_edges;
+                let draw_commands = &draw_data.draw_commands;
+                let draw_clock_edges = match clock_edges.as_slice() {
+                    [] => false,
+                    [_single] => true,
+                    [first, second, ..] => second - first > 20.,
                 };
+                let draw_clock_rising_marker =
+                    draw_clock_edges && self.config.theme.clock_rising_marker;
+                let ticks = &draw_data.ticks;
+                if !ticks.is_empty() && self.show_ticks() {
+                    let stroke = Stroke {
+                        color: self.config.ticks.style.color,
+                        width: self.config.ticks.style.width,
+                    };
 
-                for (_, x) in ticks {
-                    waves.draw_tick_line(*x, &mut ctx, &stroke)
-                }
-            }
-
-            if draw_clock_edges {
-                let mut last_edge = 0.0;
-                let mut cycle = false;
-                for current_edge in clock_edges {
-                    draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx, &self.config);
-                    cycle = !cycle;
-                    last_edge = *current_edge;
-                }
-            }
-            let zero_y = to_screen.transform_pos(Pos2::ZERO).y;
-            for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
-                // We draw in absolute coords, but the variable offset in the y
-                // direction is also in absolute coordinates, so we need to
-                // compensate for that
-                let y_offset = drawing_info.top() - zero_y;
-
-                let displayed_item = waves
-                    .displayed_items_order
-                    .get(drawing_info.item_list_idx())
-                    .and_then(|id| waves.displayed_items.get(id));
-                let color = displayed_item
-                    .and_then(|variable| variable.color())
-                    .and_then(|color| self.config.theme.get_color(&color));
-
-                match drawing_info {
-                    ItemDrawingInfo::Variable(variable_info) => {
-                        if let Some(commands) =
-                            draw_commands.get(&variable_info.displayed_field_ref)
-                        {
-                            // Get background color and determine best text color
-                            let background_color = self.get_background_color(
-                                waves,
-                                drawing_info,
-                                DisplayedItemIndex(idx),
-                            );
-                            let text_color =
-                                self.config.theme.get_best_text_color(&background_color);
-
-                            let color = *color.unwrap_or_else(|| {
-                                if let Some(DisplayedItem::Variable(variable)) = displayed_item {
-                                    waves
-                                        .inner
-                                        .variable_meta(&variable.variable_ref)
-                                        .ok()
-                                        .and_then(|meta| meta.variable_type)
-                                        .and_then(|var_type| {
-                                            if var_type == VariableType::VCDParameter {
-                                                Some(&self.config.theme.variable_parameter)
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                        .unwrap_or(&self.config.theme.variable_default)
-                                } else {
-                                    &self.config.theme.variable_default
-                                }
-                            });
-                            for (old, new) in
-                                commands.values.iter().zip(commands.values.iter().skip(1))
-                            {
-                                if commands.is_bool {
-                                    self.draw_bool_transition(
-                                        (old, new),
-                                        new.1.force_anti_alias,
-                                        color,
-                                        y_offset,
-                                        commands.is_clock && draw_clock_rising_marker,
-                                        &mut ctx,
-                                    )
-                                } else {
-                                    self.draw_region(
-                                        (old, new),
-                                        color,
-                                        y_offset,
-                                        &mut ctx,
-                                        *text_color,
-                                    )
-                                }
-                            }
-                        }
+                    for (_, x) in ticks {
+                        waves.draw_tick_line(*x, &mut ctx, &stroke)
                     }
-                    ItemDrawingInfo::Divider(_) => {}
-                    ItemDrawingInfo::Marker(_) => {}
-                    ItemDrawingInfo::TimeLine(_) => {
-                        let text_color = color.unwrap_or(
-                            // Get background color and determine best text color
-                            self.config
-                                .theme
-                                .get_best_text_color(&self.get_background_color(
+                }
+
+                if draw_clock_edges {
+                    let mut last_edge = 0.0;
+                    let mut cycle = false;
+                    for current_edge in clock_edges {
+                        draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx, &self.config);
+                        cycle = !cycle;
+                        last_edge = *current_edge;
+                    }
+                }
+                let zero_y = to_screen.transform_pos(Pos2::ZERO).y;
+                for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
+                    // We draw in absolute coords, but the variable offset in the y
+                    // direction is also in absolute coordinates, so we need to
+                    // compensate for that
+                    let y_offset = drawing_info.top() - zero_y;
+
+                    let displayed_item = waves
+                        .displayed_items_order
+                        .get(drawing_info.item_list_idx())
+                        .and_then(|id| waves.displayed_items.get(id));
+                    let color = displayed_item
+                        .and_then(|variable| variable.color())
+                        .and_then(|color| self.config.theme.get_color(&color));
+
+                    match drawing_info {
+                        ItemDrawingInfo::Variable(variable_info) => {
+                            if let Some(commands) =
+                                draw_commands.get(&variable_info.displayed_field_ref)
+                            {
+                                // Get background color and determine best text color
+                                let background_color = self.get_background_color(
                                     waves,
                                     drawing_info,
                                     DisplayedItemIndex(idx),
-                                )),
-                        );
-                        waves.draw_ticks(
-                            Some(text_color),
-                            ticks,
-                            &ctx,
-                            y_offset,
-                            Align2::CENTER_TOP,
-                            &self.config,
-                        );
+                                );
+                                let text_color =
+                                    self.config.theme.get_best_text_color(&background_color);
+
+                                let color = *color.unwrap_or_else(|| {
+                                    if let Some(DisplayedItem::Variable(variable)) = displayed_item
+                                    {
+                                        waves
+                                            .inner
+                                            .as_waves()
+                                            .unwrap()
+                                            .variable_meta(&variable.variable_ref)
+                                            .ok()
+                                            .and_then(|meta| meta.variable_type)
+                                            .and_then(|var_type| {
+                                                if var_type == VariableType::VCDParameter {
+                                                    Some(&self.config.theme.variable_parameter)
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                            .unwrap_or(&self.config.theme.variable_default)
+                                    } else {
+                                        &self.config.theme.variable_default
+                                    }
+                                });
+                                for (old, new) in
+                                    commands.values.iter().zip(commands.values.iter().skip(1))
+                                {
+                                    if commands.is_bool {
+                                        self.draw_bool_transition(
+                                            (old, new),
+                                            new.1.force_anti_alias,
+                                            color,
+                                            y_offset,
+                                            commands.is_clock && draw_clock_rising_marker,
+                                            &mut ctx,
+                                        )
+                                    } else {
+                                        self.draw_region(
+                                            (old, new),
+                                            color,
+                                            y_offset,
+                                            &mut ctx,
+                                            *text_color,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        ItemDrawingInfo::Divider(_) => {}
+                        ItemDrawingInfo::Marker(_) => {}
+                        ItemDrawingInfo::TimeLine(_) => {
+                            let text_color = color.unwrap_or(
+                                // Get background color and determine best text color
+                                self.config
+                                    .theme
+                                    .get_best_text_color(&self.get_background_color(
+                                        waves,
+                                        drawing_info,
+                                        DisplayedItemIndex(idx),
+                                    )),
+                            );
+                            waves.draw_ticks(
+                                Some(text_color),
+                                ticks,
+                                &ctx,
+                                y_offset,
+                                Align2::CENTER_TOP,
+                                &self.config,
+                            );
+                        }
                     }
                 }
             }
+            Some(CachedDrawData::TransactionDrawData(_draw_data)) => {}
+            None => {}
         }
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Wave drawing");
@@ -822,6 +844,8 @@ impl State {
                     if let DisplayedItem::Variable(variable) = &waves.displayed_items[id] {
                         if let Ok(Some(res)) = waves
                             .inner
+                            .as_waves()
+                            .unwrap()
                             .query_variable(&variable.variable_ref, &utimestamp)
                         {
                             let prev_time = if let Some(v) = res.current {
