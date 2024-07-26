@@ -22,7 +22,6 @@ use surfer_translation_types::{
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
-use crate::config::SurferTheme;
 use crate::displayed_item::{
     draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
 };
@@ -44,6 +43,7 @@ use crate::{
     command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
     Message, MoveDir, State,
 };
+use crate::{config::SurferTheme, wave_container::VariableMeta};
 
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
@@ -662,8 +662,9 @@ impl State {
                 |ui| {
                     let mut response = ui.add(egui::SelectableLabel::new(false, variable_name));
                     if self.show_tooltip() {
-                        response = response
-                            .on_hover_text(variable_tooltip_text(wave_container, &variable));
+                        // Should be possible to reuse the meta from above?
+                        let meta = wave_container.variable_meta(&variable).ok();
+                        response = response.on_hover_text(variable_tooltip_text(&meta, &variable));
                     }
                     response
                         .clicked()
@@ -890,7 +891,8 @@ impl State {
                 let tooltip = if let Some(waves) = &self.waves {
                     if field.field.is_empty() {
                         let wave_container = waves.inner.as_waves().unwrap();
-                        variable_tooltip_text(wave_container, &field.root)
+                        let meta = wave_container.variable_meta(&field.root).ok();
+                        variable_tooltip_text(&meta, &field.root)
                     } else {
                         "From translator".to_string()
                     }
@@ -1391,8 +1393,7 @@ impl State {
     }
 }
 
-fn variable_tooltip_text(wave_container: &WaveContainer, variable: &VariableRef) -> String {
-    let meta = wave_container.variable_meta(variable).ok();
+fn variable_tooltip_text(meta: &Option<VariableMeta>, variable: &VariableRef) -> String {
     format!(
         "{}\nNum bits: {}\nType: {}\nDirection: {}",
         variable.full_path_string(),
@@ -1404,7 +1405,8 @@ fn variable_tooltip_text(wave_container: &WaveContainer, variable: &VariableRef)
             .and_then(|meta| meta.variable_type)
             .map(|variable_type| format!("{variable_type}"))
             .unwrap_or_else(|| "unknown".to_string()),
-        meta.and_then(|meta| meta.direction)
+        meta.as_ref()
+            .and_then(|meta| meta.direction)
             .map(|direction| format!("{direction}"))
             .unwrap_or_else(|| "unknown".to_string())
     )
