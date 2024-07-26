@@ -52,7 +52,15 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                                     waves.active_scope.as_ref().unwrap_or(&empty_scope);
                                 match active_scope {
                                     ScopeType::WaveScope(w) => {
-                                        state.draw_variable_list(msgs, waves, ui, w, filter)
+                                        let wave_container = waves.inner.as_waves().unwrap();
+                                        let variables = wave_container.variables_in_scope(w);
+                                        state.draw_variable_list(
+                                            msgs,
+                                            wave_container,
+                                            ui,
+                                            &variables,
+                                            filter,
+                                        )
                                     }
                                     ScopeType::StreamScope(_s) => {}
                                 }

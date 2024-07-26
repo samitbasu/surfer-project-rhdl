@@ -145,7 +145,7 @@ pub enum VariableType {
     StdULogicVector,
 }
 
-#[derive(Clone, Display)]
+#[derive(Clone, Display, Copy)]
 pub enum VariableDirection {
     #[display(fmt = "unknown")]
     Unknown,

@@ -11,9 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::data_container::DataContainer::Transactions;
 use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
-use crate::wave_container::ScopeRef;
 use crate::wave_data::ScopeType;
-use crate::{message::Message, wave_container::VariableRef, wave_data::WaveData, State};
+use crate::{message::Message, wave_container::VariableRef, State};
 
 #[derive(Debug, Display, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum VariableNameFilterType {
@@ -136,11 +135,14 @@ impl State {
                         if let Some(active_scope) = waves.active_scope.as_ref() {
                             match active_scope {
                                 ScopeType::WaveScope(active_scope) => {
-                                    msgs.push(Message::AddVariables(self.filtered_variables(
-                                        waves,
-                                        filter,
-                                        active_scope,
-                                    )))
+                                    let variables = waves
+                                        .inner
+                                        .as_waves()
+                                        .unwrap()
+                                        .variables_in_scope(active_scope);
+                                    msgs.push(Message::AddVariables(
+                                        self.filtered_variables(&variables, filter),
+                                    ))
                                 }
                                 ScopeType::StreamScope(active_scope) => {
                                     let Transactions(streams) = &waves.inner else {
@@ -226,18 +228,9 @@ impl State {
         });
     }
 
-    pub fn filtered_variables(
-        &self,
-        waves: &WaveData,
-        filter: &str,
-        scope: &ScopeRef,
-    ) -> Vec<VariableRef> {
+    pub fn filtered_variables(&self, variables: &[VariableRef], filter: &str) -> Vec<VariableRef> {
         if filter.is_empty() {
-            waves
-                .inner
-                .as_waves()
-                .unwrap()
-                .variables_in_scope(scope)
+            variables
                 .iter()
                 .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
                 .cloned()
@@ -245,7 +238,7 @@ impl State {
         } else {
             self.variable_name_filter_type
                 .matching_variables(
-                    &waves.inner.as_waves().unwrap().variables_in_scope(scope),
+                    &variables,
                     filter,
                     self.variable_name_filter_case_insensitive,
                 )
