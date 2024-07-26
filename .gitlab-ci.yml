@@ -144,6 +144,7 @@ coverage:
           fzcmd/**/*
           f128/**/*
           instruction-decoder/**/*
+          ftr_parser/**/*
 
     coverage: '/^\d+.\d+% coverage/'
     artifacts:
