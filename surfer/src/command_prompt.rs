@@ -562,11 +562,12 @@ pub struct CommandPrompt {
     pub suggestions: Vec<(String, Vec<bool>)>,
     pub selected: usize,
     pub new_selection: Option<usize>,
+    pub new_cursor_pos: Option<usize>,
     pub previous_commands: Vec<(String, Vec<bool>)>,
 }
 
 pub fn show_command_prompt(
-    state: &State,
+    state: &mut State,
     ctx: &egui::Context,
     // Window size if known. If unknown defaults to a width of 200pts
     window_size: Option<Vec2>,
@@ -603,6 +604,10 @@ pub fn show_command_prompt(
 
                 if response.ctx.input(|i| i.key_pressed(Key::ArrowUp)) {
                     set_cursor_to_pos(input.chars().count(), ui);
+                }
+                if let Some(new_pos) = state.sys.command_prompt.new_cursor_pos {
+                    set_cursor_to_pos(new_pos, ui);
+                    state.sys.command_prompt.new_cursor_pos = None;
                 }
 
                 let suggestions = state
@@ -669,7 +674,7 @@ pub fn show_command_prompt(
                     );
 
                     if let Ok(cmd) = parsed.1 {
-                        msgs.push(Message::ShowCommandPrompt(false));
+                        msgs.push(Message::ShowCommandPrompt(None));
                         msgs.push(Message::CommandPromptClear);
                         msgs.push(Message::CommandPromptPushPrevious(parsed.0));
                         msgs.push(cmd);
@@ -830,7 +835,7 @@ pub fn show_command_prompt(
                                 );
 
                                 if let Ok(cmd) = result.1 {
-                                    msgs.push(Message::ShowCommandPrompt(false));
+                                    msgs.push(Message::ShowCommandPrompt(None));
                                     msgs.push(Message::CommandPromptClear);
                                     msgs.push(Message::CommandPromptPushPrevious(expanded));
                                     msgs.push(cmd);
