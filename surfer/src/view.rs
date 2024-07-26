@@ -22,7 +22,6 @@ use surfer_translation_types::{
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
-use crate::command_prompt::get_parser;
 use crate::config::SurferTheme;
 use crate::displayed_item::{
     draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
@@ -40,6 +39,7 @@ use crate::wave_container::{
 };
 use crate::wave_data::ScopeType;
 use crate::wave_source::LoadOptions;
+use crate::{command_prompt::get_parser, wave_container::WaveContainer};
 use crate::{
     command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
     Message, MoveDir, State,
@@ -509,8 +509,9 @@ impl State {
         }
         if draw_variables {
             let scope = ScopeRef::empty();
-            let variables = wave.inner.as_waves().unwrap().variables_in_scope(&scope);
-            self.draw_variable_list(msgs, wave, ui, &variables, filter);
+            let wave_container = wave.inner.as_waves().unwrap();
+            let variables = wave_container.variables_in_scope(&scope);
+            self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
         }
     }
 
@@ -577,8 +578,9 @@ impl State {
             .body(|ui| {
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
                 if draw_variables {
-                    let variables = wave.inner.as_waves().unwrap().variables_in_scope(scope);
-                    self.draw_variable_list(msgs, wave, ui, &variables, filter);
+                    let wave_container = wave.inner.as_waves().unwrap();
+                    let variables = wave_container.variables_in_scope(scope);
+                    self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
                 }
             });
         }
@@ -620,13 +622,13 @@ impl State {
     pub fn draw_variable_list(
         &self,
         msgs: &mut Vec<Message>,
-        wave: &WaveData,
+        wave_container: &WaveContainer,
         ui: &mut egui::Ui,
         variables: &[VariableRef],
         filter: &str,
     ) {
         for variable in self.filtered_variables(&variables, filter) {
-            let meta = wave.inner.as_waves().unwrap().variable_meta(&variable).ok();
+            let meta = wave_container.variable_meta(&variable).ok();
             let index = meta
                 .as_ref()
                 .and_then(|meta| meta.index.clone())
@@ -662,7 +664,8 @@ impl State {
                 |ui| {
                     let mut response = ui.add(egui::SelectableLabel::new(false, variable_name));
                     if self.show_tooltip() {
-                        response = response.on_hover_text(variable_tooltip_text(wave, &variable));
+                        response = response
+                            .on_hover_text(variable_tooltip_text(wave_container, &variable));
                     }
                     response
                         .clicked()
@@ -888,7 +891,8 @@ impl State {
             if self.show_tooltip() {
                 let tooltip = if let Some(waves) = &self.waves {
                     if field.field.is_empty() {
-                        variable_tooltip_text(waves, &field.root)
+                        let wave_container = waves.inner.as_waves().unwrap();
+                        variable_tooltip_text(wave_container, &field.root)
                     } else {
                         "From translator".to_string()
                     }
@@ -1389,8 +1393,8 @@ impl State {
     }
 }
 
-fn variable_tooltip_text(wave: &WaveData, variable: &VariableRef) -> String {
-    let meta = wave.inner.as_waves().unwrap().variable_meta(variable).ok();
+fn variable_tooltip_text(wave_container: &WaveContainer, variable: &VariableRef) -> String {
+    let meta = wave_container.variable_meta(variable).ok();
     format!(
         "{}\nNum bits: {}\nType: {}\nDirection: {}",
         variable.full_path_string(),
