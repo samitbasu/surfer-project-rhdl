@@ -509,7 +509,8 @@ impl State {
         }
         if draw_variables {
             let scope = ScopeRef::empty();
-            self.draw_variable_list(msgs, wave, ui, &scope, filter);
+            let variables = wave.inner.as_waves().unwrap().variables_in_scope(&scope);
+            self.draw_variable_list(msgs, wave, ui, &variables, filter);
         }
     }
 
@@ -574,7 +575,8 @@ impl State {
             .body(|ui| {
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
                 if draw_variables {
-                    self.draw_variable_list(msgs, wave, ui, scope, filter);
+                    let variables = wave.inner.as_waves().unwrap().variables_in_scope(scope);
+                    self.draw_variable_list(msgs, wave, ui, &variables, filter);
                 }
             });
         }
@@ -618,10 +620,10 @@ impl State {
         msgs: &mut Vec<Message>,
         wave: &WaveData,
         ui: &mut egui::Ui,
-        scope: &ScopeRef,
+        variables: &[VariableRef],
         filter: &str,
     ) {
-        for variable in self.filtered_variables(wave, filter, scope) {
+        for variable in self.filtered_variables(&variables, filter) {
             let meta = wave.inner.as_waves().unwrap().variable_meta(&variable).ok();
             let index = meta
                 .as_ref()
