@@ -88,6 +88,16 @@ impl State {
                             msgs.push(Message::Undo(self.get_count()));
                         }
                     }
+                    (Key::Z, true, false, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::Undo(self.get_count()));
+                        }
+                    }
+                    (Key::Y, true, false, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::Redo(self.get_count()));
+                        }
+                    }
                     (Key::F, true, false, false) => {
                         msgs.push(Message::ShowCommandPrompt(Some("item_focus ".to_string())))
                     }
