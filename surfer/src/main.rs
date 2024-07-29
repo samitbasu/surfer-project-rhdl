@@ -402,6 +402,7 @@ impl Channels {
 struct CanvasState {
     message: String,
     focused_item: Option<DisplayedItemIndex>,
+    selected_items: HashSet<DisplayedItemRef>,
     displayed_item_order: Vec<DisplayedItemRef>,
     displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
     markers: HashMap<u8, BigInt>,
@@ -475,6 +476,7 @@ impl SystemState {
                 suggestions: vec![],
                 selected: 0,
                 new_selection: None,
+                new_cursor_pos: None,
                 previous_commands: vec![],
             },
             context: None,
@@ -776,6 +778,38 @@ impl State {
                     );
                 }
             }
+            Message::ItemSelectRange(select_to) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+
+                if let Some(select_from) = waves.focused_item {
+                    let range = if select_to.0 > select_from.0 {
+                        select_from.0..=select_to.0
+                    } else {
+                        select_to.0..=select_from.0
+                    };
+                    for idx in range {
+                        if let Some(item_ref) = waves.displayed_items_order.get(idx) {
+                            waves.selected_items.insert(*item_ref);
+                        }
+                    }
+                }
+            }
+            Message::ToggleItemSelected(idx) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+
+                if let Some(focused) = idx.or(waves.focused_item) {
+                    let id = waves.displayed_items_order[focused.0];
+                    if waves.selected_items.contains(&id) {
+                        waves.selected_items.remove(&id);
+                    } else {
+                        waves.selected_items.insert(id);
+                    }
+                }
+            }
             Message::UnfocusItem => {
                 if let Some(waves) = self.waves.as_mut() {
                     waves.focused_item = None;
@@ -799,35 +833,40 @@ impl State {
                     }
                 }
             }
-            Message::MoveFocus(direction, count) => {
+            Message::MoveFocus(direction, count, select) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
                 let visible_items_len = waves.displayed_items.len();
                 if visible_items_len > 0 {
                     self.count = None;
-                    match direction {
-                        MoveDir::Up => {
-                            waves.focused_item = waves
-                                .focused_item
-                                .map(|dii| dii.0)
-                                .map_or(Some(visible_items_len - 1), |focused| {
-                                    Some(focused - count.clamp(0, focused))
-                                })
-                                .map(DisplayedItemIndex)
+                    let new_focus_idx = match direction {
+                        MoveDir::Up => waves
+                            .focused_item
+                            .map(|dii| dii.0)
+                            .map_or(Some(visible_items_len - 1), |focused| {
+                                Some(focused - count.clamp(0, focused))
+                            }),
+                        MoveDir::Down => waves.focused_item.map(|dii| dii.0).map_or(
+                            Some((count - 1).clamp(0, visible_items_len - 1)),
+                            |focused| Some((focused + count).clamp(0, visible_items_len - 1)),
+                        ),
+                    };
+
+                    if let Some(idx) = new_focus_idx {
+                        if select {
+                            if let Some(focused) = waves.focused_item {
+                                if let Some(focused_ref) =
+                                    waves.displayed_items_order.get(focused.0)
+                                {
+                                    waves.selected_items.insert(*focused_ref);
+                                }
+                            }
+                            if let Some(item_ref) = waves.displayed_items_order.get(idx) {
+                                waves.selected_items.insert(*item_ref);
+                            }
                         }
-                        MoveDir::Down => {
-                            waves.focused_item = waves
-                                .focused_item
-                                .map(|dii| dii.0)
-                                .map_or(
-                                    Some((count - 1).clamp(0, visible_items_len - 1)),
-                                    |focused| {
-                                        Some((focused + count).clamp(0, visible_items_len - 1))
-                                    },
-                                )
-                                .map(DisplayedItemIndex);
-                        }
+                        waves.focused_item = Some(DisplayedItemIndex::from(idx));
                     }
                 }
             }
@@ -861,8 +900,8 @@ impl State {
                     }
                 }
             }
-            Message::RemoveItem(idx, count) => {
-                let name = self
+            Message::RemoveItemByIndex(idx) => {
+                let undo_msg = self
                     .waves
                     .as_ref()
                     .and_then(|waves| {
@@ -870,13 +909,46 @@ impl State {
                             .displayed_items_order
                             .get(idx.0)
                             .and_then(|id| waves.displayed_items.get(id))
-                            .map(|item| item.name())
+                            .map(|item| format!("Remove item {}", item.name()))
                     })
                     .unwrap_or("".to_string());
-                self.save_current_canvas(format!("Remove item {}", name));
+                self.save_current_canvas(undo_msg);
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.remove_displayed_item(count, idx);
-                    self.invalidate_draw_commands();
+                    if idx.0 < waves.displayed_items_order.len() {
+                        let id = waves.displayed_items_order[idx.0];
+                        waves.remove_displayed_item(id);
+                    }
+                }
+            }
+            Message::RemoveItems(items) => {
+                let undo_msg = self
+                    .waves
+                    .as_ref()
+                    .and_then(|waves| {
+                        if items.len() == 1 {
+                            items.first().and_then(|idx| {
+                                waves
+                                    .displayed_items_order
+                                    .get(idx.0)
+                                    .and_then(|id| waves.displayed_items.get(id))
+                                    .map(|item| format!("Remove item {}", item.name()))
+                            })
+                        } else {
+                            Some(format!("Remove {} items", items.len()))
+                        }
+                    })
+                    .unwrap_or("".to_string());
+                self.save_current_canvas(undo_msg);
+                if let Some(waves) = self.waves.as_mut() {
+                    let mut ordered_items = items.clone();
+                    ordered_items.sort_unstable_by_key(|item| item.0);
+                    ordered_items.dedup_by_key(|item| item.0);
+                    for id in ordered_items {
+                        waves.remove_displayed_item(id);
+                    }
+                    waves
+                        .selected_items
+                        .retain(|item_ref| !items.contains(item_ref));
                 }
             }
             Message::MoveFocusedItem(direction, count) => {
@@ -1027,6 +1099,11 @@ impl State {
                 }
                 self.invalidate_draw_commands();
             }
+            Message::ItemSelectionClear => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.selected_items.clear();
+                }
+            }
             Message::ItemColorChange(vidx, color_name) => {
                 self.save_current_canvas(format!(
                     "Change item color to {}",
@@ -1038,8 +1115,16 @@ impl State {
                             waves
                                 .displayed_items
                                 .entry(*id)
-                                .and_modify(|item| item.set_color(color_name))
+                                .and_modify(|item| item.set_color(color_name.clone()))
                         });
+                    }
+                    if vidx.is_none() {
+                        for idx in waves.selected_items.iter() {
+                            waves
+                                .displayed_items
+                                .entry(*idx)
+                                .and_modify(|item| item.set_color(color_name.clone()));
+                        }
                     }
                 };
             }
@@ -1070,8 +1155,16 @@ impl State {
                             waves
                                 .displayed_items
                                 .entry(*id)
-                                .and_modify(|item| item.set_background_color(color_name))
+                                .and_modify(|item| item.set_background_color(color_name.clone()))
                         });
+                    }
+                    if vidx.is_none() {
+                        for idx in waves.selected_items.iter() {
+                            waves
+                                .displayed_items
+                                .entry(*idx)
+                                .and_modify(|item| item.set_background_color(color_name.clone()));
+                        }
                     }
                 };
             }
@@ -1320,14 +1413,18 @@ impl State {
                     waves.compute_variable_display_names();
                 }
             }
-            Message::ShowCommandPrompt(new_visibility) => {
-                if !new_visibility {
+            Message::ShowCommandPrompt(text) => {
+                if let Some(init_text) = text {
+                    self.sys.command_prompt.new_cursor_pos = Some(init_text.len());
+                    *self.sys.command_prompt_text.borrow_mut() = init_text;
+                    self.sys.command_prompt.visible = true;
+                } else {
                     *self.sys.command_prompt_text.borrow_mut() = "".to_string();
                     self.sys.command_prompt.suggestions = vec![];
                     self.sys.command_prompt.selected =
                         self.sys.command_prompt.previous_commands.len();
+                    self.sys.command_prompt.visible = false;
                 }
-                self.sys.command_prompt.visible = new_visibility;
             }
             Message::FileDownloaded(url, bytes, load_options) => {
                 self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
@@ -1639,6 +1736,7 @@ impl State {
                                 .redo_stack
                                 .push(State::current_canvas_state(waves, prev_state.message));
                             waves.focused_item = prev_state.focused_item;
+                            waves.selected_items = prev_state.selected_items;
                             waves.displayed_items_order = prev_state.displayed_item_order;
                             waves.displayed_items = prev_state.displayed_items;
                             waves.markers = prev_state.markers;
@@ -1738,6 +1836,7 @@ impl State {
                     right_cursor: None,
                     markers: HashMap::new(),
                     focused_item: None,
+                    selected_items: HashSet::new(),
                     default_variable_name_type: self.config.default_variable_name_type,
                     display_variable_indices: self.show_variable_indices(),
                     scroll_offset: 0.,
@@ -1972,6 +2071,7 @@ impl State {
         CanvasState {
             message,
             focused_item: waves.focused_item,
+            selected_items: waves.selected_items.clone(),
             displayed_item_order: waves.displayed_items_order.clone(),
             displayed_items: waves.displayed_items.clone(),
             markers: waves.markers.clone(),
