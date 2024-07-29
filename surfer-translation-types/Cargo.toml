@@ -9,4 +9,6 @@ derive_more.workspace = true
 ecolor.workspace = true
 num.workspace = true
 serde.workspace = true
-pyo3 = { workspace = true, optional = true }
+
+[target.'cfg(target_family = "unix")'.dependencies]
+pyo3.workspace = true

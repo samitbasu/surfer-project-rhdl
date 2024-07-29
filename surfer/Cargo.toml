@@ -58,6 +58,7 @@ spade = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba81
 spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
 spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
 spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
+surfer-translation-types = { path = "../surfer-translation-types" }
 surver.workspace = true
 sys-locale = "0.3.1"
 tokio.workspace = true
@@ -84,14 +85,8 @@ wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
 
-# Conditionally include pyo3 on unix
 [target.'cfg(target_family = "unix")'.dependencies]
 pyo3.workspace = true
-surfer-translation-types = { path = "../surfer-translation-types", features = ["pyo3"] }
-
-# Inverse of previous target.
-[target.'cfg(not(target_family = "unix"))'.dependencies]
-surfer-translation-types = { path = "../surfer-translation-types" }
 
 [dev-dependencies]
 dssim = "3.3.0"
