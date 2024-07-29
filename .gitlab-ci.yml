@@ -74,6 +74,24 @@ test:
         - cargo -V
         - cargo test --color=always --locked
 
+test-windows:
+    tags:
+        - saas-windows-medium-amd64
+    stage: test
+    script:
+        - Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile .\rustup-init.exe -UseBasicParsing
+        - ICACLS ".\rustup-init.exe" /grant:r "users:(RX)" /C
+        - .\rustup-init.exe -y
+        - $env:Path += ";C:\GitLab-Runner\builds\surfer-project\surfer\cargo\bin"
+        - rustc -V
+        - cargo -V
+        - Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1" -OutFile "./install-pyenv-win.ps1"; &"./install-pyenv-win.ps1"
+        - $env:Path += ";C:\Users\gitlab_runner\.pyenv\pyenv-win\bin"
+        - pyenv install -l
+        - pyenv install 3.10.11
+        - pyenv global 3.10.11
+        - cargo test --color=always --locked
+
 test-no-default-features:
     stage: test
     extends: .snapshots
