@@ -1,6 +1,7 @@
 //! Menu handling.
 use color_eyre::eyre::WrapErr;
 use egui::{menu, Button, Context, TextWrapMode, TopBottomPanel, Ui};
+use itertools::Itertools;
 use surfer_translation_types::{TranslationPreference, Translator};
 
 use crate::wave_container::{FieldRef, VariableRefExt};
@@ -326,7 +327,11 @@ impl State {
                     .then(|| {
                         ui.close_menu();
                         msgs.push(Message::ItemColorChange(
-                            Some(vidx),
+                            if waves.selected_items.contains(&displayed_item_id) {
+                                None
+                            } else {
+                                Some(vidx)
+                            },
                             Some(color_name.clone()),
                         ));
                     });
@@ -351,7 +356,11 @@ impl State {
                     .then(|| {
                         ui.close_menu();
                         msgs.push(Message::ItemBackgroundColorChange(
-                            Some(vidx),
+                            if waves.selected_items.contains(&displayed_item_id) {
+                                None
+                            } else {
+                                Some(vidx)
+                            },
                             Some(color_name.clone()),
                         ));
                     });
@@ -385,7 +394,20 @@ impl State {
         }
 
         if ui.button("Remove").clicked() {
-            msgs.push(Message::RemoveItemByIndex(vidx));
+            msgs.push(if waves.selected_items.contains(&displayed_item_id) {
+                Message::Batch(vec![
+                    Message::RemoveItems(
+                        waves
+                            .selected_items
+                            .iter()
+                            .map(|item_ref| item_ref.clone())
+                            .collect_vec(),
+                    ),
+                    Message::UnfocusItem,
+                ])
+            } else {
+                Message::RemoveItems(vec![displayed_item_id])
+            });
             msgs.push(Message::InvalidateCount);
             ui.close_menu();
         }
