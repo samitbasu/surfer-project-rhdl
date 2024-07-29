@@ -946,7 +946,9 @@ impl State {
                     for id in ordered_items {
                         waves.remove_displayed_item(id);
                     }
-                    waves.selected_items.clear();
+                    waves
+                        .selected_items
+                        .retain(|item_ref| !items.contains(item_ref));
                 }
             }
             Message::MoveFocusedItem(direction, count) => {

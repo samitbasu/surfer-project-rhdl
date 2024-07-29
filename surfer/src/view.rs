@@ -940,11 +940,15 @@ impl State {
                         msgs.push(Message::ToggleItemSelected(Some(vidx)));
                     } else if modifiers.shift {
                         msgs.push(Message::Batch(vec![
+                            Message::ItemSelectionClear,
                             Message::ItemSelectRange(vidx),
                             Message::FocusItem(vidx),
                         ]));
                     } else {
-                        msgs.push(Message::FocusItem(vidx));
+                        msgs.push(Message::Batch(vec![
+                            Message::ItemSelectionClear,
+                            Message::FocusItem(vidx),
+                        ]));
                     }
                 }
             }
