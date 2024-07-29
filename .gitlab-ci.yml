@@ -74,6 +74,16 @@ test:
         - cargo -V
         - cargo test --color=always --locked
 
+test-windows:
+    tags:
+        - saas-windows-medium-amd64
+    stage: test
+    script:
+        - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | powershell
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always --locked
+
 test-no-default-features:
     stage: test
     extends: .snapshots
