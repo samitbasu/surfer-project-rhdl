@@ -1,5 +1,5 @@
 mod field_ref;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(target_family = "unix")]
 pub mod python;
 mod result;
 mod scope_ref;

@@ -108,7 +108,7 @@ impl State {
             }
             b("Save state as...", Message::SaveStateFile(None)).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             {
                 b("Add Python translator", Message::OpenPythonPluginDialog)
                     .add_closing_menu(msgs, ui);

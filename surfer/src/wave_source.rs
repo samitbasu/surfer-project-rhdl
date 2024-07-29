@@ -625,7 +625,7 @@ impl State {
         );
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(target_family = "unix")]
     pub fn open_python_file_dialog(&mut self) {
         self.file_dialog(
             ("Python files (*.py)".to_string(), vec!["py".to_string()]),
