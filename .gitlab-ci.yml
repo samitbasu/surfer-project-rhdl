@@ -85,6 +85,9 @@ test-windows:
         - $env:Path += ";C:\GitLab-Runner\builds\surfer-project\surfer\cargo\bin"
         - rustc -V
         - cargo -V
+        - Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1" -OutFile "./install-pyenv-win.ps1"; &"./install-pyenv-win.ps1"
+        - pyenv install -l
+        - pyenv version
         - cargo test --color=always --locked
 
 test-no-default-features:
