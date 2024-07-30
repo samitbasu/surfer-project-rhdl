@@ -62,3 +62,23 @@ pub fn vcd_from_url() -> UrlArgs {
             .and_then(|p| p.get("startup_commands")),
     }
 }
+
+#[cfg(target_arch = "wasm32")]
+pub async fn sleep_ms(delay: u64) {
+    use wasm_bindgen_futures::js_sys;
+
+    let mut cb = |resolve: js_sys::Function, reject: js_sys::Function| {
+        web_sys::window()
+            .unwrap()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, delay as i32);
+    };
+
+    let p = js_sys::Promise::new(&mut cb);
+
+    wasm_bindgen_futures::JsFuture::from(p).await.unwrap();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn sleep_ms(delay_ms: u64) {
+    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+}

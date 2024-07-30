@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
-use crate::wasm_util::{perform_async_work, perform_work};
+use crate::wasm_util::{perform_async_work, perform_work, sleep_ms};
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
@@ -343,7 +343,7 @@ impl State {
     fn get_server_status(sender: Sender<Message>, server: String, delay_ms: u64) {
         let start = web_time::Instant::now();
         let task = async move {
-            tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+            sleep_ms(delay_ms).await;
             let res = crate::remote::get_status(server.clone())
                 .await
                 .map_err(|e| anyhow!("{e:?}"))
