@@ -13,7 +13,7 @@ use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::time::TimeFormat;
 use crate::{clock_highlighting::ClockHighlightType, variable_name_type::VariableNameType};
@@ -386,22 +386,35 @@ impl SurferTheme {
             }
         }
 
-        // read themes from project directory
-        if let Ok(project_themes_dir) = std::fs::read_dir(Path::new(".surfer").join("themes")) {
-            add_themes_from_dir(project_themes_dir);
-        };
+        // Read themes from local directories.
+        let local_config_dirs = find_local_configs();
+
+        // Add any existing themes from most top-level to most local. This allows overwriting of
+        // higher-level theme settings with a local `.surfer` directory.
+        local_config_dirs
+            .iter()
+            .filter_map(|p| std::fs::read_dir(p.join("themes")).ok())
+            .for_each(add_themes_from_dir);
 
         if theme_name
             .clone()
             .is_some_and(|theme_name| !theme_name.is_empty())
         {
             let theme_path = Path::new("themes").join(theme_name.unwrap() + ".toml");
-            // first check if project theme exists
-            let project_theme_path = Path::new(".surfer").join(theme_path.clone());
-            if project_theme_path.exists() {
-                theme = theme.add_source(File::from(project_theme_path).required(false));
+
+            // First filter out all the existing local themes and add them in the aforementioned
+            // order.
+            let local_themes: Vec<PathBuf> = local_config_dirs
+                .iter()
+                .map(|p| p.join(&theme_path))
+                .filter(|p| p.exists())
+                .collect();
+            if !local_themes.is_empty() {
+                theme = local_themes
+                    .into_iter()
+                    .fold(theme, |t, p| t.add_source(File::from(p).required(false)))
             } else {
-                // if not, check in config directory
+                // If no local themes exist, search in the config directory.
                 if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
                     let config_theme_path = proj_dirs.config_dir().join(theme_path);
                     if config_theme_path.exists() {
@@ -487,10 +500,17 @@ impl SurferConfig {
                 warn!("Configuration in 'surfer.toml' is deprecated. Please move your configuration to '.surfer/config.toml'.");
             }
 
-            config
-                .add_source(File::from(Path::new("surfer.toml")).required(false))
-                .add_source(File::from(Path::new(".surfer/config.toml")).required(false))
-                .add_source(Environment::with_prefix("surfer"))
+            // `surfer.toml` will not be searched for upward, as it is deprecated.
+            config = config.add_source(File::from(Path::new("surfer.toml")).required(false));
+
+            // Add configs from most top-level to most local. This allows overwriting of
+            // higher-level settings with a local `.surfer` directory.
+            find_local_configs()
+                .into_iter()
+                .fold(config, |c, p| {
+                    c.add_source(File::from(p.join("config.toml")).required(false))
+                })
+                .add_source(Environment::with_prefix("surfer")) // Add environment finally
         } else {
             config
         };
@@ -558,4 +578,21 @@ where
 {
     let buf = String::deserialize(deserializer)?;
     SurferTheme::new(Some(buf)).map_err(de::Error::custom)
+}
+
+/// Searches for `.surfer` directories upward from the current location until it reaches root.
+/// Returns an empty vector in case the search fails in any way. If any `.surfer` directories
+/// are found, they will be returned in a `Vec<PathBuf>` in a pre-order of most top-level to most
+/// local. All plain files are ignored.
+#[cfg(not(target_arch = "wasm32"))]
+fn find_local_configs() -> Vec<PathBuf> {
+    use crate::util::search_upward;
+    match std::env::current_dir() {
+        Ok(dir) => search_upward(dir, "/", ".surfer")
+            .into_iter()
+            .filter(|p| p.is_dir()) // Only keep directories and ignore plain files.
+            .rev() // Reverse for pre-order traversal of directories.
+            .collect(),
+        Err(_) => vec![],
+    }
 }

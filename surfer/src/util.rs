@@ -1,4 +1,7 @@
 //! Utility functions.
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::{Path, PathBuf};
+
 use crate::displayed_item::DisplayedItemIndex;
 
 /// This function takes a number and converts it's digits into the range
@@ -61,4 +64,22 @@ pub fn alpha_idx_to_uint_idx(idx: String) -> Option<DisplayedItemIndex> {
     usize::from_str_radix(&mapped, 16)
         .ok()
         .map(DisplayedItemIndex)
+}
+
+/// This function searches upward from `start` for directories or files matching `item`. It returns
+/// a `Vec<PathBuf>` to all found instances in order of closest to furthest away. The function only
+/// searches up within subdirectories of `end`.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn search_upward(
+    start: impl AsRef<Path>,
+    end: impl AsRef<Path>,
+    item: impl AsRef<Path>,
+) -> Vec<PathBuf> {
+    start
+        .as_ref()
+        .ancestors()
+        .take_while(|p| p.starts_with(end.as_ref()))
+        .map(|p| p.join(&item))
+        .filter(|p| p.try_exists().is_ok_and(std::convert::identity))
+        .collect()
 }
