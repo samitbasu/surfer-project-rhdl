@@ -39,7 +39,7 @@ impl ButtonBuilder {
         self
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(target_family = "unix")]
     fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self
