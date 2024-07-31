@@ -19,7 +19,7 @@ pub mod clock;
 mod enum_translator;
 mod instruction_translators;
 pub mod numeric_translators;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(target_family = "unix")]
 mod python_translators;
 pub mod spade;
 
@@ -79,7 +79,7 @@ pub enum AnyTranslator {
     Full(Box<DynTranslator>),
     Basic(Box<DynBasicTranslator>),
     Numeric(Box<DynNumericTranslator>),
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(target_family = "unix")]
     Python(python_translators::PythonTranslator),
 }
 
@@ -95,7 +95,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.name(),
             AnyTranslator::Basic(t) => t.name(),
             AnyTranslator::Numeric(t) => t.name(),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => t.name(),
         }
     }
@@ -109,7 +109,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.translate(variable, value),
             AnyTranslator::Basic(t) => translate_with_basic(&**t, variable, value),
             AnyTranslator::Numeric(t) => translate_with_numeric(&**t, variable, value),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => translate_with_basic(t, variable, value),
         }
     }
@@ -119,7 +119,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.variable_info(variable),
             AnyTranslator::Basic(t) => t.variable_info(variable),
             AnyTranslator::Numeric(t) => t.variable_info(variable),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => t.variable_info(variable),
         }
     }
@@ -129,7 +129,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.translates(variable),
             AnyTranslator::Basic(t) => t.translates(variable),
             AnyTranslator::Numeric(t) => t.translates(variable),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => t.translates(variable),
         }
     }
@@ -139,7 +139,7 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
             AnyTranslator::Full(t) => t.reload(sender),
             AnyTranslator::Numeric(t) => t.reload(sender),
             AnyTranslator::Basic(_) => (),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             AnyTranslator::Python(_) => (),
         }
     }
@@ -378,7 +378,7 @@ impl TranslatorList {
             .unwrap_or(false)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(target_family = "unix")]
     pub fn load_python_translator(&mut self, filename: Utf8PathBuf) -> Result<()> {
         debug!("Reading Python code from disk: {filename}");
         let code = std::fs::read_to_string(&filename)?;
@@ -395,12 +395,12 @@ impl TranslatorList {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(target_family = "unix")]
     pub fn has_python_translator(&self) -> bool {
         self.python_translator.is_some()
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(target_family = "unix")]
     pub fn reload_python_translator(&mut self) -> Result<()> {
         if let Some((path, _, _)) = self.python_translator.take() {
             self.load_python_translator(path)?;

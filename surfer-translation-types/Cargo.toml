@@ -10,5 +10,5 @@ ecolor.workspace = true
 num.workspace = true
 serde.workspace = true
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(target_family = "unix")'.dependencies]
 pyo3.workspace = true

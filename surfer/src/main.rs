@@ -1136,7 +1136,7 @@ impl State {
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
             }
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             Message::LoadPythonTranslator(filename) => {
                 try_log_error!(
                     self.sys.translators.load_python_translator(filename),
@@ -1478,11 +1478,11 @@ impl State {
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);
             }
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             Message::OpenPythonPluginDialog => {
                 self.open_python_file_dialog();
             }
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(target_family = "unix")]
             Message::ReloadPythonPlugin => {
                 try_log_error!(
                     self.sys.translators.reload_python_translator(),
