@@ -150,17 +150,6 @@ test-macos-aarch64:
         - if: '$CI_PROJECT_NAMESPACE == "surfer-project"'
     allow_failure: true
 
-test-windows-build:
-    stage: test
-    before_script:
-        - apt-get update -y
-        - apt-get install -y mingw-w64 zip python3-dev
-        - rustup target add x86_64-pc-windows-gnu
-    script:
-        # TODO: run tests on windows machines
-        # https://gitlab.com/surfer-project/surfer/-/issues/225
-        - cargo build --target x86_64-pc-windows-gnu --locked
-
 coverage:
     image: xd009642/tarpaulin
     stage: test
