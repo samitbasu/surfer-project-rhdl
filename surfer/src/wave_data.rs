@@ -93,13 +93,20 @@ fn select_preferred_translator(var: &VariableMeta, translators: &TranslatorList)
         })
         .collect();
     if preferred.len() > 1 {
-        warn!(
-            "More than one preferred translator for variable {} in scope {}: {}",
-            var.var.name,
-            var.var.path.strs.join("."),
-            preferred.join(", ")
-        );
-        preferred.sort();
+        // For a single bit that has other preferred translators in addition to "Bit", like enum,
+        // we would like to select the other one.
+        if var.num_bits == Some(1) {
+            preferred.retain(|x| *x != "Bit".to_string());
+        }
+        if preferred.len() > 1 {
+            warn!(
+                "More than one preferred translator for variable {} in scope {}: {}",
+                var.var.name,
+                var.var.path.strs.join("."),
+                preferred.join(", ")
+            );
+            preferred.sort();
+        }
     }
     // make sure we always pick the same translator, at least
     preferred
