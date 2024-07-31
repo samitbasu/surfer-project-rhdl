@@ -577,9 +577,13 @@ impl State {
             })
             .body(|ui| {
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
+                let wave_container = wave.inner.as_waves().unwrap();
+                let all_variables = wave_container.variables_in_scope(scope);
+                let (parameters, variables) = all_variables.iter().partition(|var| {
+                    let meta = wave_container.variable_meta(var).ok();
+                    meta.unwrap().variable_type == Some(VariableType::VCDParameter)
+                });
                 if draw_variables {
-                    let wave_container = wave.inner.as_waves().unwrap();
-                    let variables = wave_container.variables_in_scope(scope);
                     self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
                 }
             });
