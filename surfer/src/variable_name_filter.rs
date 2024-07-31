@@ -170,7 +170,7 @@ impl State {
                                                 let gen = streams
                                                     .inner
                                                     .tx_generators
-                                                    .get(&gen_id)
+                                                    .get(gen_id)
                                                     .unwrap();
                                                 msgs.push(Message::AddStreamOrGenerator(
                                                     TransactionStreamRef::new_gen(
@@ -238,7 +238,7 @@ impl State {
         } else {
             self.variable_name_filter_type
                 .matching_variables(
-                    &variables,
+                    variables,
                     filter,
                     self.variable_name_filter_case_insensitive,
                 )
