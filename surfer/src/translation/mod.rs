@@ -1,4 +1,5 @@
 use camino::Utf8PathBuf;
+#[cfg(target_family = "unix")]
 use color_eyre::eyre::bail;
 use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
@@ -28,6 +29,7 @@ use clock::ClockTranslator;
 use instruction_decoder::Decoder;
 pub use instruction_translators::*;
 use itertools::Itertools;
+#[cfg(target_family = "unix")]
 use log::debug;
 pub use numeric_translators::*;
 use surfer_translation_types::{
