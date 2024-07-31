@@ -557,9 +557,11 @@ impl State {
             return;
         };
 
-        if child_scopes.is_empty()
-            && (!draw_variables || wave.inner.as_waves().unwrap().no_variables_in_scope(scope))
-        {
+        let no_variables_in_scope = wave.inner.as_waves().unwrap().no_variables_in_scope(scope);
+        if child_scopes.is_empty() && no_variables_in_scope && !self.show_empty_scopes() {
+            return;
+        }
+        if child_scopes.is_empty() && (!draw_variables || no_variables_in_scope) {
             self.add_scope_selectable_label(msgs, wave, scope, ui);
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -577,10 +579,29 @@ impl State {
             })
             .body(|ui| {
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
-                if draw_variables {
+                if draw_variables || self.show_parameters_in_scopes() {
                     let wave_container = wave.inner.as_waves().unwrap();
-                    let variables = wave_container.variables_in_scope(scope);
-                    self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
+                    let all_variables = wave_container.variables_in_scope(scope);
+                    let parameters = all_variables
+                        .iter()
+                        .filter(|var| {
+                            let meta = wave_container.variable_meta(var).ok();
+                            meta.unwrap().variable_type == Some(VariableType::VCDParameter)
+                        })
+                        .map(|v| v.clone())
+                        .collect_vec();
+                    self.draw_variable_list(msgs, wave_container, ui, &parameters, filter);
+                    if draw_variables {
+                        let variables = all_variables
+                            .iter()
+                            .filter(|var| {
+                                let meta = wave_container.variable_meta(var).ok();
+                                meta.unwrap().variable_type != Some(VariableType::VCDParameter)
+                            })
+                            .map(|v| v.clone())
+                            .collect_vec();
+                        self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
+                    }
                 }
             });
         }

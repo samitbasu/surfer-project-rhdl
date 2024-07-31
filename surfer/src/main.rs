@@ -515,6 +515,8 @@ pub struct State {
     align_names_right: Option<bool>,
     show_variable_indices: Option<bool>,
     show_variable_direction: Option<bool>,
+    show_empty_scopes: Option<bool>,
+    show_parameters_in_scopes: Option<bool>,
 
     waves: Option<WaveData>,
     drag_started: bool,
@@ -615,6 +617,8 @@ impl State {
             show_variable_direction: None,
             align_names_right: None,
             show_variable_indices: None,
+            show_empty_scopes: None,
+            show_parameters_in_scopes: None,
             drag_started: false,
             drag_source_idx: None,
             drag_target_idx: None,
