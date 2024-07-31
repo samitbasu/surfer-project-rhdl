@@ -74,6 +74,19 @@ test:
         - cargo -V
         - cargo test --color=always --locked
 
+test-windows:
+    tags:
+        - saas-windows-medium-amd64
+    stage: test
+    script:
+        - Invoke-WebRequest https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe -OutFile .\rustup-init.exe -UseBasicParsing
+        - ICACLS ".\rustup-init.exe" /grant:r "users:(RX)" /C
+        - .\rustup-init.exe -y
+        - $env:Path += ";C:\GitLab-Runner\builds\surfer-project\surfer\cargo\bin"
+        - rustc -V
+        - cargo -V
+        - cargo test --color=always --locked
+
 test-no-default-features:
     stage: test
     extends: .snapshots
@@ -136,17 +149,6 @@ test-macos-aarch64:
     rules:
         - if: '$CI_PROJECT_NAMESPACE == "surfer-project"'
     allow_failure: true
-
-test-windows-build:
-    stage: test
-    before_script:
-        - apt-get update -y
-        - apt-get install -y mingw-w64 zip python3-dev
-        - rustup target add x86_64-pc-windows-gnu
-    script:
-        # TODO: run tests on windows machines
-        # https://gitlab.com/surfer-project/surfer/-/issues/225
-        - cargo build --target x86_64-pc-windows-gnu --locked
 
 coverage:
     image: xd009642/tarpaulin
