@@ -5,10 +5,9 @@ use std::{
 };
 
 use base64::{engine::general_purpose, Engine};
-use dssim::Dssim;
 use egui_skia_renderer::draw_onto_surface;
 use emath::Vec2;
-use image::{DynamicImage, ImageFormat, RgbImage};
+use image::{DynamicImage, ImageFormat};
 use log::info;
 use num::BigInt;
 use project_root::get_project_root;
@@ -39,16 +38,6 @@ fn print_image(img: &DynamicImage) {
             "\x1b]1337;File=size={size};width=auto;height=auto;inline=1:{b64}\x1b]\x1b[1E",
             size = bytes.len()
         )
-    }
-}
-
-fn to_byte(i: f32) -> u8 {
-    if i <= 0.0 {
-        0
-    } else if i >= 255.0 / 256.0 {
-        255
-    } else {
-        (i * 256.0) as u8
     }
 }
 
@@ -110,29 +99,17 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     let previous_image_file = root.join("snapshots").join(filename).with_extension("png");
 
     let (write_new_file, diff) = if previous_image_file.exists() {
-        let mut comparator = Dssim::new();
-        comparator.set_save_ssim_maps(1);
-        let prev = dssim::load_image(&comparator, &previous_image_file).unwrap_or_else(|_| {
+        let prev = image::open(previous_image_file.clone()).unwrap_or_else(|_| {
             panic!("Failed to load previous image from {previous_image_file:?}")
         });
-        let new = comparator
-            .create_image_rgb(
-                &new.to_rgb8()
-                    .pixels()
-                    .map(|p| rgb::RGB {
-                        r: p[0],
-                        g: p[1],
-                        b: p[2],
-                    })
-                    .collect::<Vec<_>>(),
-                new.width() as usize,
-                new.height() as usize,
-            )
-            .expect("Failed to create dssim image from new");
-
+        let result =
+            image_compare::rgb_hybrid_compare(&new.clone().into_rgb8(), &prev.clone().into_rgb8())
+                .ok()
+                .expect("Comparison failing");
         // comparator.create_image_rgb(&prev_imgref.as_ref(), width, height);
-        let (score, map) = comparator.compare(&prev, new);
-        (score >= 1e-6, Some((score, map)))
+
+        let (score, map) = (result.score, result.image);
+        (score <= 0.99999, Some((score, map)))
     } else {
         (true, None)
     };
@@ -156,42 +133,27 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     }
 
     match (write_new_file, diff) {
-        (true, Some((score, maps))) => {
-            let map = maps.first().unwrap();
-            let avgssim = map.ssim as f32;
-            let out: Vec<_> = map
-                .map
-                .pixels()
-                .flat_map(|ssim| {
-                    let max = 1_f32 - ssim;
-                    let maxsq = max * max;
-                    [
-                        to_byte(maxsq * 16.0),
-                        to_byte(max * 3.0),
-                        to_byte(max / ((1_f32 - avgssim) * 4_f32)),
-                    ]
-                })
-                .collect();
-
-            let diff_img = RgbImage::from_vec(map.map.width() as u32, map.map.height() as u32, out)
-                .expect("Failed to create Image::image from diff");
+        (true, Some((score, map))) => {
+            let diff_img = map.to_color_map();
             let diff_file = root
                 .join("snapshots")
                 .join(filename)
                 .with_extension("diff.png");
 
             diff_img
-                .save(&diff_file)
+                .save(&diff_file.clone())
                 .unwrap_or_else(|_| panic!("Failed to save diff file to {diff_file:?}"));
 
+            let prev = image::open(previous_image_file.clone()).unwrap_or_else(|_| {
+                panic!("Failed to load previous image from {previous_image_file:?}")
+            });
             println!("Previous: {previous_image_file:?}");
-            // The Dssim image is super annoying to work with, so I'll just reload the image
-            print_image(&image::open(&previous_image_file).expect("Failed to load prev image"));
+            print_image(&prev);
             println!("New: {new_file:?}");
             print_image(&new);
 
             println!("Diff: {diff_file:?}");
-            print_image(&DynamicImage::ImageRgb8(diff_img));
+            print_image(&diff_img);
 
             panic!(
                 "Snapshot diff. Score: {score}\n\told: {previous_image_file:?}\n\tnew: {new_file:?}"

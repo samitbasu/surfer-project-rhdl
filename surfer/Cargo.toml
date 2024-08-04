@@ -89,11 +89,10 @@ web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
 pyo3.workspace = true
 
 [dev-dependencies]
-dssim = "3.3.0"
 egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "c13a8bbfc622ae28ee7b7f6d1c576a761e8b8bbe" }
 image = { version = "0.25", default-features = false, features = ["png"] }
+image-compare = "0.4.1"
 project-root = "0.2.2"
-rgb = "0.8.37"
 skia-safe = "0.75.0"
 test-log = "0.2.15"
 
