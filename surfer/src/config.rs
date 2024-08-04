@@ -107,6 +107,8 @@ pub struct SurferLayout {
     align_names_right: bool,
     /// Set style of hierarchy
     pub hierarchy_style: HierarchyStyle,
+    /// UI zoom factors
+    pub zoom_factors: Vec<f32>,
 }
 
 impl SurferLayout {
