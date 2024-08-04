@@ -176,10 +176,25 @@ impl State {
                 .shortcut("F11")
                 .add_closing_menu(msgs, ui);
             ui.menu_button("Theme", |ui| {
-                b("Default Theme", Message::SelectTheme(None)).add_closing_menu(msgs, ui);
+                ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                b("Default theme", Message::SelectTheme(None)).add_closing_menu(msgs, ui);
                 for theme_name in self.config.theme.theme_names.clone() {
                     b(theme_name.clone(), Message::SelectTheme(Some(theme_name)))
                         .add_closing_menu(msgs, ui);
+                }
+            });
+            ui.menu_button("UI zoom factor", |ui| {
+                ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                for scale in &self.config.layout.zoom_factors {
+                    ui.radio(
+                        self.ui_zoom_factor() == *scale,
+                        format!("{} %", scale * 100.),
+                    )
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::SetUIZoomFactor(*scale))
+                    });
                 }
             });
         });
@@ -223,19 +238,6 @@ impl State {
             ui.menu_button("Variable filter type", |ui| {
                 variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
             });
-            ui.menu_button("Zoom factor", |ui| {
-                for scale in [0.5, 0.75, 1.0, 1.5, 2.0, 2.5] {
-                    ui.radio(
-                        self.ui_zoom_factor == Some(scale),
-                        format!("{} %", scale * 100.),
-                    )
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(Message::SetUIZoomFactor(scale))
-                    });
-                }
-            });
 
             ui.menu_button("Hierarchy", |ui| {
                 for style in enum_iterator::all::<HierarchyStyle>() {
@@ -251,7 +253,7 @@ impl State {
                 }
             });
 
-            ui.menu_button("Arrow Keys", |ui| {
+            ui.menu_button("Arrow keys", |ui| {
                 for binding in enum_iterator::all::<ArrowKeyBindings>() {
                     ui.radio(
                         self.config.behavior.arrow_key_bindings == binding,
