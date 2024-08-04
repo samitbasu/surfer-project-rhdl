@@ -5008,7 +5008,7 @@ dependencies = [
 
 [[package]]
 name = "surfer-translation-types"
-version = "0.1.0"
+version = "0.3.0-dev"
 dependencies = [
  "color-eyre",
  "derive_more",

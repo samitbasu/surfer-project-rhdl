@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 categories.workspace = true
-rust-version.workspace = true
+rust-version = "1.74.1"
 description = "Server for the Surfer waveform viewer"
 
 [dependencies]
