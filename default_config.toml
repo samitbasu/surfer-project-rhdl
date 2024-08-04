@@ -23,6 +23,8 @@ window_width = 1920
 window_height = 1080
 align_names_right = false
 hierarchy_style = "Separate"
+zoom_factors = [0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 2.5]
+default_zoom_factor = 1.0
 
 [gesture]
 style = { color="e9da16", width=2 }
