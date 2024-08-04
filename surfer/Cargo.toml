@@ -10,7 +10,7 @@ description = "Waveform viewer for VCD, FST, and GHW"
 
 [dependencies]
 bincode.workspace = true
-bytes = "1.6.0"
+bytes = "1.7.1"
 bytesize.workspace = true
 camino = { version = "1.1.6", features = ["serde1"] }
 chrono = "0.4.31"
