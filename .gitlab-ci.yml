@@ -228,8 +228,9 @@ linux_build:
         - cargo build --release --locked --features accesskit
         - mkdir dist
         - cp target/release/surfer dist/surfer
+        - cp target/release/surver dist/surver
         - cd dist
-        - zip ../surfer_linux.zip surfer
+        - zip ../surfer_linux.zip surfer surver
     artifacts:
         paths:
             - surfer_linux.zip
@@ -248,8 +249,9 @@ windows_build:
         - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit
         - mkdir dist
         - cp target/x86_64-pc-windows-gnu/release/surfer.exe dist/surfer.exe
+        - cp target/x86_64-pc-windows-gnu/release/surver.exe dist/surver.exe
         - cd dist
-        - zip ../surfer_win.zip surfer.exe
+        - zip ../surfer_win.zip surfer.exe surver.exe
     artifacts:
         paths:
             - surfer_win.zip
@@ -277,8 +279,9 @@ macos-aarch64_build:
         - ls -alrt target/release/surfer
         - mkdir dist
         - cp target/release/surfer dist/surfer
+        - cp target/release/surver dist/surver
         - cd dist
-        - zip ../surfer_macos-aarch64.zip surfer
+        - zip ../surfer_macos-aarch64.zip surfer surver
     artifacts:
         paths:
             - surfer_macos-aarch64.zip
