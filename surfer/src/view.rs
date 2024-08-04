@@ -181,10 +181,9 @@ impl eframe::App for State {
 
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("update");
-        if let Some(scale) = self.ui_zoom_factor {
-            if ctx.zoom_factor() != scale {
-                ctx.set_zoom_factor(scale)
-            }
+        let ui_zoom_factor = self.ui_zoom_factor();
+        if ctx.zoom_factor() != ui_zoom_factor {
+            ctx.set_zoom_factor(ui_zoom_factor)
         }
 
         while let Some(msg) = msgs.pop() {
