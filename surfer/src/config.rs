@@ -66,8 +66,6 @@ pub struct SurferConfig {
     pub theme: SurferTheme,
     pub gesture: SurferGesture,
     pub behavior: SurferBehavior,
-    /// Tick information
-    pub ticks: SurferTicks,
     /// Time stamp format
     pub default_time_format: TimeFormat,
     // #[serde(deserialize_with = "deserialize_variable_name_type")]
@@ -227,6 +225,11 @@ pub struct SurferTheme {
     #[serde(deserialize_with = "deserialize_hex_color")]
     /// Color used for constant variables (parameters)
     pub variable_parameter: Color32,
+
+    /// Opacity with which variable backgrounds are drawn. 0 is fully transparent and 1 is fully
+    /// opaque.
+    pub waveform_opacity: f32,
+
     #[serde(default = "default_colors", deserialize_with = "deserialize_color_map")]
     pub colors: HashMap<String, Color32>,
 
@@ -245,6 +248,10 @@ pub struct SurferTheme {
     pub drag_hint_color: Color32,
     pub drag_hint_width: f32,
     pub drag_threshold: f32,
+
+    /// Tick information
+    pub ticks: SurferTicks,
+
     /// List of theme names
     #[serde(default = "Vec::new")]
     pub theme_names: Vec<String>,
@@ -317,13 +324,21 @@ impl SurferTheme {
 
         let theme_names = vec![
             "dark+".to_string(),
+            "dark-high-contrast".to_string(),
+            "ibm".to_string(),
             "light+".to_string(),
+            "light-high-contrast".to_string(),
+            "okabe/ito".to_string(),
             "solarized".to_string(),
         ];
 
         let override_theme = match theme_name.clone().unwrap_or("".to_string()).as_str() {
             "dark+" => include_str!("../../themes/dark+.toml"),
+            "dark-high-contrast" => include_str!("../../themes/dark-high-contrast.toml"),
+            "ibm" => include_str!("../../themes/ibm.toml"),
             "light+" => include_str!("../../themes/light+.toml"),
+            "light-high-contrast" => include_str!("../../themes/light-high-contrast.toml"),
+            "okabe/ito" => include_str!("../../themes/okabe-ito.toml"),
             "solarized" => include_str!("../../themes/solarized.toml"),
             _ => "",
         }

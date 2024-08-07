@@ -485,8 +485,8 @@ impl State {
                 let ticks = &draw_data.ticks;
                 if !ticks.is_empty() && self.show_ticks() {
                     let stroke = Stroke {
-                        color: self.config.ticks.style.color,
-                        width: self.config.ticks.style.width,
+                        color: self.config.theme.ticks.style.color,
+                        width: self.config.theme.ticks.style.width,
                     };
 
                     for (_, x) in ticks {
@@ -933,14 +933,14 @@ impl VariableExt for String {
                 if other.to_lowercase() == "l" {
                     (0., None)
                 } else {
-                    (1., Some(color.gamma_multiply(0.2)))
+                    (1., Some(color.gamma_multiply(theme.waveform_opacity)))
                 }
             }
             (ValueKind::Normal, other) => {
                 if other == "0" {
                     (0., None)
                 } else {
-                    (1., Some(color.gamma_multiply(0.2)))
+                    (1., Some(color.gamma_multiply(theme.waveform_opacity)))
                 }
             }
         };

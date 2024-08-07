@@ -306,6 +306,18 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
     };
 }
 
+/// Run a snapshot test called `$name` loading the theme `$theme`.
+macro_rules! snapshot_ui_with_theme {
+    ($name:ident, $theme:expr) => {
+        snapshot_ui_with_file_and_msgs! {$name, "examples/theme_demo.ghw", [
+            Message::AddScope(ScopeRef::from_strs(&["theme_demo"])),
+            Message::FocusItem(DisplayedItemIndex(1)),
+            Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+            Message::SelectTheme(Some($theme.to_string()))
+        ]}
+    };
+}
+
 snapshot_ui! {startup_screen_looks_fine, || {
     State::new_default_config().unwrap().with_params(StartupParams::empty())
 }}
@@ -1473,29 +1485,13 @@ pub fn wait_for_waves_fully_loaded(state: &mut State, timeout_s: u64) {
     }
 }
 
-snapshot_ui_with_file_and_msgs! {default_dark_theme_works, "examples/counter.vcd", [
-    Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(DisplayedItemIndex(1)),
-    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
-    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
-    Message::SelectTheme(Some("dark+".to_string()))
-]}
-
-snapshot_ui_with_file_and_msgs! {default_light_theme_works, "examples/counter.vcd", [
-    Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(DisplayedItemIndex(1)),
-    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
-    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
-    Message::SelectTheme(Some("light+".to_string()))
-]}
-
-snapshot_ui_with_file_and_msgs! {default_solarized_theme_works, "examples/counter.vcd", [
-    Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::FocusItem(DisplayedItemIndex(1)),
-    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
-    Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
-    Message::SelectTheme(Some("solarized".to_string()))
-]}
+snapshot_ui_with_theme!(theme_dark_high_contrast, "dark-high-contrast");
+snapshot_ui_with_theme!(theme_dark_plus, "dark+");
+snapshot_ui_with_theme!(theme_default, "default");
+snapshot_ui_with_theme!(theme_ibm, "ibm");
+snapshot_ui_with_theme!(theme_light_high_contrast, "light-high-contrast");
+snapshot_ui_with_theme!(theme_light_plus, "light+");
+snapshot_ui_with_theme!(theme_solarized, "solarized");
 
 snapshot_ui_with_file_and_msgs! {undo_redo_works, "examples/counter.vcd", [
     Message::AddVariables(vec![]),

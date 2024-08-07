@@ -376,7 +376,7 @@ impl WaveData {
             .log10()
             .round() as i16;
         let max_labelwidth = (rightexp.max(leftexp) + 3) as f32 * char_width;
-        let max_labels = ((frame_width * config.ticks.density) / max_labelwidth).floor() + 2.;
+        let max_labels = ((frame_width * config.theme.ticks.density) / max_labelwidth).floor() + 2.;
         let scale = 10.0f64.powf(
             ((viewport.curr_right - viewport.curr_left)
                 .absolute(&self.num_timestamps())

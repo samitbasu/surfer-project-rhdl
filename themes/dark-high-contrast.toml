@@ -1,0 +1,55 @@
+# All default colors should respect a contrast ratio of at least 7:1 between
+# foreground and background. Should you happen upon an exception, please report
+# it as a bug on the Surfer repository.
+# Using colors from the default Modus Vivendi theme:
+# https://github.com/protesilaos/modus-themes/blob/main/modus-vivendi-theme.el
+foreground = "ffffff" # fg-main
+border_color = "646464" # border
+selected_elements_colors = { background = "535353", foreground = "ffffff" } # bg-active, fg-main
+canvas_colors = { background = "000000", alt_background = "303030", foreground = "ffffff" } # bg-main, bg-inactive, fg-main
+primary_ui_color = { background = "303030", foreground = "ffffff" } # bg-inactive, fg-main
+secondary_ui_color = { background = "1e1e1e", foreground = "ffffff" } # bg-dim, fg-main
+accent_info = { background = "00eff0", foreground = "ffffff" } # cyan-intense, fg-main
+accent_warn = { background = "d79921", foreground = "ffffff" } # TODO
+accent_error = { background = "cc241f", foreground = "ffffff" } # TODO
+clock_highlight_line = { color = "1e1e1e", width = 2 } # bg-dim
+clock_highlight_cycle = "1e1e1e" # bg-dim
+clock_rising_marker = true
+variable_default = "44bc44" # green
+variable_undef = "ff5f59" # red
+variable_highimp = "d0bc00" # yellow
+variable_dontcare = "2fafff" # blue
+variable_weak = "e1e1e1" # custom grey
+waveform_opacity = 0.5
+cursor = { color="ffffff", width=3 } # fg-main
+gesture = { color="ffffff", width=2 } # fg-main
+linewidth = 2.4
+alt_frequency = 0
+
+# Note: The "bg-graph-1"-variants of the bg-colors are used
+# because they are darker and thus have more contrast against
+# the normal colors.
+[colors]
+red = "ff5f59"
+bg-red = "702020"
+green = "44bc44"
+bg-green = "007800"
+yellow = "d0bc00"
+bg-yellow = "b08600"
+blue = "2fafff"
+bg-blue = "1f2f8f"
+magenta = "feacd0"
+bg-magenta = "5f509f"
+cyan = "00d3d0"
+bg-cyan = "00808f"
+rust = "db7b5f"
+gold = "c0965b"
+olive = "9cbd6f"
+slate = "76afbf"
+indigo = "9099d9"
+maroon = "cf7fa7"
+pink = "d09dc0"
+
+[ticks]
+style = { color="646464", width=2 } # border
+density = 1

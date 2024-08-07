@@ -1,0 +1,55 @@
+# All default colors should respect a contrast ratio of at least 7:1 between
+# foreground and background. Should you happen upon an exception, please report
+# it as a bug on the Surfer repository.
+# Using colors from the default Modus Operandi theme:
+# https://github.com/protesilaos/modus-themes/blob/main/modus-operandi-theme.el
+foreground = "000000" # fg-main
+border_color = "9f9f9f" # border
+selected_elements_colors = { background = "c4c4c4", foreground = "000000" } # bg-active, fg-main
+canvas_colors = { background = "ffffff", alt_background = "f0f0f0", foreground = "000000" } # bg-main, bg-dim, fg-main
+primary_ui_color = { background = "ffffff", foreground = "000000" } # bg-main, fg-main
+secondary_ui_color = { background = "f0f0f0", foreground = "000000" } # bg-dim, fg-main
+accent_info = { background = "a0132f", foreground = "000000" } # red-cooler, fg-main
+accent_warn = { background = "d79921", foreground = "000000" } # TODO I don't know how to trigger these.
+accent_error = { background = "cc241f", foreground = "000000" } # TODO
+clock_highlight_line = { color = "f0f0f0", width = 2 } # bg-dim
+clock_highlight_cycle = "f0f0f0" # bg-dim972500
+clock_rising_marker = true
+variable_default = "009900" # custom green
+variable_undef = "ff0000" # custom red
+variable_highimp = "ffcf00" # bg-graph-yellow-0
+variable_dontcare = "0000ff" # blue-warmer
+variable_weak = "303030" # custom grey
+waveform_opacity = 0.5
+cursor = { color="000000", width=3 } # fg-main
+gesture = { color="000000", width=2 } # fg-main
+linewidth = 2
+alt_frequency = 0
+
+# Note: The "bg-graph-1"-variants of the bg-colors are used
+# because they are lighter and thus have more contrast against
+# the normal colors.
+[colors]
+red = "a60000"
+bg-red = "ffaab4"
+green = "006800"
+bg-green = "8fef00"
+yellow = "6f5500"
+bg-yellow = "f9ff00"
+blue = "0031a9"
+bg-blue = "9fc6ff"
+magenta = "721045"
+bg-magenta = "fad0ff"
+cyan = "005e8b"
+bg-cyan = "afefff"
+rust = "8a290f"
+gold = "80601f"
+olive = "56692d"
+slate = "2f3f83"
+indigo = "4a3a8a"
+maroon = "731c52"
+pink = "7b435c"
+
+[ticks]
+style = { color="9f9f9f", width=2 }
+density = 1

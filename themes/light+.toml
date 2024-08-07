@@ -16,6 +16,7 @@ variable_undefined = "46000c"
 variable_highimp = "46175e"
 variable_dontcare = "17265e"
 variable_weak = "808080"
+waveform_opacity = 0.5
 cursor = { color="b63935", width=2 }
 linewidth = 1.5
 
@@ -28,3 +29,7 @@ Pink = "c586c0"
 Orange = "ce9178"
 Gray = "808080"
 Violet = "646695"
+
+[ticks]
+style = { color="9f9f9f", width=2 }
+density = 1
