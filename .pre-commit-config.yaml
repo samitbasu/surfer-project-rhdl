@@ -27,6 +27,18 @@ repos:
       types: ["rust"]
     - id: cargo-check
       types: ["rust"]
+    - id: clippy
+      types: ["rust"]
+      args: ["--no-deps",
+             "--all-targets",
+             "--",
+             "-D", "warnings",
+             "-A", "clippy::all",
+             "-W", "clippy::clone_on_copy",
+             "-W", "clippy::needless_borrow",
+             "-W", "clippy::correctness",
+             "-W", "clippy::suspicious",
+             ]
   - repo: https://github.com/shssoichiro/oxipng
     rev: v9.1.1
     hooks:
