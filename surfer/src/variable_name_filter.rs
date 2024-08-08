@@ -231,7 +231,7 @@ impl State {
         } else {
             self.variable_name_filter_type
                 .matching_variables(
-                    &variables,
+                    variables,
                     filter,
                     self.variable_name_filter_case_insensitive,
                 )
