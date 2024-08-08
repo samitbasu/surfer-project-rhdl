@@ -7,7 +7,6 @@ use std::{
 use base64::{engine::general_purpose, Engine};
 use egui_skia_renderer::draw_onto_surface;
 use emath::Vec2;
-use ftr_parser::types::{Event, TxRelation};
 use image::{DynamicImage, ImageFormat};
 use log::info;
 use num::BigInt;

@@ -647,7 +647,7 @@ impl State {
         variables: &[VariableRef],
         filter: &str,
     ) {
-        for variable in self.filtered_variables(&variables, filter) {
+        for variable in self.filtered_variables(variables, filter) {
             let meta = wave_container.variable_meta(&variable).ok();
             let index = meta
                 .as_ref()
@@ -657,7 +657,7 @@ impl State {
 
             let direction = if self.show_variable_direction() {
                 meta.as_ref()
-                    .and_then(|meta| meta.direction.clone())
+                    .and_then(|meta| meta.direction)
                     .map(|direction| {
                         format!(
                             "{} ",

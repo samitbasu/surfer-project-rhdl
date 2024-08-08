@@ -188,6 +188,7 @@ pre-commit:
         - apt install python3 pre-commit -y
         - pre-commit install
         - rustup component add rustfmt
+        - rustup component add clippy
         - git fetch origin ${CI_DEFAULT_BRANCH}
     script:
         - SKIP=cargo-test,cargo-check pre-commit run --from-ref origin/${CI_DEFAULT_BRANCH} --to-ref HEAD
