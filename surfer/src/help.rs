@@ -1,5 +1,5 @@
 //! Help texts and dialogs.
-use egui::{Context, Grid, RichText, ScrollArea, Ui, Window};
+use egui::{Context, Grid, OpenUrl, RichText, ScrollArea, Ui, Window};
 use egui_remixicon::icons;
 use emath::{Align2, Pos2};
 
@@ -298,9 +298,17 @@ pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
                 ui.label(text);
             });
             ui.add_space(10.);
-            if ui.button("Close").clicked() {
-                msgs.push(Message::SetLicenseVisible(false));
-            }
+            ui.horizontal(|ui| {
+                if ui.button("Dependency licenses").clicked() {
+                    ctx.open_url(OpenUrl {
+                        url: "https://docs.surfer-project.org/licenses.html".to_string(),
+                        new_tab: true,
+                    });
+                }
+                if ui.button("Close").clicked() {
+                    msgs.push(Message::SetLicenseVisible(false));
+                }
+            });
         });
     if !open {
         msgs.push(Message::SetLicenseVisible(false));
