@@ -1,32 +1,39 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
 use color_eyre::eyre::WrapErr;
 use ecolor::Color32;
 use egui::{PointerButton, Response, Sense, Ui};
+use egui_extras::{Column, TableBuilder};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
-use epaint::{FontId, PathShape, RectShape, Rounding, Stroke};
+use epaint::{CubicBezierShape, FontId, PathShape, PathStroke, RectShape, Rounding, Shape, Stroke};
+use ftr_parser::types::{Transaction, TxGenerator};
 use itertools::Itertools;
-use log::{error, warn};
+use log::{error, info, warn};
 use num::bigint::{ToBigInt, ToBigUint};
-use num::{BigInt, ToPrimitive};
+use num::{BigInt, BigUint, ToPrimitive};
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::f64::consts::PI;
 use surfer_translation_types::{
     SubFieldFlatTranslationResult, TranslatedValue, ValueKind, VariableInfo, VariableType,
 };
 
 use crate::clock_highlighting::draw_clock_edge;
 use crate::config::SurferTheme;
+use crate::data_container::DataContainer;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef, DisplayedVariable,
 };
-use crate::transaction_container::TransactionStreamRef;
+use crate::transaction_container::{TransactionRef, TransactionStreamRef};
 use crate::translation::{TranslationResultExt, TranslatorList, ValueKindExt, VariableInfoExt};
 use crate::view::{DrawConfig, DrawingContext, ItemDrawingInfo};
 use crate::viewport::Viewport;
 use crate::wave_container::{QueryResult, VariableRefExt};
 use crate::wave_data::WaveData;
-use crate::{displayed_item::DisplayedItem, CachedDrawData, CachedWaveDrawData, Message, State};
+use crate::CachedDrawData::TransactionDrawData;
+use crate::{
+    displayed_item::DisplayedItem, CachedDrawData, CachedTransactionDrawData, CachedWaveDrawData,
+    Message, State,
+};
 
 pub struct DrawnRegion {
     inner: Option<TranslatedValue>,
@@ -74,11 +81,10 @@ impl DrawingCommands {
     }
 }
 
-#[allow(dead_code)]
 pub struct TxDrawingCommands {
     min: Pos2,
     max: Pos2,
-    gen_id: TransactionStreamRef,
+    gen_ref: TransactionStreamRef, // makes it easier to later access the actual Transaction object
 }
 
 struct VariableDrawCommands {
@@ -276,97 +282,283 @@ impl State {
     ) {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Generate draw commands");
-        let mut draw_commands = HashMap::new();
         if let Some(waves) = &self.waves {
-            let num_timestamps = waves.num_timestamps().clone();
-            let max_time = num_timestamps.to_f64().unwrap_or(f64::MAX);
-            let mut clock_edges = vec![];
-            // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
-            // width + transition_width in order to draw initial transitions outside the screen
-            let mut timestamps = (-cfg.max_transition_width
-                ..(frame_width as i32 + cfg.max_transition_width))
-                .par_bridge()
-                .filter_map(|x| {
-                    let time = waves.viewports[viewport_idx]
-                        .as_absolute_time(x as f64, frame_width, &num_timestamps)
-                        .0;
-                    if time < 0. || time > max_time {
-                        None
-                    } else {
-                        Some((x as f32, time.to_biguint().unwrap_or_default()))
-                    }
-                })
-                .collect::<Vec<_>>();
-            timestamps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-
-            let translators = &self.sys.translators;
-            let commands = waves
-                .displayed_items_order
-                .par_iter()
-                .map(|id| (*id, waves.displayed_items.get(id)))
-                .filter_map(|(id, item)| match item {
-                    Some(DisplayedItem::Variable(variable_ref)) => Some((id, variable_ref)),
-                    _ => None,
-                })
-                // Iterate over the variables, generating draw commands for all the
-                // subfields
-                .filter_map(|(id, displayed_variable)| {
-                    variable_draw_commands(
-                        displayed_variable,
-                        id,
-                        &timestamps,
-                        waves,
-                        translators,
-                        frame_width,
-                        viewport_idx,
-                    )
-                })
-                .collect::<Vec<_>>();
-
-            for VariableDrawCommands {
-                clock_edges: mut new_clock_edges,
-                display_id,
-                local_commands,
-                mut local_msgs,
-            } in commands
-            {
-                msgs.append(&mut local_msgs);
-                for (field, val) in local_commands {
-                    draw_commands.insert(
-                        DisplayedFieldRef {
-                            item: display_id,
-                            field,
-                        },
-                        val,
-                    );
+            info!("Generating Draw Commands");
+            let draw_data = match waves.inner {
+                DataContainer::Waves(_) => {
+                    self.generate_wave_draw_commands(waves, cfg, frame_width, msgs, viewport_idx)
                 }
-                clock_edges.append(&mut new_clock_edges)
-            }
-            let ticks = waves.get_ticks(
-                &waves.viewports[viewport_idx],
-                &waves.inner.metadata().timescale,
-                frame_width,
-                cfg.text_size,
-                &self.wanted_timeunit,
-                &self.get_time_format(),
-                &self.config,
-            );
-
-            self.sys.draw_data.borrow_mut()[viewport_idx] =
-                Some(CachedDrawData::WaveDrawData(CachedWaveDrawData {
-                    draw_commands,
-                    clock_edges,
-                    ticks,
-                }));
+                DataContainer::Transactions(_) => self.generate_transaction_draw_commands(
+                    waves,
+                    cfg,
+                    frame_width,
+                    msgs,
+                    viewport_idx,
+                ),
+                DataContainer::Empty => None,
+            };
+            self.sys.draw_data.borrow_mut()[viewport_idx] = draw_data;
         }
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().end("Generate draw commands");
     }
 
+    fn generate_wave_draw_commands(
+        &self,
+        waves: &WaveData,
+        cfg: &DrawConfig,
+        frame_width: f32,
+        msgs: &mut Vec<Message>,
+        viewport_idx: usize,
+    ) -> Option<CachedDrawData> {
+        let mut draw_commands = HashMap::new();
+
+        let num_timestamps = waves.num_timestamps().clone();
+        let max_time = num_timestamps.to_f64().unwrap_or(f64::MAX);
+        let mut clock_edges = vec![];
+        // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
+        // width + transition_width in order to draw initial transitions outside the screen
+        let mut timestamps = (-cfg.max_transition_width
+            ..(frame_width as i32 + cfg.max_transition_width))
+            .par_bridge()
+            .filter_map(|x| {
+                let time = waves.viewports[viewport_idx]
+                    .as_absolute_time(x as f64, frame_width, &num_timestamps)
+                    .0;
+                if time < 0. || time > max_time {
+                    None
+                } else {
+                    Some((x as f32, time.to_biguint().unwrap_or_default()))
+                }
+            })
+            .collect::<Vec<_>>();
+        timestamps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+
+        let translators = &self.sys.translators;
+        let commands = waves
+            .displayed_items_order
+            .par_iter()
+            .map(|id| (*id, waves.displayed_items.get(id)))
+            .filter_map(|(id, item)| match item {
+                Some(DisplayedItem::Variable(variable_ref)) => Some((id, variable_ref)),
+                _ => None,
+            })
+            // Iterate over the variables, generating draw commands for all the
+            // subfields
+            .filter_map(|(id, displayed_variable)| {
+                variable_draw_commands(
+                    displayed_variable,
+                    id,
+                    &timestamps,
+                    waves,
+                    translators,
+                    frame_width,
+                    viewport_idx,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        for VariableDrawCommands {
+            clock_edges: mut new_clock_edges,
+            display_id,
+            local_commands,
+            mut local_msgs,
+        } in commands
+        {
+            msgs.append(&mut local_msgs);
+            for (field, val) in local_commands {
+                draw_commands.insert(
+                    DisplayedFieldRef {
+                        item: display_id,
+                        field,
+                    },
+                    val,
+                );
+            }
+            clock_edges.append(&mut new_clock_edges)
+        }
+        let ticks = waves.get_ticks(
+            &waves.viewports[viewport_idx],
+            &waves.inner.metadata().timescale,
+            frame_width,
+            cfg.text_size,
+            &self.wanted_timeunit,
+            &self.get_time_format(),
+            &self.config,
+        );
+
+        Some(CachedDrawData::WaveDrawData(CachedWaveDrawData {
+            draw_commands,
+            clock_edges,
+            ticks,
+        }))
+    }
+
+    fn generate_transaction_draw_commands(
+        &self,
+        waves: &WaveData,
+        cfg: &DrawConfig,
+        frame_width: f32,
+        msgs: &mut Vec<Message>,
+        viewport_idx: usize,
+    ) -> Option<CachedDrawData> {
+        let mut draw_commands = HashMap::new();
+        let mut stream_to_displayed_txs = HashMap::new();
+        let mut inc_relation_tx_ids = vec![];
+        let mut out_relation_tx_ids = vec![];
+
+        let (focused_tx_ref, old_focused_tx) = &waves.focused_transaction;
+        let mut new_focused_tx: Option<&Transaction> = None;
+
+        let viewport = waves.viewports[viewport_idx];
+
+        let displayed_streams = waves
+            .displayed_items_order
+            .par_iter()
+            .map(|id| waves.displayed_items.get(id))
+            .filter_map(|item| match item {
+                Some(DisplayedItem::Stream(stream_ref)) => Some(stream_ref),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        for displayed_stream in displayed_streams {
+            let tx_stream_ref = &displayed_stream.transaction_stream_ref;
+
+            let mut generators: Vec<&TxGenerator> = vec![];
+            let mut displayed_transactions = vec![];
+
+            if tx_stream_ref.is_stream() {
+                let stream = waves
+                    .inner
+                    .as_transactions()
+                    .unwrap()
+                    .get_stream(tx_stream_ref.stream_id)
+                    .unwrap();
+
+                for gen_id in &stream.generators {
+                    generators.push(
+                        waves
+                            .inner
+                            .as_transactions()
+                            .unwrap()
+                            .get_generator(*gen_id)
+                            .unwrap(),
+                    );
+                }
+            } else {
+                generators.push(
+                    waves
+                        .inner
+                        .as_transactions()
+                        .unwrap()
+                        .get_generator(tx_stream_ref.gen_id.unwrap())
+                        .unwrap(),
+                )
+            }
+
+            let mut last_times_on_row = vec![(BigUint::ZERO, BigUint::ZERO)];
+            for gen in generators {
+                for tx in &gen.transactions {
+                    let mut curr_row = 0;
+                    let start_time = tx.get_start_time();
+                    let end_time = tx.get_end_time();
+                    let curr_tx_id = tx.get_tx_id();
+
+                    while start_time > last_times_on_row[curr_row].0
+                        && start_time < last_times_on_row[curr_row].1
+                    {
+                        curr_row += 1;
+                        if last_times_on_row.len() <= curr_row {
+                            last_times_on_row.push((BigUint::ZERO, BigUint::ZERO));
+                        }
+                    }
+                    last_times_on_row[curr_row] = (start_time.clone(), end_time.clone());
+
+                    if end_time.to_f64().unwrap()
+                        > viewport.curr_left.absolute(&waves.num_timestamps()).0
+                        && start_time.to_f64().unwrap()
+                            < viewport.curr_right.absolute(&waves.num_timestamps()).0
+                    {
+                        if let Some(focused_tx_ref) = focused_tx_ref {
+                            if curr_tx_id == focused_tx_ref.id {
+                                new_focused_tx = Some(tx);
+                            }
+                        }
+
+                        displayed_transactions.push(TransactionRef { id: curr_tx_id });
+                        let min = Pos2::new(
+                            viewport.pixel_from_time(
+                                &start_time.to_bigint().unwrap(),
+                                frame_width - 1.,
+                                &waves.num_timestamps(),
+                            ),
+                            cfg.line_height * curr_row as f32 + 4.0,
+                        );
+                        let max = Pos2::new(
+                            viewport.pixel_from_time(
+                                &end_time.to_bigint().unwrap(),
+                                frame_width - 1.,
+                                &waves.num_timestamps(),
+                            ),
+                            cfg.line_height * (curr_row + 1) as f32 - 4.0,
+                        );
+
+                        let tx_ref = TransactionRef { id: curr_tx_id };
+                        draw_commands.insert(
+                            tx_ref,
+                            TxDrawingCommands {
+                                min,
+                                max,
+                                gen_ref: TransactionStreamRef::new_gen(
+                                    tx_stream_ref.stream_id,
+                                    gen.id,
+                                    gen.name.clone(),
+                                ),
+                            },
+                        );
+                    }
+                }
+            }
+            stream_to_displayed_txs.insert(tx_stream_ref.clone(), displayed_transactions);
+        }
+
+        if let Some(focused_tx) = new_focused_tx {
+            for rel in &focused_tx.inc_relations {
+                inc_relation_tx_ids.push(TransactionRef {
+                    id: rel.source_tx_id,
+                });
+            }
+            for rel in &focused_tx.out_relations {
+                out_relation_tx_ids.push(TransactionRef { id: rel.sink_tx_id });
+            }
+            if old_focused_tx.is_none() || Some(focused_tx) != old_focused_tx.as_ref() {
+                msgs.push(Message::FocusTransaction(
+                    focused_tx_ref.clone(),
+                    Some(focused_tx.clone()),
+                ))
+            }
+        }
+
+        Some(TransactionDrawData(CachedTransactionDrawData {
+            draw_commands,
+            stream_to_displayed_txs,
+            inc_relation_tx_ids,
+            out_relation_tx_ids,
+        }))
+    }
+
     pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut Ui, viewport_idx: usize) {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
-        let cfg = DrawConfig::new(response.rect.size().y);
+        let cfg = match self.waves.as_ref().unwrap().inner {
+            DataContainer::Waves(_) => DrawConfig::new(response.rect.size().y),
+            DataContainer::Transactions(_) => DrawConfig::new_with_line_height(
+                response.rect.size().y,
+                self.config.layout.transactions_line_height,
+            ),
+            DataContainer::Empty => return,
+        };
         // the draw commands have been invalidated, recompute
         if self.sys.draw_data.borrow()[viewport_idx].is_none()
             || Some(response.rect) != *self.sys.last_canvas_rect.borrow()
@@ -600,10 +792,190 @@ impl State {
                                 &self.config,
                             );
                         }
+                        ItemDrawingInfo::Stream(_) => {}
                     }
                 }
             }
-            Some(CachedDrawData::TransactionDrawData(_draw_data)) => {}
+            Some(CachedDrawData::TransactionDrawData(draw_data)) => {
+                let draw_commands = &draw_data.draw_commands;
+                let stream_to_displayed_txs = &draw_data.stream_to_displayed_txs;
+                let inc_relation_tx_ids = &draw_data.inc_relation_tx_ids;
+                let out_relation_tx_ids = &draw_data.out_relation_tx_ids;
+
+                let mut inc_relation_starts = vec![];
+                let mut out_relation_starts = vec![];
+                let mut focused_transaction_start: Option<Pos2> = None;
+
+                let ticks = &waves.get_ticks(
+                    &waves.viewports[viewport_idx],
+                    &waves.inner.metadata().timescale,
+                    frame_width,
+                    cfg.text_size,
+                    &self.wanted_timeunit,
+                    &self.get_time_format(),
+                    &self.config,
+                );
+                if !ticks.is_empty() && self.show_ticks() {
+                    let stroke = Stroke {
+                        color: self.config.theme.ticks.style.color,
+                        width: self.config.theme.ticks.style.width,
+                    };
+
+                    for (_, x) in ticks {
+                        waves.draw_tick_line(*x, &mut ctx, &stroke);
+                    }
+                }
+
+                let zero_y = to_screen.transform_pos(Pos2::ZERO).y;
+                for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
+                    let y_offset = drawing_info.top() - zero_y;
+
+                    let displayed_item = waves
+                        .displayed_items_order
+                        .get(drawing_info.item_list_idx())
+                        .and_then(|id| waves.displayed_items.get(id));
+                    let color = displayed_item
+                        .and_then(|tx_stream| tx_stream.color())
+                        .and_then(|color| self.config.theme.get_color(&color));
+
+                    match drawing_info {
+                        ItemDrawingInfo::Stream(stream) => {
+                            if let Some(tx_refs) =
+                                stream_to_displayed_txs.get(&stream.transaction_stream_ref)
+                            {
+                                for tx_ref in tx_refs {
+                                    if let Some(tx_draw_command) = draw_commands.get(tx_ref) {
+                                        let mut min = tx_draw_command.min;
+                                        let mut max = tx_draw_command.max;
+
+                                        min.x = min.x.max(0.);
+                                        max.x = max.x.min(frame_width - 1.);
+
+                                        let min = (ctx.to_screen)(min.x, y_offset + min.y);
+                                        let max = (ctx.to_screen)(max.x, y_offset + max.y);
+
+                                        let start = Pos2::new(min.x, (min.y + max.y) / 2.);
+
+                                        if inc_relation_tx_ids.contains(tx_ref) {
+                                            inc_relation_starts.push(start);
+                                        } else if out_relation_tx_ids.contains(tx_ref) {
+                                            out_relation_starts.push(start);
+                                        } else if waves
+                                            .focused_transaction
+                                            .0
+                                            .as_ref()
+                                            .is_some_and(|t| t == tx_ref)
+                                        {
+                                            focused_transaction_start = Some(start);
+                                        }
+
+                                        let transaction_rect = Rect { min, max };
+                                        let mut response =
+                                            ui.allocate_rect(transaction_rect, Sense::click());
+
+                                        response = handle_transaction_tooltip(
+                                            response,
+                                            waves,
+                                            &tx_draw_command.gen_ref,
+                                            tx_ref,
+                                        );
+
+                                        if response.clicked() {
+                                            info!("Transaction {} was clicked.", tx_ref.id);
+                                            msgs.push(Message::FocusTransaction(
+                                                Some(tx_ref.clone()),
+                                                None,
+                                            ));
+                                        }
+                                        let tx_fill_color = if waves
+                                            .focused_transaction
+                                            .0
+                                            .as_ref()
+                                            .is_some_and(|t| t == tx_ref)
+                                        {
+                                            self.config.theme.transaction_selected
+                                        } else {
+                                            *waves
+                                                .displayed_items_order
+                                                .get(drawing_info.item_list_idx())
+                                                .and_then(|id| waves.displayed_items.get(id))
+                                                .and_then(|stream| stream.color())
+                                                .and_then(|color| {
+                                                    self.config.theme.colors.get(&color)
+                                                })
+                                                .unwrap_or(&self.config.theme.transaction_default)
+                                        };
+                                        let tx_fill_color = Color32::from_rgba_unmultiplied(
+                                            tx_fill_color.r(),
+                                            tx_fill_color.g(),
+                                            tx_fill_color.b(),
+                                            130,
+                                        );
+                                        let stroke =
+                                            Stroke::new(1.5, self.config.theme.transaction_outline);
+                                        ctx.painter.rect(
+                                            transaction_rect,
+                                            Rounding::same(5.0),
+                                            tx_fill_color,
+                                            stroke,
+                                        );
+                                    }
+                                }
+                                // Draws the surrounding border of the stream
+                                let stroke = Stroke::new(1.5, Color32::LIGHT_YELLOW);
+                                ctx.painter.rect_stroke(
+                                    Rect {
+                                        min: (ctx.to_screen)(container_rect.min.x, y_offset + 1.),
+                                        max: (ctx.to_screen)(
+                                            frame_width,
+                                            (drawing_info.bottom()
+                                                - to_screen.transform_pos(Pos2::ZERO).y)
+                                                - 2.,
+                                        ),
+                                    },
+                                    Rounding::ZERO,
+                                    stroke,
+                                );
+                            }
+                        }
+                        ItemDrawingInfo::TimeLine(_) => {
+                            let text_color = color.unwrap_or(
+                                // Get background color and determine best text color
+                                self.config
+                                    .theme
+                                    .get_best_text_color(&self.get_background_color(
+                                        waves,
+                                        drawing_info,
+                                        DisplayedItemIndex(idx),
+                                    )),
+                            );
+                            waves.draw_ticks(
+                                Some(text_color),
+                                ticks,
+                                &ctx,
+                                y_offset,
+                                Align2::CENTER_TOP,
+                                &self.config,
+                            );
+                        }
+                        ItemDrawingInfo::Variable(_) => {}
+                        ItemDrawingInfo::Divider(_) => {}
+                        ItemDrawingInfo::Marker(_) => {}
+                    }
+                }
+
+                // Draws the relations of the focused transaction
+                if let Some(focused_pos) = focused_transaction_start {
+                    let arrow_color = self.config.theme.relation_arrow;
+                    for start_pos in inc_relation_starts {
+                        self.draw_arrow(start_pos, focused_pos, 25., arrow_color, &ctx);
+                    }
+
+                    for end_pos in out_relation_starts {
+                        self.draw_arrow(focused_pos, end_pos, 25., arrow_color, &ctx);
+                    }
+                }
+            }
             None => {}
         }
         #[cfg(feature = "performance_plot")]
@@ -770,6 +1142,83 @@ impl State {
                 ));
             }
         }
+    }
+
+    /// Draws a curvy arrow from `start` to `end`.
+    fn draw_arrow(
+        &self,
+        start: Pos2,
+        end: Pos2,
+        arrowhead_angle: f64,
+        color: Color32,
+        ctx: &DrawingContext,
+    ) {
+        let mut anchor1 = Pos2::default();
+        let mut anchor2 = Pos2::default();
+
+        let x_diff = (end.x - start.x).max(100.);
+
+        anchor1.x = start.x + (2. / 5.) * x_diff;
+        anchor1.y = start.y;
+
+        anchor2.x = end.x - (2. / 5.) * x_diff;
+        anchor2.y = end.y;
+
+        let stroke = PathStroke::new(1.3, color);
+
+        ctx.painter.add(Shape::CubicBezier(CubicBezierShape {
+            points: [start, anchor1, anchor2, end],
+            closed: false,
+            fill: Default::default(),
+            stroke: stroke.clone(),
+        }));
+
+        self.draw_arrowheads(anchor2, end, arrowhead_angle, ctx, stroke);
+    }
+
+    /// Draws arrowheads for the vector going from `vec_start` to `vec_tip`.
+    /// The `angle` has to be in degrees.
+    fn draw_arrowheads(
+        &self,
+        vec_start: Pos2,
+        vec_tip: Pos2,
+        angle: f64, // given in degrees
+        ctx: &DrawingContext,
+        stroke: PathStroke,
+    ) {
+        // FIXME: should probably make scale a function parameter
+        let scale = 8.;
+
+        let vec_x = (vec_tip.x - vec_start.x) as f64;
+        let vec_y = (vec_tip.y - vec_start.y) as f64;
+
+        let alpha = 2. * PI / 360. * angle;
+
+        // calculate the points of the new vector, which forms an angle of the given degrees with the given vector
+        let vec_angled_x = vec_x * alpha.cos() + vec_y * alpha.sin();
+        let vec_angled_y = -vec_x * alpha.sin() + vec_y * alpha.cos();
+
+        // scale the new vector to be ´scale´ long
+        let vec_angled_x =
+            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_x * scale;
+        let vec_angled_y =
+            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_y * scale;
+
+        let arrowhead_left_x = vec_tip.x - vec_angled_x as f32;
+        let arrowhead_left_y = vec_tip.y - vec_angled_y as f32;
+
+        let arrowhead_right_x = vec_tip.x + vec_angled_y as f32;
+        let arrowhead_right_y = vec_tip.y - vec_angled_x as f32;
+
+        ctx.painter.add(Shape::line_segment(
+            [vec_tip, Pos2::new(arrowhead_left_x, arrowhead_left_y)],
+            stroke.clone(),
+        ));
+
+        ctx.painter.add(Shape::line_segment(
+            [vec_tip, Pos2::new(arrowhead_right_x, arrowhead_right_y)],
+            stroke,
+        ));
     }
 
     fn handle_canvas_context_menu(
@@ -946,4 +1395,73 @@ impl VariableExt for String {
         };
         (height, color, background)
     }
+}
+
+fn handle_transaction_tooltip(
+    response: Response,
+    waves: &WaveData,
+    gen_ref: &TransactionStreamRef,
+    tx_ref: &TransactionRef,
+) -> Response {
+    let tx = waves
+        .inner
+        .as_transactions()
+        .unwrap()
+        .get_generator(gen_ref.gen_id.unwrap())
+        .unwrap()
+        .transactions
+        .iter()
+        .find(|transaction| transaction.get_tx_id() == tx_ref.id)
+        .unwrap();
+
+    let response = response.on_hover_text(transaction_tooltip_text(waves, tx));
+    response.on_hover_ui(|ui| transaction_tooltip_table(ui, tx))
+}
+
+fn transaction_tooltip_text(waves: &WaveData, tx: &Transaction) -> String {
+    let time_scale = waves.inner.as_transactions().unwrap().inner.time_scale;
+
+    format!(
+        "tx#{}: {}{} - {}{}\nType: {}",
+        tx.event.tx_id,
+        tx.event.start_time,
+        time_scale,
+        tx.event.end_time,
+        time_scale,
+        waves
+            .inner
+            .as_transactions()
+            .unwrap()
+            .get_generator(tx.get_gen_id())
+            .unwrap()
+            .name
+            .clone(),
+    )
+}
+
+fn transaction_tooltip_table(ui: &mut Ui, tx: &Transaction) {
+    TableBuilder::new(ui)
+        .column(Column::exact(80.))
+        .column(Column::exact(80.))
+        .header(20.0, |mut header| {
+            header.col(|ui| {
+                ui.heading("Attribute");
+            });
+            header.col(|ui| {
+                ui.heading("Value");
+            });
+        })
+        .body(|body| {
+            let total_rows = tx.attributes.len();
+            let attributes = &tx.attributes;
+            body.rows(15., total_rows, |mut row| {
+                let attribute = attributes.get(row.index()).unwrap();
+                row.col(|ui| {
+                    ui.label(attribute.name.clone());
+                });
+                row.col(|ui| {
+                    ui.label(attribute.value());
+                });
+            })
+        });
 }

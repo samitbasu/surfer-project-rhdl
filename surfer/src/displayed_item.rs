@@ -6,6 +6,7 @@ use epaint::text::LayoutJob;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::VariableInfo;
 
+use crate::transaction_container::TransactionStreamRef;
 use crate::wave_container::{VariableRef, VariableRefExt, WaveContainer};
 use crate::{
     marker::DEFAULT_MARKER_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
@@ -63,6 +64,7 @@ pub enum DisplayedItem {
     Marker(DisplayedMarker),
     TimeLine(DisplayedTimeLine),
     Placeholder(DisplayedPlaceholder),
+    Stream(DisplayedStream),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -211,6 +213,16 @@ impl DisplayedPlaceholder {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DisplayedStream {
+    pub transaction_stream_ref: TransactionStreamRef,
+    pub color: Option<String>,
+    pub background_color: Option<String>,
+    pub display_name: String,
+    pub manual_name: Option<String>,
+    pub rows: usize,
+}
+
 impl DisplayedItem {
     pub fn color(&self) -> Option<String> {
         match self {
@@ -219,6 +231,7 @@ impl DisplayedItem {
             DisplayedItem::Marker(marker) => marker.color.clone(),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
             DisplayedItem::Placeholder(_) => None,
+            DisplayedItem::Stream(stream) => stream.color.clone(),
         }
     }
 
@@ -229,6 +242,7 @@ impl DisplayedItem {
             DisplayedItem::Marker(marker) => marker.color.clone_from(&color_name),
             DisplayedItem::TimeLine(timeline) => timeline.color.clone_from(&color_name),
             DisplayedItem::Placeholder(placeholder) => placeholder.color.clone_from(&color_name),
+            DisplayedItem::Stream(stream) => stream.color.clone_from(&color_name),
         }
     }
 
@@ -254,6 +268,11 @@ impl DisplayedItem {
                 .manual_name
                 .as_ref()
                 .unwrap_or(&placeholder.display_name)
+                .clone(),
+            DisplayedItem::Stream(stream) => stream
+                .manual_name
+                .as_ref()
+                .unwrap_or(&stream.display_name)
                 .clone(),
         }
     }
@@ -288,6 +307,12 @@ impl DisplayedItem {
                     .italics()
                     .append_to(layout_job, style, FontSelection::Default, Align::Center)
             }
+            DisplayedItem::Stream(stream) => {
+                RichText::new(format!("{}{}", self.name(), "\n".repeat(stream.rows - 1)))
+                    .color(*color)
+                    .line_height(Some(30.0))
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
+            }
         }
     }
 
@@ -308,6 +333,9 @@ impl DisplayedItem {
             DisplayedItem::Placeholder(placeholder) => {
                 placeholder.manual_name = name;
             }
+            DisplayedItem::Stream(stream) => {
+                stream.manual_name = name;
+            }
         }
     }
 
@@ -318,6 +346,7 @@ impl DisplayedItem {
             DisplayedItem::Marker(marker) => &marker.background_color,
             DisplayedItem::TimeLine(timeline) => &timeline.background_color,
             DisplayedItem::Placeholder(_) => &None,
+            DisplayedItem::Stream(stream) => &stream.background_color,
         };
         background_color.clone()
     }
@@ -338,6 +367,9 @@ impl DisplayedItem {
             }
             DisplayedItem::Placeholder(placeholder) => {
                 placeholder.background_color.clone_from(&color_name);
+            }
+            DisplayedItem::Stream(stream) => {
+                stream.background_color.clone_from(&color_name);
             }
         }
     }

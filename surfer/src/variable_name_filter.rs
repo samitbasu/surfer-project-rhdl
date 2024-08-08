@@ -145,33 +145,26 @@ impl State {
                                     ))
                                 }
                                 ScopeType::StreamScope(active_scope) => {
-                                    let Transactions(streams) = &waves.inner else {
+                                    let Transactions(inner) = &waves.inner else {
                                         return;
                                     };
                                     match active_scope {
                                         StreamScopeRef::Root => {
-                                            for (id, stream) in &streams.inner.tx_streams {
+                                            for stream in inner.get_streams() {
                                                 msgs.push(Message::AddStreamOrGenerator(
                                                     TransactionStreamRef::new_stream(
-                                                        *id,
+                                                        stream.id,
                                                         stream.name.clone(),
                                                     ),
                                                 ));
                                             }
                                         }
                                         StreamScopeRef::Stream(s) => {
-                                            for gen_id in &streams
-                                                .inner
-                                                .tx_streams
-                                                .get(&s.stream_id)
-                                                .unwrap()
-                                                .generators
+                                            for gen_id in
+                                                &inner.get_stream(s.stream_id).unwrap().generators
                                             {
-                                                let gen = streams
-                                                    .inner
-                                                    .tx_generators
-                                                    .get(&gen_id)
-                                                    .unwrap();
+                                                let gen = inner.get_generator(*gen_id).unwrap();
+
                                                 msgs.push(Message::AddStreamOrGenerator(
                                                     TransactionStreamRef::new_gen(
                                                         gen.stream_id,

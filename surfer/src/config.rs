@@ -105,6 +105,8 @@ pub struct SurferLayout {
     align_names_right: bool,
     /// Set style of hierarchy
     pub hierarchy_style: HierarchyStyle,
+    /// Default line height for transaction streams
+    pub transactions_line_height: f32,
 }
 
 impl SurferLayout {
@@ -225,6 +227,18 @@ pub struct SurferTheme {
     #[serde(deserialize_with = "deserialize_hex_color")]
     /// Color used for constant variables (parameters)
     pub variable_parameter: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    /// Default transaction color
+    pub transaction_default: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    // Color used for selected transaction
+    pub transaction_selected: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    // Color used for transaction outlines
+    pub transaction_outline: Color32,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    // Color used for relation arrows of transactions
+    pub relation_arrow: Color32,
 
     /// Opacity with which variable backgrounds are drawn. 0 is fully transparent and 1 is fully
     /// opaque.

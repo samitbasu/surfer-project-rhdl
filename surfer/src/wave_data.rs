@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use color_eyre::eyre::{Result, WrapErr};
-use log::{error, warn};
+use log::{error, info, warn};
 use num::bigint::ToBigInt as _;
 use num::{BigInt, BigUint, Zero};
 use serde::{Deserialize, Serialize};
@@ -10,9 +10,9 @@ use surfer_translation_types::{TranslationPreference, Translator, VariableValue}
 use crate::data_container::DataContainer;
 use crate::displayed_item::{
     DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
-    DisplayedTimeLine, DisplayedVariable,
+    DisplayedStream, DisplayedTimeLine, DisplayedVariable,
 };
-use crate::transaction_container::StreamScopeRef;
+use crate::transaction_container::{StreamScopeRef, TransactionRef, TransactionStreamRef};
 use crate::translation::{DynTranslator, TranslatorList, VariableInfoExt};
 use crate::variable_name_type::VariableNameType;
 use crate::view::ItemDrawingInfo;
@@ -20,7 +20,9 @@ use crate::viewport::Viewport;
 use crate::wave_container::{ScopeRef, VariableMeta, VariableRef, VariableRefExt, WaveContainer};
 use crate::wave_source::{WaveFormat, WaveSource};
 use crate::wellen::LoadSignalsCmd;
+use ftr_parser::types::Transaction;
 use std::fmt::Formatter;
+use std::ops::Not;
 
 pub const PER_SCROLL_EVENT: f32 = 50.0;
 pub const SCROLL_EVENTS_PER_PAGE: f32 = 20.0;
@@ -59,6 +61,7 @@ pub struct WaveData {
     pub right_cursor: Option<BigInt>,
     pub markers: HashMap<u8, BigInt>,
     pub focused_item: Option<DisplayedItemIndex>,
+    pub focused_transaction: (Option<TransactionRef>, Option<Transaction>),
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
     pub display_variable_indices: bool,
@@ -182,6 +185,7 @@ impl WaveData {
             right_cursor: None,
             markers: self.markers.clone(),
             focused_item: self.focused_item,
+            focused_transaction: self.focused_transaction,
             default_variable_name_type: self.default_variable_name_type,
             display_variable_indices: self.display_variable_indices,
             scroll_offset: self.scroll_offset,
@@ -299,7 +303,8 @@ impl WaveData {
                     // keep without a change
                     DisplayedItem::Divider(_)
                     | DisplayedItem::Marker(_)
-                    | DisplayedItem::TimeLine(_) => Some((*id, i.clone())),
+                    | DisplayedItem::TimeLine(_)
+                    | DisplayedItem::Stream(_) => Some((*id, i.clone())),
                     DisplayedItem::Variable(s) => {
                         s.update(waves, keep_unavailable).map(|r| (*id, r))
                     }
@@ -480,6 +485,108 @@ impl WaveData {
             }),
             vidx,
         );
+    }
+
+    pub fn add_generator(&mut self, gen_ref: TransactionStreamRef) {
+        let Some(gen_id) = gen_ref.gen_id else { return };
+
+        if self
+            .inner
+            .as_transactions()
+            .unwrap()
+            .get_generator(gen_id)
+            .unwrap()
+            .transactions
+            .is_empty()
+        {
+            info!("(Generator {})Loading transactions into memory!", gen_id);
+            match self
+                .inner
+                .as_transactions_mut()
+                .unwrap()
+                .inner
+                .load_stream_into_memory(gen_ref.stream_id)
+            {
+                Ok(_) => info!("(Generator {}) Finished loading transactions!", gen_id),
+                Err(_) => return,
+            }
+        }
+
+        let gen = self
+            .inner
+            .as_transactions()
+            .unwrap()
+            .get_generator(gen_id)
+            .unwrap();
+        let mut last_times_on_row = vec![(BigUint::ZERO, BigUint::ZERO)];
+        calculate_rows_of_stream(&gen.transactions, &mut last_times_on_row);
+
+        let new_gen = DisplayedItem::Stream(DisplayedStream {
+            display_name: gen_ref.name.clone(),
+            transaction_stream_ref: gen_ref,
+            color: None,
+            background_color: None,
+            manual_name: None,
+            rows: last_times_on_row.len(),
+        });
+
+        self.insert_item(new_gen, None);
+    }
+
+    pub fn add_stream(&mut self, stream_ref: TransactionStreamRef) {
+        if self
+            .inner
+            .as_transactions_mut()
+            .unwrap()
+            .get_stream(stream_ref.stream_id)
+            .unwrap()
+            .transactions_loaded
+            .not()
+        {
+            info!("(Stream)Loading transactions into memory!");
+            match self
+                .inner
+                .as_transactions_mut()
+                .unwrap()
+                .inner
+                .load_stream_into_memory(stream_ref.stream_id)
+            {
+                Ok(_) => info!(
+                    "(Stream {}) Finished loading transactions!",
+                    stream_ref.stream_id
+                ),
+                Err(_) => return,
+            }
+        }
+
+        let stream = self
+            .inner
+            .as_transactions()
+            .unwrap()
+            .get_stream(stream_ref.stream_id)
+            .unwrap();
+        let mut last_times_on_row = vec![(BigUint::ZERO, BigUint::ZERO)];
+
+        for gen_id in &stream.generators {
+            let gen = self
+                .inner
+                .as_transactions()
+                .unwrap()
+                .get_generator(*gen_id)
+                .unwrap();
+            calculate_rows_of_stream(&gen.transactions, &mut last_times_on_row);
+        }
+
+        let new_stream = DisplayedItem::Stream(DisplayedStream {
+            display_name: stream_ref.name.clone(),
+            transaction_stream_ref: stream_ref,
+            color: None,
+            background_color: None,
+            manual_name: None,
+            rows: last_times_on_row.len(),
+        });
+
+        self.insert_item(new_stream, None);
     }
 
     /// Insert item after item vidx if Some(vidx).
@@ -684,5 +791,26 @@ impl WaveData {
             .unwrap_or(BigUint::from(1u32))
             .to_bigint()
             .unwrap()
+    }
+}
+
+fn calculate_rows_of_stream(
+    transactions: &Vec<Transaction>,
+    last_times_on_row: &mut Vec<(BigUint, BigUint)>,
+) {
+    for transaction in transactions {
+        let mut curr_row = 0;
+        let start_time = transaction.get_start_time();
+        let end_time = transaction.get_end_time();
+
+        while start_time > last_times_on_row[curr_row].0
+            && start_time < last_times_on_row[curr_row].1
+        {
+            curr_row += 1;
+            if last_times_on_row.len() <= curr_row {
+                last_times_on_row.push((BigUint::ZERO, BigUint::ZERO));
+            }
+        }
+        last_times_on_row[curr_row] = (start_time, end_time);
     }
 }

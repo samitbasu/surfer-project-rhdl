@@ -23,6 +23,7 @@ window_width = 1920
 window_height = 1080
 align_names_right = false
 hierarchy_style = "Separate"
+transactions_line_height = 30.0
 
 [gesture]
 style = { color="e9da16", width=2 }

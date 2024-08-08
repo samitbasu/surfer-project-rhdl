@@ -78,12 +78,13 @@ use crate::benchmark::Timing;
 use crate::command_prompt::get_parser;
 use crate::config::{SurferConfig, SurferTheme};
 use crate::data_container::DataContainer;
+use crate::data_container::DataContainer::Transactions;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef, FieldFormat,
 };
 use crate::drawing_canvas::TxDrawingCommands;
 use crate::message::{HeaderResult, Message};
-use crate::transaction_container::{TransactionRef, TransactionStreamRef};
+use crate::transaction_container::{TransactionContainer, TransactionRef, TransactionStreamRef};
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::{all_translators, AnyTranslator, TranslatorList};
@@ -366,7 +367,6 @@ pub enum ColorSpecifier {
 
 enum CachedDrawData {
     WaveDrawData(CachedWaveDrawData),
-    #[allow(dead_code)]
     TransactionDrawData(CachedTransactionDrawData),
 }
 
@@ -376,10 +376,9 @@ struct CachedWaveDrawData {
     pub ticks: Vec<(String, f32)>,
 }
 
-#[allow(dead_code)]
 struct CachedTransactionDrawData {
     pub draw_commands: HashMap<TransactionRef, TxDrawingCommands>,
-    pub stream_to_displayed_transactions: HashMap<TransactionStreamRef, Vec<TransactionRef>>,
+    pub stream_to_displayed_txs: HashMap<TransactionStreamRef, Vec<TransactionRef>>,
     pub inc_relation_tx_ids: Vec<TransactionRef>,
     pub out_relation_tx_ids: Vec<TransactionRef>,
 }
@@ -656,7 +655,11 @@ impl State {
                 ));
             }
             Some(WaveSource::File(file)) => {
-                self.add_startup_message(Message::LoadWaveformFile(file, LoadOptions::clean()));
+                let msg = match file.extension().unwrap() {
+                    "ftr" => Message::LoadTransactionFile(file, LoadOptions::clean()),
+                    _ => Message::LoadWaveformFile(file, LoadOptions::clean()),
+                };
+                self.add_startup_message(msg);
             }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             #[cfg(not(target_arch = "wasm32"))]
@@ -756,7 +759,16 @@ impl State {
                     self.count = Some(digit.to_string())
                 }
             }
-            Message::AddStreamOrGenerator(_s) => {}
+            Message::AddStreamOrGenerator(s) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    if s.gen_id.is_some() {
+                        waves.add_generator(s);
+                    } else {
+                        waves.add_stream(s);
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
             Message::AddStreamOrGeneratorFromName(_scope, _name) => {}
             Message::InvalidateCount => self.count = None,
             Message::SetNameAlignRight(align_right) => {
@@ -829,6 +841,17 @@ impl State {
                                 .map(DisplayedItemIndex);
                         }
                     }
+                }
+            }
+            Message::FocusTransaction(tx_ref, tx) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+                let invalidate = tx.is_none();
+                waves.focused_transaction =
+                    (tx_ref, tx.or_else(|| waves.focused_transaction.1.clone()));
+                if invalidate {
+                    self.invalidate_draw_commands();
                 }
             }
             Message::ScrollToItem(position) => {
@@ -1136,6 +1159,10 @@ impl State {
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
             }
+            Message::LoadTransactionFile(filename, load_options) => {
+                self.load_transactions_from_file(filename, load_options)
+                    .ok();
+            }
             #[cfg(target_family = "unix")]
             Message::LoadPythonTranslator(filename) => {
                 try_log_error!(
@@ -1241,6 +1268,10 @@ impl State {
                 // here, the body and thus the number of timestamps is already loaded!
                 self.waves.as_mut().unwrap().update_viewports();
                 self.sys.progress_tracker = None;
+            }
+            Message::TransactionStreamsLoaded(filename, format, new_ftr, loaded_options) => {
+                self.on_transaction_streams_loaded(filename, format, new_ftr, loaded_options);
+                self.waves.as_mut().unwrap().update_viewports();
             }
             Message::BlacklistTranslator(idx, translator) => {
                 self.blacklisted_translators.insert((idx, translator));
@@ -1738,6 +1769,7 @@ impl State {
                     right_cursor: None,
                     markers: HashMap::new(),
                     focused_item: None,
+                    focused_transaction: (None, None),
                     default_variable_name_type: self.config.default_variable_name_type,
                     display_variable_indices: self.show_variable_indices(),
                     scroll_offset: 0.,
@@ -1758,6 +1790,48 @@ impl State {
         // Set time unit to the file time unit before consuming new_wave
         self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
         self.waves = Some(new_wave);
+    }
+
+    fn on_transaction_streams_loaded(
+        &mut self,
+        filename: WaveSource,
+        format: WaveFormat,
+        new_ftr: TransactionContainer,
+        _loaded_options: LoadOptions,
+    ) {
+        info!("Transaction streams are loaded.");
+
+        let viewport = Viewport::new();
+        let viewports = [viewport].to_vec();
+
+        let new_transaction_streams = WaveData {
+            inner: Transactions(new_ftr),
+            source: filename,
+            format,
+            active_scope: None,
+            displayed_items_order: vec![],
+            displayed_items: HashMap::new(),
+            viewports,
+            cursor: None,
+            right_cursor: None,
+            markers: HashMap::new(),
+            focused_item: None,
+            focused_transaction: (None, None),
+            default_variable_name_type: self.config.default_variable_name_type,
+            display_variable_indices: self.show_variable_indices(),
+            scroll_offset: 0.,
+            drawing_infos: vec![],
+            top_item_draw_offset: 0.,
+            total_height: 0.,
+            display_item_ref_counter: 0,
+            old_num_timestamps: None,
+        };
+
+        self.invalidate_draw_commands();
+
+        self.config.theme.alt_frequency = 0;
+        self.wanted_timeunit = new_transaction_streams.inner.metadata().timescale.unit;
+        self.waves = Some(new_transaction_streams);
     }
 
     fn handle_async_messages(&mut self) {

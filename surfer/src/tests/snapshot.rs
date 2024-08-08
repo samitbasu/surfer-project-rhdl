@@ -7,6 +7,7 @@ use std::{
 use base64::{engine::general_purpose, Engine};
 use egui_skia_renderer::draw_onto_surface;
 use emath::Vec2;
+use ftr_parser::types::{Event, TxRelation};
 use image::{DynamicImage, ImageFormat};
 use log::info;
 use num::BigInt;
@@ -14,6 +15,7 @@ use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
 use test_log::test;
 
+use crate::transaction_container::TransactionStreamRef;
 use crate::wave_container::{ScopeRefExt, VariableRefExt};
 use crate::wave_data::ScopeType;
 use crate::{
@@ -21,7 +23,7 @@ use crate::{
     config::{HierarchyStyle, SurferConfig},
     displayed_item::{DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef},
     message::AsyncJob,
-    setup_custom_font,
+    setup_custom_font, transaction_container,
     variable_name_filter::VariableNameFilterType,
     wave_container::{ScopeRef, VariableRef},
     wave_source::LoadOptions,
@@ -1892,3 +1894,36 @@ snapshot_ui_with_file_and_msgs!(
         ),
     ]
 );
+
+snapshot_ui_with_file_and_msgs! {simple_ftr_loads, "examples/my_db.ftr", [
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(1, "pipelined_stream".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(2, "addr_stream".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(3, "data_stream".to_string())),
+    Message::AddDivider(Some("Divider".to_string()), None),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(1, 4, "pipelined_stream.read".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(1, 5, "pipelined_stream.write".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(2, 6, "addr_stream.addr".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(3, 7, "data_stream.rdata".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(3, 8, "data_stream.wdata".to_string())),
+
+]}
+
+snapshot_ui_with_file_and_msgs! {focus_transaction, "examples/my_db.ftr", [
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(1, "pipelined_stream".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(1, 4, "pipelined_stream.read".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(1, 5, "pipelined_stream.write".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(2, 6, "addr_stream.addr".to_string())),
+    Message::FocusTransaction(
+        Some(transaction_container::TransactionRef { id: 4 }),
+        None,
+    ),
+]}
+
+snapshot_ui_with_file_and_msgs! {tx_stream_multiple_viewport_works, "examples/my_db.ftr", [
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(1, "pipelined_stream".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(2, "addr_stream".to_string())),
+    Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(3, "data_stream".to_string())),
+    Message::AddViewport,
+    Message::CanvasScroll {delta: Vec2::new(-300., 0.),viewport_idx: 1},
+    Message::FocusTransaction(Some(transaction_container::TransactionRef { id: 34 }), None),
+]}

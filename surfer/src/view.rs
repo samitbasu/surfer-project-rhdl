@@ -70,6 +70,14 @@ impl DrawConfig {
             max_transition_width: 6,
         }
     }
+    pub fn new_with_line_height(canvas_height: f32, line_height: f32) -> Self {
+        Self {
+            canvas_height,
+            line_height,
+            text_size: line_height - 5.,
+            max_transition_width: 6,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -103,11 +111,20 @@ pub struct TimeLineDrawingInfo {
     pub bottom: f32,
 }
 
+#[derive(Debug)]
+pub struct StreamDrawingInfo {
+    pub transaction_stream_ref: TransactionStreamRef,
+    pub item_list_idx: DisplayedItemIndex,
+    pub top: f32,
+    pub bottom: f32,
+}
+
 pub enum ItemDrawingInfo {
     Variable(VariableDrawingInfo),
     Divider(DividerDrawingInfo),
     Marker(MarkerDrawingInfo),
     TimeLine(TimeLineDrawingInfo),
+    Stream(StreamDrawingInfo),
 }
 
 impl ItemDrawingInfo {
@@ -117,6 +134,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.top,
             ItemDrawingInfo::Marker(drawing_info) => drawing_info.top,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.top,
+            ItemDrawingInfo::Stream(drawing_info) => drawing_info.top,
         }
     }
     pub fn bottom(&self) -> f32 {
@@ -125,6 +143,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::Marker(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.bottom,
+            ItemDrawingInfo::Stream(drawing_info) => drawing_info.bottom,
         }
     }
     pub fn item_list_idx(&self) -> usize {
@@ -133,6 +152,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Divider(drawing_info) => drawing_info.item_list_idx.0,
             ItemDrawingInfo::Marker(drawing_info) => drawing_info.item_list_idx.0,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx.0,
+            ItemDrawingInfo::Stream(drawing_info) => drawing_info.item_list_idx.0,
         }
     }
 }
@@ -507,7 +527,7 @@ impl State {
                 }
             }
         }
-        if draw_variables {
+        if draw_variables && self.waves.as_ref().unwrap().inner.is_waves() {
             let scope = ScopeRef::empty();
             let wave_container = wave.inner.as_waves().unwrap();
             let variables = wave_container.variables_in_scope(&scope);
@@ -771,6 +791,14 @@ impl State {
                             ui,
                             draw_alpha,
                         ),
+                        DisplayedItem::Stream(_) => self.draw_plain_item(
+                            msgs,
+                            vidx,
+                            displayed_item,
+                            &mut item_offsets,
+                            ui,
+                            draw_alpha,
+                        ),
                     };
                     self.draw_drag_target(
                         msgs,
@@ -836,6 +864,59 @@ impl State {
                 });
             }
         });
+    }
+
+    pub fn draw_transaction_variable_list(
+        &self,
+        msgs: &mut Vec<Message>,
+        streams: &WaveData,
+        ui: &mut egui::Ui,
+        active_stream: &StreamScopeRef,
+    ) {
+        let inner = streams.inner.as_transactions().unwrap();
+        match active_stream {
+            StreamScopeRef::Root => {
+                for stream in inner.get_streams() {
+                    ui.with_layout(
+                        Layout::top_down(Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            let response =
+                                ui.add(egui::SelectableLabel::new(false, stream.name.clone()));
+
+                            response.clicked().then(|| {
+                                msgs.push(Message::AddStreamOrGenerator(
+                                    TransactionStreamRef::new_stream(
+                                        stream.id,
+                                        stream.name.clone(),
+                                    ),
+                                ))
+                            });
+                        },
+                    );
+                }
+            }
+            StreamScopeRef::Stream(stream_ref) => {
+                for gen_id in &inner.get_stream(stream_ref.stream_id).unwrap().generators {
+                    let gen_name = inner.get_generator(*gen_id).unwrap().name.clone();
+                    ui.with_layout(
+                        Layout::top_down(Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            let response = ui.add(egui::SelectableLabel::new(false, &gen_name));
+
+                            response.clicked().then(|| {
+                                msgs.push(Message::AddStreamOrGenerator(
+                                    TransactionStreamRef::new_gen(
+                                        stream_ref.stream_id,
+                                        *gen_id,
+                                        gen_name,
+                                    ),
+                                ))
+                            });
+                        },
+                    );
+                }
+            }
+        }
     }
 
     fn get_name_alignment(&self) -> Align {
@@ -1125,6 +1206,14 @@ impl State {
                     bottom: label.rect.bottom(),
                 }))
             }
+            DisplayedItem::Stream(stream) => {
+                drawing_infos.push(ItemDrawingInfo::Stream(StreamDrawingInfo {
+                    transaction_stream_ref: stream.transaction_stream_ref.clone(),
+                    item_list_idx: vidx,
+                    top: label.rect.top(),
+                    bottom: label.rect.bottom(),
+                }))
+            }
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
         }
@@ -1291,6 +1380,9 @@ impl State {
                         }
                     }
                     ItemDrawingInfo::TimeLine(_) => {
+                        ui.label("");
+                    }
+                    ItemDrawingInfo::Stream(_) => {
                         ui.label("");
                     }
                 }

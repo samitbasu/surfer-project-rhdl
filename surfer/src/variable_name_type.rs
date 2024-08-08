@@ -121,6 +121,7 @@ impl WaveData {
                     DisplayedItem::Marker(_) => {}
                     DisplayedItem::TimeLine(_) => {}
                     DisplayedItem::Placeholder(_) => {}
+                    DisplayedItem::Stream(_) => {}
                 });
         }
     }

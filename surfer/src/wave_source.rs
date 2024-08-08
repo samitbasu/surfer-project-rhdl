@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use web_time::Instant;
 
 use crate::message::{AsyncJob, BodyResult, HeaderResult};
+use crate::transaction_container::TransactionContainer;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::wave_container::WaveContainer;
 use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
@@ -93,6 +94,7 @@ pub enum WaveFormat {
     Fst,
     Ghw,
     CxxRtl,
+    Ftr,
 }
 
 impl Display for WaveFormat {
@@ -102,6 +104,7 @@ impl Display for WaveFormat {
             WaveFormat::Fst => write!(f, "FST"),
             WaveFormat::Ghw => write!(f, "GHW"),
             WaveFormat::CxxRtl => write!(f, "Cxxrtl"),
+            WaveFormat::Ftr => write!(f, "FTR"),
         }
     }
 }
@@ -287,6 +290,34 @@ impl State {
                     Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)))
             }
         }
+    }
+
+    pub fn load_transactions_from_file(
+        &mut self,
+        filename: camino::Utf8PathBuf,
+        load_options: LoadOptions,
+    ) -> Result<()> {
+        info!("Loading a transaction file: {filename}");
+        let sender = self.sys.channels.msg_sender.clone();
+        let source = WaveSource::File(filename.clone());
+        let format = WaveFormat::Ftr;
+
+        let result = ftr_parser::parse::parse_ftr(filename.into_std_path_buf());
+
+        info!("Done with loading ftr file");
+
+        match result {
+            Ok(ftr) => sender
+                .send(Message::TransactionStreamsLoaded(
+                    source,
+                    format,
+                    TransactionContainer { inner: ftr },
+                    load_options,
+                ))
+                .unwrap(),
+            Err(e) => sender.send(Message::Error(e)).unwrap(),
+        }
+        Ok(())
     }
     fn get_hierarchy_from_server(
         sender: Sender<Message>,
@@ -596,13 +627,23 @@ impl State {
 
         #[cfg(not(target_arch = "wasm32"))]
         let message = move |file: PathBuf| {
-            Message::LoadWaveformFile(
-                Utf8PathBuf::from_path_buf(file).unwrap(),
-                LoadOptions {
-                    keep_variables,
-                    keep_unavailable,
-                },
-            )
+            if file.extension().unwrap() == "ftr" {
+                Message::LoadTransactionFile(
+                    Utf8PathBuf::from_path_buf(file).unwrap(),
+                    LoadOptions {
+                        keep_variables,
+                        keep_unavailable,
+                    },
+                )
+            } else {
+                Message::LoadWaveformFile(
+                    Utf8PathBuf::from_path_buf(file).unwrap(),
+                    LoadOptions {
+                        keep_variables,
+                        keep_unavailable,
+                    },
+                )
+            }
         };
 
         #[cfg(target_arch = "wasm32")]
@@ -618,8 +659,13 @@ impl State {
 
         self.file_dialog(
             (
-                "Waveform-files (*.vcd, *.fst, *.ghw)".to_string(),
-                vec!["vcd".to_string(), "fst".to_string(), "ghw".to_string()],
+                "Waveform/Transaction-files (*.vcd, *.fst, *.ghw, *.ftr)".to_string(),
+                vec![
+                    "vcd".to_string(),
+                    "fst".to_string(),
+                    "ghw".to_string(),
+                    "ftr".to_string(),
+                ],
             ),
             message,
         );

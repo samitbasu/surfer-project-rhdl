@@ -18,6 +18,10 @@ variable_highimp = "c9e124"
 variable_dontcare = "4040ff"
 variable_weak = "808080"
 variable_parameter = "d4d4d4"
+transaction_default = "60c8ff"
+transaction_selected = "55ff82"
+transaction_outline = "5ce9ff"
+relation_arrow = "c61521"
 waveform_opacity = 0.2
 cursor = { color="b63935", width=2 }
 linewidth = 1.5

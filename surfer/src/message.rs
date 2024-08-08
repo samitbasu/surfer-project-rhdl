@@ -3,13 +3,15 @@ use camino::Utf8PathBuf;
 use derivative::Derivative;
 use egui::DroppedFile;
 use emath::{Pos2, Vec2};
+use ftr_parser::types::Transaction;
 use num::BigInt;
 use serde::Deserialize;
 use std::path::PathBuf;
-
 use surver::Status;
 
-use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
+use crate::transaction_container::{
+    StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
+};
 use crate::translation::DynTranslator;
 use crate::wave_data::ScopeType;
 use crate::{
@@ -66,6 +68,7 @@ pub enum Message {
     RenameItem(Option<DisplayedItemIndex>),
     MoveFocus(MoveDir, CommandCount),
     MoveFocusedItem(MoveDir, CommandCount),
+    FocusTransaction(Option<TransactionRef>, Option<Transaction>),
     VerticalScroll(MoveDir, CommandCount),
     ScrollToItem(usize),
     SetScrollOffset(f32),
@@ -101,6 +104,7 @@ pub enum Message {
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
+    LoadTransactionFile(Utf8PathBuf, LoadOptions),
     #[cfg(target_family = "unix")]
     LoadPythonTranslator(Utf8PathBuf),
     #[cfg(not(target_arch = "wasm32"))]
@@ -129,6 +133,13 @@ pub enum Message {
     SignalsLoaded(
         web_time::Instant,
         #[derivative(Debug = "ignore")] LoadSignalsResult,
+    ),
+    #[serde(skip)]
+    TransactionStreamsLoaded(
+        WaveSource,
+        WaveFormat,
+        #[derivative(Debug = "ignore")] TransactionContainer,
+        LoadOptions,
     ),
     #[serde(skip)]
     Error(color_eyre::eyre::Error),
