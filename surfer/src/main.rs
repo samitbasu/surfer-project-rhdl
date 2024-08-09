@@ -440,6 +440,8 @@ pub struct SystemState {
     variable_name_filter: RefCell<String>,
     item_renaming_string: RefCell<String>,
 
+    selected_surver_file: RefCell<Option<usize>>,
+
     // Benchmarking stuff
     /// Invalidate draw commands every frame to make performance comparison easier
     continuous_redraw: bool,
@@ -487,6 +489,7 @@ impl SystemState {
             last_canvas_rect: RefCell::new(None),
             variable_name_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
+            selected_surver_file: RefCell::new(None),
 
             continuous_redraw: false,
             #[cfg(feature = "performance_plot")]
