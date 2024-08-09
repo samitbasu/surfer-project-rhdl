@@ -232,7 +232,12 @@ impl State {
         }
     }
 
-    pub fn load_wave_from_url(&mut self, url: String, load_options: LoadOptions) {
+    pub fn load_wave_from_url(
+        &mut self,
+        url: String,
+        file_idx: Option<usize>,
+        load_options: LoadOptions,
+    ) {
         match url_to_wavesource(&url) {
             // We want to support opening cxxrtl urls using open url and friends,
             // so we'll special case
@@ -260,14 +265,20 @@ impl State {
                     // check to see if the response came from a Surfer running in server mode
                     if let Some(value) = response.headers().get(HTTP_SERVER_KEY) {
                         if matches!(value.to_str(), Ok(HTTP_SERVER_VALUE_SURFER)) {
-                            info!("Connecting to a surfer server at: {url}");
-                            // request status and hierarchy
-                            Self::get_server_status(sender.clone(), url.clone(), 0);
-                            Self::get_hierarchy_from_server(
-                                sender.clone(),
-                                url.clone(),
-                                load_options,
-                            );
+                            if let Some(file_idx) = file_idx {
+                                info!("Connecting to a surfer server at: {url}");
+                                // request status and hierarchy
+                                Self::get_server_status(sender.clone(), url.clone(), file_idx, 0);
+                                Self::get_hierarchy_from_server(
+                                    sender.clone(),
+                                    url.clone(),
+                                    file_idx,
+                                    load_options,
+                                );
+                            } else {
+                                info!("Getting file list from: {url}");
+                                Self::get_file_list_from_server(sender.clone(), url.clone())
+                            }
                             return;
                         }
                     }
@@ -319,16 +330,18 @@ impl State {
         }
         Ok(())
     }
+
     fn get_hierarchy_from_server(
         sender: Sender<Message>,
         server: String,
+        file_idx: usize,
         load_options: LoadOptions,
     ) {
         let start = web_time::Instant::now();
         let source = WaveSource::Url(server.clone());
 
         let task = async move {
-            let res = crate::remote::get_hierarchy(server.clone())
+            let res = crate::remote::get_hierarchy(server.clone(), file_idx)
                 .await
                 .map_err(|e| anyhow!("{e:?}"))
                 .with_context(|| {
@@ -337,7 +350,12 @@ impl State {
 
             match res {
                 Ok(h) => {
-                    let header = HeaderResult::Remote(Arc::new(h.hierarchy), h.file_format, server);
+                    let header = HeaderResult::Remote(
+                        Arc::new(h.hierarchy),
+                        h.file_format,
+                        server,
+                        file_idx,
+                    );
                     let msg = Message::WaveHeaderLoaded(start, source, load_options, header);
                     sender.send(msg).unwrap()
                 }
@@ -347,12 +365,34 @@ impl State {
         spawn!(task);
     }
 
-    pub fn get_time_table_from_server(sender: Sender<Message>, server: String) {
+    fn get_file_list_from_server(sender: Sender<Message>, server: String) {
+        let start = web_time::Instant::now();
+
+        let task = async move {
+            let res = crate::remote::get_file_list(server.clone())
+                .await
+                .map_err(|e| anyhow!("{e:?}"))
+                .with_context(|| {
+                    format!("Failed to retrieve hierarchy from remote server {server}")
+                });
+
+            match res {
+                Ok(h) => {
+                    let msg = Message::SurverFileListLoaded(start, server, Some(h));
+                    sender.send(msg).unwrap()
+                }
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
+            }
+        };
+        spawn!(task);
+    }
+
+    pub fn get_time_table_from_server(sender: Sender<Message>, server: String, file_idx: usize) {
         let start = web_time::Instant::now();
         let source = WaveSource::Url(server.clone());
 
         let task = async move {
-            let res = crate::remote::get_time_table(server.clone())
+            let res = crate::remote::get_time_table(server.clone(), file_idx)
                 .await
                 .map_err(|e| anyhow!("{e:?}"))
                 .with_context(|| {
@@ -371,18 +411,18 @@ impl State {
         spawn!(task);
     }
 
-    fn get_server_status(sender: Sender<Message>, server: String, delay_ms: u64) {
+    fn get_server_status(sender: Sender<Message>, server: String, file_idx: usize, delay_ms: u64) {
         let start = web_time::Instant::now();
         let task = async move {
             sleep_ms(delay_ms).await;
-            let res = crate::remote::get_status(server.clone())
+            let res = crate::remote::get_status(server.clone(), file_idx)
                 .await
                 .map_err(|e| anyhow!("{e:?}"))
                 .with_context(|| format!("Failed to retrieve status from remote server {server}"));
 
             match res {
                 Ok(status) => {
-                    let msg = Message::SurferServerStatus(start, server, status);
+                    let msg = Message::SurverStatus(start, server, file_idx, status);
                     sender.send(msg).unwrap()
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -392,7 +432,7 @@ impl State {
     }
 
     /// uses the server status in order to display a loading bar
-    pub fn server_status_to_progress(&mut self, server: String, status: Status) {
+    pub fn server_status_to_progress(&mut self, server: String, file_idx: usize, status: Status) {
         // once the body is loaded, we are no longer interested in the status
         let body_loaded = self
             .waves
@@ -409,7 +449,7 @@ impl State {
                 Arc::new(AtomicU64::new(status.bytes_loaded)),
             )));
             // get another status update
-            Self::get_server_status(sender, server, 250);
+            Self::get_server_status(sender, server, file_idx, 250);
         }
     }
 
@@ -556,9 +596,9 @@ impl State {
                     }
                 });
             }
-            LoadSignalPayload::Remote(server) => {
+            LoadSignalPayload::Remote(server, file_idx) => {
                 let task = async move {
-                    let res = crate::remote::get_signals(server.clone(), &signals)
+                    let res = crate::remote::get_signals(server.clone(), file_idx, &signals)
                         .await
                         .map_err(|e| anyhow!("{e:?}"))
                         .with_context(|| {
