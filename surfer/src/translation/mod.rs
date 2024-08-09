@@ -646,7 +646,7 @@ impl Translator<VarId, ScopeId, Message> for StringTranslator {
     ) -> Result<TranslationResult> {
         match value {
             VariableValue::BigUint(b) => Ok(TranslationResult {
-                val: ValueRepr::String(format!("ERROR (0x{:x})", b)),
+                val: ValueRepr::String(format!("ERROR (0x{b:x})")),
                 kind: ValueKind::Warn,
                 subfields: vec![],
             }),

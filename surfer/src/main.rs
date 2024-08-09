@@ -896,14 +896,14 @@ impl State {
                             .map(|item| item.name())
                     })
                     .unwrap_or_default();
-                self.save_current_canvas(format!("Remove item {}", name));
+                self.save_current_canvas(format!("Remove item {name}"));
                 if let Some(waves) = self.waves.as_mut() {
                     waves.remove_displayed_item(count, idx);
                     self.invalidate_draw_commands();
                 }
             }
             Message::MoveFocusedItem(direction, count) => {
-                self.save_current_canvas(format!("Move item {}, {}", direction, count));
+                self.save_current_canvas(format!("Move item {direction}, {count}"));
                 self.invalidate_draw_commands();
                 let Some(waves) = self.waves.as_mut() else {
                     return;

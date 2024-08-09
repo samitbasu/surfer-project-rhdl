@@ -568,17 +568,14 @@ fn hex_string_to_color32(mut str: String) -> Result<Color32> {
     }
     if str.len() == 6 {
         let r = u8::from_str_radix(&str[0..2], 16)
-            .with_context(|| format!("'{}' is not a valid RGB hex color", str))?;
+            .with_context(|| format!("'{str}' is not a valid RGB hex color"))?;
         let g = u8::from_str_radix(&str[2..4], 16)
-            .with_context(|| format!("'{}' is not a valid RGB hex color", str))?;
+            .with_context(|| format!("'{str}' is not a valid RGB hex color"))?;
         let b = u8::from_str_radix(&str[4..6], 16)
-            .with_context(|| format!("'{}' is not a valid RGB hex color", str))?;
+            .with_context(|| format!("'{str}' is not a valid RGB hex color"))?;
         Ok(Color32::from_rgb(r, g, b))
     } else {
-        color_eyre::Result::Err(Report::msg(format!(
-            "'{}' is not a valid RGB hex color",
-            str
-        )))
+        color_eyre::Result::Err(Report::msg(format!("'{str}' is not a valid RGB hex color")))
     }
 }
 

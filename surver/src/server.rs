@@ -306,7 +306,7 @@ pub async fn server_main(
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
     // immutable read-only data
-    let url = format!("http://{addr:?}/{}", token);
+    let url = format!("http://{addr:?}/{token}");
     let url_copy = url.clone();
     let token_copy = token.clone();
     let shared = Arc::new(ReadOnly {
@@ -341,7 +341,7 @@ pub async fn server_main(
 
     info!("2. Start Surfer: surfer {url_copy} ");
     if let Ok(hostname) = hostname {
-        let hosturl = format!("http://{hostname}:{port}/{}", token_copy);
+        let hosturl = format!("http://{hostname}:{port}/{token_copy}");
         info!("or, if the host is directly accessible:");
         info!("1. Start Surfer: surfer {hosturl} ");
     }

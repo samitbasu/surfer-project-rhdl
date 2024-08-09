@@ -68,7 +68,7 @@ impl State {
                         ui.add_space(10.0);
                     }
                     if let Some(count) = &self.count {
-                        ui.label(format!("Count: {}", count));
+                        ui.label(format!("Count: {count}"));
                         ui.add_space(10.0);
                     }
                 });
