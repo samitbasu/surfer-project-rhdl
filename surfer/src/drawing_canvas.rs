@@ -77,7 +77,7 @@ impl DrawingCommands {
     }
 
     pub fn push(&mut self, val: (f32, DrawnRegion)) {
-        self.values.push(val)
+        self.values.push(val);
     }
 }
 
@@ -238,7 +238,7 @@ fn variable_draw_commands(
                     match value.as_ref().map(|result| result.value.as_str()) {
                         Some("1") => {
                             if !is_last_timestep && !is_first_timestep {
-                                clock_edges.push(*pixel)
+                                clock_edges.push(*pixel);
                             }
                         }
                         Some(_) => {}
@@ -252,7 +252,7 @@ fn variable_draw_commands(
                         inner: value,
                         force_anti_alias: anti_alias && !new_value,
                     },
-                ))
+                ));
             }
         }
     }
@@ -375,7 +375,7 @@ impl State {
                     val,
                 );
             }
-            clock_edges.append(&mut new_clock_edges)
+            clock_edges.append(&mut new_clock_edges);
         }
         let ticks = waves.get_ticks(
             &waves.viewports[viewport_idx],
@@ -454,7 +454,7 @@ impl State {
                         .unwrap()
                         .get_generator(tx_stream_ref.gen_id.unwrap())
                         .unwrap(),
-                )
+                );
             }
 
             let mut last_times_on_row = vec![(BigUint::ZERO, BigUint::ZERO)];
@@ -536,7 +536,7 @@ impl State {
                 msgs.push(Message::FocusTransaction(
                     focused_tx_ref.clone(),
                     Some(focused_tx.clone()),
-                ))
+                ));
             }
         }
 
@@ -582,7 +582,7 @@ impl State {
                 msgs.push(Message::CanvasScroll {
                     delta: ui.input(|i| i.smooth_scroll_delta),
                     viewport_idx,
-                })
+                });
             }
 
             if ui.input(|i| i.zoom_delta()) != 1. {
@@ -596,7 +596,7 @@ impl State {
                     mouse_ptr,
                     delta: ui.input(|i| i.zoom_delta()),
                     viewport_idx,
-                })
+                });
             }
         }
 
@@ -609,7 +609,7 @@ impl State {
                         y: i.pointer.delta().x,
                     },
                     viewport_idx: 0,
-                })
+                });
             }
         });
 
@@ -617,7 +617,7 @@ impl State {
             if let Some(snap_point) =
                 self.snap_to_edge(pointer_pos_canvas, waves, frame_width, viewport_idx)
             {
-                msgs.push(Message::CursorSet(snap_point))
+                msgs.push(Message::CursorSet(snap_point));
             }
         });
 
@@ -682,7 +682,7 @@ impl State {
                     };
 
                     for (_, x) in ticks {
-                        waves.draw_tick_line(*x, &mut ctx, &stroke)
+                        waves.draw_tick_line(*x, &mut ctx, &stroke);
                     }
                 }
 
@@ -757,7 +757,7 @@ impl State {
                                             y_offset,
                                             commands.is_clock && draw_clock_rising_marker,
                                             &mut ctx,
-                                        )
+                                        );
                                     } else {
                                         self.draw_region(
                                             (old, new),
@@ -765,7 +765,7 @@ impl State {
                                             y_offset,
                                             &mut ctx,
                                             *text_color,
-                                        )
+                                        );
                                     }
                                 }
                             }
@@ -1257,7 +1257,7 @@ impl State {
                                 id: *id,
                                 time: time.clone(),
                             });
-                            close_menu!()
+                            close_menu!();
                         });
                     }
                     // At the moment we only support 255 markers, and the cursor is the 255th
@@ -1266,7 +1266,7 @@ impl State {
                             // NOTE: Safe unwrap, we have at least one empty slot
                             let id = (0..254).find(|id| !waves.markers.contains_key(id)).unwrap();
                             msgs.push(Message::SetMarker { id, time });
-                            close_menu!()
+                            close_menu!();
                         });
                     }
                 });
@@ -1462,6 +1462,6 @@ fn transaction_tooltip_table(ui: &mut Ui, tx: &Transaction) {
                 row.col(|ui| {
                     ui.label(attribute.value());
                 });
-            })
+            });
         });
 }

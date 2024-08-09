@@ -52,7 +52,7 @@ impl Log for EguiLogger<'_> {
             .push(LogMessage {
                 msg: format!("{}", record.args()).into(),
                 level: record.level(),
-            })
+            });
     }
 
     fn flush(&self) {}
@@ -110,11 +110,11 @@ impl State {
                                     ui.label(RichText::new(record.msg.clone()).monospace());
                                 });
                             });
-                        })
+                        });
                 })
             });
         if !open {
-            msgs.push(Message::SetLogsVisible(false))
+            msgs.push(Message::SetLogsVisible(false));
         }
     }
 }
@@ -151,7 +151,7 @@ pub fn start_logging() -> Result<()> {
                 "[{}] {}",
                 colors.color(record.level()),
                 message
-            ))
+            ));
         })
         .chain(std::io::stdout());
     setup_logging(stdout_config)?;

@@ -243,7 +243,7 @@ fn main() -> Result<()> {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
             }
-        })
+        });
     });
 
     let mut state = match &args.state_file {
@@ -667,7 +667,7 @@ impl State {
                 self.add_startup_message(Message::ConnectToCxxrtl(url));
             }
             Some(WaveSource::DragAndDrop(_)) => {
-                error!("Attempted to load from drag and drop at startup (how?)")
+                error!("Attempted to load from drag and drop at startup (how?)");
             }
             None => {}
         }
@@ -693,7 +693,7 @@ impl State {
     }
 
     pub fn add_startup_message(&mut self, msg: Message) {
-        self.add_startup_messages([msg])
+        self.add_startup_messages([msg]);
     }
 
     pub fn update(&mut self, message: Message) {
@@ -703,9 +703,9 @@ impl State {
                     return;
                 };
                 if waves.inner.scope_exists(&scope) {
-                    waves.active_scope = Some(scope)
+                    waves.active_scope = Some(scope);
                 } else {
-                    warn!("Setting active scope to {scope} which does not exist")
+                    warn!("Setting active scope to {scope} which does not exist");
                 }
             }
             Message::AddVariables(vars) => {
@@ -756,7 +756,7 @@ impl State {
                 if let Some(count) = &mut self.count {
                     count.push(digit);
                 } else {
-                    self.count = Some(digit.to_string())
+                    self.count = Some(digit.to_string());
                 }
             }
             Message::AddStreamOrGenerator(s) => {
@@ -826,7 +826,7 @@ impl State {
                                 .map_or(Some(visible_items_len - 1), |focused| {
                                     Some(focused - count.clamp(0, focused))
                                 })
-                                .map(DisplayedItemIndex)
+                                .map(DisplayedItemIndex);
                         }
                         MoveDir::Down => {
                             waves.focused_item = waves
@@ -1142,12 +1142,12 @@ impl State {
             }
             Message::CursorSet(new) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.cursor = Some(new)
+                    waves.cursor = Some(new);
                 }
             }
             Message::RightCursorSet(new) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.right_cursor = new
+                    waves.right_cursor = new;
                 }
             }
             Message::LoadWaveformFile(filename, load_options) => {
@@ -1282,63 +1282,63 @@ impl State {
             }
             Message::TranslatorLoaded(t) => {
                 info!("Translator {} loaded", t.name());
-                self.sys.translators.add_or_replace(AnyTranslator::Full(t))
+                self.sys.translators.add_or_replace(AnyTranslator::Full(t));
             }
             Message::ToggleSidePanel => {
                 let new = match self.show_hierarchy {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_hierarchy(),
                 };
-                self.show_hierarchy = Some(new)
+                self.show_hierarchy = Some(new);
             }
             Message::ToggleMenu => {
                 let new = match self.show_menu {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_menu(),
                 };
-                self.show_menu = Some(new)
+                self.show_menu = Some(new);
             }
             Message::ToggleToolbar => {
                 let new = match self.show_toolbar {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_toolbar(),
                 };
-                self.show_toolbar = Some(new)
+                self.show_toolbar = Some(new);
             }
             Message::ToggleStatusbar => {
                 let new = match self.show_statusbar {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_statusbar(),
                 };
-                self.show_statusbar = Some(new)
+                self.show_statusbar = Some(new);
             }
             Message::ToggleTickLines => {
                 let new = match self.show_ticks {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_ticks(),
                 };
-                self.show_ticks = Some(new)
+                self.show_ticks = Some(new);
             }
             Message::ToggleVariableTooltip => {
                 let new = match self.show_tooltip {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_tooltip(),
                 };
-                self.show_tooltip = Some(new)
+                self.show_tooltip = Some(new);
             }
             Message::ToggleOverview => {
                 let new = match self.show_overview {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_overview(),
                 };
-                self.show_overview = Some(new)
+                self.show_overview = Some(new);
             }
             Message::ToggleDirection => {
                 let new = match self.show_variable_direction {
                     Some(prev) => !prev,
                     None => !self.config.layout.show_variable_direction(),
                 };
-                self.show_variable_direction = Some(new)
+                self.show_variable_direction = Some(new);
             }
             Message::ToggleIndices => {
                 let new = match self.show_variable_indices {
@@ -1361,7 +1361,7 @@ impl State {
                 self.sys.command_prompt.visible = new_visibility;
             }
             Message::FileDownloaded(url, bytes, load_options) => {
-                self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
+                self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options);
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1371,7 +1371,7 @@ impl State {
                     self.sys.translators = all_translators();
                     self.config = config;
                     if let Some(ctx) = &self.sys.context.as_ref() {
-                        ctx.set_visuals(self.get_visuals())
+                        ctx.set_visuals(self.get_visuals());
                     }
                 }
             }
@@ -1415,21 +1415,21 @@ impl State {
                 };
 
                 for translator in self.sys.translators.all_translators() {
-                    translator.reload(self.sys.channels.msg_sender.clone())
+                    translator.reload(self.sys.channels.msg_sender.clone());
                 }
             }
             Message::RemovePlaceholders => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.remove_placeholders()
+                    waves.remove_placeholders();
                 }
             }
             Message::SetClockHighlightType(new_type) => {
-                self.config.default_clock_highlight_type = new_type
+                self.config.default_clock_highlight_type = new_type;
             }
             Message::SetMarker { id, time } => {
                 self.save_current_canvas(format!("Set marker to {time}"));
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.set_marker_position(id, &time)
+                    waves.set_marker_position(id, &time);
                 };
             }
             Message::MoveMarkerToCursor(idx) => {
@@ -1528,7 +1528,7 @@ impl State {
                 // since in wasm we can't support "save", only "save as" - never set the `state_file`
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    self.state_file = Some(path)
+                    self.state_file = Some(path);
                 }
             }
             Message::SetAboutVisible(s) => self.show_about = s,
@@ -1540,24 +1540,24 @@ impl State {
             Message::SetRenameItemVisible(_) => self.rename_target = None,
             Message::SetPerformanceVisible(s) => {
                 if !s {
-                    self.sys.continuous_redraw = false
+                    self.sys.continuous_redraw = false;
                 }
-                self.show_performance = s
+                self.show_performance = s;
             }
             Message::SetContinuousRedraw(s) => self.sys.continuous_redraw = s,
             Message::SetDragStart(pos) => self.sys.gesture_start_location = pos,
             Message::SetFilterFocused(s) => self.variable_name_filter_focused = s,
             Message::SetVariableNameFilterType(variable_name_filter_type) => {
-                self.variable_name_filter_type = variable_name_filter_type
+                self.variable_name_filter_type = variable_name_filter_type;
             }
             Message::SetVariableNameFilterCaseInsensitive(s) => {
-                self.variable_name_filter_case_insensitive = s
+                self.variable_name_filter_case_insensitive = s;
             }
             Message::SetUIZoomFactor(scale) => {
                 if let Some(ctx) = &mut self.sys.context.as_ref() {
-                    ctx.set_zoom_factor(scale)
+                    ctx.set_zoom_factor(scale);
                 }
-                self.ui_zoom_factor = Some(scale)
+                self.ui_zoom_factor = Some(scale);
             }
             Message::SelectPrevCommand => {
                 self.sys.command_prompt.new_selection = self
@@ -1580,22 +1580,22 @@ impl State {
             }
             Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
             Message::SetArrowKeyBindings(bindings) => {
-                self.config.behavior.arrow_key_bindings = bindings
+                self.config.behavior.arrow_key_bindings = bindings;
             }
             Message::InvalidateDrawCommands => self.invalidate_draw_commands(),
             Message::UnpauseSimulation => {
                 if let Some(waves) = &self.waves {
-                    waves.inner.as_waves().unwrap().unpause_simulation()
+                    waves.inner.as_waves().unwrap().unpause_simulation();
                 }
             }
             Message::PauseSimulation => {
                 if let Some(waves) = &self.waves {
-                    waves.inner.as_waves().unwrap().pause_simulation()
+                    waves.inner.as_waves().unwrap().pause_simulation();
                 }
             }
             Message::Batch(messages) => {
                 for message in messages {
-                    self.update(message)
+                    self.update(message);
                 }
             }
             Message::VariableDragStarted(vidx) => {
@@ -1965,7 +1965,7 @@ impl State {
             None
         };
         if let Some(load_commands) = load_commands {
-            self.load_variables(load_commands)
+            self.load_variables(load_commands);
         };
 
         // reset drag to avoid confusion

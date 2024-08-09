@@ -523,7 +523,7 @@ mod test {
                 .basic_translate(7, &VariableValue::BigUint(BigUint::from(0b100000u32)))
                 .0,
             "010 0000"
-        )
+        );
     }
 
     #[test]
@@ -561,7 +561,7 @@ mod test {
                 .basic_translate(7, &VariableValue::BigUint(BigUint::from(0b100000u32)))
                 .0,
             "0100000"
-        )
+        );
     }
 
     #[test]
@@ -691,7 +691,7 @@ mod test {
                 .basic_translate(16, &VariableValue::String("0111110011100010".to_owned()))
                 .0,
             "15970"
-        )
+        );
     }
     #[test]
     fn leb_translation_invalid_msb() {
@@ -700,7 +700,7 @@ mod test {
                 .basic_translate(16, &VariableValue::BigUint(0b1000000010000000u16.into()))
                 .0,
             "invalid MSB: 1000 0000 1000 0000"
-        )
+        );
     }
     #[test]
     fn leb_translation_invalid_continuation() {
@@ -709,7 +709,7 @@ mod test {
                 .basic_translate(16, &VariableValue::BigUint(0b0111111101111111u16.into()))
                 .0,
             "invalid flag: 0111 1111 0111 1111"
-        )
+        );
     }
 
     #[test]
@@ -720,6 +720,6 @@ mod test {
                 .basic_translate(16, &VariableValue::BigUint(0b00001111111u16.into()))
                 .0,
             "127"
-        )
+        );
     }
 }

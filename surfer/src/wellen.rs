@@ -488,7 +488,7 @@ impl WellenContainer {
             }
             match (scope.component(h), scope.source_loc(h)) {
                 (Some(name), Some((path, line))) => {
-                    write!(&mut out, "{name} : {path}:{line}").unwrap()
+                    write!(&mut out, "{name} : {path}:{line}").unwrap();
                 }
                 (None, Some((path, line))) => {
                     // check to see if instance and definition are the same
@@ -497,7 +497,7 @@ impl WellenContainer {
                         .map(|(i_path, i_line)| path == i_path && line == i_line)
                         .unwrap_or(false);
                     if !same {
-                        write!(&mut out, "{path}:{line}").unwrap()
+                        write!(&mut out, "{path}:{line}").unwrap();
                     }
                 }
                 (Some(name), None) => write!(&mut out, "{name}").unwrap(),

@@ -124,7 +124,7 @@ impl WaveData {
         let Some(location) = &self.cursor.clone() else {
             return;
         };
-        self.set_marker_position(idx, location)
+        self.set_marker_position(idx, location);
     }
 
     pub fn draw_marker_number_boxes(
@@ -190,7 +190,7 @@ impl State {
 
         let mut markers: Vec<(u8, &BigInt, WidgetText)> = vec![];
         if let Some(cursor) = &waves.cursor {
-            markers.push((255, cursor, WidgetText::RichText(RichText::new("Primary"))))
+            markers.push((255, cursor, WidgetText::RichText(RichText::new("Primary"))));
         }
 
         let mut numbered_markers = waves
@@ -229,13 +229,13 @@ impl State {
                                     ui.selectable_label(false, widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToMarkerPosition(*marker_idx, 0))
+                                            msgs.push(Message::GoToMarkerPosition(*marker_idx, 0));
                                         });
                                 } else {
                                     ui.selectable_label(false, widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToTime(waves.cursor.clone(), 0))
+                                            msgs.push(Message::GoToTime(waves.cursor.clone(), 0));
                                         });
                                 }
                             }
@@ -245,13 +245,13 @@ impl State {
                                     ui.selectable_label(false, row_widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToMarkerPosition(*marker_idx, 0))
+                                            msgs.push(Message::GoToMarkerPosition(*marker_idx, 0));
                                         });
                                 } else {
                                     ui.selectable_label(false, row_widget_text.clone())
                                         .clicked()
                                         .then(|| {
-                                            msgs.push(Message::GoToTime(waves.cursor.clone(), 0))
+                                            msgs.push(Message::GoToTime(waves.cursor.clone(), 0));
                                         });
                                 }
                                 for (_, col_marker_time, _) in &markers {
@@ -267,12 +267,12 @@ impl State {
                         });
                     ui.add_space(15.);
                     if ui.button("Close").clicked() {
-                        msgs.push(Message::SetCursorWindowVisible(false))
+                        msgs.push(Message::SetCursorWindowVisible(false));
                     }
                 });
             });
         if !open {
-            msgs.push(Message::SetCursorWindowVisible(false))
+            msgs.push(Message::SetCursorWindowVisible(false));
         }
     }
 

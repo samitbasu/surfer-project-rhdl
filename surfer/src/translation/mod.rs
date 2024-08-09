@@ -225,7 +225,7 @@ fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
                             width = Some(toml_width.clone());
                         }
 
-                        tomls.push(toml_parsed)
+                        tomls.push(toml_parsed);
                     }
                 }
             }
@@ -349,7 +349,7 @@ impl TranslatorList {
     pub fn basic_translator_names(&self) -> Vec<&str> {
         self.inner
             .iter()
-            .filter_map(|(name, t)| t.is_basic().then(|| name.as_str()))
+            .filter_map(|(name, t)| t.is_basic().then_some(name.as_str()))
             .collect()
     }
 

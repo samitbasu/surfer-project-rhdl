@@ -553,7 +553,7 @@ pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
 
     msgs.push(Message::CommandPromptUpdate {
         suggestions: suggestions.unwrap_or_else(|_| vec![]),
-    })
+    });
 }
 
 #[derive(Default)]

@@ -7,7 +7,6 @@ use std::{
 use base64::{engine::general_purpose, Engine};
 use egui_skia_renderer::draw_onto_surface;
 use emath::Vec2;
-use ftr_parser::types::{Event, TxRelation};
 use image::{DynamicImage, ImageFormat};
 use log::info;
 use num::BigInt;
@@ -39,7 +38,7 @@ fn print_image(img: &DynamicImage) {
         println!(
             "\x1b]1337;File=size={size};width=auto;height=auto;inline=1:{b64}\x1b]\x1b[1E",
             size = bytes.len()
-        )
+        );
     }
 }
 
@@ -63,7 +62,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
             }
-        })
+        });
     });
 
     let mut state = state();
@@ -143,7 +142,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
                 .with_extension("diff.png");
 
             diff_img
-                .save(&diff_file.clone())
+                .save(diff_file.clone())
                 .unwrap_or_else(|_| panic!("Failed to save diff file to {diff_file:?}"));
 
             let prev = image::open(previous_image_file.clone()).unwrap_or_else(|_| {

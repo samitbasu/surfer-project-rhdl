@@ -441,7 +441,7 @@ impl SurferTheme {
             if !local_themes.is_empty() {
                 theme = local_themes
                     .into_iter()
-                    .fold(theme, |t, p| t.add_source(File::from(p).required(false)))
+                    .fold(theme, |t, p| t.add_source(File::from(p).required(false)));
             } else {
                 // If no local themes exist, search in the config directory.
                 if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {

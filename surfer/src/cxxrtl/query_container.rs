@@ -39,9 +39,9 @@ impl QueryContainer {
     pub fn invalidate(&mut self) {
         if let Some(wh) = &self.worker_handle {
             wh.abort();
-            self.worker_handle = None
+            self.worker_handle = None;
         }
-        self.variable_values = Arc::new(RwLock::new(BTreeMap::new()))
+        self.variable_values = Arc::new(RwLock::new(BTreeMap::new()));
     }
 
     pub fn populate(
@@ -54,7 +54,7 @@ impl QueryContainer {
         let variable_values = self.variable_values.clone();
 
         let wh = tokio::spawn(async {
-            fill_variable_values(variables, item_info, data, variable_values, msg_sender).await
+            fill_variable_values(variables, item_info, data, variable_values, msg_sender).await;
         });
 
         self.worker_handle = Some(wh);
@@ -102,7 +102,7 @@ async fn fill_variable_values(
             let this_size_bits = &item_info[variable].width;
             let this_size_u32 = 1 + ((this_size_bits - 1) / 32);
             ranges.push((offset * 4) as usize..((offset + this_size_u32) * 4) as usize);
-            offset += this_size_u32
+            offset += this_size_u32;
         }
 
         data.par_iter().for_each(|sample| {
@@ -133,6 +133,6 @@ async fn fill_variable_values(
             msg_sender
                 .send(Message::InvalidateDrawCommands)
                 .expect("Message receiver disconnected");
-        })
+        });
     });
 }

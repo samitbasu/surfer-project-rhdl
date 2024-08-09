@@ -33,7 +33,7 @@ impl State {
         ui.visuals_mut().override_text_color = Some(self.config.theme.primary_ui_color.foreground);
         ui.with_layout(Layout::left_to_right(Align::RIGHT), |ui| {
             if let Some(waves) = waves {
-                ui.label(&waves.source.to_string());
+                ui.label(waves.source.to_string());
                 if let Some(datetime) = waves.inner.metadata().date {
                     ui.add_space(10.0);
                     ui.label(format!("Generated: {datetime}"));
@@ -61,7 +61,7 @@ impl State {
                             &self.get_time_format(),
                         ))
                         .context_menu(|ui| timeunit_menu(ui, msgs, &self.wanted_timeunit));
-                        ui.add_space(10.0)
+                        ui.add_space(10.0);
                     }
                     if let Some(undo_op) = &self.sys.undo_stack.last() {
                         ui.label(format!("Undo: {}", undo_op.message));

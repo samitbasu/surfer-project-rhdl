@@ -114,7 +114,7 @@ pub async fn get_signals(
     for _ in 0..(num_ids - 1) {
         let signal_id: wellen::SignalRef = opts.deserialize_from(&mut reader)?;
         let signal: wellen::Signal = opts.deserialize_from(&mut reader)?;
-        out.push((signal_id, signal))
+        out.push((signal_id, signal));
     }
     // for the final signal, we expect to consume all bytes
     let signal_id: wellen::SignalRef = opts.deserialize_from(&mut reader)?;

@@ -142,7 +142,7 @@ impl State {
                                         .variables_in_scope(active_scope);
                                     msgs.push(Message::AddVariables(
                                         self.filtered_variables(&variables, filter),
-                                    ))
+                                    ));
                                 }
                                 ScopeType::StreamScope(active_scope) => {
                                     let Transactions(inner) = &waves.inner else {
@@ -188,10 +188,10 @@ impl State {
             .then(|| {
                 msgs.push(Message::SetVariableNameFilterCaseInsensitive(
                     !self.variable_name_filter_case_insensitive,
-                ))
+                ));
             });
             ui.menu_button(icons::FILTER_FILL, |ui| {
-                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type)
+                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
             });
             ui.add_enabled(!filter.is_empty(), Button::new(icons::CLOSE_FILL))
                 .on_hover_text("Clear filter")
@@ -208,7 +208,7 @@ impl State {
             let response =
                 ui.add(TextEdit::singleline(filter).hint_text("Filter (context menu for type)"));
             response.context_menu(|ui| {
-                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type)
+                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
             });
             // Handle focus
             if response.gained_focus() {
@@ -231,7 +231,7 @@ impl State {
         } else {
             self.variable_name_filter_type
                 .matching_variables(
-                    &variables,
+                    variables,
                     filter,
                     self.variable_name_filter_case_insensitive,
                 )

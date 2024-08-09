@@ -454,7 +454,7 @@ impl WaveData {
                             self.focused_item = Some((idx - 1).into());
                         }
                     } else if idx < focused {
-                        self.focused_item = Some((focused - 1).into())
+                        self.focused_item = Some((focused - 1).into());
                     }
                     if !self.any_displayed() {
                         self.focused_item = None;
