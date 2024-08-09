@@ -440,7 +440,9 @@ pub struct SystemState {
     variable_name_filter: RefCell<String>,
     item_renaming_string: RefCell<String>,
 
-    selected_surver_file: RefCell<Option<usize>>,
+    surver_selected_file: RefCell<Option<usize>>,
+    surver_keep_variables: RefCell<bool>,
+    surver_keep_unavailable: RefCell<bool>,
 
     // Benchmarking stuff
     /// Invalidate draw commands every frame to make performance comparison easier
@@ -489,7 +491,9 @@ impl SystemState {
             last_canvas_rect: RefCell::new(None),
             variable_name_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
-            selected_surver_file: RefCell::new(None),
+            surver_selected_file: RefCell::new(None),
+            surver_keep_variables: RefCell::new(false),
+            surver_keep_unavailable: RefCell::new(false),
 
             continuous_redraw: false,
             #[cfg(feature = "performance_plot")]
@@ -1196,9 +1200,28 @@ impl State {
                 self.server_status_to_progress(server, file_idx, status);
             }
             Message::SurverFileListLoaded(_start, server, file_list) => {
-                self.surver_file_list = file_list;
-                self.surver_url = Some(server);
-                self.show_surver_file_selection_window = true;
+                self.surver_url = Some(server.clone());
+                if let Some(file_list) = file_list {
+                    let length = file_list.len();
+                    self.surver_file_list = Some(file_list);
+                    if length == 1 {
+                        self.surver_file_idx = Some(0);
+                        *self.sys.surver_selected_file.borrow_mut() = Some(0);
+                        self.load_wave_from_url(server, Some(0), LoadOptions::clean())
+                    } else {
+                        // Make sure selected value is not out of range
+                        *self.sys.surver_selected_file.borrow_mut() = Some(
+                            self.sys
+                                .surver_selected_file
+                                .borrow_mut()
+                                .unwrap_or(0)
+                                .min(length - 1),
+                        );
+                        self.show_surver_file_selection_window = true;
+                    }
+                } else {
+                    self.surver_file_list = None;
+                }
             }
             Message::SetSelectedServerFile(file_idx) => {
                 self.surver_file_idx = file_idx;
