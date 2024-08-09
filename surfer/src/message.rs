@@ -37,6 +37,7 @@ pub enum HeaderResult {
         std::sync::Arc<wellen::Hierarchy>,
         wellen::FileFormat,
         String,
+        usize,
     ),
 }
 
@@ -100,7 +101,9 @@ pub enum Message {
     CursorSet(BigInt),
     RightCursorSet(Option<BigInt>),
     #[serde(skip)]
-    SurferServerStatus(web_time::Instant, String, Status),
+    SurferServerStatus(web_time::Instant, String, usize, Status),
+    #[serde(skip)]
+    SurferServerFileListLoaded(web_time::Instant, String, Option<Vec<String>>),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
@@ -198,6 +201,8 @@ pub enum Message {
     SetLicenseVisible(bool),
     SetRenameItemVisible(bool),
     SetLogsVisible(bool),
+    SetServerFileWindowVisible(bool),
+    SetSelectedServerFile(Option<usize>),
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
     SetVariableNameFilterType(VariableNameFilterType),

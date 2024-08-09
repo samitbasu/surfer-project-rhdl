@@ -22,6 +22,7 @@ mod message;
 mod mousegestures;
 mod overview;
 mod remote;
+mod server_file_selection;
 mod state_util;
 mod statusbar;
 #[cfg(test)]
@@ -182,7 +183,7 @@ impl StartupParams {
         Self {
             spade_state: None,
             spade_top: None,
-            waves: url.load_url.map(WaveSource::Url),
+            waves: url.load_url.map(|url| WaveSource::Url(url)),
             startup_commands: url.startup_commands.map(|c| vec![c]).unwrap_or_default(),
         }
     }
@@ -230,7 +231,7 @@ fn main() -> Result<()> {
         let res = runtime.block_on(surver::server_main(
             port.unwrap_or(default_port),
             token,
-            file,
+            vec![file],
             None,
         ));
         return res;
@@ -558,6 +559,15 @@ pub struct State {
     /// Internal state that does not persist between sessions and is not serialized
     #[serde(skip, default = "SystemState::new")]
     sys: SystemState,
+
+    /// Files available at server
+    #[serde(skip)]
+    server_file_list: Option<Vec<String>>,
+    /// Index of loaded file from server
+    #[serde(skip)]
+    server_file_idx: Option<usize>,
+    show_server_file_selection_window: bool,
+    server_url: Option<String>,
 }
 
 // Impl needed since for loading we need to put State into a Message
@@ -618,6 +628,10 @@ impl State {
             drag_source_idx: None,
             drag_target_idx: None,
             state_file: None,
+            server_file_list: None,
+            server_file_idx: None,
+            show_server_file_selection_window: false,
+            server_url: None,
         };
 
         Ok(result)
@@ -865,6 +879,9 @@ impl State {
                 }
             }
             Message::SetLogsVisible(visibility) => self.show_logs = visibility,
+            Message::SetServerFileWindowVisible(visibility) => {
+                self.show_server_file_selection_window = visibility
+            }
             Message::SetCursorWindowVisible(visibility) => self.show_cursor_window = visibility,
             Message::VerticalScroll(direction, count) => {
                 let Some(waves) = self.waves.as_mut() else {
@@ -1154,7 +1171,7 @@ impl State {
                 self.load_wave_from_file(filename, load_options).ok();
             }
             Message::LoadWaveformFileFromUrl(url, load_options) => {
-                self.load_wave_from_url(url, load_options);
+                self.load_wave_from_url(url, self.server_file_idx, load_options);
             }
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
@@ -1172,8 +1189,16 @@ impl State {
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
-            Message::SurferServerStatus(_start, server, status) => {
-                self.server_status_to_progress(server, status);
+            Message::SurferServerStatus(_start, server, file_idx, status) => {
+                self.server_status_to_progress(server, file_idx, status);
+            }
+            Message::SurferServerFileListLoaded(_start, server, file_list) => {
+                self.server_file_list = file_list;
+                self.server_url = Some(server);
+                self.show_server_file_selection_window = true;
+            }
+            Message::SetSelectedServerFile(file_idx) => {
+                self.server_file_idx = file_idx;
             }
             Message::FileDropped(dropped_file) => {
                 self.load_wave_from_dropped(dropped_file)
@@ -1201,7 +1226,7 @@ impl State {
                         // start parsing of the body
                         self.load_wave_body(source, header.body, header.body_len, shared_hierarchy);
                     }
-                    HeaderResult::Remote(hierarchy, file_format, server) => {
+                    HeaderResult::Remote(hierarchy, file_format, server, file_idx) => {
                         // register waveform as loaded (but with no variable info yet!)
                         let new_waves = Box::new(WaveContainer::new_remote_waveform(
                             server.clone(),
@@ -1217,6 +1242,7 @@ impl State {
                         Self::get_time_table_from_server(
                             self.sys.channels.msg_sender.clone(),
                             server,
+                            file_idx,
                         );
                     }
                 }
@@ -1406,6 +1432,7 @@ impl State {
                     WaveSource::Url(url) => {
                         self.load_wave_from_url(
                             url.clone(),
+                            self.server_file_idx,
                             LoadOptions {
                                 keep_variables: true,
                                 keep_unavailable,
