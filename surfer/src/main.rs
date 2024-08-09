@@ -684,14 +684,14 @@ impl State {
 
     pub fn add_startup_commands<I: IntoIterator<Item = String>>(&mut self, commands: I) {
         let parsed = self.parse_startup_commands(commands);
-        for msg in parsed.into_iter() {
+        for msg in parsed {
             self.sys.batch_commands.push_back(msg);
             self.sys.batch_commands_completed = false;
         }
     }
 
     pub fn add_startup_messages<I: IntoIterator<Item = Message>>(&mut self, messages: I) {
-        for msg in messages.into_iter() {
+        for msg in messages {
             self.sys.batch_commands.push_back(msg);
             self.sys.batch_commands_completed = false;
         }

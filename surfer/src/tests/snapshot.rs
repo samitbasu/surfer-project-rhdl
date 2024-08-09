@@ -290,7 +290,7 @@ snapshot_ui!(menu_can_be_hidden, || {
         .unwrap()
         .with_params(StartupParams::empty());
     let msgs = [Message::ToggleMenu];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -301,7 +301,7 @@ snapshot_ui!(side_panel_can_be_hidden, || {
         .unwrap()
         .with_params(StartupParams::empty());
     let msgs = [Message::ToggleSidePanel];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -312,7 +312,7 @@ snapshot_ui!(toolbar_can_be_hidden, || {
         .unwrap()
         .with_params(StartupParams::empty());
     let msgs = [Message::ToggleToolbar];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -872,7 +872,7 @@ snapshot_ui!(regex_error_indication, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("a(");
@@ -924,7 +924,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Fuzzy),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
@@ -969,7 +969,7 @@ snapshot_ui!(contain_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Contain),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
@@ -1014,7 +1014,7 @@ snapshot_ui!(regex_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -1063,7 +1063,7 @@ snapshot_ui!(start_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push('a');
@@ -1109,7 +1109,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
         Message::SetVariableNameFilterCaseInsensitive(false),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push('a');
@@ -1156,7 +1156,7 @@ snapshot_ui!(load_keep_all_works, || {
             },
         ),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     loop {
@@ -1219,7 +1219,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             },
         ),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     loop {

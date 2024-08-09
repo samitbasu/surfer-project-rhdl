@@ -147,7 +147,7 @@ async fn get_signals(
         {
             let state = state.read().unwrap();
             if ids.iter().all(|id| state.signals.contains_key(id)) {
-                for id in ids.into_iter() {
+                for id in ids {
                     raw.append(&mut BINCODE_OPTIONS.serialize(&id)?);
                     raw.append(&mut BINCODE_OPTIONS.serialize(&state.signals[&id])?);
                 }

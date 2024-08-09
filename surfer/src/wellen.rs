@@ -331,7 +331,7 @@ impl WellenContainer {
             self.server = res.server;
             debug_assert!(self.server.is_some() || self.source.is_some());
             // install signals
-            for (id, signal) in res.signals.into_iter() {
+            for (id, signal) in res.signals {
                 self.signals.insert(id, signal);
             }
         }

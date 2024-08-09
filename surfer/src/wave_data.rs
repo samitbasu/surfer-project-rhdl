@@ -398,7 +398,7 @@ impl WaveData {
         };
 
         // initialize translator and add display item
-        for variable in variables.into_iter() {
+        for variable in variables {
             let Ok(meta) = self
                 .inner
                 .as_waves()
