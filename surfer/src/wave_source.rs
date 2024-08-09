@@ -377,7 +377,7 @@ impl State {
 
             match res {
                 Ok(h) => {
-                    let msg = Message::SurferServerFileListLoaded(start, server, Some(h));
+                    let msg = Message::SurverFileListLoaded(start, server, Some(h));
                     sender.send(msg).unwrap()
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
@@ -421,7 +421,7 @@ impl State {
 
             match res {
                 Ok(status) => {
-                    let msg = Message::SurferServerStatus(start, server, file_idx, status);
+                    let msg = Message::SurverStatus(start, server, file_idx, status);
                     sender.send(msg).unwrap()
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
