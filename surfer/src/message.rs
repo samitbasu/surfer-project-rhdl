@@ -101,9 +101,9 @@ pub enum Message {
     CursorSet(BigInt),
     RightCursorSet(Option<BigInt>),
     #[serde(skip)]
-    SurferServerStatus(web_time::Instant, String, usize, Status),
+    SurverStatus(web_time::Instant, String, usize, Status),
     #[serde(skip)]
-    SurferServerFileListLoaded(web_time::Instant, String, Option<Vec<String>>),
+    SurverFileListLoaded(web_time::Instant, String, Option<Vec<String>>),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),

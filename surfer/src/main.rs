@@ -565,14 +565,14 @@ pub struct State {
     #[serde(skip, default = "SystemState::new")]
     sys: SystemState,
 
-    /// Files available at server
+    /// Files available at surver
     #[serde(skip)]
-    server_file_list: Option<Vec<String>>,
-    /// Index of loaded file from server
+    surver_file_list: Option<Vec<String>>,
+    /// Index of loaded file from surver
     #[serde(skip)]
-    server_file_idx: Option<usize>,
-    show_server_file_selection_window: bool,
-    server_url: Option<String>,
+    surver_file_idx: Option<usize>,
+    show_surver_file_selection_window: bool,
+    surver_url: Option<String>,
 }
 
 // Impl needed since for loading we need to put State into a Message
@@ -633,10 +633,10 @@ impl State {
             drag_source_idx: None,
             drag_target_idx: None,
             state_file: None,
-            server_file_list: None,
-            server_file_idx: None,
-            show_server_file_selection_window: false,
-            server_url: None,
+            surver_file_list: None,
+            surver_file_idx: None,
+            show_surver_file_selection_window: false,
+            surver_url: None,
         };
 
         Ok(result)
@@ -885,7 +885,7 @@ impl State {
             }
             Message::SetLogsVisible(visibility) => self.show_logs = visibility,
             Message::SetServerFileWindowVisible(visibility) => {
-                self.show_server_file_selection_window = visibility
+                self.show_surver_file_selection_window = visibility
             }
             Message::SetCursorWindowVisible(visibility) => self.show_cursor_window = visibility,
             Message::VerticalScroll(direction, count) => {
@@ -1176,7 +1176,7 @@ impl State {
                 self.load_wave_from_file(filename, load_options).ok();
             }
             Message::LoadWaveformFileFromUrl(url, load_options) => {
-                self.load_wave_from_url(url, self.server_file_idx, load_options);
+                self.load_wave_from_url(url, self.surver_file_idx, load_options);
             }
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
@@ -1194,16 +1194,16 @@ impl State {
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
-            Message::SurferServerStatus(_start, server, file_idx, status) => {
+            Message::SurverStatus(_start, server, file_idx, status) => {
                 self.server_status_to_progress(server, file_idx, status);
             }
-            Message::SurferServerFileListLoaded(_start, server, file_list) => {
-                self.server_file_list = file_list;
-                self.server_url = Some(server);
-                self.show_server_file_selection_window = true;
+            Message::SurverFileListLoaded(_start, server, file_list) => {
+                self.surver_file_list = file_list;
+                self.surver_url = Some(server);
+                self.show_surver_file_selection_window = true;
             }
             Message::SetSelectedServerFile(file_idx) => {
-                self.server_file_idx = file_idx;
+                self.surver_file_idx = file_idx;
             }
             Message::FileDropped(dropped_file) => {
                 self.load_wave_from_dropped(dropped_file)
@@ -1437,7 +1437,7 @@ impl State {
                     WaveSource::Url(url) => {
                         self.load_wave_from_url(
                             url.clone(),
-                            self.server_file_idx,
+                            self.surver_file_idx,
                             LoadOptions {
                                 keep_variables: true,
                                 keep_unavailable,
