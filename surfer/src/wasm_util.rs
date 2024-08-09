@@ -20,9 +20,9 @@ where
     {
         tokio::spawn(async {
             info!("Starting async task");
-            f()
+            f();
         });
-        info!("Returning from perform work")
+        info!("Returning from perform work");
     }
 }
 

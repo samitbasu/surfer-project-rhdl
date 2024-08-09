@@ -66,27 +66,27 @@ impl Timing {
             warn!(
                 "Starting frame with active region {}",
                 self.active_region.join(".")
-            )
+            );
         }
         for reg in self.regions.values_mut() {
             reg.start = None;
             reg.end = None;
         }
         if let Some(r) = self.regions.get_mut(&vec![]) {
-            r.start()
+            r.start();
         }
     }
 
     pub fn end_frame(&mut self) {
         if let Some(r) = self.regions.get_mut(&vec![]) {
-            r.stop()
+            r.stop();
         }
 
         if !self.active_region.is_empty() {
             warn!(
                 "Ended frame with active region {}",
                 self.active_region.join(".")
-            )
+            );
         }
 
         for (path, reg) in &mut self.regions {
@@ -97,14 +97,14 @@ impl Timing {
                         "Timing region [{}] was stopped but not started",
                         path.join(".")
                     );
-                    reg.durations.push_back(Duration::ZERO)
+                    reg.durations.push_back(Duration::ZERO);
                 }
                 (Some(_), None) => {
                     warn!(
                         "Timing region [{}] was satrted but not stopped",
                         path.join(".")
                     );
-                    reg.durations.push_back(Duration::ZERO)
+                    reg.durations.push_back(Duration::ZERO);
                 }
                 (None, None) => reg.durations.push_back(Duration::ZERO),
             }
@@ -135,25 +135,25 @@ impl Timing {
                 end: None,
                 subregions: BTreeSet::new(),
             });
-        region.start()
+        region.start();
     }
 
     pub fn end(&mut self, name: impl Into<String>) {
         let name = name.into();
         if let Some(reg) = self.regions.get_mut(&self.active_region) {
-            reg.stop()
+            reg.stop();
         } else {
             warn!(
                 "did not find a timing region {}",
                 self.active_region.join(".")
-            )
+            );
         }
         if let Some(reg_name) = self.active_region.pop() {
             if reg_name != name {
-                warn!("Ended timing region {reg_name} but used {name}. Timing reports will be unreliable")
+                warn!("Ended timing region {reg_name} but used {name}. Timing reports will be unreliable");
             }
         } else {
-            warn!("Ended timing region {name} with no timing region active")
+            warn!("Ended timing region {name} with no timing region active");
         }
     }
 }
@@ -179,7 +179,7 @@ impl State {
                     let mut redraw_state = self.sys.continuous_redraw;
                     ui.checkbox(&mut redraw_state, "Continuous redraw");
                     if redraw_state != self.sys.continuous_redraw {
-                        msgs.push(Message::SetContinuousRedraw(redraw_state))
+                        msgs.push(Message::SetContinuousRedraw(redraw_state));
                     }
 
                     let f32_cmp = |a: &f32, b: &f32| a.partial_cmp(b).unwrap_or(Ordering::Equal);
@@ -255,11 +255,11 @@ impl State {
                             [NUM_PERF_SAMPLES as f64, 1. / 30.],
                         ]))
                         .name("30 fps"),
-                    )
+                    );
                 });
             });
         if !open {
-            msgs.push(Message::SetPerformanceVisible(false))
+            msgs.push(Message::SetPerformanceVisible(false));
         }
     }
 }

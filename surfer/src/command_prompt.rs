@@ -224,7 +224,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
     theme_names.insert(0, "default".to_string());
     Command::NonTerminal(
         ParamGreed::Word,
-        commands.into_iter().map(|s| s.into()).collect(),
+        commands.into_iter().map(std::convert::Into::into).collect(),
         Box::new(move |query, _| {
             let variables_in_active_scope = variables_in_active_scope.clone();
             let markers = markers.clone();
@@ -439,7 +439,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "preference_set_clock_highlight" => single_word(
                     ["Line", "Cycle", "None"]
                         .iter()
-                        .map(|o| o.to_string())
+                        .map(std::string::ToString::to_string)
                         .collect_vec(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SetClockHighlightType(
@@ -553,7 +553,7 @@ pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
 
     msgs.push(Message::CommandPromptUpdate {
         suggestions: suggestions.unwrap_or_else(|_| vec![]),
-    })
+    });
 }
 
 #[derive(Default)]
@@ -575,7 +575,7 @@ pub fn show_command_prompt(
     egui::Window::new("Commands")
         .anchor(Align2::CENTER_TOP, Vec2::ZERO)
         .title_bar(false)
-        .min_width(window_size.map(|s| s.x * 0.3).unwrap_or(200.))
+        .min_width(window_size.map_or(200., |s| s.x * 0.3))
         .resizable(true)
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
@@ -631,10 +631,9 @@ pub fn show_command_prompt(
 
                         let selection = suggestions
                             .get(state.sys.command_prompt.selected)
-                            .map(|s| &s.1 .0)
-                            .unwrap_or(&default);
+                            .map_or(&default, |s| &s.1 .0);
 
-                        if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                        if input.chars().last().is_some_and(char::is_whitespace) {
                             // if no input exists for current argument just append
                             input.to_owned() + " " + selection
                         } else {
@@ -812,7 +811,7 @@ pub fn show_command_prompt(
 
                             if resp.inner.clicked() {
                                 let new_input =
-                                    if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                                    if input.chars().last().is_some_and(char::is_whitespace) {
                                         // if no input exists for current argument just append
                                         input.to_owned() + " " + &suggestion.0
                                     } else {

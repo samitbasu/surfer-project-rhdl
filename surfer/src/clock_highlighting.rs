@@ -34,8 +34,7 @@ impl FromStr for ClockHighlightType {
             "Cycle" => Ok(ClockHighlightType::Cycle),
             "None" => Ok(ClockHighlightType::None),
             _ => Err(format!(
-                "'{}' is not a valid ClockHighlightType (Valid options: Line|Cycle|None)",
-                input
+                "'{input}' is not a valid ClockHighlightType (Valid options: Line|Cycle|None)"
             )),
         }
     }

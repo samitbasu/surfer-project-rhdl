@@ -32,8 +32,7 @@ impl FromStr for VariableNameType {
             "Unique" => Ok(VariableNameType::Unique),
             "Global" => Ok(VariableNameType::Global),
             _ => Err(format!(
-                "'{}' is not a valid VariableNameType (Valid options: Local|Unique|Global)",
-                input
+                "'{input}' is not a valid VariableNameType (Valid options: Local|Unique|Global)"
             )),
         }
     }

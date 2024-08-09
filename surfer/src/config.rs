@@ -346,7 +346,7 @@ impl SurferTheme {
             "solarized".to_string(),
         ];
 
-        let override_theme = match theme_name.clone().unwrap_or("".to_string()).as_str() {
+        let override_theme = match theme_name.clone().unwrap_or_default().as_str() {
             "dark+" => include_str!("../../themes/dark+.toml"),
             "dark-high-contrast" => include_str!("../../themes/dark-high-contrast.toml"),
             "ibm" => include_str!("../../themes/ibm.toml"),
@@ -441,7 +441,7 @@ impl SurferTheme {
             if !local_themes.is_empty() {
                 theme = local_themes
                     .into_iter()
-                    .fold(theme, |t, p| t.add_source(File::from(p).required(false)))
+                    .fold(theme, |t, p| t.add_source(File::from(p).required(false)));
             } else {
                 // If no local themes exist, search in the config directory.
                 if let Some(proj_dirs) = ProjectDirs::from("org", "surfer-project", "surfer") {
@@ -568,17 +568,14 @@ fn hex_string_to_color32(mut str: String) -> Result<Color32> {
     }
     if str.len() == 6 {
         let r = u8::from_str_radix(&str[0..2], 16)
-            .with_context(|| format!("'{}' is not a valid RGB hex color", str))?;
+            .with_context(|| format!("'{str}' is not a valid RGB hex color"))?;
         let g = u8::from_str_radix(&str[2..4], 16)
-            .with_context(|| format!("'{}' is not a valid RGB hex color", str))?;
+            .with_context(|| format!("'{str}' is not a valid RGB hex color"))?;
         let b = u8::from_str_radix(&str[4..6], 16)
-            .with_context(|| format!("'{}' is not a valid RGB hex color", str))?;
+            .with_context(|| format!("'{str}' is not a valid RGB hex color"))?;
         Ok(Color32::from_rgb(r, g, b))
     } else {
-        color_eyre::Result::Err(Report::msg(format!(
-            "'{}' is not a valid RGB hex color",
-            str
-        )))
+        color_eyre::Result::Err(Report::msg(format!("'{str}' is not a valid RGB hex color")))
     }
 }
 

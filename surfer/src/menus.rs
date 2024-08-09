@@ -46,10 +46,10 @@ impl ButtonBuilder {
     }
 
     pub fn add_leave_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
-        self.add_inner(false, msgs, ui)
+        self.add_inner(false, msgs, ui);
     }
     pub fn add_closing_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
-        self.add_inner(true, msgs, ui)
+        self.add_inner(true, msgs, ui);
     }
 
     pub fn add_inner(self, close_menu: bool, msgs: &mut Vec<Message>, ui: &mut Ui) {
@@ -232,7 +232,7 @@ impl State {
                     .clicked()
                     .then(|| {
                         ui.close_menu();
-                        msgs.push(Message::SetUIZoomFactor(scale))
+                        msgs.push(Message::SetUIZoomFactor(scale));
                     });
                 }
             });
@@ -269,27 +269,27 @@ impl State {
                 .clicked()
                 .then(|| {
                     ui.close_menu();
-                    msgs.push(Message::ToggleTickLines)
+                    msgs.push(Message::ToggleTickLines);
                 });
 
             ui.radio(self.show_tooltip(), "Show variable tooltip")
                 .clicked()
                 .then(|| {
                     ui.close_menu();
-                    msgs.push(Message::ToggleVariableTooltip)
+                    msgs.push(Message::ToggleVariableTooltip);
                 });
 
             ui.radio(self.show_variable_indices(), "Show variable indices")
                 .clicked()
                 .then(|| {
                     ui.close_menu();
-                    msgs.push(Message::ToggleIndices)
+                    msgs.push(Message::ToggleIndices);
                 });
             ui.radio(self.show_variable_direction(), "Show variable direction")
                 .clicked()
                 .then(|| {
                     ui.close_menu();
-                    msgs.push(Message::ToggleDirection)
+                    msgs.push(Message::ToggleDirection);
                 });
         });
         ui.menu_button("Help", |ui| {
@@ -488,18 +488,15 @@ impl State {
         .and_then(|displayed_variable| displayed_variable.get_format(&displayed_field_ref.field));
 
         let mut menu_entry = |ui: &mut Ui, name: &str| {
-            ui.radio(
-                selected_translator.map(|st| st == name).unwrap_or(false),
-                name,
-            )
-            .clicked()
-            .then(|| {
-                ui.close_menu();
-                msgs.push(Message::VariableFormatChange(
-                    displayed_field_ref.clone(),
-                    name.to_string(),
-                ));
-            });
+            ui.radio(selected_translator.is_some_and(|st| st == name), name)
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::VariableFormatChange(
+                        displayed_field_ref.clone(),
+                        name.to_string(),
+                    ));
+                });
         };
 
         ui.menu_button("Format", |ui| {

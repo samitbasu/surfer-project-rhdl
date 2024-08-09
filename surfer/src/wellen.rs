@@ -331,7 +331,7 @@ impl WellenContainer {
             self.server = res.server;
             debug_assert!(self.server.is_some() || self.source.is_some());
             // install signals
-            for (id, signal) in res.signals.into_iter() {
+            for (id, signal) in res.signals {
                 self.signals.insert(id, signal);
             }
         }
@@ -488,16 +488,15 @@ impl WellenContainer {
             }
             match (scope.component(h), scope.source_loc(h)) {
                 (Some(name), Some((path, line))) => {
-                    write!(&mut out, "{name} : {path}:{line}").unwrap()
+                    write!(&mut out, "{name} : {path}:{line}").unwrap();
                 }
                 (None, Some((path, line))) => {
                     // check to see if instance and definition are the same
                     let same = scope
                         .instantiation_source_loc(h)
-                        .map(|(i_path, i_line)| path == i_path && line == i_line)
-                        .unwrap_or(false);
+                        .is_some_and(|(i_path, i_line)| path == i_path && line == i_line);
                     if !same {
-                        write!(&mut out, "{path}:{line}").unwrap()
+                        write!(&mut out, "{path}:{line}").unwrap();
                     }
                 }
                 (Some(name), None) => write!(&mut out, "{name}").unwrap(),
@@ -554,7 +553,7 @@ fn convert_variable_value(value: wellen::SignalValue) -> VariableValue {
             )
         }
         wellen::SignalValue::String(value) => VariableValue::String(value.to_string()),
-        wellen::SignalValue::Real(value) => VariableValue::String(format!("{}", value)),
+        wellen::SignalValue::Real(value) => VariableValue::String(format!("{value}")),
     }
 }
 

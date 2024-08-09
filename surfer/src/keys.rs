@@ -65,11 +65,11 @@ impl State {
                     }
                     (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
                     (Key::Escape, true, true, false) => {
-                        msgs.push(Message::ShowCommandPrompt(false))
+                        msgs.push(Message::ShowCommandPrompt(false));
                     }
                     (Key::G, true, true, false) => {
                         if modifiers.command {
-                            msgs.push(Message::ShowCommandPrompt(false))
+                            msgs.push(Message::ShowCommandPrompt(false));
                         }
                     }
                     (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
@@ -86,7 +86,7 @@ impl State {
                         }
                     }
                     (Key::S, true, false, false) => {
-                        msgs.push(Message::GoToStart { viewport_idx: 0 })
+                        msgs.push(Message::GoToStart { viewport_idx: 0 });
                     }
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd { viewport_idx: 0 }),
                     (Key::R, true, false, false) => msgs.push(Message::ReloadWaveform(
@@ -112,7 +112,7 @@ impl State {
                             mouse_ptr: None,
                             delta: 0.5,
                             viewport_idx: 0,
-                        })
+                        });
                     }
                     (Key::PageUp, true, false, false) => msgs.push(Message::CanvasScroll {
                         delta: Vec2 {
@@ -142,7 +142,7 @@ impl State {
                                 },
                                 viewport_idx: 0,
                             },
-                        })
+                        });
                     }
                     (Key::ArrowLeft, true, false, false) => {
                         msgs.push(match self.config.behavior.arrow_key_bindings {
@@ -158,7 +158,7 @@ impl State {
                                 },
                                 viewport_idx: 0,
                             },
-                        })
+                        });
                     }
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
@@ -224,7 +224,7 @@ impl State {
                 },
                 Event::Copy => msgs.push(Message::VariableValueToClipbord(None)),
                 _ => {}
-            })
+            });
         });
     }
 
@@ -239,10 +239,10 @@ impl State {
 
 fn handle_digit(digit: u8, modifiers: &Modifiers, msgs: &mut Vec<Message>) {
     if modifiers.alt {
-        msgs.push(Message::AddCount((digit + 48) as char))
+        msgs.push(Message::AddCount((digit + 48) as char));
     } else if modifiers.command {
-        msgs.push(Message::MoveMarkerToCursor(digit))
+        msgs.push(Message::MoveMarkerToCursor(digit));
     } else {
-        msgs.push(Message::GoToMarkerPosition(digit, 0))
+        msgs.push(Message::GoToMarkerPosition(digit, 0));
     }
 }

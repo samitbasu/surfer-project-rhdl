@@ -418,7 +418,7 @@ fn translate_concrete(
 
                             let result = if i == tag {
                                 if name == "None" {
-                                    kind = ValueKind::Custom(Color32::DARK_GRAY)
+                                    kind = ValueKind::Custom(Color32::DARK_GRAY);
                                 }
 
                                 SubFieldTranslationResult {

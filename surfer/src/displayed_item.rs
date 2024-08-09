@@ -305,7 +305,7 @@ impl DisplayedItem {
                 RichText::new("Not available: ".to_owned() + s)
                     .color(*color)
                     .italics()
-                    .append_to(layout_job, style, FontSelection::Default, Align::Center)
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
             DisplayedItem::Stream(stream) => {
                 RichText::new(format!("{}{}", self.name(), "\n".repeat(stream.rows - 1)))

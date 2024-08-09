@@ -52,7 +52,7 @@ impl Log for EguiLogger<'_> {
             .push(LogMessage {
                 msg: format!("{}", record.args()).into(),
                 level: record.level(),
-            })
+            });
     }
 
     fn flush(&self) {}
@@ -110,11 +110,11 @@ impl State {
                                     ui.label(RichText::new(record.msg.clone()).monospace());
                                 });
                             });
-                        })
+                        });
                 })
             });
         if !open {
-            msgs.push(Message::SetLogsVisible(false))
+            msgs.push(Message::SetLogsVisible(false));
         }
     }
 }
@@ -123,7 +123,7 @@ pub fn setup_logging(platform_logger: fern::Dispatch) -> Result<()> {
     let egui_log_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
         .level_for("surfer", log::LevelFilter::Trace)
-        .format(move |out, message, _record| out.finish(format_args!(" {}", message)))
+        .format(move |out, message, _record| out.finish(format_args!(" {message}")))
         .chain(&EGUI_LOGGER as &(dyn log::Log + 'static));
 
     fern::Dispatch::new()
@@ -151,7 +151,7 @@ pub fn start_logging() -> Result<()> {
                 "[{}] {}",
                 colors.color(record.level()),
                 message
-            ))
+            ));
         })
         .chain(std::io::stdout());
     setup_logging(stdout_config)?;

@@ -398,7 +398,7 @@ impl WaveData {
         };
 
         // initialize translator and add display item
-        for variable in variables.into_iter() {
+        for variable in variables {
             let Ok(meta) = self
                 .inner
                 .as_waves()
@@ -454,7 +454,7 @@ impl WaveData {
                             self.focused_item = Some((idx - 1).into());
                         }
                     } else if idx < focused {
-                        self.focused_item = Some((focused - 1).into())
+                        self.focused_item = Some((focused - 1).into());
                     }
                     if !self.any_displayed() {
                         self.focused_item = None;
@@ -662,8 +662,7 @@ impl WaveData {
             .iter()
             .enumerate()
             .find(|(_, di)| di.top() >= self.top_item_draw_offset - 1.) // Subtract a bit of margin to avoid floating-point errors
-            .map(|(idx, _)| idx)
-            .unwrap_or(default)
+            .map_or(default, |(idx, _)| idx)
     }
 
     /// Find the item at a given y-location.

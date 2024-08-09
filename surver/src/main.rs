@@ -35,7 +35,7 @@ pub fn start_logging() -> Result<()> {
                 "[{}] {}",
                 colors.color(record.level()),
                 message
-            ))
+            ));
         })
         .chain(std::io::stdout());
 
