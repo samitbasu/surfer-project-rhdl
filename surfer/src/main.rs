@@ -182,7 +182,7 @@ impl StartupParams {
         Self {
             spade_state: None,
             spade_top: None,
-            waves: url.load_url.map(WaveSource::Url),
+            waves: url.load_url.map(|url| WaveSource::Url(url, None)),
             startup_commands: url.startup_commands.map(|c| vec![c]).unwrap_or_default(),
         }
     }
@@ -230,7 +230,7 @@ fn main() -> Result<()> {
         let res = runtime.block_on(surver::server_main(
             port.unwrap_or(default_port),
             token,
-            file,
+            vec![file],
             None,
         ));
         return res;
@@ -648,9 +648,10 @@ impl State {
         self.sys.batch_commands = VecDeque::new();
 
         match args.waves {
-            Some(WaveSource::Url(url)) => {
+            Some(WaveSource::Url(url, file_idx)) => {
                 self.add_startup_message(Message::LoadWaveformFileFromUrl(
                     url,
+                    file_idx,
                     LoadOptions::clean(),
                 ));
             }
@@ -1153,8 +1154,8 @@ impl State {
             Message::LoadWaveformFile(filename, load_options) => {
                 self.load_wave_from_file(filename, load_options).ok();
             }
-            Message::LoadWaveformFileFromUrl(url, load_options) => {
-                self.load_wave_from_url(url, load_options);
+            Message::LoadWaveformFileFromUrl(url, file_idx, load_options) => {
+                self.load_wave_from_url(url, file_idx, load_options);
             }
             Message::LoadWaveformFileFromData(data, load_options) => {
                 self.load_wave_from_data(data, load_options).ok();
@@ -1172,8 +1173,8 @@ impl State {
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
-            Message::SurferServerStatus(_start, server, status) => {
-                self.server_status_to_progress(server, status);
+            Message::SurferServerStatus(_start, server, file_idx, status) => {
+                self.server_status_to_progress(server, file_idx, status);
             }
             Message::FileDropped(dropped_file) => {
                 self.load_wave_from_dropped(dropped_file)
@@ -1201,7 +1202,7 @@ impl State {
                         // start parsing of the body
                         self.load_wave_body(source, header.body, header.body_len, shared_hierarchy);
                     }
-                    HeaderResult::Remote(hierarchy, file_format, server) => {
+                    HeaderResult::Remote(hierarchy, file_format, server, file_idx) => {
                         // register waveform as loaded (but with no variable info yet!)
                         let new_waves = Box::new(WaveContainer::new_remote_waveform(
                             server.clone(),
@@ -1217,6 +1218,7 @@ impl State {
                         Self::get_time_table_from_server(
                             self.sys.channels.msg_sender.clone(),
                             server,
+                            file_idx,
                         );
                     }
                 }
@@ -1361,7 +1363,7 @@ impl State {
                 self.sys.command_prompt.visible = new_visibility;
             }
             Message::FileDownloaded(url, bytes, load_options) => {
-                self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
+                self.load_wave_from_bytes(WaveSource::Url(url, None), bytes.to_vec(), load_options)
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1403,9 +1405,10 @@ impl State {
                             .ok()
                         });
                     }
-                    WaveSource::Url(url) => {
+                    WaveSource::Url(url, file_idx) => {
                         self.load_wave_from_url(
                             url.clone(),
+                            *file_idx,
                             LoadOptions {
                                 keep_variables: true,
                                 keep_unavailable,
