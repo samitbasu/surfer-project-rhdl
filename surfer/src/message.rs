@@ -37,6 +37,7 @@ pub enum HeaderResult {
         std::sync::Arc<wellen::Hierarchy>,
         wellen::FileFormat,
         String,
+        usize,
     ),
 }
 
@@ -100,9 +101,9 @@ pub enum Message {
     CursorSet(BigInt),
     RightCursorSet(Option<BigInt>),
     #[serde(skip)]
-    SurferServerStatus(web_time::Instant, String, Status),
+    SurferServerStatus(web_time::Instant, String, usize, Status),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
-    LoadWaveformFileFromUrl(String, LoadOptions),
+    LoadWaveformFileFromUrl(String, Option<usize>, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
     LoadTransactionFile(Utf8PathBuf, LoadOptions),
     #[cfg(target_family = "unix")]

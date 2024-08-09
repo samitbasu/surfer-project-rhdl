@@ -24,7 +24,7 @@ fn start_server(port: u16, token: &str, filename: &str) -> String {
         let _res = runtime.block_on(surver::server_main(
             port,
             token,
-            filename,
+            vec![filename],
             Some(started_copy),
         ));
     });
@@ -53,7 +53,7 @@ fn run_with_server(
 
     let msgs = vec![
         // connect to server
-        Message::LoadWaveformFileFromUrl(url, LoadOptions::clean()),
+        Message::LoadWaveformFileFromUrl(url, Some(0), LoadOptions::clean()),
         // hide GUI elements
         Message::ToggleMenu,
         Message::ToggleSidePanel,

@@ -474,6 +474,7 @@ impl State {
                         {
                             msgs.push(Message::LoadWaveformFileFromUrl(
                                 url.clone(),
+                                None,
                                 LoadOptions::clean(),
                             ));
                             msgs.push(Message::SetUrlEntryVisible(false))
