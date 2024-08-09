@@ -1998,8 +1998,7 @@ impl State {
     pub fn waves_fully_loaded(&self) -> bool {
         self.waves
             .as_ref()
-            .map(|w| w.inner.is_fully_loaded())
-            .unwrap_or(false)
+            .is_some_and(|w| w.inner.is_fully_loaded())
     }
 
     /// Returns true once all batch commands have been completed and their effects are all executed.

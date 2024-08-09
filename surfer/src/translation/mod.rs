@@ -450,11 +450,7 @@ fn format(
                 "({})",
                 subresults
                     .iter()
-                    .map(|v| v
-                        .this
-                        .as_ref()
-                        .map(|t| t.value.as_str())
-                        .unwrap_or_else(|| "-"))
+                    .map(|v| v.this.as_ref().map_or_else(|| "-", |t| t.value.as_str()))
                     .join(", ")
             ),
             kind,
@@ -468,10 +464,7 @@ fn format(
                         let n = v.names.join("_");
                         format!(
                             "{n}: {}",
-                            v.this
-                                .as_ref()
-                                .map(|t| t.value.as_str())
-                                .unwrap_or_else(|| "-")
+                            v.this.as_ref().map_or_else(|| "-", |t| t.value.as_str())
                         )
                     })
                     .join(", ")
@@ -483,11 +476,7 @@ fn format(
                 "[{}]",
                 subresults
                     .iter()
-                    .map(|v| v
-                        .this
-                        .as_ref()
-                        .map(|t| t.value.as_str())
-                        .unwrap_or_else(|| "-"))
+                    .map(|v| v.this.as_ref().map_or_else(|| "-", |t| t.value.as_str()))
                     .join(", ")
             ),
             kind,
@@ -499,8 +488,7 @@ fn format(
                 subresults[*idx]
                     .this
                     .as_ref()
-                    .map(|t| t.value.as_str())
-                    .unwrap_or_else(|| "-")
+                    .map_or_else(|| "-", |t| t.value.as_str())
             ),
             kind,
         }),
@@ -609,8 +597,7 @@ impl VariableInfoExt for VariableInfo {
                 VariableInfo::Compound { subfields } => subfields
                     .iter()
                     .find(|&(f, _)| f == field)
-                    .map(|(_, info)| info.has_subpath(rest))
-                    .unwrap_or(false),
+                    .is_some_and(|(_, info)| info.has_subpath(rest)),
                 _ => false,
             },
         }

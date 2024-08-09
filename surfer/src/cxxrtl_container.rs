@@ -475,9 +475,7 @@ impl CxxrtlContainer {
     }
 
     pub fn module_exists(&mut self, module: &ScopeRef) -> bool {
-        self.scopes()
-            .map(|s| s.contains_key(module))
-            .unwrap_or(false)
+        self.scopes().is_some_and(|s| s.contains_key(module))
     }
 
     pub fn child_scopes(&mut self, parent: &ScopeRef) -> Vec<ScopeRef> {

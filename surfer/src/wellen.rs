@@ -494,8 +494,7 @@ impl WellenContainer {
                     // check to see if instance and definition are the same
                     let same = scope
                         .instantiation_source_loc(h)
-                        .map(|(i_path, i_line)| path == i_path && line == i_line)
-                        .unwrap_or(false);
+                        .is_some_and(|(i_path, i_line)| path == i_path && line == i_line);
                     if !same {
                         write!(&mut out, "{path}:{line}").unwrap();
                     }
