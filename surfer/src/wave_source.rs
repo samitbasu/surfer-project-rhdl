@@ -276,6 +276,7 @@ impl State {
                                     load_options,
                                 );
                             } else {
+                                info!("Getting file list from: {url}");
                                 Self::get_file_list_from_server(sender.clone(), url.clone())
                             }
                             return;

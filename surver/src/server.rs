@@ -410,7 +410,7 @@ pub async fn server_main(
 
     info!("2. Start Surfer: surfer {url} ");
     if let Ok(hostname) = hostname {
-        let hosturl = format!("http://{hostname}:{port}/{token_copy}");
+        let hosturl = format!("http://{hostname}:{port}/{token}");
         info!("or, if the host is directly accessible:");
         info!("1. Start Surfer: surfer {hosturl} ");
     }
