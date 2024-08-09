@@ -1163,7 +1163,7 @@ snapshot_ui!(load_keep_all_works, || {
         Message::ToggleSidePanel,
         Message::AddScope(ScopeRef::from_strs(&["TOP"])),
         Message::AddScope(ScopeRef::from_strs(&["TOP", "Foobar"])),
-        Message::LoadWaveformFile(
+        Message::LoadFile(
             get_project_root()
                 .unwrap()
                 .join("examples")
@@ -1226,7 +1226,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
         Message::ToggleSidePanel,
         Message::AddScope(ScopeRef::from_strs(&["TOP"])),
         Message::AddScope(ScopeRef::from_strs(&["TOP", "Foobar"])),
-        Message::LoadWaveformFile(
+        Message::LoadFile(
             get_project_root()
                 .unwrap()
                 .join("examples")
@@ -1422,7 +1422,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
     state.update(Message::AddVariables(vec![
         VariableRef::from_hierarchy_string("tb.dut.counter"),
     ]));
-    state.update(Message::LoadWaveformFile(
+    state.update(Message::LoadFile(
         project_root.join("examples/counter2.vcd"),
         LoadOptions {
             keep_variables: true,
@@ -1705,7 +1705,7 @@ snapshot_ui!(switch, || {
         String::from("Hexadecimal"),
     ));
     state.update(Message::ZoomToFit { viewport_idx: 0 });
-    state.update(Message::LoadWaveformFile(
+    state.update(Message::LoadFile(
         get_project_root()
             .unwrap()
             .join("examples/with_1_bit.vcd")
@@ -1779,7 +1779,7 @@ snapshot_ui!(switch_and_switch_back, || {
         10,
     );
 
-    state.update(Message::LoadWaveformFile(
+    state.update(Message::LoadFile(
         get_project_root()
             .unwrap()
             .join("examples/with_1_bit.vcd")
@@ -1797,7 +1797,7 @@ snapshot_ui!(switch_and_switch_back, || {
         10,
     );
 
-    state.update(Message::LoadWaveformFile(
+    state.update(Message::LoadFile(
         get_project_root()
             .unwrap()
             .join("examples/with_8_bit.vcd")

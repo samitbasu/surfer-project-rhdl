@@ -105,10 +105,9 @@ pub enum Message {
     RightCursorSet(Option<BigInt>),
     #[serde(skip)]
     SurferServerStatus(web_time::Instant, String, Status),
-    LoadWaveformFile(Utf8PathBuf, LoadOptions),
+    LoadFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
-    LoadWaveformFileFromData(Vec<u8>, LoadOptions),
-    LoadTransactionFile(Utf8PathBuf, LoadOptions),
+    LoadFromData(Vec<u8>, LoadOptions),
     #[cfg(feature = "python")]
     LoadPythonTranslator(Utf8PathBuf),
     #[cfg(not(target_arch = "wasm32"))]

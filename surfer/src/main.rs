@@ -663,11 +663,7 @@ impl State {
                 ));
             }
             Some(WaveSource::File(file)) => {
-                let msg = match file.extension().unwrap() {
-                    "ftr" => Message::LoadTransactionFile(file, LoadOptions::clean()),
-                    _ => Message::LoadWaveformFile(file, LoadOptions::clean()),
-                };
-                self.add_startup_message(msg);
+                self.add_startup_message(Message::LoadFile(file, LoadOptions::clean()));
             }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             #[cfg(not(target_arch = "wasm32"))]
@@ -1258,18 +1254,14 @@ impl State {
                     waves.right_cursor = new;
                 }
             }
-            Message::LoadWaveformFile(filename, load_options) => {
-                self.load_wave_from_file(filename, load_options).ok();
+            Message::LoadFile(filename, load_options) => {
+                self.load_from_file(filename, load_options).ok();
             }
             Message::LoadWaveformFileFromUrl(url, load_options) => {
                 self.load_wave_from_url(url, load_options);
             }
-            Message::LoadWaveformFileFromData(data, load_options) => {
-                self.load_wave_from_data(data, load_options).ok();
-            }
-            Message::LoadTransactionFile(filename, load_options) => {
-                self.load_transactions_from_file(filename, load_options)
-                    .ok();
+            Message::LoadFromData(data, load_options) => {
+                self.load_from_data(data, load_options).ok();
             }
             #[cfg(feature = "python")]
             Message::LoadPythonTranslator(filename) => {
@@ -1284,7 +1276,7 @@ impl State {
                 self.server_status_to_progress(server, status);
             }
             Message::FileDropped(dropped_file) => {
-                self.load_wave_from_dropped(dropped_file)
+                self.load_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
@@ -1473,7 +1465,7 @@ impl State {
                 }
             }
             Message::FileDownloaded(url, bytes, load_options) => {
-                self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options);
+                self.load_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1491,7 +1483,7 @@ impl State {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
                     WaveSource::File(filename) => {
-                        self.load_wave_from_file(
+                        self.load_from_file(
                             filename.clone(),
                             LoadOptions {
                                 keep_variables: true,
@@ -1505,7 +1497,7 @@ impl State {
                     WaveSource::CxxrtlTcp(..) => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename.clone().and_then(|filename| {
-                            self.load_wave_from_file(
+                            self.load_from_file(
                                 filename,
                                 LoadOptions {
                                     keep_variables: true,

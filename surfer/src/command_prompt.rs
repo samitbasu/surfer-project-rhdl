@@ -234,7 +234,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "load_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::LoadWaveformFile(
+                        Some(Command::Terminal(Message::LoadFile(
                             word.into(),
                             LoadOptions::clean(),
                         )))
@@ -243,7 +243,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "switch_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::LoadWaveformFile(
+                        Some(Command::Terminal(Message::LoadFile(
                             word.into(),
                             LoadOptions {
                                 keep_variables: true,
