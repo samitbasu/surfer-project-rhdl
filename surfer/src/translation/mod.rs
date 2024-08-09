@@ -225,7 +225,7 @@ fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
                             width = Some(toml_width.clone());
                         }
 
-                        tomls.push(toml_parsed)
+                        tomls.push(toml_parsed);
                     }
                 }
             }
@@ -349,7 +349,7 @@ impl TranslatorList {
     pub fn basic_translator_names(&self) -> Vec<&str> {
         self.inner
             .iter()
-            .filter_map(|(name, t)| t.is_basic().then(|| name.as_str()))
+            .filter_map(|(name, t)| t.is_basic().then_some(name.as_str()))
             .collect()
     }
 
@@ -450,11 +450,7 @@ fn format(
                 "({})",
                 subresults
                     .iter()
-                    .map(|v| v
-                        .this
-                        .as_ref()
-                        .map(|t| t.value.as_str())
-                        .unwrap_or_else(|| "-"))
+                    .map(|v| v.this.as_ref().map_or("-", |t| t.value.as_str()))
                     .join(", ")
             ),
             kind,
@@ -466,13 +462,7 @@ fn format(
                     .iter()
                     .map(|v| {
                         let n = v.names.join("_");
-                        format!(
-                            "{n}: {}",
-                            v.this
-                                .as_ref()
-                                .map(|t| t.value.as_str())
-                                .unwrap_or_else(|| "-")
-                        )
+                        format!("{n}: {}", v.this.as_ref().map_or("-", |t| t.value.as_str()))
                     })
                     .join(", ")
             ),
@@ -483,11 +473,7 @@ fn format(
                 "[{}]",
                 subresults
                     .iter()
-                    .map(|v| v
-                        .this
-                        .as_ref()
-                        .map(|t| t.value.as_str())
-                        .unwrap_or_else(|| "-"))
+                    .map(|v| v.this.as_ref().map_or("-", |t| t.value.as_str()))
                     .join(", ")
             ),
             kind,
@@ -499,8 +485,7 @@ fn format(
                 subresults[*idx]
                     .this
                     .as_ref()
-                    .map(|t| t.value.as_str())
-                    .unwrap_or_else(|| "-")
+                    .map_or("-", |t| t.value.as_str())
             ),
             kind,
         }),
@@ -609,8 +594,7 @@ impl VariableInfoExt for VariableInfo {
                 VariableInfo::Compound { subfields } => subfields
                     .iter()
                     .find(|&(f, _)| f == field)
-                    .map(|(_, info)| info.has_subpath(rest))
-                    .unwrap_or(false),
+                    .is_some_and(|(_, info)| info.has_subpath(rest)),
                 _ => false,
             },
         }
@@ -646,7 +630,7 @@ impl Translator<VarId, ScopeId, Message> for StringTranslator {
     ) -> Result<TranslationResult> {
         match value {
             VariableValue::BigUint(b) => Ok(TranslationResult {
-                val: ValueRepr::String(format!("ERROR (0x{:x})", b)),
+                val: ValueRepr::String(format!("ERROR (0x{b:x})")),
                 kind: ValueKind::Warn,
                 subfields: vec![],
             }),

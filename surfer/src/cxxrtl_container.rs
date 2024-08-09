@@ -63,9 +63,9 @@ impl CxxrtlWorker {
                 rx = self.command_channel.recv() => {
                     if let Some((command, callback)) = rx {
                         if let Err(e) =  self.send_message(CSMessage::command(command)).await {
-                                error!("Failed to send message {e:#?}")
+                                error!("Failed to send message {e:#?}");
                             } else {
-                                self.callback_queue.push_back(callback)
+                                self.callback_queue.push_back(callback);
                             }
                     }
                 }
@@ -73,7 +73,7 @@ impl CxxrtlWorker {
                     match count {
                         Ok(count) => {
                             let msg = self.process_stream(count, &mut buf).await.map_err(|e| {
-                                error!("Failed to process cxxrtl message ({e:#?})")
+                                error!("Failed to process cxxrtl message ({e:#?})");
                             })
                             .ok()
                             .flatten();
@@ -109,14 +109,14 @@ impl CxxrtlWorker {
                     let mut w = self.data.write().await;
                     cb(r, &mut w);
                     if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
-                        ctx.request_repaint()
+                        ctx.request_repaint();
                     }
                 } else {
-                    warn!("Received a response ({r:?}) without a corresponding callback")
+                    warn!("Received a response ({r:?}) without a corresponding callback");
                 }
             }
             SCMessage::greeting { .. } => {
-                info!("Received greting from cxxrtl")
+                info!("Received greting from cxxrtl");
             }
             SCMessage::event(e) => {
                 trace!("Got event {e:?} from cxxrtl");
@@ -126,18 +126,18 @@ impl CxxrtlWorker {
                             CachedData::Filled(Arc::new(CxxrtlSimulationStatus {
                                 status: SimulationStatusType::paused,
                                 latest_time: time,
-                            }))
+                            }));
                     }
                     Event::simulation_finished { time } => {
                         self.data.write().await.simulation_status =
                             CachedData::Filled(Arc::new(CxxrtlSimulationStatus {
                                 status: SimulationStatusType::finished,
                                 latest_time: time,
-                            }))
+                            }));
                     }
                 }
                 if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
-                    ctx.request_repaint()
+                    ctx.request_repaint();
                 }
             }
         }
@@ -314,7 +314,7 @@ impl CxxrtlContainer {
                 callback_queue: VecDeque::new(),
             }
             .start()
-            .await
+            .await;
         });
 
         let result = Self {
@@ -339,7 +339,10 @@ impl CxxrtlContainer {
                         .map(|(name, s)| {
                             (
                                 ScopeRef {
-                                    strs: name.split(' ').map(|s| s.to_string()).collect(),
+                                    strs: name
+                                        .split(' ')
+                                        .map(std::string::ToString::to_string)
+                                        .collect(),
                                     id: ScopeId::None,
                                 },
                                 s,
@@ -348,7 +351,7 @@ impl CxxrtlContainer {
                         .collect();
 
                     data.scopes_cache = CachedData::filled(scopes);
-                })
+                });
             })
             .unwrap_or_else(|| Arc::new(HashMap::new()))
     }
@@ -369,7 +372,7 @@ impl CxxrtlContainer {
 
                         data.all_items_cache = CachedData::filled(items);
                     },
-                )
+                );
             })
             .and_then(|d| d.get(var).cloned())
     }
@@ -387,7 +390,7 @@ impl CxxrtlContainer {
 
                         data.all_items_cache = CachedData::filled(items);
                     },
-                )
+                );
             })
             .clone()
     }
@@ -411,7 +414,7 @@ impl CxxrtlContainer {
                         data.module_item_cache
                             .insert(scope.clone(), CachedData::filled(items));
                     },
-                )
+                );
             });
 
         result.unwrap_or_default()
@@ -434,7 +437,7 @@ impl CxxrtlContainer {
                             path: ScopeRef::from_strs(
                                 &sp[0..sp.len() - 1]
                                     .iter()
-                                    .map(|s| s.to_string())
+                                    .map(std::string::ToString::to_string)
                                     .collect::<Vec<_>>(),
                             ),
                             name: sp.last().unwrap().to_string(),
@@ -472,9 +475,7 @@ impl CxxrtlContainer {
     }
 
     pub fn module_exists(&mut self, module: &ScopeRef) -> bool {
-        self.scopes()
-            .map(|s| s.contains_key(module))
-            .unwrap_or(false)
+        self.scopes().is_some_and(|s| s.contains_key(module))
     }
 
     pub fn child_scopes(&mut self, parent: &ScopeRef) -> Vec<ScopeRef> {
@@ -571,9 +572,9 @@ impl CxxrtlContainer {
                             info,
                             samples,
                             data.msg_channel.clone(),
-                        )
+                        );
                     },
-                )
+                );
             })
             .map(|_cached| {
                 // If we get here, the cache is valid and we we should look into the
@@ -608,9 +609,9 @@ impl CxxrtlContainer {
             },
             |_response, data| {
                 info!("Item references updated");
-                data.invalidate_query_result()
+                data.invalidate_query_result();
             },
-        )
+        );
     }
 
     fn raw_simulation_status(&self) -> Option<CxxrtlSimulationStatus> {
@@ -620,8 +621,8 @@ impl CxxrtlContainer {
                 self.run_command(CxxrtlCommand::get_simulation_status, |response, data| {
                     expect_response!(CommandResponse::get_simulation_status(status), response);
 
-                    data.on_simulation_status_update(status)
-                })
+                    data.on_simulation_status_update(status);
+                });
             })
             .map(|s| s.as_ref().clone())
     }
@@ -646,8 +647,8 @@ impl CxxrtlContainer {
                 status: SimulationStatusType::running,
                 latest_time: CxxrtlTimestamp::zero(),
             });
-            info!("Unpausing simulation")
-        })
+            info!("Unpausing simulation");
+        });
     }
 
     pub fn pause(&self) {

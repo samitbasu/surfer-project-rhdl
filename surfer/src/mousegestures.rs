@@ -113,7 +113,7 @@ impl State {
                                     &waves.num_timestamps(),
                                 ),
                                 viewport_idx,
-                            })
+                            });
                         }
                         Some(GestureKind::GoToStart) => {
                             msgs.push(Message::GoToStart { viewport_idx });
@@ -131,7 +131,7 @@ impl State {
                         _ => {}
                     }
                 }
-                msgs.push(Message::SetDragStart(None))
+                msgs.push(Message::SetDragStart(None));
             });
         }
     }
@@ -257,12 +257,12 @@ impl State {
                     ui.add_space(10.);
                     ui.separator();
                     if ui.button("Close").clicked() {
-                        msgs.push(Message::SetGestureHelpVisible(false))
+                        msgs.push(Message::SetGestureHelpVisible(false));
                     }
                 });
             });
         if !open {
-            msgs.push(Message::SetGestureHelpVisible(false))
+            msgs.push(Message::SetGestureHelpVisible(false));
         }
     }
 

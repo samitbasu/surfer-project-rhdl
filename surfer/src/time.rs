@@ -206,8 +206,7 @@ impl FromStr for TimeStringFormatting {
             "Locale" => Ok(TimeStringFormatting::Locale),
             "SI" => Ok(TimeStringFormatting::SI),
             _ => Err(format!(
-                "'{}' is not a valid TimeFormat (Valid options: No|Locale|SI)",
-                input
+                "'{input}' is not a valid TimeFormat (Valid options: No|Locale|SI)"
             )),
         }
     }

@@ -102,12 +102,12 @@ pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
                 ui.hyperlink_to("Homepage", "https://surfer-project.org/");
                 ui.add_space(10.);
                 if ui.button("Close").clicked() {
-                    msgs.push(Message::SetAboutVisible(false))
+                    msgs.push(Message::SetAboutVisible(false));
                 }
             })
         });
     if !open {
-        msgs.push(Message::SetAboutVisible(false))
+        msgs.push(Message::SetAboutVisible(false));
     }
 }
 
@@ -151,12 +151,12 @@ pub fn draw_quickstart_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
             });
             ui.vertical_centered(|ui| {
                 if ui.button("Close").clicked() {
-                    msgs.push(Message::SetQuickStartVisible(false))
+                    msgs.push(Message::SetQuickStartVisible(false));
                 }
             })
         });
     if !open {
-        msgs.push(Message::SetQuickStartVisible(false))
+        msgs.push(Message::SetQuickStartVisible(false));
     }
 }
 
@@ -171,12 +171,12 @@ pub fn draw_control_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
                 key_listing(ui);
                 ui.add_space(10.);
                 if ui.button("Close").clicked() {
-                    msgs.push(Message::SetKeyHelpVisible(false))
+                    msgs.push(Message::SetKeyHelpVisible(false));
                 }
             });
         });
     if !open {
-        msgs.push(Message::SetKeyHelpVisible(false))
+        msgs.push(Message::SetKeyHelpVisible(false));
     }
 }
 
@@ -299,11 +299,11 @@ pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
             });
             ui.add_space(10.);
             if ui.button("Close").clicked() {
-                msgs.push(Message::SetLicenseVisible(false))
+                msgs.push(Message::SetLicenseVisible(false));
             }
         });
     if !open {
-        msgs.push(Message::SetLicenseVisible(false))
+        msgs.push(Message::SetLicenseVisible(false));
     }
 }
 

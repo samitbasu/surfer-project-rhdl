@@ -186,7 +186,7 @@ impl State {
                         load_options,
                         HeaderResult::Local(Box::new(header)),
                     );
-                    sender.send(msg).unwrap()
+                    sender.send(msg).unwrap();
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
@@ -238,7 +238,7 @@ impl State {
             // so we'll special case
             #[cfg(not(target_arch = "wasm32"))]
             Some(WaveSource::CxxrtlTcp(url)) => {
-                self.connect_to_cxxrtl(url, load_options.keep_variables)
+                self.connect_to_cxxrtl(url, load_options.keep_variables);
             }
             // However, if we don't get a cxxrtl url, we want to continue loading this as
             // a url even if it isn't auto detected as a url.
@@ -287,7 +287,7 @@ impl State {
                 spawn!(task);
 
                 self.sys.progress_tracker =
-                    Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)))
+                    Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)));
             }
         }
     }
@@ -339,7 +339,7 @@ impl State {
                 Ok(h) => {
                     let header = HeaderResult::Remote(Arc::new(h.hierarchy), h.file_format, server);
                     let msg = Message::WaveHeaderLoaded(start, source, load_options, header);
-                    sender.send(msg).unwrap()
+                    sender.send(msg).unwrap();
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
@@ -363,7 +363,7 @@ impl State {
                 Ok(table) => {
                     let msg =
                         Message::WaveBodyLoaded(start, source, BodyResult::Remote(table, server));
-                    sender.send(msg).unwrap()
+                    sender.send(msg).unwrap();
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
@@ -383,7 +383,7 @@ impl State {
             match res {
                 Ok(status) => {
                     let msg = Message::SurferServerStatus(start, server, status);
-                    sender.send(msg).unwrap()
+                    sender.send(msg).unwrap();
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
@@ -394,11 +394,7 @@ impl State {
     /// uses the server status in order to display a loading bar
     pub fn server_status_to_progress(&mut self, server: String, status: Status) {
         // once the body is loaded, we are no longer interested in the status
-        let body_loaded = self
-            .waves
-            .as_ref()
-            .map(|w| w.inner.body_loaded())
-            .unwrap_or(false);
+        let body_loaded = self.waves.as_ref().is_some_and(|w| w.inner.body_loaded());
         if !body_loaded {
             // the progress tracker will be cleared once the hierarchy is returned from the server
             let source = WaveSource::Url(server.clone());
@@ -436,7 +432,7 @@ impl State {
         };
         spawn!(task);
 
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)))
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)));
     }
 
     pub fn load_wave_from_bytes(
@@ -462,7 +458,7 @@ impl State {
                         load_options,
                         HeaderResult::Local(Box::new(header)),
                     );
-                    sender.send(msg).unwrap()
+                    sender.send(msg).unwrap();
                 }
                 Err(e) => sender.send(Message::Error(e)).unwrap(),
             }
@@ -510,7 +506,7 @@ impl State {
                 match body_result {
                     Ok(body) => {
                         let msg = Message::WaveBodyLoaded(start, source, BodyResult::Local(body));
-                        sender.send(msg).unwrap()
+                        sender.send(msg).unwrap();
                     }
                     Err(e) => sender.send(Message::Error(e)).unwrap(),
                 }
@@ -569,7 +565,7 @@ impl State {
                         Ok(loaded) => {
                             let res = LoadSignalsResult::remote(server, loaded, from_unique_id);
                             let msg = Message::SignalsLoaded(start, res);
-                            sender.send(msg).unwrap()
+                            sender.send(msg).unwrap();
                         }
                         Err(e) => sender.send(Message::Error(e)).unwrap(),
                     }

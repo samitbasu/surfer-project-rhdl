@@ -41,7 +41,7 @@ fn check_response(server_url: &str, response: &reqwest::Response) -> Result<()> 
 
 pub async fn get_status(server: String) -> Result<Status> {
     let client = reqwest::Client::new();
-    let response = client.get(format!("{}/get_status", server)).send().await?;
+    let response = client.get(format!("{server}/get_status")).send().await?;
     check_response(&server, &response)?;
     let body = response.text().await?;
     let status = serde_json::from_str::<Status>(&body)?;
@@ -50,10 +50,7 @@ pub async fn get_status(server: String) -> Result<Status> {
 
 pub async fn get_hierarchy(server: String) -> Result<HierarchyResponse> {
     let client = reqwest::Client::new();
-    let response = client
-        .get(format!("{}/get_hierarchy", server))
-        .send()
-        .await?;
+    let response = client.get(format!("{server}/get_hierarchy")).send().await?;
     check_response(&server, &response)?;
     let compressed = response.bytes().await?;
     let raw = lz4_flex::decompress_size_prepended(&compressed)?;
@@ -72,7 +69,7 @@ pub async fn get_hierarchy(server: String) -> Result<HierarchyResponse> {
 pub async fn get_time_table(server: String) -> Result<Vec<wellen::Time>> {
     let client = reqwest::Client::new();
     let response = client
-        .get(format!("{}/get_time_table", server))
+        .get(format!("{server}/get_time_table"))
         .send()
         .await?;
     check_response(&server, &response)?;
@@ -87,7 +84,7 @@ pub async fn get_signals(
     signals: &[wellen::SignalRef],
 ) -> Result<Vec<(wellen::SignalRef, wellen::Signal)>> {
     let client = reqwest::Client::new();
-    let mut url = format!("{}/get_signals", server);
+    let mut url = format!("{server}/get_signals");
     for signal in signals.iter() {
         url.push_str(&format!("/{}", signal.index()));
     }
@@ -114,7 +111,7 @@ pub async fn get_signals(
     for _ in 0..(num_ids - 1) {
         let signal_id: wellen::SignalRef = opts.deserialize_from(&mut reader)?;
         let signal: wellen::Signal = opts.deserialize_from(&mut reader)?;
-        out.push((signal_id, signal))
+        out.push((signal_id, signal));
     }
     // for the final signal, we expect to consume all bytes
     let signal_id: wellen::SignalRef = opts.deserialize_from(&mut reader)?;

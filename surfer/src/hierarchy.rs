@@ -66,10 +66,10 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                                             ui,
                                             &variables,
                                             filter,
-                                        )
+                                        );
                                     }
                                     ScopeType::StreamScope(s) => {
-                                        state.draw_transaction_variable_list(msgs, waves, ui, s)
+                                        state.draw_transaction_variable_list(msgs, waves, ui, s);
                                     }
                                 }
                             }

@@ -183,7 +183,7 @@ impl eframe::App for State {
         self.sys.timing.borrow_mut().start("update");
         if let Some(scale) = self.ui_zoom_factor {
             if ctx.zoom_factor() != scale {
-                ctx.set_zoom_factor(scale)
+                ctx.set_zoom_factor(scale);
             }
         }
 
@@ -305,7 +305,7 @@ impl State {
         }
         if let Some(waves) = &self.waves {
             if self.show_overview() && !waves.displayed_items_order.is_empty() {
-                self.add_overview_panel(ctx, waves, &mut msgs)
+                self.add_overview_panel(ctx, waves, &mut msgs);
             }
         }
 
@@ -446,8 +446,8 @@ impl State {
         ctx.input(|i| {
             i.raw.dropped_files.iter().for_each(|file| {
                 info!("Got dropped file");
-                msgs.push(Message::FileDropped(file.clone()))
-            })
+                msgs.push(Message::FileDropped(file.clone()));
+            });
         });
 
         // If some dialogs are open, skip decoding keypresses
@@ -476,16 +476,16 @@ impl State {
                                 url.clone(),
                                 LoadOptions::clean(),
                             ));
-                            msgs.push(Message::SetUrlEntryVisible(false))
+                            msgs.push(Message::SetUrlEntryVisible(false));
                         }
                         if ui.button("Cancel").clicked() {
-                            msgs.push(Message::SetUrlEntryVisible(false))
+                            msgs.push(Message::SetUrlEntryVisible(false));
                         }
                     });
                 });
             });
         if !open {
-            msgs.push(Message::SetUrlEntryVisible(false))
+            msgs.push(Message::SetUrlEntryVisible(false));
         }
     }
 
@@ -647,7 +647,7 @@ impl State {
         variables: &[VariableRef],
         filter: &str,
     ) {
-        for variable in self.filtered_variables(&variables, filter) {
+        for variable in self.filtered_variables(variables, filter) {
             let meta = wave_container.variable_meta(&variable).ok();
             let index = meta
                 .as_ref()
@@ -657,7 +657,7 @@ impl State {
 
             let direction = if self.show_variable_direction() {
                 meta.as_ref()
-                    .and_then(|meta| meta.direction.clone())
+                    .and_then(|meta| meta.direction)
                     .map(|direction| {
                         format!(
                             "{} ",
@@ -838,7 +838,7 @@ impl State {
                     response.clicked().then(|| {
                         msgs.push(Message::SetActiveScope(ScopeType::StreamScope(
                             StreamScopeRef::Root,
-                        )))
+                        )));
                     });
                 },
             );
@@ -860,7 +860,7 @@ impl State {
                 response.clicked().then(|| {
                     msgs.push(Message::SetActiveScope(ScopeType::StreamScope(
                         StreamScopeRef::Stream(TransactionStreamRef::new_stream(*id, name)),
-                    )))
+                    )));
                 });
             }
         });
@@ -889,7 +889,7 @@ impl State {
                                         stream.id,
                                         stream.name.clone(),
                                     ),
-                                ))
+                                ));
                             });
                         },
                     );
@@ -910,7 +910,7 @@ impl State {
                                         *gen_id,
                                         gen_name,
                                     ),
-                                ))
+                                ));
                             });
                         },
                     );
@@ -1176,7 +1176,7 @@ impl State {
                 self.item_context_menu(None, msgs, ui, vidx);
             });
             if item_label.clicked() {
-                msgs.push(Message::FocusItem(vidx))
+                msgs.push(Message::FocusItem(vidx));
             }
             item_label
         };
@@ -1189,7 +1189,7 @@ impl State {
                     item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
-                }))
+                }));
             }
             DisplayedItem::Marker(cursor) => {
                 drawing_infos.push(ItemDrawingInfo::Marker(MarkerDrawingInfo {
@@ -1197,14 +1197,14 @@ impl State {
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
                     idx: cursor.idx,
-                }))
+                }));
             }
             DisplayedItem::TimeLine(_) => {
                 drawing_infos.push(ItemDrawingInfo::TimeLine(TimeLineDrawingInfo {
                     item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
-                }))
+                }));
             }
             DisplayedItem::Stream(stream) => {
                 drawing_infos.push(ItemDrawingInfo::Stream(StreamDrawingInfo {
@@ -1212,7 +1212,7 @@ impl State {
                     item_list_idx: vidx,
                     top: label.rect.top(),
                     bottom: label.rect.bottom(),
-                }))
+                }));
             }
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
@@ -1292,7 +1292,7 @@ impl State {
 
         let gap = ui.spacing().item_spacing.y * 0.5;
         let y_zero = to_screen.transform_pos(Pos2::ZERO).y;
-        let ucursor = waves.cursor.as_ref().and_then(|u| u.to_biguint());
+        let ucursor = waves.cursor.as_ref().and_then(num::BigInt::to_biguint);
 
         // Add default margin as it was removed when creating the frame
         let rect_with_margin = Rect {
@@ -1470,7 +1470,7 @@ impl State {
         *waves
             .displayed_items
             .get(&waves.displayed_items_order[drawing_info.item_list_idx()])
-            .and_then(|variable| variable.background_color())
+            .and_then(super::displayed_item::DisplayedItem::background_color)
             .and_then(|color| self.config.theme.get_color(&color))
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx))
     }
@@ -1493,16 +1493,16 @@ fn variable_tooltip_text(meta: &Option<VariableMeta>, variable: &VariableRef) ->
         variable.full_path_string(),
         meta.as_ref()
             .and_then(|meta| meta.num_bits)
-            .map(|num_bits| format!("{num_bits}"))
-            .unwrap_or_else(|| "unknown".to_string()),
+            .map_or_else(|| "unknown".to_string(), |num_bits| format!("{num_bits}")),
         meta.as_ref()
             .and_then(|meta| meta.variable_type)
-            .map(|variable_type| format!("{variable_type}"))
-            .unwrap_or_else(|| "unknown".to_string()),
+            .map_or_else(
+                || "unknown".to_string(),
+                |variable_type| format!("{variable_type}")
+            ),
         meta.as_ref()
             .and_then(|meta| meta.direction)
-            .map(|direction| format!("{direction}"))
-            .unwrap_or_else(|| "unknown".to_string())
+            .map_or_else(|| "unknown".to_string(), |direction| format!("{direction}"))
     )
 }
 

@@ -7,7 +7,6 @@ use std::{
 use base64::{engine::general_purpose, Engine};
 use egui_skia_renderer::draw_onto_surface;
 use emath::Vec2;
-use ftr_parser::types::{Event, TxRelation};
 use image::{DynamicImage, ImageFormat};
 use log::info;
 use num::BigInt;
@@ -39,7 +38,7 @@ fn print_image(img: &DynamicImage) {
         println!(
             "\x1b]1337;File=size={size};width=auto;height=auto;inline=1:{b64}\x1b]\x1b[1E",
             size = bytes.len()
-        )
+        );
     }
 }
 
@@ -63,7 +62,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
             }
-        })
+        });
     });
 
     let mut state = state();
@@ -143,7 +142,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
                 .with_extension("diff.png");
 
             diff_img
-                .save(&diff_file.clone())
+                .save(diff_file.clone())
                 .unwrap_or_else(|_| panic!("Failed to save diff file to {diff_file:?}"));
 
             let prev = image::open(previous_image_file.clone()).unwrap_or_else(|_| {
@@ -291,7 +290,7 @@ snapshot_ui!(menu_can_be_hidden, || {
         .unwrap()
         .with_params(StartupParams::empty());
     let msgs = [Message::ToggleMenu];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -302,7 +301,7 @@ snapshot_ui!(side_panel_can_be_hidden, || {
         .unwrap()
         .with_params(StartupParams::empty());
     let msgs = [Message::ToggleSidePanel];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -313,7 +312,7 @@ snapshot_ui!(toolbar_can_be_hidden, || {
         .unwrap()
         .with_params(StartupParams::empty());
     let msgs = [Message::ToggleToolbar];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -873,7 +872,7 @@ snapshot_ui!(regex_error_indication, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("a(");
@@ -925,7 +924,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Fuzzy),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
@@ -970,7 +969,7 @@ snapshot_ui!(contain_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Contain),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push_str("at");
@@ -1015,7 +1014,7 @@ snapshot_ui!(regex_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state
@@ -1064,7 +1063,7 @@ snapshot_ui!(start_signal_filter_works, || {
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("testbench.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push('a');
@@ -1110,7 +1109,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         Message::SetVariableNameFilterType(VariableNameFilterType::Start),
         Message::SetVariableNameFilterCaseInsensitive(false),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     state.sys.variable_name_filter.borrow_mut().push('a');
@@ -1157,7 +1156,7 @@ snapshot_ui!(load_keep_all_works, || {
             },
         ),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     loop {
@@ -1220,7 +1219,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
             },
         ),
     ];
-    for message in msgs.into_iter() {
+    for message in msgs {
         state.update(message);
     }
     loop {
