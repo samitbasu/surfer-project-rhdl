@@ -895,7 +895,7 @@ impl State {
                             .and_then(|id| waves.displayed_items.get(id))
                             .map(|item| item.name())
                     })
-                    .unwrap_or("".to_string());
+                    .unwrap_or_default();
                 self.save_current_canvas(format!("Remove item {}", name));
                 if let Some(waves) = self.waves.as_mut() {
                     waves.remove_displayed_item(count, idx);
@@ -1353,7 +1353,7 @@ impl State {
             }
             Message::ShowCommandPrompt(new_visibility) => {
                 if !new_visibility {
-                    *self.sys.command_prompt_text.borrow_mut() = "".to_string();
+                    *self.sys.command_prompt_text.borrow_mut() = String::new();
                     self.sys.command_prompt.suggestions = vec![];
                     self.sys.command_prompt.selected =
                         self.sys.command_prompt.previous_commands.len();
@@ -1474,7 +1474,7 @@ impl State {
                 };
             }
             Message::CommandPromptClear => {
-                *self.sys.command_prompt_text.borrow_mut() = "".to_string();
+                *self.sys.command_prompt_text.borrow_mut() = String::new();
                 self.sys.command_prompt.suggestions = vec![];
                 // self.sys.command_prompt.selected = self.sys.command_prompt.previous_commands.len();
                 self.sys.command_prompt.selected =

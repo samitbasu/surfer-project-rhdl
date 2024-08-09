@@ -440,10 +440,10 @@ impl WaveContainer {
     pub fn get_scope_tooltip_data(&self, scope: &ScopeRef) -> String {
         match self {
             WaveContainer::Wellen(f) => f.get_scope_tooltip_data(scope),
-            WaveContainer::Empty => "".to_string(),
+            WaveContainer::Empty => String::new(),
             // FIXME: Tooltip
             #[cfg(not(target_arch = "wasm32"))]
-            WaveContainer::Cxxrtl(_) => "".to_string(),
+            WaveContainer::Cxxrtl(_) => String::new(),
         }
     }
 

@@ -346,7 +346,7 @@ impl SurferTheme {
             "solarized".to_string(),
         ];
 
-        let override_theme = match theme_name.clone().unwrap_or("".to_string()).as_str() {
+        let override_theme = match theme_name.clone().unwrap_or_default().as_str() {
             "dark+" => include_str!("../../themes/dark+.toml"),
             "dark-high-contrast" => include_str!("../../themes/dark-high-contrast.toml"),
             "ibm" => include_str!("../../themes/ibm.toml"),
