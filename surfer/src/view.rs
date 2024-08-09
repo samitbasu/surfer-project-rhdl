@@ -1292,7 +1292,7 @@ impl State {
 
         let gap = ui.spacing().item_spacing.y * 0.5;
         let y_zero = to_screen.transform_pos(Pos2::ZERO).y;
-        let ucursor = waves.cursor.as_ref().and_then(|u| u.to_biguint());
+        let ucursor = waves.cursor.as_ref().and_then(num::BigInt::to_biguint);
 
         // Add default margin as it was removed when creating the frame
         let rect_with_margin = Rect {
@@ -1470,7 +1470,7 @@ impl State {
         *waves
             .displayed_items
             .get(&waves.displayed_items_order[drawing_info.item_list_idx()])
-            .and_then(|variable| variable.background_color())
+            .and_then(super::displayed_item::DisplayedItem::background_color)
             .and_then(|color| self.config.theme.get_color(&color))
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx))
     }

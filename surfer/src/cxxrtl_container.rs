@@ -339,7 +339,10 @@ impl CxxrtlContainer {
                         .map(|(name, s)| {
                             (
                                 ScopeRef {
-                                    strs: name.split(' ').map(|s| s.to_string()).collect(),
+                                    strs: name
+                                        .split(' ')
+                                        .map(std::string::ToString::to_string)
+                                        .collect(),
                                     id: ScopeId::None,
                                 },
                                 s,
@@ -434,7 +437,7 @@ impl CxxrtlContainer {
                             path: ScopeRef::from_strs(
                                 &sp[0..sp.len() - 1]
                                     .iter()
-                                    .map(|s| s.to_string())
+                                    .map(std::string::ToString::to_string)
                                     .collect::<Vec<_>>(),
                             ),
                             name: sp.last().unwrap().to_string(),

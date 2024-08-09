@@ -585,7 +585,7 @@ impl State {
                 });
             }
 
-            if ui.input(|i| i.zoom_delta()) != 1. {
+            if ui.input(egui::InputState::zoom_delta) != 1. {
                 let mouse_ptr = Some(waves.viewports[viewport_idx].as_time_bigint(
                     mouse_ptr_pos.x,
                     frame_width,
@@ -594,7 +594,7 @@ impl State {
 
                 msgs.push(Message::CanvasZoom {
                     mouse_ptr,
-                    delta: ui.input(|i| i.zoom_delta()),
+                    delta: ui.input(egui::InputState::zoom_delta),
                     viewport_idx,
                 });
             }
@@ -707,7 +707,7 @@ impl State {
                         .get(drawing_info.item_list_idx())
                         .and_then(|id| waves.displayed_items.get(id));
                     let color = displayed_item
-                        .and_then(|variable| variable.color())
+                        .and_then(super::displayed_item::DisplayedItem::color)
                         .and_then(|color| self.config.theme.get_color(&color));
 
                     match drawing_info {
@@ -835,7 +835,7 @@ impl State {
                         .get(drawing_info.item_list_idx())
                         .and_then(|id| waves.displayed_items.get(id));
                     let color = displayed_item
-                        .and_then(|tx_stream| tx_stream.color())
+                        .and_then(super::displayed_item::DisplayedItem::color)
                         .and_then(|color| self.config.theme.get_color(&color));
 
                     match drawing_info {
@@ -899,7 +899,9 @@ impl State {
                                                 .displayed_items_order
                                                 .get(drawing_info.item_list_idx())
                                                 .and_then(|id| waves.displayed_items.get(id))
-                                                .and_then(|stream| stream.color())
+                                                .and_then(
+                                                    super::displayed_item::DisplayedItem::color,
+                                                )
                                                 .and_then(|color| {
                                                     self.config.theme.colors.get(&color)
                                                 })

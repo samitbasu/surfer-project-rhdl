@@ -224,7 +224,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
     theme_names.insert(0, "default".to_string());
     Command::NonTerminal(
         ParamGreed::Word,
-        commands.into_iter().map(|s| s.into()).collect(),
+        commands.into_iter().map(std::convert::Into::into).collect(),
         Box::new(move |query, _| {
             let variables_in_active_scope = variables_in_active_scope.clone();
             let markers = markers.clone();
@@ -439,7 +439,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "preference_set_clock_highlight" => single_word(
                     ["Line", "Cycle", "None"]
                         .iter()
-                        .map(|o| o.to_string())
+                        .map(std::string::ToString::to_string)
                         .collect_vec(),
                     Box::new(|word| {
                         Some(Command::Terminal(Message::SetClockHighlightType(
@@ -634,7 +634,7 @@ pub fn show_command_prompt(
                             .map(|s| &s.1 .0)
                             .unwrap_or(&default);
 
-                        if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                        if input.chars().last().is_some_and(char::is_whitespace) {
                             // if no input exists for current argument just append
                             input.to_owned() + " " + selection
                         } else {
@@ -812,7 +812,7 @@ pub fn show_command_prompt(
 
                             if resp.inner.clicked() {
                                 let new_input =
-                                    if input.chars().last().is_some_and(|c| c.is_whitespace()) {
+                                    if input.chars().last().is_some_and(char::is_whitespace) {
                                         // if no input exists for current argument just append
                                         input.to_owned() + " " + &suggestion.0
                                     } else {

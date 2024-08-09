@@ -76,13 +76,13 @@ impl ScopeRefExt for ScopeRef {
     }
 
     fn from_strs_with_id(s: &[impl ToString], id: ScopeId) -> Self {
-        let strs = s.iter().map(|s| s.to_string()).collect();
+        let strs = s.iter().map(std::string::ToString::to_string).collect();
         Self { strs, id }
     }
 
     /// Creates a ScopeRef from a string with each scope separated by `.`
     fn from_hierarchy_string(s: &str) -> Self {
-        let strs = s.split('.').map(|x| x.to_string()).collect();
+        let strs = s.split('.').map(std::string::ToString::to_string).collect();
         let id = ScopeId::default();
         Self { strs, id }
     }
@@ -125,7 +125,10 @@ impl VariableRefExt for VariableRef {
     }
 
     fn from_hierarchy_string(s: &str) -> Self {
-        let components = s.split('.').map(|s| s.to_string()).collect::<Vec<_>>();
+        let components = s
+            .split('.')
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>();
 
         if components.is_empty() {
             Self {
@@ -192,7 +195,7 @@ impl FieldRefExt for FieldRef {
     fn from_strs(root: &[&str], field: &[&str]) -> Self {
         Self {
             root: VariableRef::from_strs(root),
-            field: field.iter().map(|s| s.to_string()).collect(),
+            field: field.iter().map(std::string::ToString::to_string).collect(),
         }
     }
 }

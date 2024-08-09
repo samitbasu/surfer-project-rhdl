@@ -193,7 +193,12 @@ impl StartupParams {
             std::fs::read_to_string(cmd_file)
                 .map_err(|e| error!("Failed to read commands from {cmd_file}. {e:#?}"))
                 .ok()
-                .map(|file_content| file_content.lines().map(|l| l.to_string()).collect())
+                .map(|file_content| {
+                    file_content
+                        .lines()
+                        .map(std::string::ToString::to_string)
+                        .collect()
+                })
                 .unwrap_or_default()
         } else {
             vec![]
@@ -806,7 +811,7 @@ impl State {
                             .displayed_items_order
                             .get(idx.0)
                             .and_then(|id| waves.displayed_items.get(id))
-                            .map(|item| item.name())
+                            .map(displayed_item::DisplayedItem::name)
                             .unwrap_or_default();
                     }
                 }
@@ -893,7 +898,7 @@ impl State {
                             .displayed_items_order
                             .get(idx.0)
                             .and_then(|id| waves.displayed_items.get(id))
-                            .map(|item| item.name())
+                            .map(displayed_item::DisplayedItem::name)
                     })
                     .unwrap_or_default();
                 self.save_current_canvas(format!("Remove item {name}"));
@@ -1651,7 +1656,7 @@ impl State {
                             let variable_value = self.get_variable_value(
                                 waves,
                                 &field_ref,
-                                &waves.cursor.as_ref().and_then(|u| u.to_biguint()),
+                                &waves.cursor.as_ref().and_then(num::BigInt::to_biguint),
                             );
                             if let Some(variable_value) = variable_value {
                                 if let Some(ctx) = &self.sys.context {
