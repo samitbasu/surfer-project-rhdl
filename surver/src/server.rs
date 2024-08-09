@@ -23,15 +23,18 @@ use crate::{
     WELLEN_SURFER_DEFAULT_OPTIONS, WELLEN_VERSION, X_SURFER_VERSION, X_WELLEN_VERSION,
 };
 
-struct ReadOnly {
-    url: String,
-    token: String,
+struct FileInfo {
     filename: String,
     hierarchy: Hierarchy,
     file_format: FileFormat,
     header_len: u64,
     body_len: u64,
     body_progress: Arc<AtomicU64>,
+}
+struct ReadOnly {
+    url: String,
+    token: String,
+    files: Vec<Arc<FileInfo>>,
 }
 
 #[derive(Default)]
@@ -42,23 +45,8 @@ struct State {
 
 type SignalRequest = Vec<SignalRef>;
 
-fn get_info_page(shared: Arc<ReadOnly>) -> String {
-    let bytes_loaded = shared.body_progress.load(Ordering::SeqCst);
-
-    let progress = if bytes_loaded == shared.body_len {
-        format!(
-            "{} loaded",
-            bytesize::ByteSize::b(shared.body_len + shared.header_len)
-        )
-    } else {
-        format!(
-            "{} / {}",
-            bytesize::ByteSize::b(bytes_loaded + shared.header_len),
-            bytesize::ByteSize::b(shared.body_len + shared.header_len)
-        )
-    };
-
-    format!(
+fn get_info_page(shared: &Arc<ReadOnly>) -> String {
+    let head = format!(
         r#"
     <!DOCTYPE html><html lang="en">
     <head><title>Surver - Surfer Remote Server</title></head><body>
@@ -66,15 +54,38 @@ fn get_info_page(shared: Arc<ReadOnly>) -> String {
     <b>To connect, run:</b> <code>surfer {}</code><br>
     <b>Wellen version:</b> {WELLEN_VERSION}<br>
     <b>Surfer version:</b> {SURFER_VERSION}<br>
+    "#,
+        shared.url
+    );
+    let mut strings = Vec::new();
+    for file in &shared.files {
+        let bytes_loaded: u64 = file.body_progress.load(Ordering::SeqCst);
+
+        let progress = if bytes_loaded == file.body_len {
+            format!(
+                "{} loaded",
+                bytesize::ByteSize::b(file.body_len + file.header_len)
+            )
+        } else {
+            format!(
+                "{} / {}",
+                bytesize::ByteSize::b(bytes_loaded + file.header_len),
+                bytesize::ByteSize::b(file.body_len + file.header_len)
+            )
+        };
+        let res = format!(
+            r#"
     <b>Filename:</b> {}<br>
     <b>Progress:</b> {progress}<br>
-    </body></html>
-    "#,
-        shared.url, shared.filename
-    )
+            "#,
+            file.filename
+        );
+        strings.push(res);
+    }
+    format!("{head} {} </body></html>", strings.join("\n"))
 }
 
-fn get_hierarchy(shared: Arc<ReadOnly>) -> Result<Vec<u8>> {
+fn get_hierarchy(shared: &Arc<FileInfo>) -> Result<Vec<u8>> {
     let mut raw = BINCODE_OPTIONS.serialize(&shared.file_format)?;
     let mut raw2 = BINCODE_OPTIONS.serialize(&shared.hierarchy)?;
     raw.append(&mut raw2);
@@ -87,7 +98,7 @@ fn get_hierarchy(shared: Arc<ReadOnly>) -> Result<Vec<u8>> {
     Ok(compressed)
 }
 
-async fn get_timetable(state: Arc<RwLock<State>>) -> Result<Vec<u8>> {
+async fn get_timetable(state: &Arc<RwLock<State>>) -> Result<Vec<u8>> {
     // poll to see when the time table is available
     #[allow(unused_assignments)]
     let mut raw = vec![];
@@ -110,7 +121,7 @@ async fn get_timetable(state: Arc<RwLock<State>>) -> Result<Vec<u8>> {
     Ok(compressed)
 }
 
-fn get_status(shared: Arc<ReadOnly>) -> Result<Vec<u8>> {
+fn get_status(shared: &Arc<FileInfo>) -> Result<Vec<u8>> {
     let status = Status {
         bytes: shared.body_len + shared.header_len,
         bytes_loaded: shared.body_progress.load(Ordering::SeqCst) + shared.header_len,
@@ -123,8 +134,8 @@ fn get_status(shared: Arc<ReadOnly>) -> Result<Vec<u8>> {
 }
 
 async fn get_signals(
-    state: Arc<RwLock<State>>,
-    tx: Sender<SignalRequest>,
+    state: &Arc<RwLock<State>>,
+    tx: &Sender<SignalRequest>,
     id_strings: &[&str],
 ) -> Result<Vec<u8>> {
     let mut ids = Vec::with_capacity(id_strings.len());
@@ -182,9 +193,9 @@ impl DefaultHeader for hyper::http::response::Builder {
 }
 
 async fn handle_cmd(
-    state: Arc<RwLock<State>>,
-    shared: Arc<ReadOnly>,
-    tx: Sender<SignalRequest>,
+    state: &Arc<RwLock<State>>,
+    shared: &Arc<FileInfo>,
+    tx: &Sender<SignalRequest>,
     cmd: &str,
     args: &[&str],
 ) -> Result<Response<Full<Bytes>>> {
@@ -229,9 +240,9 @@ async fn handle_cmd(
 }
 
 async fn handle(
-    state: Arc<RwLock<State>>,
-    shared: Arc<ReadOnly>,
-    tx: Sender<SignalRequest>,
+    states: &Vec<Arc<RwLock<State>>>,
+    shared: &Arc<ReadOnly>,
+    txs: &Vec<Sender<SignalRequest>>,
     req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>> {
     // check to see if the correct token was received
@@ -257,19 +268,35 @@ async fn handle(
             .body(Full::from(vec![]))?);
     }
 
-    // check command
-    let response = if let Some(cmd) = path_parts.get(1) {
-        handle_cmd(state, shared, tx, cmd, &path_parts[2..]).await?
+    if let Some(idx_str) = path_parts.get(1) {
+        let idx = usize::from_str_radix(*idx_str, 10)?;
+        // check command
+        let response = if let Some(cmd) = path_parts.get(2) {
+            handle_cmd(
+                states.get(idx).unwrap(),
+                shared.files.get(idx).unwrap(),
+                txs.get(idx).unwrap(),
+                cmd,
+                &path_parts[3..],
+            )
+            .await?
+        } else {
+            // valid token, but no command => return info
+            let body = Full::from(get_info_page(shared));
+            Response::builder()
+                .status(StatusCode::OK)
+                .default_header()
+                .body(body)?
+        };
+        Ok(response)
     } else {
         // valid token, but no command => return info
         let body = Full::from(get_info_page(shared));
-        Response::builder()
+        Ok(Response::builder()
             .status(StatusCode::OK)
             .default_header()
-            .body(body)?
-    };
-
-    Ok(response)
+            .body(body)?)
+    }
 }
 
 const MIN_TOKEN_LEN: usize = 8;
@@ -280,7 +307,7 @@ pub type ServerStartedFlag = Arc<std::sync::atomic::AtomicBool>;
 pub async fn server_main(
     port: u16,
     token: Option<String>,
-    filename: String,
+    filenames: Vec<String>,
     started: Option<ServerStartedFlag>,
 ) -> Result<()> {
     // if no token was provided, we generate one
@@ -293,41 +320,56 @@ pub async fn server_main(
         bail!("Token `{token}` is too short. At least {MIN_TOKEN_LEN} characters are required!");
     }
 
-    // load file
-    let start_read_header = web_time::Instant::now();
-    let header_result =
-        wellen::viewers::read_header(filename.as_str(), &WELLEN_SURFER_DEFAULT_OPTIONS)
-            .map_err(|e| anyhow!("{e:?}"))
-            .with_context(|| format!("Failed to parse wave file: {filename}"))?;
-    info!(
-        "Loaded header of {filename} in {:?}",
-        start_read_header.elapsed()
-    );
+    if filenames.len() < 1 {
+        bail!("At least one file must be provided!");
+    }
+
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
     // immutable read-only data
-    let url = format!("http://{addr:?}/{token}");
-    let url_copy = url.clone();
-    let token_copy = token.clone();
-    let shared = Arc::new(ReadOnly {
-        url,
-        token,
-        filename,
-        hierarchy: header_result.hierarchy,
-        file_format: header_result.file_format,
-        header_len: 0, // FIXME: get value from wellen
-        body_len: header_result.body_len,
-        body_progress: Arc::new(AtomicU64::new(0)),
-    });
-    // state can be written by the loading thread
-    let state = Arc::new(RwLock::new(State::default()));
-    // channel to communicate with loader
-    let (tx, rx) = std::sync::mpsc::channel::<SignalRequest>();
-    // start work thread
-    let shared_2 = shared.clone();
-    let state_2 = state.clone();
-    std::thread::spawn(move || loader(shared_2, header_result.body, state_2, rx));
+    let url = format!("http://{addr:?}/{}", token);
 
+    let mut states = Vec::new();
+    let mut file_infos = Vec::new();
+    let mut txs = Vec::new();
+    for filename in filenames {
+        // load file
+        let start_read_header = web_time::Instant::now();
+        let header_result =
+            wellen::viewers::read_header(filename.as_str(), &WELLEN_SURFER_DEFAULT_OPTIONS)
+                .map_err(|e| anyhow!("{e:?}"))
+                .with_context(|| format!("Failed to parse wave file: {filename}"))?;
+        info!(
+            "Loaded header of {filename} in {:?}",
+            start_read_header.elapsed()
+        );
+        let file_info = Arc::new(FileInfo {
+            filename,
+            hierarchy: header_result.hierarchy,
+            file_format: header_result.file_format,
+            header_len: 0, // FIXME: get value from wellen
+            body_len: header_result.body_len,
+            body_progress: Arc::new(AtomicU64::new(0)),
+        });
+        // channel to communicate with loader
+        let (tx, rx) = std::sync::mpsc::channel::<SignalRequest>();
+
+        // state can be written by the loading thread
+        let state = Arc::new(RwLock::new(State::default()));
+        // start work thread
+        let state_2 = state.clone();
+        let cloned_file_info = file_info.clone();
+        std::thread::spawn(move || loader(&cloned_file_info, header_result.body, state_2, rx));
+        states.push(state);
+        file_infos.push(file_info);
+        txs.push(tx);
+    }
+
+    let shared = Arc::new(ReadOnly {
+        url: url.clone(),
+        token: token.clone(),
+        files: file_infos,
+    });
     // print out status
     info!("Starting server on {addr:?}. To use:");
     info!("1. Setup an ssh tunnel: -L {port}:localhost:{port}");
@@ -339,7 +381,7 @@ pub async fn server_main(
         );
     }
 
-    info!("2. Start Surfer: surfer {url_copy} ");
+    info!("2. Start Surfer: surfer {url} ");
     if let Ok(hostname) = hostname {
         let hosturl = format!("http://{hostname}:{port}/{token_copy}");
         info!("or, if the host is directly accessible:");
@@ -358,12 +400,13 @@ pub async fn server_main(
         let (stream, _) = listener.accept().await?;
         let io = TokioIo::new(stream);
 
-        let state = state.clone();
-        let shared = shared.clone();
-        let tx = tx.clone();
+        let cloned_states = states.clone();
+        let cloned_shared = shared.clone();
+        let cloned_txs = txs.clone();
+
         tokio::task::spawn(async move {
             let service =
-                service_fn(move |req| handle(state.clone(), shared.clone(), tx.clone(), req));
+                service_fn(|req| handle(&cloned_states, &cloned_shared, &cloned_txs, req));
             if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
                 error!("server error: {}", e);
             }
@@ -373,7 +416,7 @@ pub async fn server_main(
 
 /// Thread that loads the body and signals.
 fn loader(
-    shared: Arc<ReadOnly>,
+    shared: &Arc<FileInfo>,
     body_cont: viewers::ReadBodyContinuation,
     state: Arc<RwLock<State>>,
     rx: std::sync::mpsc::Receiver<SignalRequest>,

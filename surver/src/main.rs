@@ -7,8 +7,8 @@ use fern::Dispatch;
 #[derive(clap::Parser, Default)]
 #[command(version, about)]
 struct Args {
-    /// Waveform file in VCD, FST, or GHW format.
-    wave_file: String,
+    /// Waveform files in VCD, FST, or GHW format.
+    wave_files: Vec<String>,
     /// Port on which server will listen
     #[clap(long)]
     port: Option<u16>,
@@ -61,7 +61,7 @@ fn main() -> Result<()> {
     runtime.block_on(surver::server_main(
         args.port.unwrap_or(default_port),
         args.token,
-        args.wave_file,
+        args.wave_files,
         None,
     ))
 }

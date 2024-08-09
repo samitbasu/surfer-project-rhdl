@@ -39,18 +39,24 @@ fn check_response(server_url: &str, response: &reqwest::Response) -> Result<()> 
     Ok(())
 }
 
-pub async fn get_status(server: String) -> Result<Status> {
+pub async fn get_status(server: String, file_idx: usize) -> Result<Status> {
     let client = reqwest::Client::new();
-    let response = client.get(format!("{server}/get_status")).send().await?;
+    let response = client
+        .get(format!("{server}/{file_idx}/get_status"))
+        .send()
+        .await?;
     check_response(&server, &response)?;
     let body = response.text().await?;
     let status = serde_json::from_str::<Status>(&body)?;
     Ok(status)
 }
 
-pub async fn get_hierarchy(server: String) -> Result<HierarchyResponse> {
+pub async fn get_hierarchy(server: String, file_idx: usize) -> Result<HierarchyResponse> {
     let client = reqwest::Client::new();
-    let response = client.get(format!("{server}/get_hierarchy")).send().await?;
+    let response = client
+        .get(format!("{server}/{file_idx}/get_hierarchy"))
+        .send()
+        .await?;
     check_response(&server, &response)?;
     let compressed = response.bytes().await?;
     let raw = lz4_flex::decompress_size_prepended(&compressed)?;
@@ -66,10 +72,10 @@ pub async fn get_hierarchy(server: String) -> Result<HierarchyResponse> {
     })
 }
 
-pub async fn get_time_table(server: String) -> Result<Vec<wellen::Time>> {
+pub async fn get_time_table(server: String, file_idx: usize) -> Result<Vec<wellen::Time>> {
     let client = reqwest::Client::new();
     let response = client
-        .get(format!("{server}/get_time_table"))
+        .get(format!("{server}/{file_idx}/get_time_table"))
         .send()
         .await?;
     check_response(&server, &response)?;
@@ -81,10 +87,11 @@ pub async fn get_time_table(server: String) -> Result<Vec<wellen::Time>> {
 
 pub async fn get_signals(
     server: String,
+    file_idx: usize,
     signals: &[wellen::SignalRef],
 ) -> Result<Vec<(wellen::SignalRef, wellen::Signal)>> {
     let client = reqwest::Client::new();
-    let mut url = format!("{server}/get_signals");
+    let mut url = format!("{server}/{file_idx}/get_signals");
     for signal in signals.iter() {
         url.push_str(&format!("/{}", signal.index()));
     }
