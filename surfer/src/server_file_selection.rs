@@ -1,4 +1,4 @@
-use egui::{Context, Window};
+use egui::{Context, ScrollArea, Window};
 
 use crate::{message::Message, wave_source::LoadOptions, State};
 
@@ -11,22 +11,23 @@ impl State {
     ) {
         let mut open = true;
 
+        let selected_file_idx = *self.sys.selected_surver_file.borrow_mut();
+
         Window::new("Select wave file")
-            .collapsible(true)
             .resizable(true)
             .open(&mut open)
             .show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    for (i, file) in file_list.iter().enumerate() {
-                        if ui.label(file).clicked() {
-                            msgs.push(Message::SetServerFileWindowVisible(false));
-                            msgs.push(Message::SetSelectedServerFile(Some(i)));
-                            msgs.push(Message::LoadWaveformFileFromUrl(
-                                self.surver_url.clone().unwrap(),
-                                LoadOptions::clean(),
-                            ));
+                ScrollArea::both().id_source("file_list").show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        for (i, file) in file_list.iter().enumerate() {
+                            if ui
+                                .selectable_label(Some(i) == selected_file_idx, file)
+                                .clicked()
+                            {
+                                *self.sys.selected_surver_file.borrow_mut() = Some(i);
+                            }
                         }
-                    }
+                    });
                 });
                 ui.separator();
                 ui.horizontal(|ui| {
@@ -34,9 +35,14 @@ impl State {
                         msgs.push(Message::SetServerFileWindowVisible(false));
                     }
                     if ui.button("Select").clicked() {
-                        msgs.push(Message::SetSelectedServerFile(Some(0)));
-                        msgs.push(Message::SetServerFileWindowVisible(false));
-                        // msgs.push(Message::LoadWaveformFileFromUrl(url, load_options));
+                        if let Some(file_idx) = selected_file_idx {
+                            msgs.push(Message::SetServerFileWindowVisible(false));
+                            msgs.push(Message::SetSelectedServerFile(Some(file_idx)));
+                            msgs.push(Message::LoadWaveformFileFromUrl(
+                                self.surver_url.clone().unwrap(),
+                                LoadOptions::clean(),
+                            ));
+                        }
                     }
                 })
             });
