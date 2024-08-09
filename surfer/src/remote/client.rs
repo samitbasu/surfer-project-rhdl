@@ -85,6 +85,16 @@ pub async fn get_time_table(server: String, file_idx: usize) -> Result<Vec<welle
     Ok(table)
 }
 
+pub async fn get_file_list(server: String) -> Result<Vec<String>> {
+    let client = reqwest::Client::new();
+    let response = client.get(format!("{server}/get_file_list")).send().await?;
+    check_response(&server, &response)?;
+    let compressed = response.bytes().await?;
+    let raw = lz4_flex::decompress_size_prepended(&compressed)?;
+    let table = BINCODE_OPTIONS.deserialize(&raw)?;
+    Ok(table)
+}
+
 pub async fn get_signals(
     server: String,
     file_idx: usize,

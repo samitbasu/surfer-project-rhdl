@@ -276,6 +276,12 @@ impl State {
             }
         }
 
+        if self.show_server_file_selection_window {
+            if let Some(file_list) = &self.server_file_list {
+                self.draw_server_file_window(file_list, ctx, &mut msgs);
+            }
+        }
+
         if let Some(idx) = self.rename_target {
             draw_rename_window(
                 ctx,
@@ -474,7 +480,6 @@ impl State {
                         {
                             msgs.push(Message::LoadWaveformFileFromUrl(
                                 url.clone(),
-                                None,
                                 LoadOptions::clean(),
                             ));
                             msgs.push(Message::SetUrlEntryVisible(false));

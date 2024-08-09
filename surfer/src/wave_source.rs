@@ -31,7 +31,7 @@ pub enum WaveSource {
     File(Utf8PathBuf),
     Data,
     DragAndDrop(Option<Utf8PathBuf>),
-    Url(String, Option<usize>),
+    Url(String),
     #[cfg(not(target_arch = "wasm32"))]
     CxxrtlTcp(String),
 }
@@ -48,7 +48,7 @@ impl WaveSource {
 pub fn url_to_wavesource(url: &str) -> Option<WaveSource> {
     if url.starts_with("https://") || url.starts_with("http://") {
         info!("Wave source is url");
-        Some(WaveSource::Url(url.to_string(), None))
+        Some(WaveSource::Url(url.to_string()))
     } else if url.starts_with("cxxrtl+tcp://") {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -81,13 +81,7 @@ impl Display for WaveSource {
             WaveSource::Data => write!(f, "File data"),
             WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
             WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
-            WaveSource::Url(url, file_idx) => {
-                if let Some(file_idx) = file_idx {
-                    write!(f, "{url} File: {file_idx}")
-                } else {
-                    write!(f, "{url}")
-                }
-            }
+            WaveSource::Url(url) => write!(f, "{url}"),
             #[cfg(not(target_arch = "wasm32"))]
             WaveSource::CxxrtlTcp(url) => write!(f, "{url}"),
         }
@@ -271,20 +265,19 @@ impl State {
                     // check to see if the response came from a Surfer running in server mode
                     if let Some(value) = response.headers().get(HTTP_SERVER_KEY) {
                         if matches!(value.to_str(), Ok(HTTP_SERVER_VALUE_SURFER)) {
-                            info!("Connecting to a surfer server at: {url}");
-                            // request status and hierarchy
-                            Self::get_server_status(
-                                sender.clone(),
-                                url.clone(),
-                                file_idx.unwrap(),
-                                0,
-                            );
-                            Self::get_hierarchy_from_server(
-                                sender.clone(),
-                                url.clone(),
-                                file_idx.unwrap(),
-                                load_options,
-                            );
+                            if let Some(file_idx) = file_idx {
+                                info!("Connecting to a surfer server at: {url}");
+                                // request status and hierarchy
+                                Self::get_server_status(sender.clone(), url.clone(), file_idx, 0);
+                                Self::get_hierarchy_from_server(
+                                    sender.clone(),
+                                    url.clone(),
+                                    file_idx,
+                                    load_options,
+                                );
+                            } else {
+                                Self::get_file_list_from_server(sender.clone(), url.clone())
+                            }
                             return;
                         }
                     }
@@ -336,6 +329,7 @@ impl State {
         }
         Ok(())
     }
+
     fn get_hierarchy_from_server(
         sender: Sender<Message>,
         server: String,
@@ -343,7 +337,7 @@ impl State {
         load_options: LoadOptions,
     ) {
         let start = web_time::Instant::now();
-        let source = WaveSource::Url(server.clone(), Some(file_idx));
+        let source = WaveSource::Url(server.clone());
 
         let task = async move {
             let res = crate::remote::get_hierarchy(server.clone(), file_idx)
@@ -370,9 +364,31 @@ impl State {
         spawn!(task);
     }
 
+    fn get_file_list_from_server(sender: Sender<Message>, server: String) {
+        let start = web_time::Instant::now();
+
+        let task = async move {
+            let res = crate::remote::get_file_list(server.clone())
+                .await
+                .map_err(|e| anyhow!("{e:?}"))
+                .with_context(|| {
+                    format!("Failed to retrieve hierarchy from remote server {server}")
+                });
+
+            match res {
+                Ok(h) => {
+                    let msg = Message::SurferServerFileListLoaded(start, server, Some(h));
+                    sender.send(msg).unwrap()
+                }
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
+            }
+        };
+        spawn!(task);
+    }
+
     pub fn get_time_table_from_server(sender: Sender<Message>, server: String, file_idx: usize) {
         let start = web_time::Instant::now();
-        let source = WaveSource::Url(server.clone(), Some(file_idx));
+        let source = WaveSource::Url(server.clone());
 
         let task = async move {
             let res = crate::remote::get_time_table(server.clone(), file_idx)
@@ -420,7 +436,7 @@ impl State {
         let body_loaded = self.waves.as_ref().is_some_and(|w| w.inner.body_loaded());
         if !body_loaded {
             // the progress tracker will be cleared once the hierarchy is returned from the server
-            let source = WaveSource::Url(server.clone(), Some(file_idx));
+            let source = WaveSource::Url(server.clone());
             let sender = self.sys.channels.msg_sender.clone();
             self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingBody(
                 source,

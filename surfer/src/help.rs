@@ -35,7 +35,6 @@ impl State {
                         .msg_sender
                         .send(Message::LoadWaveformFileFromUrl(
                             "https://app.surfer-project.org/picorv32.vcd".to_string(),
-                            None,
                             LoadOptions::clean(),
                         ))
                         .ok();

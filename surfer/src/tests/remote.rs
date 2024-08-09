@@ -52,8 +52,9 @@ fn run_with_server(
     let mut state = State::new_default_config().unwrap();
 
     let msgs = vec![
+        Message::SetSelectedServerFile(Some(0)),
         // connect to server
-        Message::LoadWaveformFileFromUrl(url, Some(0), LoadOptions::clean()),
+        Message::LoadWaveformFileFromUrl(url, LoadOptions::clean()),
         // hide GUI elements
         Message::ToggleMenu,
         Message::ToggleSidePanel,

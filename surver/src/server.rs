@@ -98,6 +98,23 @@ fn get_hierarchy(shared: &Arc<FileInfo>) -> Result<Vec<u8>> {
     Ok(compressed)
 }
 
+fn get_file_list(shared: &Arc<ReadOnly>) -> Result<Vec<u8>> {
+    let file_list = shared
+        .files
+        .clone()
+        .into_iter()
+        .map(|fi| fi.filename.clone())
+        .collect::<Vec<String>>();
+    let raw = BINCODE_OPTIONS.serialize(&file_list)?;
+    let compressed = lz4_flex::compress_prepend_size(&raw);
+    info!(
+        "Sending file list. {} raw, {} compressed.",
+        bytesize::ByteSize::b(raw.len() as u64),
+        bytesize::ByteSize::b(compressed.len() as u64)
+    );
+    Ok(compressed)
+}
+
 async fn get_timetable(state: &Arc<RwLock<State>>) -> Result<Vec<u8>> {
     // poll to see when the time table is available
     #[allow(unused_assignments)]
@@ -269,26 +286,36 @@ async fn handle(
     }
 
     if let Some(idx_str) = path_parts.get(1) {
-        let idx = usize::from_str_radix(*idx_str, 10)?;
-        // check command
-        let response = if let Some(cmd) = path_parts.get(2) {
-            handle_cmd(
-                states.get(idx).unwrap(),
-                shared.files.get(idx).unwrap(),
-                txs.get(idx).unwrap(),
-                cmd,
-                &path_parts[3..],
-            )
-            .await?
-        } else {
-            // valid token, but no command => return info
-            let body = Full::from(get_info_page(shared));
-            Response::builder()
+        if *idx_str == "get_file_list" {
+            let body = get_file_list(shared)?;
+            let response = Response::builder()
                 .status(StatusCode::OK)
+                .header(CONTENT_TYPE, JSON_MIME)
                 .default_header()
-                .body(body)?
-        };
-        Ok(response)
+                .body(Full::from(body))?;
+            Ok(response)
+        } else {
+            let idx = usize::from_str_radix(*idx_str, 10)?;
+            // check command
+            let response = if let Some(cmd) = path_parts.get(2) {
+                handle_cmd(
+                    states.get(idx).unwrap(),
+                    shared.files.get(idx).unwrap(),
+                    txs.get(idx).unwrap(),
+                    cmd,
+                    &path_parts[3..],
+                )
+                .await?
+            } else {
+                // valid token, but no command => return info
+                let body = Full::from(get_info_page(shared));
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .default_header()
+                    .body(body)?
+            };
+            Ok(response)
+        }
     } else {
         // valid token, but no command => return info
         let body = Full::from(get_info_page(shared));
