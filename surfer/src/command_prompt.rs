@@ -258,7 +258,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|query, _| {
                         Some(Command::Terminal(Message::LoadWaveformFileFromUrl(
                             query.to_string(),
-                            None,
                             LoadOptions::clean(), // load_url does not indicate any format restrictions
                         )))
                     }),

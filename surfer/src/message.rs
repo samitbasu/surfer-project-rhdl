@@ -102,8 +102,10 @@ pub enum Message {
     RightCursorSet(Option<BigInt>),
     #[serde(skip)]
     SurferServerStatus(web_time::Instant, String, usize, Status),
+    #[serde(skip)]
+    SurferServerFileListLoaded(web_time::Instant, String, Option<Vec<String>>),
     LoadWaveformFile(Utf8PathBuf, LoadOptions),
-    LoadWaveformFileFromUrl(String, Option<usize>, LoadOptions),
+    LoadWaveformFileFromUrl(String, LoadOptions),
     LoadWaveformFileFromData(Vec<u8>, LoadOptions),
     LoadTransactionFile(Utf8PathBuf, LoadOptions),
     #[cfg(target_family = "unix")]
@@ -199,6 +201,8 @@ pub enum Message {
     SetLicenseVisible(bool),
     SetRenameItemVisible(bool),
     SetLogsVisible(bool),
+    SetServerFileWindowVisible(bool),
+    SetSelectedServerFile(Option<usize>),
     SetDragStart(Option<Pos2>),
     SetFilterFocused(bool),
     SetVariableNameFilterType(VariableNameFilterType),
