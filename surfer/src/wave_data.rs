@@ -662,8 +662,7 @@ impl WaveData {
             .iter()
             .enumerate()
             .find(|(_, di)| di.top() >= self.top_item_draw_offset - 1.) // Subtract a bit of margin to avoid floating-point errors
-            .map(|(idx, _)| idx)
-            .unwrap_or(default)
+            .map_or(default, |(idx, _)| idx)
     }
 
     /// Find the item at a given y-location.

@@ -575,7 +575,7 @@ pub fn show_command_prompt(
     egui::Window::new("Commands")
         .anchor(Align2::CENTER_TOP, Vec2::ZERO)
         .title_bar(false)
-        .min_width(window_size.map(|s| s.x * 0.3).unwrap_or(200.))
+        .min_width(window_size.map_or(200., |s| s.x * 0.3))
         .resizable(true)
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
@@ -631,8 +631,7 @@ pub fn show_command_prompt(
 
                         let selection = suggestions
                             .get(state.sys.command_prompt.selected)
-                            .map(|s| &s.1 .0)
-                            .unwrap_or(&default);
+                            .map_or(&default, |s| &s.1 .0);
 
                         if input.chars().last().is_some_and(char::is_whitespace) {
                             // if no input exists for current argument just append

@@ -394,11 +394,7 @@ impl State {
     /// uses the server status in order to display a loading bar
     pub fn server_status_to_progress(&mut self, server: String, status: Status) {
         // once the body is loaded, we are no longer interested in the status
-        let body_loaded = self
-            .waves
-            .as_ref()
-            .map(|w| w.inner.body_loaded())
-            .unwrap_or(false);
+        let body_loaded = self.waves.as_ref().is_some_and(|w| w.inner.body_loaded());
         if !body_loaded {
             // the progress tracker will be cleared once the hierarchy is returned from the server
             let source = WaveSource::Url(server.clone());

@@ -1493,16 +1493,16 @@ fn variable_tooltip_text(meta: &Option<VariableMeta>, variable: &VariableRef) ->
         variable.full_path_string(),
         meta.as_ref()
             .and_then(|meta| meta.num_bits)
-            .map(|num_bits| format!("{num_bits}"))
-            .unwrap_or_else(|| "unknown".to_string()),
+            .map_or_else(|| "unknown".to_string(), |num_bits| format!("{num_bits}")),
         meta.as_ref()
             .and_then(|meta| meta.variable_type)
-            .map(|variable_type| format!("{variable_type}"))
-            .unwrap_or_else(|| "unknown".to_string()),
+            .map_or_else(
+                || "unknown".to_string(),
+                |variable_type| format!("{variable_type}")
+            ),
         meta.as_ref()
             .and_then(|meta| meta.direction)
-            .map(|direction| format!("{direction}"))
-            .unwrap_or_else(|| "unknown".to_string())
+            .map_or_else(|| "unknown".to_string(), |direction| format!("{direction}"))
     )
 }
 
