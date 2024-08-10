@@ -107,6 +107,10 @@ pub struct SurferLayout {
     pub hierarchy_style: HierarchyStyle,
     /// Default line height for transaction streams
     pub transactions_line_height: f32,
+    /// UI zoom factors
+    pub zoom_factors: Vec<f32>,
+    /// Default UI zoom factor
+    pub default_zoom_factor: f32,
 }
 
 impl SurferLayout {
@@ -139,6 +143,9 @@ impl SurferLayout {
     }
     pub fn show_variable_direction(&self) -> bool {
         self.show_variable_direction
+    }
+    pub fn default_zoom_factor(&self) -> f32 {
+        self.default_zoom_factor
     }
 }
 
