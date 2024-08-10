@@ -1214,14 +1214,9 @@ impl State {
                         *self.sys.surver_selected_file.borrow_mut() = Some(0);
                         self.load_wave_from_url(server, Some(0), LoadOptions::clean())
                     } else {
-                        // Make sure selected value is not out of range
-                        *self.sys.surver_selected_file.borrow_mut() = Some(
-                            self.sys
-                                .surver_selected_file
-                                .borrow_mut()
-                                .unwrap_or(0)
-                                .min(length - 1),
-                        );
+                        let previous_value = *self.sys.surver_selected_file.borrow_mut();
+                        *self.sys.surver_selected_file.borrow_mut() =
+                            Some(previous_value.unwrap_or(0).min(length - 1));
                         self.show_surver_file_selection_window = true;
                     }
                 } else {

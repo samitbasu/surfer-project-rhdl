@@ -457,7 +457,11 @@ fn loader(
     )
     .map_err(|e| anyhow!("{e:?}"))
     .with_context(|| format!("Failed to parse body of wave file: {}", shared.filename))?;
-    info!("Loaded body in {:?}", start_load_body.elapsed());
+    info!(
+        "Loaded body of {} in {:?}",
+        shared.filename,
+        start_load_body.elapsed()
+    );
 
     // update state with body results
     {
