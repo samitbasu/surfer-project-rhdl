@@ -1,20 +1,33 @@
 //! Code for the `surver` executable.
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
 use clap::Parser;
 use color_eyre::Result;
 use fern::colors::ColoredLevelConfig;
 use fern::Dispatch;
 
-#[derive(clap::Parser, Default)]
-#[command(version, about)]
-struct Args {
-    /// Waveform file in VCD, FST, or GHW format.
-    wave_file: String,
+#[derive(Parser)]
+#[command(version, about, arg_required_else_help = true)]
+struct Arguments {
+    #[clap(flatten)]
+    file_group: FileGroup,
     /// Port on which server will listen
     #[clap(long)]
     port: Option<u16>,
     /// Token used by the client to authenticate to the server
     #[clap(long)]
     token: Option<String>,
+}
+
+#[derive(Debug, Default, clap::Args)]
+#[group(required = true)]
+pub struct FileGroup {
+    /// Waveform files in VCD, FST, or GHW format.
+    wave_files: Vec<String>,
+    /// File with one wave form file name per line
+    #[clap(long)]
+    file: Option<String>,
 }
 
 /// Starts the logging and error handling. Can be used by unittests to get more insights.
@@ -56,12 +69,28 @@ fn main() -> Result<()> {
         .unwrap();
 
     // parse arguments
-    let args = Args::parse();
+    let args = Arguments::parse();
     let default_port = 8911; // FIXME: make this more configurable
+
+    // Handle file lists
+    let mut file_names = args.file_group.wave_files.clone();
+
+    // Append file names from file
+    if let Some(filename) = args.file_group.file {
+        let file = File::open(filename).expect("no such file");
+        let buf = BufReader::new(file);
+        let mut files = buf
+            .lines()
+            .map(|l| l.expect("Could not parse line"))
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<String>>();
+        file_names.append(&mut files);
+    }
+
     runtime.block_on(surver::server_main(
         args.port.unwrap_or(default_port),
         args.token,
-        args.wave_file,
+        file_names,
         None,
     ))
 }

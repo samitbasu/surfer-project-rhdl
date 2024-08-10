@@ -276,6 +276,12 @@ impl State {
             }
         }
 
+        if self.show_surver_file_selection_window {
+            if let Some(file_list) = &self.surver_file_list {
+                self.draw_surver_file_window(file_list, ctx, &mut msgs);
+            }
+        }
+
         if let Some(idx) = self.rename_target {
             draw_rename_window(
                 ctx,

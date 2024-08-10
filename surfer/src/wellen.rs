@@ -51,7 +51,7 @@ pub struct LoadSignalsCmd {
 
 pub enum LoadSignalPayload {
     Local(SignalSource, std::sync::Arc<Hierarchy>),
-    Remote(String),
+    Remote(String, usize),
 }
 
 impl LoadSignalsCmd {
@@ -366,7 +366,7 @@ impl WellenContainer {
             signals.sort(); // for some determinism!
             let cmd = LoadSignalsCmd {
                 signals,
-                payload: LoadSignalPayload::Remote(server),
+                payload: LoadSignalPayload::Remote(server, 0),
                 from_unique_id: self.unique_id,
             };
             Some(cmd)
