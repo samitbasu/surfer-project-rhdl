@@ -257,9 +257,9 @@ async fn handle_cmd(
 }
 
 async fn handle(
-    states: &Vec<Arc<RwLock<State>>>,
+    states: &[Arc<RwLock<State>>],
     shared: &Arc<ReadOnly>,
-    txs: &Vec<Sender<SignalRequest>>,
+    txs: &[Sender<SignalRequest>],
     req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>> {
     // check to see if the correct token was received
@@ -295,7 +295,7 @@ async fn handle(
                 .body(Full::from(body))?;
             Ok(response)
         } else {
-            let idx = usize::from_str_radix(*idx_str, 10)?;
+            let idx = idx_str.parse::<usize>()?;
             // check command
             let response = if let Some(cmd) = path_parts.get(2) {
                 handle_cmd(
@@ -347,7 +347,7 @@ pub async fn server_main(
         bail!("Token `{token}` is too short. At least {MIN_TOKEN_LEN} characters are required!");
     }
 
-    if filenames.len() < 1 {
+    if filenames.is_empty() {
         bail!("At least one file must be provided!");
     }
 

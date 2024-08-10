@@ -5,7 +5,7 @@ use crate::{message::Message, wave_source::LoadOptions, State};
 impl State {
     pub fn draw_surver_file_window(
         &self,
-        file_list: &Vec<String>,
+        file_list: &[String],
         ctx: &Context,
         msgs: &mut Vec<Message>,
     ) {
@@ -33,11 +33,11 @@ impl State {
                 if self.surver_file_idx.is_some() {
                     ui.separator();
                     ui.checkbox(
-                        &mut *self.sys.surver_keep_variables.borrow_mut(),
+                        &mut self.sys.surver_keep_variables.borrow_mut(),
                         "Keep variables",
                     );
                     ui.checkbox(
-                        &mut *self.sys.surver_keep_unavailable.borrow_mut(),
+                        &mut self.sys.surver_keep_unavailable.borrow_mut(),
                         "Keep unavailable variables",
                     );
                 }
