@@ -1248,6 +1248,8 @@ impl State {
                         error!("While getting commands to lazy-load signals: {err:?}");
                         None
                     });
+                // Pre-load parameters
+                let _ = waves.inner.as_waves_mut().unwrap().load_parameters();
                 // update viewports, now that we have the time table
                 waves.update_viewports();
                 // make sure we redraw
@@ -1274,6 +1276,14 @@ impl State {
             }
             Message::WavesLoaded(filename, format, new_waves, load_options) => {
                 self.on_waves_loaded(filename, format, new_waves, load_options);
+                let _ = self
+                    .waves
+                    .as_mut()
+                    .unwrap()
+                    .inner
+                    .as_waves_mut()
+                    .unwrap()
+                    .load_parameters();
                 // here, the body and thus the number of timestamps is already loaded!
                 self.waves.as_mut().unwrap().update_viewports();
                 self.sys.progress_tracker = None;
@@ -1812,6 +1822,7 @@ impl State {
 
         // Set time unit to the file time unit before consuming new_wave
         self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
+
         self.waves = Some(new_wave);
     }
 
