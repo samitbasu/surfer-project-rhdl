@@ -61,9 +61,22 @@ impl State {
         self.show_variable_indices
             .unwrap_or_else(|| self.config.layout.show_variable_indices())
     }
+
     #[inline]
     pub fn show_variable_direction(&self) -> bool {
         self.show_variable_direction
             .unwrap_or_else(|| self.config.layout.show_variable_direction())
+    }
+
+    #[inline]
+    pub fn show_empty_scopes(&self) -> bool {
+        self.show_empty_scopes
+            .unwrap_or_else(|| self.config.layout.show_empty_scopes())
+    }
+
+    #[inline]
+    pub fn show_parameters_in_scopes(&self) -> bool {
+        self.show_parameters_in_scopes
+            .unwrap_or_else(|| self.config.layout.show_parameters_in_scopes())
     }
 }
