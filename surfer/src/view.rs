@@ -16,6 +16,7 @@ use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 
+use num::BigUint;
 use surfer_translation_types::{
     SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
 };
@@ -503,9 +504,9 @@ impl State {
     }
 
     pub fn draw_all_scopes(
-        &mut self,
+        &self,
         msgs: &mut Vec<Message>,
-        wave: &mut WaveData,
+        wave: &WaveData,
         draw_variables: bool,
         ui: &mut egui::Ui,
         filter: &str,
@@ -527,11 +528,12 @@ impl State {
                 }
             }
         }
-        if draw_variables && self.waves.as_ref().unwrap().inner.is_waves() {
-            let scope = ScopeRef::empty();
-            let wave_container = wave.inner.as_waves_mut().unwrap();
-            let variables = wave_container.variables_in_scope(&scope);
-            self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
+        if draw_variables {
+            if let Some(wave_container) = wave.inner.as_waves() {
+                let scope = ScopeRef::empty();
+                let variables = wave_container.variables_in_scope(&scope);
+                self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
+            }
         }
     }
 
@@ -559,7 +561,7 @@ impl State {
     fn draw_selectable_child_or_orphan_scope(
         &self,
         msgs: &mut Vec<Message>,
-        wave: &mut WaveData,
+        wave: &WaveData,
         scope: &ScopeRef,
         draw_variables: bool,
         ui: &mut egui::Ui,
@@ -600,7 +602,7 @@ impl State {
             .body(|ui| {
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
                 if draw_variables || self.show_parameters_in_scopes() {
-                    let wave_container = wave.inner.as_waves_mut().unwrap();
+                    let wave_container = wave.inner.as_waves().unwrap();
                     let all_variables = wave_container.variables_in_scope(scope);
                     let parameters = all_variables
                         .iter()
@@ -630,7 +632,7 @@ impl State {
     fn draw_root_scope_view(
         &self,
         msgs: &mut Vec<Message>,
-        wave: &mut WaveData,
+        wave: &WaveData,
         root_scope: &ScopeRef,
         draw_variables: bool,
         ui: &mut egui::Ui,
@@ -663,7 +665,7 @@ impl State {
     pub fn draw_variable_list(
         &self,
         msgs: &mut Vec<Message>,
-        wave_container: &mut WaveContainer,
+        wave_container: &WaveContainer,
         ui: &mut egui::Ui,
         variables: &[VariableRef],
         filter: &str,
@@ -684,13 +686,9 @@ impl State {
                             "{} ",
                             // Icon based on direction
                             direction.get_icon().unwrap_or_else(|| {
-                                if meta
-                                    .as_ref()
-                                    .and_then(|meta| {
-                                        Some(meta.variable_type == Some(VariableType::VCDParameter))
-                                    })
-                                    .unwrap_or(false)
-                                {
+                                if meta.as_ref().is_some_and(|meta| {
+                                    meta.variable_type == Some(VariableType::VCDParameter)
+                                }) {
                                     // If parameter
                                     icons::MAP_PIN_2_LINE
                                 } else {
@@ -707,10 +705,13 @@ impl State {
 
             let value = if meta
                 .as_ref()
-                .and_then(|meta| Some(meta.variable_type == Some(VariableType::VCDParameter)))
-                .unwrap_or(false)
+                .is_some_and(|meta| meta.variable_type == Some(VariableType::VCDParameter))
             {
-                wave_container.get_parameter_value(&variable)
+                let res = wave_container
+                    .query_variable(&variable, &BigUint::ZERO)
+                    .ok();
+                res.and_then(|o| o.and_then(|q| q.current.map(|v| format!(": {}", v.1))))
+                    .unwrap_or_else(|| ": Undefined".to_string())
             } else {
                 String::new()
             };
