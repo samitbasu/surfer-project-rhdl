@@ -346,6 +346,15 @@ impl WaveContainer {
         }
     }
 
+    pub fn get_parameter_value(&mut self, variable: &VariableRef) -> String {
+        match self {
+            WaveContainer::Wellen(f) => f.get_parameter_value(variable),
+            WaveContainer::Empty => panic!("Querying parameter from empty wave container"),
+            #[cfg(not(target_arch = "wasm32"))]
+            WaveContainer::Cxxrtl(_) => panic!("Querying parameter not supported for Cxxrtl"),
+        }
+    }
+
     /// Looks up the variable _by name_ and returns a new reference with an updated `id` if the variable is found.
     pub fn update_variable_ref(&self, variable: &VariableRef) -> Option<VariableRef> {
         match self {

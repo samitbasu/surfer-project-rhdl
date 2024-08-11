@@ -29,7 +29,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
 
                     ScrollArea::both().id_source("scopes").show(ui, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
-                        if let Some(waves) = &state.waves {
+                        if let Some(waves) = state.waves.as_mut() {
                             state.draw_all_scopes(msgs, waves, false, ui, "");
                         }
                     });
@@ -50,7 +50,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                         .max_height(f32::INFINITY)
                         .id_source("variables")
                         .show(ui, |ui| {
-                            if let Some(waves) = &state.waves {
+                            if let Some(waves) = state.waves.as_mut() {
                                 let empty_scope = if let DataContainer::Waves(_) = waves.inner {
                                     ScopeType::WaveScope(ScopeRef::empty())
                                 } else {
@@ -60,7 +60,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                                     waves.active_scope.as_ref().unwrap_or(&empty_scope);
                                 match active_scope {
                                     ScopeType::WaveScope(scope) => {
-                                        let wave_container = waves.inner.as_waves().unwrap();
+                                        let wave_container = waves.inner.as_waves_mut().unwrap();
                                         let all_variables =
                                             wave_container.variables_in_scope(scope);
                                         if !state.show_parameters_in_scopes() {
@@ -130,7 +130,7 @@ pub fn tree(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
 
                     ScrollArea::both().id_source("hierarchy").show(ui, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
-                        if let Some(waves) = &state.waves {
+                        if let Some(waves) = state.waves.as_mut() {
                             state.draw_all_scopes(msgs, waves, true, ui, filter);
                         }
                     });

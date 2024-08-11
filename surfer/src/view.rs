@@ -503,9 +503,9 @@ impl State {
     }
 
     pub fn draw_all_scopes(
-        &self,
+        &mut self,
         msgs: &mut Vec<Message>,
-        wave: &WaveData,
+        wave: &mut WaveData,
         draw_variables: bool,
         ui: &mut egui::Ui,
         filter: &str,
@@ -529,7 +529,7 @@ impl State {
         }
         if draw_variables && self.waves.as_ref().unwrap().inner.is_waves() {
             let scope = ScopeRef::empty();
-            let wave_container = wave.inner.as_waves().unwrap();
+            let wave_container = wave.inner.as_waves_mut().unwrap();
             let variables = wave_container.variables_in_scope(&scope);
             self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
         }
@@ -559,7 +559,7 @@ impl State {
     fn draw_selectable_child_or_orphan_scope(
         &self,
         msgs: &mut Vec<Message>,
-        wave: &WaveData,
+        wave: &mut WaveData,
         scope: &ScopeRef,
         draw_variables: bool,
         ui: &mut egui::Ui,
@@ -600,7 +600,7 @@ impl State {
             .body(|ui| {
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
                 if draw_variables || self.show_parameters_in_scopes() {
-                    let wave_container = wave.inner.as_waves().unwrap();
+                    let wave_container = wave.inner.as_waves_mut().unwrap();
                     let all_variables = wave_container.variables_in_scope(scope);
                     let parameters = all_variables
                         .iter()
@@ -630,7 +630,7 @@ impl State {
     fn draw_root_scope_view(
         &self,
         msgs: &mut Vec<Message>,
-        wave: &WaveData,
+        wave: &mut WaveData,
         root_scope: &ScopeRef,
         draw_variables: bool,
         ui: &mut egui::Ui,
@@ -663,7 +663,7 @@ impl State {
     pub fn draw_variable_list(
         &self,
         msgs: &mut Vec<Message>,
-        wave_container: &WaveContainer,
+        wave_container: &mut WaveContainer,
         ui: &mut egui::Ui,
         variables: &[VariableRef],
         filter: &str,
@@ -684,7 +684,13 @@ impl State {
                             "{} ",
                             // Icon based on direction
                             direction.get_icon().unwrap_or_else(|| {
-                                if meta.unwrap().variable_type == Some(VariableType::VCDParameter) {
+                                if meta
+                                    .as_ref()
+                                    .and_then(|meta| {
+                                        Some(meta.variable_type == Some(VariableType::VCDParameter))
+                                    })
+                                    .unwrap_or(false)
+                                {
                                     // If parameter
                                     icons::MAP_PIN_2_LINE
                                 } else {
@@ -699,7 +705,17 @@ impl State {
                 String::new()
             };
 
-            let variable_name = format!("{}{}{}", direction, variable.name.clone(), index);
+            let value = if meta
+                .as_ref()
+                .and_then(|meta| Some(meta.variable_type == Some(VariableType::VCDParameter)))
+                .unwrap_or(false)
+            {
+                wave_container.get_parameter_value(&variable)
+            } else {
+                String::new()
+            };
+
+            let variable_name = format!("{direction}{}{index}{value}", variable.name.clone());
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
