@@ -7,6 +7,8 @@ use crate::wave_data::ScopeType;
 use crate::State;
 use egui::{Frame, Layout, Margin, ScrollArea, TextWrapMode, Ui};
 use emath::Align;
+use itertools::Itertools;
+use surfer_translation_types::VariableType;
 
 /// Scopes and variables in two separate lists
 pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
@@ -57,9 +59,38 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                                 let active_scope =
                                     waves.active_scope.as_ref().unwrap_or(&empty_scope);
                                 match active_scope {
-                                    ScopeType::WaveScope(w) => {
+                                    ScopeType::WaveScope(scope) => {
                                         let wave_container = waves.inner.as_waves().unwrap();
-                                        let variables = wave_container.variables_in_scope(w);
+                                        let all_variables =
+                                            wave_container.variables_in_scope(scope);
+                                        if !state.show_parameters_in_scopes() {
+                                            let parameters = all_variables
+                                                .iter()
+                                                .filter(|var| {
+                                                    let meta =
+                                                        wave_container.variable_meta(var).ok();
+                                                    meta.unwrap().variable_type
+                                                        == Some(VariableType::VCDParameter)
+                                                })
+                                                .cloned()
+                                                .collect_vec();
+                                            state.draw_variable_list(
+                                                msgs,
+                                                wave_container,
+                                                ui,
+                                                &parameters,
+                                                filter,
+                                            );
+                                        }
+                                        let variables = all_variables
+                                            .iter()
+                                            .filter(|var| {
+                                                let meta = wave_container.variable_meta(var).ok();
+                                                meta.unwrap().variable_type
+                                                    != Some(VariableType::VCDParameter)
+                                            })
+                                            .cloned()
+                                            .collect_vec();
                                         state.draw_variable_list(
                                             msgs,
                                             wave_container,

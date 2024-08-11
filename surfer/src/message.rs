@@ -172,6 +172,8 @@ pub enum Message {
     ToggleStatusbar,
     ToggleIndices,
     ToggleDirection,
+    ToggleEmptyScopes,
+    ToggleParametersInScopes,
     SetTimeUnit(TimeUnit),
     SetTimeStringFormatting(Option<TimeStringFormatting>),
     CommandPromptClear,

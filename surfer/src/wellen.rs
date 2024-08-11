@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
+use std::iter;
 
 use color_eyre::{eyre::anyhow, eyre::bail, Result};
 use derivative::Derivative;
@@ -39,6 +40,7 @@ pub struct WellenContainer {
     source: Option<SignalSource>,
     unique_id: u64,
     body_loaded: bool,
+    parameters: HashMap<VariableRef, String>,
 }
 
 /// Returned by `load_variables` if we want to load the variables on a background thread.
@@ -130,6 +132,7 @@ impl WellenContainer {
             source: None,
             unique_id,
             body_loaded: false,
+            parameters: HashMap::new(),
         }
     }
 
@@ -448,6 +451,27 @@ impl WellenContainer {
             next: next_time.map(|t| BigUint::from(*t)),
         };
         Ok(Some(result))
+    }
+
+    pub fn get_parameter_value(&mut self, variable: &VariableRef) -> String {
+        if let Some(value) = self.parameters.get(variable) {
+            value.clone()
+        } else {
+            // Load variables and store result
+            let _ = self.load_variables(iter::once(variable));
+            match self.query_variable(variable, &BigUint::ZERO) {
+                Ok(Some(res)) => {
+                    if let Some((_, val)) = res.current {
+                        let repr = val.to_string();
+                        self.parameters.insert(variable.clone(), repr.clone());
+                        repr
+                    } else {
+                        "Undefined".to_string()
+                    }
+                }
+                _ => "Undefined".to_string(),
+            }
+        }
     }
 
     pub fn scope_names(&self) -> Vec<String> {
