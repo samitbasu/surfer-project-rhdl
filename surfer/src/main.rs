@@ -1314,6 +1314,20 @@ impl State {
                 };
                 self.show_toolbar = Some(new);
             }
+            Message::ToggleEmptyScopes => {
+                let new = match self.show_empty_scopes {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_empty_scopes(),
+                };
+                self.show_empty_scopes = Some(new);
+            }
+            Message::ToggleParametersInScopes => {
+                let new = match self.show_parameters_in_scopes {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_parameters_in_scopes(),
+                };
+                self.show_parameters_in_scopes = Some(new);
+            }
             Message::ToggleStatusbar => {
                 let new = match self.show_statusbar {
                     Some(prev) => !prev,

@@ -163,11 +163,8 @@ impl State {
                                             for gen_id in
                                                 &inner.get_stream(s.stream_id).unwrap().generators
                                             {
-                                                let gen = streams
-                                                    .inner
-                                                    .tx_generators
-                                                    .get(gen_id)
-                                                    .unwrap();
+                                                let gen = inner.get_generator(*gen_id).unwrap();
+
                                                 msgs.push(Message::AddStreamOrGenerator(
                                                     TransactionStreamRef::new_gen(
                                                         gen.stream_id,
