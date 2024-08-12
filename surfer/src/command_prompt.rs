@@ -13,6 +13,7 @@ use itertools::Itertools;
 
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
 use crate::displayed_item::DisplayedItemIndex;
+use crate::transaction_container::StreamScopeRef;
 use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt};
 use crate::wave_data::ScopeType;
 use crate::wave_source::LoadOptions;
@@ -108,6 +109,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     let active_scope = state.waves.as_ref().and_then(|w| w.active_scope.clone());
 
+    let is_transaction_container = state
+        .waves
+        .as_ref()
+        .is_some_and(|w| w.inner.is_transactions());
+
     fn files_with_ext(matches: fn(&str) -> bool) -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
             res.map(|res| res.map(|e| e.path()).unwrap_or_default())
@@ -147,6 +153,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "load_file",
             "switch_file",
             "variable_add",
+            "generator_add",
             "item_focus",
             "item_set_color",
             "item_set_background_color",
@@ -157,6 +164,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "zoom_fit",
             "scope_add",
             "scope_select",
+            "stream_add",
+            "stream_select",
             "divider_add",
             "config_reload",
             "theme_select",
@@ -178,6 +187,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "toggle_fullscreen",
             "toggle_tick_lines",
             "variable_add_from_scope",
+            "generator_add_from_stream",
             "variable_set_name_type",
             "variable_force_name_type",
             "preference_set_clock_highlight",
@@ -230,6 +240,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             let markers = markers.clone();
             let scopes = scopes.clone();
             let active_scope = active_scope.clone();
+            let is_transaction_container = is_transaction_container.clone();
             match query {
                 "load_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
@@ -293,36 +304,79 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
                 "toggle_tick_lines" => Some(Command::Terminal(Message::ToggleTickLines)),
                 // scope commands
-                "scope_add" | "module_add" => single_word(
-                    scopes,
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::AddScope(
-                            ScopeRef::from_hierarchy_string(word),
-                        )))
-                    }),
-                ),
-                "scope_select" => single_word(
-                    scopes.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::SetActiveScope(
-                            ScopeType::WaveScope(ScopeRef::from_hierarchy_string(word)),
-                        )))
-                    }),
-                ),
+                "scope_add" | "module_add" | "stream_add" => {
+                    if is_transaction_container {
+                        single_word(
+                            scopes,
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::AddAllFromStreamScope(
+                                    word.to_string(),
+                                )))
+                            }),
+                        )
+                    } else {
+                        single_word(
+                            scopes,
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::AddScope(
+                                    ScopeRef::from_hierarchy_string(word),
+                                )))
+                            }),
+                        )
+                    }
+                }
+                "scope_select" | "stream_select" => {
+                    if is_transaction_container {
+                        single_word(
+                            scopes.clone(),
+                            Box::new(|word| {
+                                let scope = if word == "tr" {
+                                    ScopeType::StreamScope(StreamScopeRef::Root)
+                                } else {
+                                    ScopeType::StreamScope(StreamScopeRef::Empty(word.to_string()))
+                                };
+                                Some(Command::Terminal(Message::SetActiveScope(scope)))
+                            }),
+                        )
+                    } else {
+                        single_word(
+                            scopes.clone(),
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::SetActiveScope(
+                                    ScopeType::WaveScope(ScopeRef::from_hierarchy_string(word)),
+                                )))
+                            }),
+                        )
+                    }
+                }
                 "reload" => Some(Command::Terminal(Message::ReloadWaveform(
                     keep_during_reload,
                 ))),
                 "remove_unavailable" => Some(Command::Terminal(Message::RemovePlaceholders)),
                 // Variable commands
-                "variable_add" => single_word(
-                    variables.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::AddVariables(vec![
-                            VariableRef::from_hierarchy_string(word),
-                        ])))
-                    }),
-                ),
-                "variable_add_from_scope" => single_word(
+                "variable_add" | "generator_add" => {
+                    if is_transaction_container {
+                        single_word(
+                            variables.clone(),
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::AddStreamOrGeneratorFromName(
+                                    None,
+                                    word.to_string(),
+                                )))
+                            }),
+                        )
+                    } else {
+                        single_word(
+                            variables.clone(),
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::AddVariables(vec![
+                                    VariableRef::from_hierarchy_string(word),
+                                ])))
+                            }),
+                        )
+                    }
+                }
+                "variable_add_from_scope" | "generator_add_from_stream" => single_word(
                     variables_in_active_scope
                         .into_iter()
                         .map(|s| s.name())
@@ -334,7 +388,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             )),
                             ScopeType::StreamScope(stream_scope) => {
                                 Command::Terminal(Message::AddStreamOrGeneratorFromName(
-                                    stream_scope.clone(),
+                                    Some(stream_scope.clone()),
                                     name.to_string(),
                                 ))
                             }

@@ -20,6 +20,10 @@ impl TransactionContainer {
         self.inner.get_stream(stream_id)
     }
 
+    pub fn get_stream_from_name(&self, name: String) -> Option<&TxStream> {
+        self.inner.get_stream_from_name(name)
+    }
+
     pub fn get_generators(&self) -> Vec<&TxGenerator> {
         self.inner.tx_generators.values().collect()
     }
@@ -27,10 +31,18 @@ impl TransactionContainer {
     pub fn get_generator(&self, gen_id: usize) -> Option<&TxGenerator> {
         self.inner.get_generator(gen_id)
     }
+    pub fn get_generator_from_name(
+        &self,
+        stream_id: Option<usize>,
+        gen_name: String,
+    ) -> Option<&TxGenerator> {
+        self.inner.get_generator_from_name(stream_id, gen_name)
+    }
     pub fn stream_scope_exists(&self, stream_scope: &StreamScopeRef) -> bool {
         match stream_scope {
             StreamScopeRef::Root => true,
             StreamScopeRef::Stream(s) => self.inner.tx_streams.contains_key(&s.stream_id),
+            StreamScopeRef::Empty(_) => false,
         }
     }
 
@@ -78,6 +90,7 @@ impl TransactionContainer {
                     }
                 })
                 .collect(),
+            StreamScopeRef::Empty(_) => vec![],
         }
     }
 
@@ -110,6 +123,7 @@ impl TransactionContainer {
 pub enum StreamScopeRef {
     Root,
     Stream(TransactionStreamRef),
+    Empty(String),
 }
 
 impl Display for StreamScopeRef {
@@ -117,7 +131,18 @@ impl Display for StreamScopeRef {
         match self {
             StreamScopeRef::Root => write!(f, "Root scope"),
             StreamScopeRef::Stream(s) => s.fmt(f),
+            StreamScopeRef::Empty(_) => write!(f, "Empty stream scope"),
         }
+    }
+}
+
+impl StreamScopeRef {
+    pub fn new_stream_from_name(transactions: &TransactionContainer, name: String) -> Self {
+        let stream = transactions
+            .inner
+            .get_stream_from_name(name.clone())
+            .unwrap();
+        StreamScopeRef::Stream(TransactionStreamRef::new_stream(stream.id, name))
     }
 }
 

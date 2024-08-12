@@ -85,7 +85,9 @@ use crate::displayed_item::{
 };
 use crate::drawing_canvas::TxDrawingCommands;
 use crate::message::{HeaderResult, Message};
-use crate::transaction_container::{TransactionContainer, TransactionRef, TransactionStreamRef};
+use crate::transaction_container::{
+    StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
+};
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::{all_translators, AnyTranslator, TranslatorList};
@@ -93,7 +95,7 @@ use crate::variable_name_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
 use crate::wasm_util::{perform_work, UrlArgs};
 use crate::wave_container::{ScopeRefExt, VariableRef, WaveContainer};
-use crate::wave_data::WaveData;
+use crate::wave_data::{ScopeType, WaveData};
 use crate::wave_source::{string_to_wavesource, LoadOptions, LoadProgress, WaveFormat, WaveSource};
 use crate::wellen::convert_format;
 
@@ -706,6 +708,15 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
+                let scope = if let ScopeType::StreamScope(StreamScopeRef::Empty(name)) = scope {
+                    ScopeType::StreamScope(StreamScopeRef::new_stream_from_name(
+                        waves.inner.as_transactions().unwrap(),
+                        name,
+                    ))
+                } else {
+                    scope
+                };
+
                 if waves.inner.scope_exists(&scope) {
                     waves.active_scope = Some(scope);
                 } else {
@@ -781,7 +792,72 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
-            Message::AddStreamOrGeneratorFromName(_scope, _name) => {}
+            Message::AddStreamOrGeneratorFromName(scope, name) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    let Some(inner) = waves.inner.as_transactions() else {
+                        return;
+                    };
+                    if let Some(scope) = scope {
+                        match scope {
+                            StreamScopeRef::Root => {
+                                let (stream_id, name) = inner
+                                    .get_stream_from_name(name)
+                                    .map(|s| (s.id, s.name.clone()))
+                                    .unwrap();
+
+                                waves.add_stream(TransactionStreamRef::new_stream(stream_id, name));
+                            }
+                            StreamScopeRef::Stream(stream) => {
+                                let (stream_id, id, name) = inner
+                                    .get_generator_from_name(Some(stream.stream_id), name)
+                                    .map(|gen| (gen.stream_id, gen.id, gen.name.clone()))
+                                    .unwrap();
+
+                                waves.add_generator(TransactionStreamRef::new_gen(
+                                    stream_id, id, name,
+                                ));
+                            }
+                            StreamScopeRef::Empty(_) => {}
+                        }
+                    } else {
+                        let (stream_id, id, name) = inner
+                            .get_generator_from_name(None, name)
+                            .map(|gen| (gen.stream_id, gen.id, gen.name.clone()))
+                            .unwrap();
+
+                        waves.add_generator(TransactionStreamRef::new_gen(stream_id, id, name));
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
+            Message::AddAllFromStreamScope(scope_name) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    if scope_name == "tr" {
+                        waves.add_all_streams();
+                    } else {
+                        let Some(inner) = waves.inner.as_transactions() else {
+                            return;
+                        };
+                        if let Some(stream) = inner.get_stream_from_name(scope_name) {
+                            let gens = stream
+                                .generators
+                                .iter()
+                                .map(|gen_id| inner.get_generator(*gen_id).unwrap())
+                                .map(|gen| (gen.stream_id, gen.id, gen.name.clone()))
+                                .collect_vec();
+
+                            for (stream_id, id, name) in gens {
+                                waves.add_generator(TransactionStreamRef::new_gen(
+                                    stream_id,
+                                    id,
+                                    name.clone(),
+                                ))
+                            }
+                        }
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
             Message::InvalidateCount => self.count = None,
             Message::SetNameAlignRight(align_right) => {
                 self.align_names_right = Some(align_right);

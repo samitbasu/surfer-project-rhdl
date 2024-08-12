@@ -927,6 +927,7 @@ impl State {
                     );
                 }
             }
+            StreamScopeRef::Empty(_) => {}
         }
     }
 

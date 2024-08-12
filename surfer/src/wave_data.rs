@@ -619,6 +619,17 @@ impl WaveData {
         self.insert_item(new_stream, None);
     }
 
+    pub fn add_all_streams(&mut self) {
+        let mut streams: Vec<(usize, String)> = vec![];
+        for stream in self.inner.as_transactions().unwrap().get_streams() {
+            streams.push((stream.id, stream.name.clone()));
+        }
+
+        for (id, name) in streams {
+            self.add_stream(TransactionStreamRef::new_stream(id, name));
+        }
+    }
+
     /// Insert item after item vidx if Some(vidx).
     /// If None, insert after focused item if there is one, otherwise insert at the end.
     /// Focus on the inserted item if there was a focues item.
