@@ -6,7 +6,7 @@ use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use epaint::{CubicBezierShape, FontId, PathShape, PathStroke, RectShape, Rounding, Shape, Stroke};
 use ftr_parser::types::{Transaction, TxGenerator};
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::{error, warn};
 use num::bigint::{ToBigInt, ToBigUint};
 use num::{BigInt, BigUint, ToPrimitive};
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
@@ -283,7 +283,6 @@ impl State {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Generate draw commands");
         if let Some(waves) = &self.waves {
-            info!("Generating Draw Commands");
             let draw_data = match waves.inner {
                 DataContainer::Waves(_) => {
                     self.generate_wave_draw_commands(waves, cfg, frame_width, msgs, viewport_idx)
@@ -881,7 +880,6 @@ impl State {
                                         );
 
                                         if response.clicked() {
-                                            info!("Transaction {} was clicked.", tx_ref.id);
                                             msgs.push(Message::FocusTransaction(
                                                 Some(tx_ref.clone()),
                                                 None,

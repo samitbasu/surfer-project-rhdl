@@ -363,10 +363,7 @@ impl SurferTheme {
 
         let (mut theme, theme_names) = Self::generate_defaults(&theme_name);
 
-        let theme = theme.set_override(
-            "theme_names",
-            all_theme_names(),
-        )?;
+        let theme = theme.set_override("theme_names", all_theme_names())?;
 
         theme
             .build()?
@@ -568,13 +565,15 @@ fn hex_string_to_color32(mut str: String) -> Result<Color32> {
 }
 
 fn all_theme_names() -> Vec<String> {
-    "dark+".to_string(),
-    "dark-high-contrast".to_string(),
-    "ibm".to_string(),
-    "light+".to_string(),
-    "light-high-contrast".to_string(),
-    "okabe/ito".to_string(),
-    "solarized".to_string(),
+    vec![
+        "dark+".to_string(),
+        "dark-high-contrast".to_string(),
+        "ibm".to_string(),
+        "light+".to_string(),
+        "light-high-contrast".to_string(),
+        "okabe/ito".to_string(),
+        "solarized".to_string(),
+    ]
 }
 
 fn deserialize_hex_color<'de, D>(deserializer: D) -> Result<Color32, D::Error>
