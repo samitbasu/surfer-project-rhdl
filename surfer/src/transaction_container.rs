@@ -1,6 +1,7 @@
 use crate::time::{TimeScale, TimeUnit};
 use crate::wave_container::MetaData;
 use ftr_parser::types::{TxGenerator, TxStream, FTR};
+use itertools::Itertools;
 use num::BigUint;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -37,6 +38,32 @@ impl TransactionContainer {
         gen_name: String,
     ) -> Option<&TxGenerator> {
         self.inner.get_generator_from_name(stream_id, gen_name)
+    }
+
+    pub fn get_transactions_from_generator(&self, gen_id: usize) -> Vec<usize> {
+        self.get_generator(gen_id)
+            .unwrap()
+            .transactions
+            .iter()
+            .map(|t| t.get_tx_id())
+            .collect_vec()
+    }
+
+    pub fn get_transactions_from_stream(&self, stream_id: usize) -> Vec<usize> {
+        self.get_stream(stream_id)
+            .unwrap()
+            .generators
+            .iter()
+            .map(|g| {
+                self.get_generator(*g)
+                    .unwrap()
+                    .transactions
+                    .iter()
+                    .map(|t| t.get_tx_id())
+                    .collect_vec()
+            })
+            .flatten()
+            .collect()
     }
     pub fn stream_scope_exists(&self, stream_scope: &StreamScopeRef) -> bool {
         match stream_scope {

@@ -233,6 +233,9 @@ pub enum Message {
         variable: Option<DisplayedItemIndex>,
         skip_zero: bool,
     },
+    MoveTransaction {
+        next: bool,
+    },
     VariableValueToClipbord(Option<DisplayedItemIndex>),
     InvalidateDrawCommands,
 

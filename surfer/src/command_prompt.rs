@@ -3,14 +3,6 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
-use egui::scroll_area::ScrollBarVisibility;
-use egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
-use egui::{Key, RichText, TextEdit};
-use emath::{Align, Align2, NumExt, Vec2};
-use epaint::{FontFamily, FontId};
-use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
-use itertools::Itertools;
-
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
 use crate::displayed_item::DisplayedItemIndex;
 use crate::transaction_container::StreamScopeRef;
@@ -25,6 +17,13 @@ use crate::{
     variable_name_type::VariableNameType,
     State,
 };
+use egui::scroll_area::ScrollBarVisibility;
+use egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
+use egui::{Key, RichText, TextEdit};
+use emath::{Align, Align2, NumExt, Vec2};
+use epaint::{FontFamily, FontId};
+use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
+use itertools::Itertools;
 
 type RestCommand = Box<dyn Fn(&str) -> Option<Command<Message>>>;
 
@@ -202,6 +201,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "viewport_remove",
             "transition_next",
             "transition_previous",
+            "transaction_next",
+            "transaction_prev",
             "copy_value",
             "pause_simulation",
             "unpause_simulation",
@@ -240,7 +241,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             let markers = markers.clone();
             let scopes = scopes.clone();
             let active_scope = active_scope.clone();
-            let is_transaction_container = is_transaction_container.clone();
+            let is_transaction_container = is_transaction_container;
             match query {
                 "load_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
@@ -480,6 +481,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         })
                     }),
                 ),
+                "transaction_next" => {
+                    Some(Command::Terminal(Message::MoveTransaction { next: true }))
+                }
+                "transaction_prev" => {
+                    Some(Command::Terminal(Message::MoveTransaction { next: false }))
+                }
                 "copy_value" => single_word(
                     displayed_items.clone(),
                     Box::new(|word| {

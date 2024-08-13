@@ -3,6 +3,7 @@ use ecolor::Color32;
 #[cfg(not(target_arch = "wasm32"))]
 use egui::ViewportCommand;
 use egui::{Frame, Layout, Painter, RichText, ScrollArea, Sense, TextStyle, WidgetText};
+use egui_extras::{Column, TableBuilder};
 use egui_remixicon::icons;
 use emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use epaint::{
@@ -373,6 +374,17 @@ impl State {
                             msgs.push(Message::SetScrollOffset(response.state.offset.y));
                         }
                     });
+
+                if self.waves.as_ref().unwrap().focused_transaction.1.is_some() {
+                    egui::SidePanel::right("Transaction Details")
+                        .default_width(330.)
+                        .width_range(10.0..=max_width)
+                        .show(ctx, |ui| {
+                            ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                            self.handle_pointer_in_ui(ui, &mut msgs);
+                            self.draw_focused_transaction_details(ui);
+                        });
+                }
 
                 egui::SidePanel::left("variable values")
                     .frame(Frame {
@@ -929,6 +941,156 @@ impl State {
             }
             StreamScopeRef::Empty(_) => {}
         }
+    }
+    fn draw_focused_transaction_details(&self, ui: &mut egui::Ui) {
+        ui.with_layout(
+            Layout::top_down(Align::LEFT).with_cross_justify(true),
+            |ui| {
+                ui.label("Focused Transaction Details");
+                let column_width = ui.available_width() / 2.;
+                TableBuilder::new(ui)
+                    .column(Column::exact(column_width))
+                    .column(Column::auto())
+                    .header(20.0, |mut header| {
+                        header.col(|ui| {
+                            ui.heading("Properties");
+                        });
+                    })
+                    .body(|mut body| {
+                        let focused_transaction = self
+                            .waves
+                            .as_ref()
+                            .unwrap()
+                            .focused_transaction
+                            .1
+                            .as_ref()
+                            .unwrap();
+                        let row_height = 15.;
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("Transaction ID");
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("{}", focused_transaction.get_tx_id()));
+                            });
+                        });
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("Type");
+                            });
+                            row.col(|ui| {
+                                let gen = self
+                                    .waves
+                                    .as_ref()
+                                    .unwrap()
+                                    .inner
+                                    .as_transactions()
+                                    .unwrap()
+                                    .get_generator(focused_transaction.get_gen_id())
+                                    .unwrap();
+                                ui.label(format!("{}", gen.name));
+                            });
+                        });
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("Start Time");
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("{}", focused_transaction.get_start_time()));
+                            });
+                        });
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("End Time");
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("{}", focused_transaction.get_end_time()));
+                            });
+                        });
+                        body.row(row_height + 5., |mut row| {
+                            row.col(|ui| {
+                                ui.heading("Attributes");
+                            });
+                        });
+
+                        body.row(row_height + 3., |mut row| {
+                            row.col(|ui| {
+                                ui.label(RichText::new("Name").size(15.));
+                            });
+                            row.col(|ui| {
+                                ui.label(RichText::new("Value").size(15.));
+                            });
+                        });
+
+                        for attr in &focused_transaction.attributes {
+                            body.row(row_height, |mut row| {
+                                row.col(|ui| {
+                                    ui.label(format!("{}", attr.name));
+                                });
+                                row.col(|ui| {
+                                    ui.label(format!("{}", attr.value()));
+                                });
+                            });
+                        }
+
+                        if !focused_transaction.inc_relations.is_empty() {
+                            body.row(row_height + 5., |mut row| {
+                                row.col(|ui| {
+                                    ui.heading("Incoming Relations");
+                                });
+                            });
+
+                            body.row(row_height + 3., |mut row| {
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Source Tx").size(15.));
+                                });
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Sink Tx").size(15.));
+                                });
+                            });
+
+                            for rel in &focused_transaction.inc_relations {
+                                body.row(row_height, |mut row| {
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.source_tx_id));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.sink_tx_id));
+                                    });
+                                });
+                            }
+                        }
+
+                        if !focused_transaction.out_relations.is_empty() {
+                            body.row(row_height + 5., |mut row| {
+                                row.col(|ui| {
+                                    ui.heading("Outgoing Relations");
+                                });
+                            });
+
+                            body.row(row_height + 3., |mut row| {
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Source Tx").size(15.));
+                                });
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Sink Tx").size(15.));
+                                });
+                            });
+
+                            for rel in &focused_transaction.out_relations {
+                                body.row(row_height, |mut row| {
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.source_tx_id));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.sink_tx_id));
+                                    });
+                                });
+                            }
+                        }
+                    });
+            },
+        );
     }
 
     fn get_name_alignment(&self) -> Align {

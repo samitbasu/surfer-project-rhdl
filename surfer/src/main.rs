@@ -1304,6 +1304,73 @@ impl State {
                     }
                 }
             }
+            Message::MoveTransaction { next } => {
+                let undo_msg = if next {
+                    "Move to next transaction"
+                } else {
+                    "Move to previous transaction"
+                };
+                self.save_current_canvas(undo_msg.to_string());
+                if let Some(waves) = &mut self.waves {
+                    if let Some(inner) = waves.inner.as_transactions() {
+                        let mut transactions = waves
+                            .displayed_items_order
+                            .iter()
+                            .map(|item_id| {
+                                let item = &waves.displayed_items[item_id];
+                                match item {
+                                    DisplayedItem::Stream(s) => {
+                                        let stream_ref = &s.transaction_stream_ref;
+                                        let stream_id = stream_ref.stream_id;
+                                        if let Some(gen_id) = stream_ref.gen_id {
+                                            inner.get_transactions_from_generator(gen_id)
+                                        } else {
+                                            inner.get_transactions_from_stream(stream_id)
+                                        }
+                                    }
+                                    _ => vec![],
+                                }
+                            })
+                            .flatten()
+                            .collect_vec();
+
+                        transactions.sort();
+                        let tx = if let Some(focused_tx) = &waves.focused_transaction.0 {
+                            let next_id = transactions
+                                .iter()
+                                .enumerate()
+                                .find(|(_, tx)| **tx == focused_tx.id)
+                                .map(|(vec_idx, _)| {
+                                    if next {
+                                        if vec_idx + 1 < transactions.len() {
+                                            vec_idx + 1
+                                        } else {
+                                            transactions.len() - 1
+                                        }
+                                    } else {
+                                        if vec_idx as i32 - 1 > 0 {
+                                            vec_idx - 1
+                                        } else {
+                                            0
+                                        }
+                                    }
+                                })
+                                .unwrap_or(next.then_some(transactions.len() - 1).unwrap_or(0));
+                            Some(TransactionRef {
+                                id: *transactions.get(next_id).unwrap(),
+                            })
+                        } else if !transactions.is_empty() {
+                            Some(TransactionRef {
+                                id: *transactions.get(0).unwrap(),
+                            })
+                        } else {
+                            None
+                        };
+                        waves.focused_transaction = (tx, waves.focused_transaction.1.clone());
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
             Message::ResetVariableFormat(displayed_field_ref) => {
                 if let Some(DisplayedItem::Variable(displayed_variable)) = self
                     .waves
