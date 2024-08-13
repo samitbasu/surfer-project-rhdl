@@ -64,6 +64,7 @@ use egui::{FontData, FontDefinitions, FontFamily, Visuals};
 use emath::Vec2;
 use emath::{Pos2, Rect};
 use epaint::{Rounding, Stroke};
+use ftr_parser::types::Transaction;
 use fzcmd::parse_command;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -409,6 +410,7 @@ impl Channels {
 struct CanvasState {
     message: String,
     focused_item: Option<DisplayedItemIndex>,
+    focused_transaction: (Option<TransactionRef>, Option<Transaction>),
     selected_items: HashSet<DisplayedItemRef>,
     displayed_item_order: Vec<DisplayedItemRef>,
     displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
@@ -783,6 +785,13 @@ impl State {
                 }
             }
             Message::AddStreamOrGenerator(s) => {
+                let undo_msg = if let Some(gen_id) = s.gen_id {
+                    format!("Add generator(id: {})", gen_id)
+                } else {
+                    format!("Add stream(id: {})", s.stream_id)
+                };
+                self.save_current_canvas(undo_msg);
+
                 if let Some(waves) = self.waves.as_mut() {
                     if s.gen_id.is_some() {
                         waves.add_generator(s);
@@ -793,6 +802,10 @@ impl State {
                 }
             }
             Message::AddStreamOrGeneratorFromName(scope, name) => {
+                self.save_current_canvas(format!(
+                    "Add Stream/Generator from name: {}",
+                    name.clone()
+                ));
                 if let Some(waves) = self.waves.as_mut() {
                     let Some(inner) = waves.inner.as_transactions() else {
                         return;
@@ -831,6 +844,7 @@ impl State {
                 }
             }
             Message::AddAllFromStreamScope(scope_name) => {
+                self.save_current_canvas(format!("Add all from scope {}", scope_name.clone()));
                 if let Some(waves) = self.waves.as_mut() {
                     if scope_name == "tr" {
                         waves.add_all_streams();
@@ -969,6 +983,12 @@ impl State {
                 }
             }
             Message::FocusTransaction(tx_ref, tx) => {
+                if tx_ref.is_some() && tx.is_none() {
+                    self.save_current_canvas(format!(
+                        "Focus Transaction id: {}",
+                        tx_ref.as_ref().unwrap().id
+                    ));
+                }
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
@@ -1917,6 +1937,7 @@ impl State {
                                 .redo_stack
                                 .push(State::current_canvas_state(waves, prev_state.message));
                             waves.focused_item = prev_state.focused_item;
+                            waves.focused_transaction = prev_state.focused_transaction;
                             waves.selected_items = prev_state.selected_items;
                             waves.displayed_items_order = prev_state.displayed_item_order;
                             waves.displayed_items = prev_state.displayed_items;
@@ -1936,6 +1957,7 @@ impl State {
                                 .undo_stack
                                 .push(State::current_canvas_state(waves, prev_state.message));
                             waves.focused_item = prev_state.focused_item;
+                            waves.focused_transaction = prev_state.focused_transaction;
                             waves.displayed_items_order = prev_state.displayed_item_order;
                             waves.displayed_items = prev_state.displayed_items;
                             waves.markers = prev_state.markers;
@@ -2295,6 +2317,7 @@ impl State {
         CanvasState {
             message,
             focused_item: waves.focused_item,
+            focused_transaction: waves.focused_transaction.clone(),
             selected_items: waves.selected_items.clone(),
             displayed_item_order: waves.displayed_items_order.clone(),
             displayed_items: waves.displayed_items.clone(),
