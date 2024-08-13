@@ -336,15 +336,7 @@ impl SurferTheme {
             config::FileFormat::Toml,
         ));
 
-        let theme_names = vec![
-            "dark+".to_string(),
-            "dark-high-contrast".to_string(),
-            "ibm".to_string(),
-            "light+".to_string(),
-            "light-high-contrast".to_string(),
-            "okabe/ito".to_string(),
-            "solarized".to_string(),
-        ];
+        let theme_names = all_theme_names();
 
         let override_theme = match theme_name.clone().unwrap_or_default().as_str() {
             "dark+" => include_str!("../../themes/dark+.toml"),
@@ -373,11 +365,7 @@ impl SurferTheme {
 
         let theme = theme.set_override(
             "theme_names",
-            vec![
-                "dark+".to_string(),
-                "light+".to_string(),
-                "solarized".to_string(),
-            ],
+            all_theme_names(),
         )?;
 
         theme
@@ -577,6 +565,16 @@ fn hex_string_to_color32(mut str: String) -> Result<Color32> {
     } else {
         color_eyre::Result::Err(Report::msg(format!("'{str}' is not a valid RGB hex color")))
     }
+}
+
+fn all_theme_names() -> Vec<String> {
+    "dark+".to_string(),
+    "dark-high-contrast".to_string(),
+    "ibm".to_string(),
+    "light+".to_string(),
+    "light-high-contrast".to_string(),
+    "okabe/ito".to_string(),
+    "solarized".to_string(),
 }
 
 fn deserialize_hex_color<'de, D>(deserializer: D) -> Result<Color32, D::Error>
