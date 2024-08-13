@@ -283,7 +283,6 @@ impl State {
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("Generate draw commands");
         if let Some(waves) = &self.waves {
-            info!("Generating Draw Commands");
             let draw_data = match waves.inner {
                 DataContainer::Waves(_) => {
                     self.generate_wave_draw_commands(waves, cfg, frame_width, msgs, viewport_idx)

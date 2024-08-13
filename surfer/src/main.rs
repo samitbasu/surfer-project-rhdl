@@ -43,14 +43,18 @@ mod wasm_util;
 mod wave_container;
 mod wave_data;
 mod wave_source;
+mod wcp;
 mod wellen;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::mem;
+use std::net::TcpStream;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, RwLock};
+use std::thread::JoinHandle;
+use std::{mem, thread};
 
 use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
@@ -72,6 +76,8 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::Translator;
 use time::{TimeStringFormatting, TimeUnit};
+use wcp::wcp_handler::WcpMessage;
+use wcp::wcp_server::WcpHttpServer;
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::Timing;
@@ -94,6 +100,7 @@ use crate::wasm_util::{perform_work, UrlArgs};
 use crate::wave_container::{ScopeRefExt, VariableRef, WaveContainer};
 use crate::wave_data::WaveData;
 use crate::wave_source::{string_to_wavesource, LoadOptions, LoadProgress, WaveFormat, WaveSource};
+use crate::wcp::wcp_handler::Vecs;
 use crate::wellen::convert_format;
 
 lazy_static! {
@@ -287,6 +294,9 @@ fn main() -> Result<()> {
             let ctx_arc = Arc::new(cc.egui_ctx.clone());
             *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
             state.sys.context = Some(ctx_arc.clone());
+            if state.config.wcp.autostart {
+                state.start_wcp_server(Some(state.config.wcp.address.clone()));
+            }
             cc.egui_ctx.set_visuals(state.get_visuals());
             setup_custom_font(&cc.egui_ctx);
             Ok(Box::new(state))
@@ -391,6 +401,8 @@ struct CachedTransactionDrawData {
 struct Channels {
     msg_sender: Sender<Message>,
     msg_receiver: Receiver<Message>,
+    wcp_s2c_receiver: Option<Receiver<WcpMessage>>,
+    wcp_c2s_sender: Option<Sender<WcpMessage>>,
 }
 impl Channels {
     fn new() -> Self {
@@ -398,6 +410,8 @@ impl Channels {
         Self {
             msg_sender,
             msg_receiver,
+            wcp_s2c_receiver: None,
+            wcp_c2s_sender: None,
         }
     }
 }
@@ -429,6 +443,12 @@ pub struct SystemState {
     /// List of batch commands which will executed as soon as possible
     batch_commands: VecDeque<Message>,
     batch_commands_completed: bool,
+
+    /// The WCP server
+    wcp_server_thread: Option<JoinHandle<()>>,
+    wcp_server_address: Option<String>,
+    wcp_stop_signal: Arc<AtomicBool>,
+    wcp_server_load_outstanding: bool,
 
     /// The draw commands for every variable currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
@@ -482,6 +502,10 @@ impl SystemState {
                 previous_commands: vec![],
             },
             context: None,
+            wcp_server_thread: None,
+            wcp_server_address: None,
+            wcp_stop_signal: Arc::new(AtomicBool::new(false)),
+            wcp_server_load_outstanding: false,
             gesture_start_location: None,
             batch_commands: VecDeque::new(),
             batch_commands_completed: false,
@@ -701,6 +725,10 @@ impl State {
         self.add_startup_messages([msg]);
     }
 
+    pub fn wcp(&mut self) {
+        self.handle_wcp_commands();
+    }
+
     pub fn update(&mut self, message: Message) {
         match message {
             Message::SetActiveScope(scope) => {
@@ -722,7 +750,7 @@ impl State {
                     };
                     self.save_current_canvas(undo_msg);
                     if let Some(waves) = self.waves.as_mut() {
-                        if let Some(cmd) = waves.add_variables(&self.sys.translators, vars) {
+                        if let (Some(cmd), _) = waves.add_variables(&self.sys.translators, vars) {
                             self.load_variables(cmd);
                         }
                         self.invalidate_draw_commands();
@@ -752,7 +780,8 @@ impl State {
                 };
 
                 let variables = waves.inner.as_waves().unwrap().variables_in_scope(&scope);
-                if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
+                let (cmd, _) = waves.add_variables(&self.sys.translators, variables);
+                if let Some(cmd) = cmd {
                     self.load_variables(cmd);
                 }
                 self.invalidate_draw_commands();
@@ -1244,6 +1273,17 @@ impl State {
                         error!("While getting commands to lazy-load signals: {err:?}");
                         None
                     });
+
+                if self.sys.wcp_server_load_outstanding {
+                    self.sys.wcp_server_load_outstanding = false;
+                    self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
+                        ch.send(WcpMessage::create_response(
+                            "load".to_string(),
+                            Vecs::VecInt(vec![]),
+                        ))
+                    });
+                }
+
                 // update viewports, now that we have the time table
                 waves.update_viewports();
                 // make sure we redraw
@@ -1273,6 +1313,7 @@ impl State {
                 // here, the body and thus the number of timestamps is already loaded!
                 self.waves.as_mut().unwrap().update_viewports();
                 self.sys.progress_tracker = None;
+                info!("wave form loaded");
             }
             Message::TransactionStreamsLoaded(filename, format, new_ftr, loaded_options) => {
                 self.on_transaction_streams_loaded(filename, format, new_ftr, loaded_options);
@@ -1703,6 +1744,12 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
+            Message::StartWcpServer(address) => {
+                self.start_wcp_server(address);
+            }
+            Message::StopWcpServer => {
+                self.stop_wcp_server();
+            }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {
                 if let Some(waves) = &mut self.waves {
@@ -2067,6 +2114,57 @@ impl State {
                 self.sys.undo_stack.remove(0);
             }
             self.sys.redo_stack.clear();
+        }
+    }
+
+    fn start_wcp_server(&mut self, address: Option<String>) {
+        if self.sys.wcp_server_thread.as_ref().is_some() {
+            warn!("WCP HTTP server is already running");
+            return;
+        }
+        let (wcp_s2c_sender, wcp_s2c_receiver) = mpsc::channel();
+        let (wcp_c2s_sender, wcp_c2s_receiver) = mpsc::channel();
+        self.sys.channels.wcp_s2c_receiver = Some(wcp_s2c_receiver);
+        self.sys.channels.wcp_c2s_sender = Some(wcp_c2s_sender);
+        let stop_signal_copy = self.sys.wcp_stop_signal.clone();
+
+        let ctx = self.sys.context.clone();
+        let address = address.unwrap_or(self.config.wcp.address.clone());
+        self.sys.wcp_server_address = Some(address.clone());
+        self.sys.wcp_server_thread = Some(thread::spawn(|| {
+            let server = WcpHttpServer::new(
+                address,
+                wcp_s2c_sender,
+                wcp_c2s_receiver,
+                stop_signal_copy,
+                ctx,
+            );
+            match server {
+                Ok(mut server) => server.run(),
+                Err(m) => {
+                    error!("Could not start WCP HTTP server. Address already in use. {m:?}")
+                }
+            }
+        }));
+    }
+
+    fn stop_wcp_server(&mut self) {
+        // stop wcp server if there is one running
+        if let Some(address) = &self.sys.wcp_server_address {
+            if self.sys.wcp_server_thread.is_some() {
+                // signal the server to stop
+                self.sys
+                    .wcp_stop_signal
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                // wake up server to register stop signal
+                let _ = TcpStream::connect(address);
+
+                self.sys.wcp_server_thread = None;
+                self.sys.wcp_server_address = None;
+                self.sys.channels.wcp_c2s_sender = None;
+                self.sys.channels.wcp_s2c_receiver = None;
+                info!("Stopped WCP server");
+            }
         }
     }
 }
