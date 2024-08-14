@@ -30,7 +30,7 @@ pub trait Translator<VarId, ScopeId, Message>: Send + Sync {
     fn reload(&self, _sender: Sender<Message>) {}
 }
 
-/// Simplified translator.
+/// A translator that only produces non-hierarchical values
 pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
     fn name(&self) -> String;
 
@@ -43,25 +43,6 @@ pub trait BasicTranslator<VarId, ScopeId>: Send + Sync {
     fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
         Ok(VariableInfo::Bits)
     }
-}
-
-/// Simplified translator that only handles vectors with 0 and 1 (other values are handled by the trait).
-///
-/// This is handled by defining the method [`NumericTranslator::translate_biguint`].
-pub trait NumericTranslator<VarId, ScopeId, Message>: Send + Sync {
-    fn name(&self) -> String;
-
-    fn translate_biguint(&self, num_bits: u64, value: BigUint) -> String;
-
-    fn variable_info(&self, _variable: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
-        Ok(VariableInfo::Bits)
-    }
-
-    fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
-        translates_all_bit_types(variable)
-    }
-
-    fn reload(&self, _sender: Sender<Message>) {}
 }
 
 enum NumberParseResult {
