@@ -18,9 +18,7 @@ pub use crate::result::{
     TranslationResult, ValueRepr,
 };
 pub use crate::scope_ref::ScopeRef;
-pub use crate::translator::{
-    translates_all_bit_types, BasicTranslator, NumericTranslator, Translator,
-};
+pub use crate::translator::{translates_all_bit_types, BasicTranslator, Translator};
 pub use crate::variable_ref::VariableRef;
 
 #[derive(Debug, PartialEq, Clone, Display)]

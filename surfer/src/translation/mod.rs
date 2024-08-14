@@ -33,9 +33,9 @@ use itertools::Itertools;
 use log::debug;
 pub use numeric_translators::*;
 use surfer_translation_types::{
-    BasicTranslator, HierFormatResult, NumericTranslator, SubFieldFlatTranslationResult,
-    TranslatedValue, TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr,
-    VariableEncoding, VariableInfo, VariableValue,
+    BasicTranslator, HierFormatResult, SubFieldFlatTranslationResult, TranslatedValue,
+    TranslationPreference, TranslationResult, Translator, ValueKind, ValueRepr, VariableEncoding,
+    VariableInfo, VariableValue,
 };
 
 use crate::config::SurferTheme;
@@ -45,7 +45,6 @@ use crate::{message::Message, wave_container::VariableMeta};
 
 pub type DynTranslator = dyn Translator<VarId, ScopeId, Message>;
 pub type DynBasicTranslator = dyn BasicTranslator<VarId, ScopeId>;
-pub type DynNumericTranslator = dyn NumericTranslator<VarId, ScopeId, Message>;
 
 fn translate_with_basic(
     t: &DynBasicTranslator,
@@ -60,27 +59,9 @@ fn translate_with_basic(
     })
 }
 
-fn translate_with_numeric(
-    t: &DynNumericTranslator,
-    variable: &VariableMeta,
-    value: &VariableValue,
-) -> Result<TranslationResult> {
-    let num_bits = variable.num_bits.unwrap_or(0) as u64;
-    let (val, kind) = match value.clone().parse_biguint() {
-        Ok(v) => (t.translate_biguint(num_bits, v), ValueKind::Normal),
-        Err((v, k)) => (v, k),
-    };
-    Ok(TranslationResult {
-        val: ValueRepr::String(val),
-        kind,
-        subfields: vec![],
-    })
-}
-
 pub enum AnyTranslator {
     Full(Box<DynTranslator>),
     Basic(Box<DynBasicTranslator>),
-    Numeric(Box<DynNumericTranslator>),
     #[cfg(target_family = "unix")]
     Python(python_translators::PythonTranslator),
 }
@@ -96,7 +77,6 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
         match self {
             AnyTranslator::Full(t) => t.name(),
             AnyTranslator::Basic(t) => t.name(),
-            AnyTranslator::Numeric(t) => t.name(),
             #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => t.name(),
         }
@@ -110,7 +90,6 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
         match self {
             AnyTranslator::Full(t) => t.translate(variable, value),
             AnyTranslator::Basic(t) => translate_with_basic(&**t, variable, value),
-            AnyTranslator::Numeric(t) => translate_with_numeric(&**t, variable, value),
             #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => translate_with_basic(t, variable, value),
         }
@@ -120,7 +99,6 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
         match self {
             AnyTranslator::Full(t) => t.variable_info(variable),
             AnyTranslator::Basic(t) => t.variable_info(variable),
-            AnyTranslator::Numeric(t) => t.variable_info(variable),
             #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => t.variable_info(variable),
         }
@@ -130,7 +108,6 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
         match self {
             AnyTranslator::Full(t) => t.translates(variable),
             AnyTranslator::Basic(t) => t.translates(variable),
-            AnyTranslator::Numeric(t) => t.translates(variable),
             #[cfg(target_family = "unix")]
             AnyTranslator::Python(t) => t.translates(variable),
         }
@@ -139,7 +116,6 @@ impl Translator<VarId, ScopeId, Message> for AnyTranslator {
     fn reload(&self, sender: Sender<Message>) {
         match self {
             AnyTranslator::Full(t) => t.reload(sender),
-            AnyTranslator::Numeric(t) => t.reload(sender),
             AnyTranslator::Basic(_) => (),
             #[cfg(target_family = "unix")]
             AnyTranslator::Python(_) => (),
@@ -254,12 +230,6 @@ pub fn all_translators() -> TranslatorList {
         Box::new(new_rv64_translator()),
         Box::new(new_mips_translator()),
         Box::new(LebTranslator {}),
-    ];
-
-    #[cfg(not(target_arch = "wasm32"))]
-    basic_translators.append(&mut find_user_decoders());
-
-    let numeric_translators: Vec<Box<DynNumericTranslator>> = vec![
         Box::new(UnsignedTranslator {}),
         Box::new(SignedTranslator {}),
         Box::new(SinglePrecisionTranslator {}),
@@ -277,9 +247,11 @@ pub fn all_translators() -> TranslatorList {
         Box::new(QuadPrecisionTranslator {}),
     ];
 
+    #[cfg(not(target_arch = "wasm32"))]
+    basic_translators.append(&mut find_user_decoders());
+
     TranslatorList::new(
         basic_translators,
-        numeric_translators,
         vec![
             Box::new(ClockTranslator::new()),
             Box::new(StringTranslator {}),
@@ -297,21 +269,12 @@ pub struct TranslatorList {
 }
 
 impl TranslatorList {
-    pub fn new(
-        basic: Vec<Box<DynBasicTranslator>>,
-        numeric: Vec<Box<DynNumericTranslator>>,
-        translators: Vec<Box<DynTranslator>>,
-    ) -> Self {
+    pub fn new(basic: Vec<Box<DynBasicTranslator>>, translators: Vec<Box<DynTranslator>>) -> Self {
         Self {
             default: "Hexadecimal".to_string(),
             inner: basic
                 .into_iter()
                 .map(|t| (t.name(), AnyTranslator::Basic(t)))
-                .chain(
-                    numeric
-                        .into_iter()
-                        .map(|t| (t.name(), AnyTranslator::Numeric(t))),
-                )
                 .chain(
                     translators
                         .into_iter()
