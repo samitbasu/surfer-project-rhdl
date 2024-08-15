@@ -9,7 +9,5 @@ color-eyre.workspace = true
 derive_more.workspace = true
 ecolor.workspace = true
 num.workspace = true
+pyo3 = { workspace = true, optional = true }
 serde.workspace = true
-
-[target.'cfg(target_family = "unix")'.dependencies]
-pyo3.workspace = true

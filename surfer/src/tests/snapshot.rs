@@ -1871,7 +1871,7 @@ snapshot_ui!(save_and_load, || {
     state
 });
 
-#[cfg(target_family = "unix")]
+#[cfg(feature = "python")]
 snapshot_ui_with_file_and_msgs!(
     python_example_translator,
     "examples/with_8_bit.vcd",
