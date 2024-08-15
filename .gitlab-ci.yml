@@ -72,7 +72,7 @@ test:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
 
 test-windows:
     tags:
@@ -103,7 +103,7 @@ test-oldest-supported:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
 
 test-beta:
     image: "instrumentisto/rust:beta"
@@ -112,7 +112,7 @@ test-beta:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
     allow_failure: true
 
 test-nightly:
@@ -122,7 +122,7 @@ test-nightly:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
     allow_failure: true
 
 test-macos-aarch64:
@@ -222,7 +222,7 @@ linux_build:
     extends: .if-release
     script:
         - apt-get update -y
-        - apt-get install -y openssl libssl-dev zip python3-dev
+        - apt-get install -y openssl libssl-dev zip
         - git fetch --tags
         - rustc -V
         - cargo -V
@@ -242,7 +242,7 @@ windows_build:
     extends: .if-release
     script:
         - apt-get update -y
-        - apt-get install -y mingw-w64 zip python3-dev
+        - apt-get install -y mingw-w64 zip
         - git fetch --tags
         - rustc -V
         - cargo -V

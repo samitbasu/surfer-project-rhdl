@@ -39,8 +39,8 @@ impl ButtonBuilder {
         self
     }
 
-    #[cfg(target_family = "unix")]
-    fn enabled(mut self, enabled: bool) -> Self {
+    #[cfg_attr(not(feature = "python"), allow(dead_code))]
+    pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self
     }
@@ -48,6 +48,7 @@ impl ButtonBuilder {
     pub fn add_leave_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
         self.add_inner(false, msgs, ui);
     }
+
     pub fn add_closing_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
         self.add_inner(true, msgs, ui);
     }
@@ -109,7 +110,7 @@ impl State {
             }
             b("Save state as...", Message::SaveStateFile(None)).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             {
                 b("Add Python translator", Message::OpenPythonPluginDialog)
                     .add_closing_menu(msgs, ui);

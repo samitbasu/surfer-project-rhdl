@@ -1,5 +1,5 @@
 mod field_ref;
-#[cfg(target_family = "unix")]
+#[cfg(feature = "pyo3")]
 pub mod python;
 mod result;
 mod scope_ref;
