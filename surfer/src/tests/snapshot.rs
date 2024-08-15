@@ -274,7 +274,7 @@ macro_rules! snapshot_ui_with_theme {
     ($name:ident, $theme:expr) => {
         snapshot_ui_with_file_and_msgs! {$name, "examples/theme_demo.ghw", [
             Message::AddScope(ScopeRef::from_strs(&["theme_demo"])),
-            Message::FocusItem(DisplayedItemIndex(1)),
+            Message::FocusItem(DisplayedItemIndex(10)),
             Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
             Message::SelectTheme(Some($theme.to_string()))
         ]}
