@@ -65,6 +65,7 @@ use emath::Vec2;
 use emath::{Pos2, Rect};
 use epaint::{Rounding, Stroke};
 use fzcmd::parse_command;
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{error, info, trace, warn};
 use num::BigInt;
@@ -751,7 +752,15 @@ impl State {
                     return;
                 };
 
-                let variables = waves.inner.as_waves().unwrap().variables_in_scope(&scope);
+                let variables = waves
+                    .inner
+                    .as_waves()
+                    .unwrap()
+                    .variables_in_scope(&scope)
+                    .iter()
+                    .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
+                    .cloned()
+                    .collect_vec();
                 if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
                     self.load_variables(cmd);
                 }
