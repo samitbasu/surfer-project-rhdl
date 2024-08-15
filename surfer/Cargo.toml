@@ -45,6 +45,7 @@ lz4_flex.workspace = true
 num.workspace = true
 numeric-sort = "0.1.1"
 pure-rust-locales = "0.8.1"
+pyo3 = { workspace = true, optional = true }
 rayon = "1.10.0"
 regex = "1.10.2"
 reqwest = { version = "0.12.4", features = ["stream"] }
@@ -70,6 +71,7 @@ default = ["spade", "performance_plot"]
 accesskit = ["eframe/accesskit", "eframe/web_screen_reader"]
 f128 = ["dep:f128"]
 performance_plot = ["dep:egui_plot"]
+python = ["pyo3", "surfer-translation-types/pyo3"]
 spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-types", "dep:serde_stacker"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -84,9 +86,6 @@ toml = "0.8.12"
 wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
-
-[target.'cfg(target_family = "unix")'.dependencies]
-pyo3.workspace = true
 
 [dev-dependencies]
 egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "c13a8bbfc622ae28ee7b7f6d1c576a761e8b8bbe" }

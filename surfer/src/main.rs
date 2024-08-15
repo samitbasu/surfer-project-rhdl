@@ -1168,7 +1168,7 @@ impl State {
                 self.load_transactions_from_file(filename, load_options)
                     .ok();
             }
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             Message::LoadPythonTranslator(filename) => {
                 try_log_error!(
                     self.sys.translators.load_python_translator(filename),
@@ -1514,11 +1514,11 @@ impl State {
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);
             }
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             Message::OpenPythonPluginDialog => {
                 self.open_python_file_dialog();
             }
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             Message::ReloadPythonPlugin => {
                 try_log_error!(
                     self.sys.translators.reload_python_translator(),

@@ -667,7 +667,7 @@ impl State {
         );
     }
 
-    #[cfg(target_family = "unix")]
+    #[cfg(feature = "python")]
     pub fn open_python_file_dialog(&mut self) {
         self.file_dialog(
             ("Python files (*.py)".to_string(), vec!["py".to_string()]),
