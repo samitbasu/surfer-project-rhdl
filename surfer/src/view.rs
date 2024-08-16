@@ -2,10 +2,7 @@ use color_eyre::eyre::Context;
 use ecolor::Color32;
 #[cfg(not(target_arch = "wasm32"))]
 use egui::ViewportCommand;
-use egui::{
-    FontSelection, Frame, Layout, Painter, RichText, ScrollArea, Sense, Style, TextStyle,
-    WidgetText,
-};
+use egui::{Frame, Layout, Painter, RichText, ScrollArea, Sense, TextStyle, WidgetText};
 use egui_remixicon::icons;
 use emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use epaint::{
@@ -333,16 +330,41 @@ impl State {
         if self.waves.is_some() {
             let scroll_offset = self.waves.as_ref().unwrap().scroll_offset;
             if self.waves.as_ref().unwrap().any_displayed() {
+                let draw_focus_ids = self.sys.command_prompt.visible
+                    && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
+                        .expanded
+                        .starts_with("item_focus");
+                if draw_focus_ids {
+                    egui::SidePanel::left("focus id list")
+                        .default_width(40.)
+                        .width_range(40.0..=max_width)
+                        .show(ctx, |ui| {
+                            self.handle_pointer_in_ui(ui, &mut msgs);
+                            let response = ScrollArea::both()
+                                .vertical_scroll_offset(scroll_offset)
+                                .show(ui, |ui| {
+                                    self.draw_item_focus_list(ui);
+                                });
+                            self.waves.as_mut().unwrap().top_item_draw_offset =
+                                response.inner_rect.min.y;
+                            self.waves.as_mut().unwrap().total_height =
+                                response.inner_rect.height();
+                            if (scroll_offset - response.state.offset.y).abs() > 5. {
+                                msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                            }
+                        });
+                }
+
                 egui::SidePanel::left("variable list")
                     .default_width(200.)
-                    .width_range(20.0..=max_width)
+                    .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         let response = ScrollArea::both()
                             .vertical_scroll_offset(scroll_offset)
                             .show(ui, |ui| {
-                                self.draw_item_list(&mut msgs, ui);
+                                self.draw_item_list(&mut msgs, ui, ctx);
                             });
                         self.waves.as_mut().unwrap().top_item_draw_offset =
                             response.inner_rect.min.y;
@@ -353,7 +375,6 @@ impl State {
                     });
 
                 egui::SidePanel::left("variable values")
-                    // Remove margin so that we can draw background
                     .frame(Frame {
                         inner_margin: Margin::ZERO,
                         outer_margin: Margin::ZERO,
@@ -364,17 +385,12 @@ impl State {
                     .show(ctx, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         self.handle_pointer_in_ui(ui, &mut msgs);
-                        ui.with_layout(
-                            Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| {
-                                let response = ScrollArea::both()
-                                    .vertical_scroll_offset(scroll_offset)
-                                    .show(ui, |ui| self.draw_var_values(ui, &mut msgs));
-                                if (scroll_offset - response.state.offset.y).abs() > 5. {
-                                    msgs.push(Message::SetScrollOffset(response.state.offset.y));
-                                }
-                            },
-                        )
+                        let response = ScrollArea::both()
+                            .vertical_scroll_offset(scroll_offset)
+                            .show(ui, |ui| self.draw_var_values(ui, &mut msgs));
+                        if (scroll_offset - response.state.offset.y).abs() > 5. {
+                            msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                        }
                     });
                 let std_stroke = ctx.style().visuals.widgets.noninteractive.bg_stroke;
                 ctx.style_mut(|style| {
@@ -695,12 +711,34 @@ impl State {
         }
     }
 
-    fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    fn draw_item_focus_list(&self, ui: &mut egui::Ui) {
+        let alignment = self.get_name_alignment();
+        ui.with_layout(
+            Layout::top_down(alignment).with_cross_justify(false),
+            |ui| {
+                for (vidx, _) in self
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .displayed_items_order
+                    .iter()
+                    .enumerate()
+                {
+                    let vidx = vidx.into();
+                    ui.scope(|ui| {
+                        ui.style_mut().visuals.selection.bg_fill =
+                            self.config.theme.accent_warn.background;
+                        ui.style_mut().visuals.override_text_color =
+                            Some(self.config.theme.accent_warn.foreground);
+                        let _ = ui.selectable_label(true, self.get_alpha_focus_id(vidx));
+                    });
+                }
+            },
+        );
+    }
+
+    fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui, ctx: &egui::Context) {
         let mut item_offsets = Vec::new();
-        let draw_alpha = self.sys.command_prompt.visible
-            && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
-                .expanded
-                .starts_with("item_focus");
 
         let alignment = self.get_name_alignment();
         ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
@@ -721,82 +759,56 @@ impl State {
                     .get(displayed_item_id)
                 {
                     let item_rect = match displayed_item {
-                        DisplayedItem::Variable(displayed_variable) => {
-                            let var = displayed_variable;
-                            let info = &displayed_variable.info;
-                            let style = Style::default();
-                            let mut layout_job = LayoutJob::default();
-                            self.add_alpha_id(
-                                draw_alpha,
-                                vidx,
-                                &style,
-                                &mut layout_job,
-                                Align::LEFT,
-                            );
-                            displayed_item.add_to_layout_job(
-                                &self.config.theme.foreground,
-                                &style,
-                                &mut layout_job,
-                            );
-
-                            self.add_alpha_id(
-                                draw_alpha,
-                                vidx,
-                                &style,
-                                &mut layout_job,
-                                Align::RIGHT,
-                            );
-
-                            self.draw_variable(
-                                msgs,
-                                vidx,
-                                WidgetText::LayoutJob(layout_job),
-                                *displayed_item_id,
-                                FieldRef::without_fields(var.variable_ref.clone()),
-                                &mut item_offsets,
-                                info,
-                                ui,
-                            )
-                        }
-                        DisplayedItem::Divider(_) => self.draw_plain_item(
+                        DisplayedItem::Variable(displayed_variable) => self.draw_variable(
                             msgs,
                             vidx,
                             displayed_item,
+                            *displayed_item_id,
+                            FieldRef::without_fields(displayed_variable.variable_ref.clone()),
+                            &mut item_offsets,
+                            &displayed_variable.info,
+                            ui,
+                            ctx,
+                        ),
+                        DisplayedItem::Divider(_) => self.draw_plain_item(
+                            msgs,
+                            vidx,
+                            *displayed_item_id,
+                            displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::Marker(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::Placeholder(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::TimeLine(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::Stream(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                     };
                     self.draw_drag_target(
@@ -954,16 +966,37 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: DisplayedItemIndex,
-        name: WidgetText,
+        displayed_item: &DisplayedItem,
         displayed_id: DisplayedItemRef,
         field: FieldRef,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         info: &VariableInfo,
         ui: &mut egui::Ui,
+        ctx: &egui::Context,
     ) -> Rect {
-        let draw_label = |ui: &mut egui::Ui| {
+        let mut draw_label = |ui: &mut egui::Ui| {
+            let style = ui.style_mut();
+            let text_color: Color32;
+            if self.item_is_focused(vidx) {
+                style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
+                text_color = self.config.theme.accent_info.foreground;
+            } else if self.item_is_selected(displayed_id) {
+                style.visuals.selection.bg_fill =
+                    self.config.theme.selected_elements_colors.background;
+                text_color = self.config.theme.selected_elements_colors.foreground;
+            } else {
+                style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
+                text_color = self.config.theme.primary_ui_color.foreground;
+            }
+
+            let mut layout_job = LayoutJob::default();
+            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job);
+
             let mut variable_label = ui
-                .selectable_label(self.item_is_selected(vidx), name)
+                .selectable_label(
+                    self.item_is_selected(displayed_id) || self.item_is_focused(vidx),
+                    WidgetText::LayoutJob(layout_job),
+                )
                 .interact(Sense::drag());
             variable_label.context_menu(|ui| {
                 self.item_context_menu(Some(&field), msgs, ui, vidx);
@@ -992,7 +1025,20 @@ impl State {
                 {
                     msgs.push(Message::UnfocusItem);
                 } else {
-                    msgs.push(Message::FocusItem(vidx));
+                    let modifiers = ctx.input(|i| i.modifiers);
+                    if modifiers.ctrl {
+                        msgs.push(Message::ToggleItemSelected(Some(vidx)));
+                    } else if modifiers.shift {
+                        msgs.push(Message::Batch(vec![
+                            Message::ItemSelectionClear,
+                            Message::ItemSelectRange(vidx),
+                        ]));
+                    } else {
+                        msgs.push(Message::Batch(vec![
+                            Message::ItemSelectionClear,
+                            Message::FocusItem(vidx),
+                        ]));
+                    }
                 }
             }
 
@@ -1023,12 +1069,13 @@ impl State {
                         self.draw_variable(
                             msgs,
                             vidx,
-                            WidgetText::RichText(RichText::new(name)),
+                            displayed_item,
                             displayed_id,
                             new_path,
                             drawing_infos,
                             info,
                             ui,
+                            ctx,
                         );
                     }
                 });
@@ -1151,23 +1198,33 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: DisplayedItemIndex,
+        displayed_id: DisplayedItemRef,
         displayed_item: &DisplayedItem,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
-        draw_alpha: bool,
     ) -> Rect {
         let mut draw_label = |ui: &mut egui::Ui| {
-            let style = Style::default();
+            let style = ui.style_mut();
             let mut layout_job = LayoutJob::default();
-            self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::LEFT);
+            let text_color: Color32;
 
-            let text_color = self.get_item_text_color(displayed_item);
+            if self.item_is_focused(vidx) {
+                style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
+                text_color = self.config.theme.accent_info.foreground;
+            } else if self.item_is_selected(displayed_id) {
+                style.visuals.selection.bg_fill =
+                    self.config.theme.selected_elements_colors.background;
+                text_color = self.config.theme.selected_elements_colors.foreground;
+            } else {
+                style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
+                text_color = *self.get_item_text_color(displayed_item);
+            }
 
-            displayed_item.add_to_layout_job(text_color, &style, &mut layout_job);
-            self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
+            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job);
+
             let item_label = ui
                 .selectable_label(
-                    self.item_is_selected(vidx),
+                    self.item_is_selected(displayed_id) || self.item_is_focused(vidx),
                     WidgetText::LayoutJob(layout_job),
                 )
                 .interact(Sense::drag());
@@ -1219,48 +1276,28 @@ impl State {
         label.rect
     }
 
-    fn add_alpha_id(
-        &self,
-        draw_alpha: bool,
-        vidx: DisplayedItemIndex,
-        style: &Style,
-        layout_job: &mut LayoutJob,
-        alignment: Align,
-    ) {
-        if draw_alpha && alignment == self.get_name_alignment() {
-            let alpha_id = uint_idx_to_alpha_idx(
-                vidx,
-                self.waves
-                    .as_ref()
-                    .map_or(0, |waves| waves.displayed_items.len()),
-            );
-            let text = RichText::new(alpha_id)
-                .background_color(self.config.theme.accent_info.background)
-                .monospace()
-                .color(self.config.theme.accent_info.foreground);
-            if alignment == Align::LEFT {
-                text.append_to(layout_job, style, FontSelection::Default, Align::Center);
-                RichText::new(" ").append_to(
-                    layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
-            } else {
-                RichText::new(" ").append_to(
-                    layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
-                text.append_to(layout_job, style, FontSelection::Default, Align::Center);
-            }
+    fn get_alpha_focus_id(&self, vidx: DisplayedItemIndex) -> RichText {
+        let alpha_id = uint_idx_to_alpha_idx(
+            vidx,
+            self.waves
+                .as_ref()
+                .map_or(0, |waves| waves.displayed_items.len()),
+        );
+
+        RichText::new(alpha_id).monospace()
+    }
+
+    fn item_is_focused(&self, vidx: DisplayedItemIndex) -> bool {
+        if let Some(waves) = &self.waves {
+            waves.focused_item == Some(vidx)
+        } else {
+            false
         }
     }
 
-    fn item_is_selected(&self, vidx: DisplayedItemIndex) -> bool {
+    fn item_is_selected(&self, id: DisplayedItemRef) -> bool {
         if let Some(waves) = &self.waves {
-            waves.focused_item == Some(vidx)
+            waves.selected_items.contains(&id)
         } else {
             false
         }

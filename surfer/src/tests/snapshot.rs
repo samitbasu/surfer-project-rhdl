@@ -648,11 +648,16 @@ snapshot_ui_with_file_and_msgs! {toggle_tick_lines, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {command_prompt, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::ShowCommandPrompt(true)
+    Message::ShowCommandPrompt(Some("".to_string()))
+]}
+
+snapshot_ui_with_file_and_msgs! {command_prompt_with_init_text, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::ShowCommandPrompt(Some("test ".to_string()))
 ]}
 
 snapshot_ui_with_file_and_msgs! {command_prompt_next_command, "examples/counter.vcd", [
-    Message::ShowCommandPrompt(true),
+    Message::ShowCommandPrompt(Some("".to_string())),
     Message::CommandPromptUpdate { suggestions: vec![("test".to_string(), vec![true, true, false, false]); 10] },
     Message::SelectNextCommand,
     Message::SelectNextCommand,
@@ -662,7 +667,7 @@ snapshot_ui_with_file_and_msgs! {command_prompt_next_command, "examples/counter.
 ]}
 
 snapshot_ui_with_file_and_msgs! {command_prompt_prev_command, "examples/counter.vcd", [
-    Message::ShowCommandPrompt(true),
+    Message::ShowCommandPrompt(Some("".to_string())),
     Message::CommandPromptUpdate { suggestions: vec![("test".to_string(), vec![true, true, false, false]); 10] },
     Message::SelectNextCommand,
     Message::SelectNextCommand,
@@ -704,7 +709,7 @@ snapshot_ui_with_file_and_msgs!(
     command_prompt_scroll_bounds_prev,
     "examples/counter.vcd",
     [
-        Message::ShowCommandPrompt(true),
+        Message::ShowCommandPrompt(Some("".to_string())),
         Message::CommandPromptUpdate {
             suggestions: vec![("test".to_string(), vec![true, true, false, false]); 5]
         },
@@ -716,7 +721,7 @@ snapshot_ui_with_file_and_msgs!(
     command_prompt_scroll_bounds_next,
     "examples/counter.vcd",
     [
-        Message::ShowCommandPrompt(true),
+        Message::ShowCommandPrompt(Some("".to_string())),
         Message::CommandPromptUpdate {
             suggestions: vec![("test".to_string(), vec![true, true, false, false]); 5]
         },
@@ -762,30 +767,25 @@ snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::RemoveItem(DisplayedItemIndex(1), 1)
-]}
-
-snapshot_ui_with_file_and_msgs! {remove_items, "examples/counter.vcd", [
-    Message::AddScope(ScopeRef::from_strs(&["tb"])),
-    Message::RemoveItem(DisplayedItemIndex(2), 6)
+    Message::RemoveItemByIndex(DisplayedItemIndex(1))
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_with_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(1)),
-    Message::RemoveItem(DisplayedItemIndex(1), 1)
+    Message::RemoveItemByIndex(DisplayedItemIndex(1))
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_before_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(3)),
-    Message::RemoveItem(DisplayedItemIndex(1), 1)
+    Message::RemoveItemByIndex(DisplayedItemIndex(1))
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item_after_focus, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(1)),
-    Message::RemoveItem(DisplayedItemIndex(2), 1)
+    Message::RemoveItemByIndex(DisplayedItemIndex(2))
 ]}
 
 snapshot_ui_with_file_and_msgs! {canvas_scroll, "examples/counter.vcd", [
@@ -820,25 +820,44 @@ snapshot_ui_with_file_and_msgs! {move_focused_item_to_bottom, "examples/counter.
 snapshot_ui_with_file_and_msgs! {move_focus_up, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(2)),
-    Message::MoveFocus(MoveDir::Up, 1),
+    Message::MoveFocus(MoveDir::Up, 1, false),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focus_to_top, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(2)),
-    Message::MoveFocus(MoveDir::Up, 4),
+    Message::MoveFocus(MoveDir::Up, 4, false),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focus_down, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(0)),
-    Message::MoveFocus(MoveDir::Down, 2),
+    Message::MoveFocus(MoveDir::Down, 2, false),
 ]}
 
 snapshot_ui_with_file_and_msgs! {move_focus_to_bottom, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"])),
     Message::FocusItem(DisplayedItemIndex(0)),
-    Message::MoveFocus(MoveDir::Down, 10),
+    Message::MoveFocus(MoveDir::Down, 10, false),
+]}
+
+snapshot_ui_with_file_and_msgs! {selection_extend_up, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::FocusItem(DisplayedItemIndex(2)),
+    Message::MoveFocus(MoveDir::Up, 1, true),
+]}
+
+snapshot_ui_with_file_and_msgs! {selection_extend_down, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::FocusItem(DisplayedItemIndex(2)),
+    Message::MoveFocus(MoveDir::Down, 1, true),
+]}
+
+snapshot_ui_with_file_and_msgs! {selection_extend_change_color, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"])),
+    Message::FocusItem(DisplayedItemIndex(2)),
+    Message::MoveFocus(MoveDir::Up, 1, true),
+    Message::ItemColorChange(None, Some("blue".to_string())),
 ]}
 
 snapshot_ui!(regex_error_indication, || {

@@ -62,6 +62,7 @@ pub struct WaveData {
     pub markers: HashMap<u8, BigInt>,
     pub focused_item: Option<DisplayedItemIndex>,
     pub focused_transaction: (Option<TransactionRef>, Option<Transaction>),
+    pub selected_items: std::collections::HashSet<DisplayedItemRef>,
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
     pub display_variable_indices: bool,
@@ -186,6 +187,7 @@ impl WaveData {
             markers: self.markers.clone(),
             focused_item: self.focused_item,
             focused_transaction: self.focused_transaction,
+            selected_items: std::collections::HashSet::new(),
             default_variable_name_type: self.default_variable_name_type,
             display_variable_indices: self.display_variable_indices,
             scroll_offset: self.scroll_offset,
@@ -432,37 +434,65 @@ impl WaveData {
         res
     }
 
-    pub fn remove_displayed_item(&mut self, count: usize, idx: DisplayedItemIndex) {
-        let idx = idx.0;
-        for _ in 0..count {
-            let visible_items_len = self.displayed_items_order.len();
-            if let Some(DisplayedItem::Marker(marker)) = self
-                .displayed_items_order
-                .get(idx)
-                .and_then(|id| self.displayed_items.get(id))
-            {
-                self.markers.remove(&marker.idx);
-            }
-            if visible_items_len > 0 && idx <= (visible_items_len - 1) {
-                let displayed_item_id = self.displayed_items_order[idx];
-                self.displayed_items_order.remove(idx);
-                self.displayed_items.remove(&displayed_item_id);
-                if let Some(DisplayedItemIndex(focused)) = self.focused_item {
-                    if focused == idx {
-                        if (idx > 0) && (idx == (visible_items_len - 1)) {
-                            // if the end of list is selected
-                            self.focused_item = Some((idx - 1).into());
-                        }
-                    } else if idx < focused {
-                        self.focused_item = Some((focused - 1).into());
-                    }
-                    if !self.any_displayed() {
-                        self.focused_item = None;
-                    }
+    // <<<<<<< HEAD
+    //     pub fn remove_displayed_item(&mut self, count: usize, idx: DisplayedItemIndex) {
+    //         let idx = idx.0;
+    //         for _ in 0..count {
+    //             let visible_items_len = self.displayed_items_order.len();
+    //             if let Some(DisplayedItem::Marker(marker)) = self
+    //                 .displayed_items_order
+    //                 .get(idx)
+    //                 .and_then(|id| self.displayed_items.get(id))
+    //             {
+    //                 self.markers.remove(&marker.idx);
+    //             }
+    //             if visible_items_len > 0 && idx <= (visible_items_len - 1) {
+    //                 let displayed_item_id = self.displayed_items_order[idx];
+    //                 self.displayed_items_order.remove(idx);
+    //                 self.displayed_items.remove(&displayed_item_id);
+    //                 if let Some(DisplayedItemIndex(focused)) = self.focused_item {
+    //                     if focused == idx {
+    //                         if (idx > 0) && (idx == (visible_items_len - 1)) {
+    //                             // if the end of list is selected
+    //                             self.focused_item = Some((idx - 1).into());
+    //                         }
+    //                     } else if idx < focused {
+    //                         self.focused_item = Some((focused - 1).into());
+    //                     }
+    //                     if !self.any_displayed() {
+    //                         self.focused_item = None;
+    //                     }
+    // =======
+    pub fn remove_displayed_item(&mut self, id: DisplayedItemRef) {
+        if let Some(idx) = self
+            .displayed_items_order
+            .iter()
+            .enumerate()
+            .find(|(_, local_id)| **local_id == id)
+        {
+            if let Some(fidx) = self.focused_item {
+                // move focus up if if signal was removed below focus
+                if fidx.0 > idx.0 {
+                    self.focused_item = Some(DisplayedItemIndex(
+                        fidx.0
+                            .saturating_sub(1)
+                            .min(self.displayed_items_order.len().saturating_sub(2)),
+                    ));
+                // if the focus was removed move if it was the last element
+                } else if fidx.0 == idx.0 {
+                    self.focused_item = Some(DisplayedItemIndex(
+                        fidx.0
+                            .min(self.displayed_items_order.len().saturating_sub(2)),
+                    ));
                 }
+                // when the removed item is above the focus, the focus does not move
+            }
+            self.displayed_items_order.remove(idx.0);
+            self.displayed_items.remove(&id);
+            if self.displayed_items_order.is_empty() {
+                self.focused_item = None;
             }
         }
-        self.compute_variable_display_names();
     }
 
     pub fn add_divider(&mut self, name: Option<String>, vidx: Option<DisplayedItemIndex>) {
@@ -695,7 +725,10 @@ impl WaveData {
             .get(idx)
             .unwrap_or_else(|| self.drawing_infos.last().unwrap())
             .top();
-        self.scroll_offset = item_y - first_element_y;
+        // only scroll if new location is outside of visible area
+        if self.scroll_offset > self.total_height {
+            self.scroll_offset = item_y - first_element_y;
+        }
     }
 
     /// Set cursor at next (or previous, if `next` is false) transition of `variable`. If `skip_zero` is true,
