@@ -738,8 +738,10 @@ impl WaveData {
                                         &(cursor - bigone).to_biguint().unwrap_or_default(),
                                     )
                                 {
-                                    if let Some(newstime) = newres.current.unwrap().0.to_bigint() {
-                                        self.cursor = Some(newstime);
+                                    if let Some(current) = newres.current {
+                                        if let Some(newstime) = current.0.to_bigint() {
+                                            self.cursor = Some(newstime);
+                                        }
                                     }
                                 }
                             } else {
