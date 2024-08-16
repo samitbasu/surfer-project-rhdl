@@ -3,6 +3,7 @@ use egui::{Context, Event, Key, Modifiers};
 use emath::Vec2;
 
 use crate::config::ArrowKeyBindings;
+use crate::displayed_item::DisplayedItemIndex;
 use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
@@ -63,16 +64,19 @@ impl State {
                             }
                         }
                     }
-                    (Key::Space, true, false, false) => msgs.push(Message::ShowCommandPrompt(true)),
-                    (Key::Escape, true, true, false) => {
-                        msgs.push(Message::ShowCommandPrompt(false));
+                    (Key::Space, true, false, false) => {
+                        msgs.push(Message::ShowCommandPrompt(Some("".to_string())))
                     }
+                    (Key::Escape, true, true, false) => msgs.push(Message::ShowCommandPrompt(None)),
                     (Key::G, true, true, false) => {
                         if modifiers.command {
-                            msgs.push(Message::ShowCommandPrompt(false));
+                            msgs.push(Message::ShowCommandPrompt(None))
                         }
                     }
-                    (Key::Escape, true, false, false) => msgs.push(Message::InvalidateCount),
+                    (Key::Escape, true, false, false) => {
+                        msgs.push(Message::InvalidateCount);
+                        msgs.push(Message::ItemSelectionClear);
+                    }
                     (Key::Escape, true, _, true) => msgs.push(Message::SetFilterFocused(false)),
                     (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
                     (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
@@ -85,8 +89,36 @@ impl State {
                             msgs.push(Message::Undo(self.get_count()));
                         }
                     }
+                    (Key::Z, true, false, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::Undo(self.get_count()));
+                        }
+                    }
+                    (Key::Y, true, false, false) => {
+                        if modifiers.ctrl {
+                            msgs.push(Message::Redo(self.get_count()));
+                        }
+                    }
+                    (Key::F, true, false, false) => {
+                        msgs.push(Message::ShowCommandPrompt(Some("item_focus ".to_string())))
+                    }
                     (Key::S, true, false, false) => {
                         msgs.push(Message::GoToStart { viewport_idx: 0 });
+                    }
+                    (Key::A, true, false, false) => {
+                        if modifiers.command {
+                            msgs.push(Message::Batch(vec![
+                                Message::FocusItem(DisplayedItemIndex(0)),
+                                Message::ItemSelectRange(DisplayedItemIndex(
+                                    self.waves
+                                        .as_ref()
+                                        .map_or(0, |w| w.displayed_items_order.len() - 1),
+                                )),
+                                Message::UnfocusItem,
+                            ]));
+                        } else {
+                            msgs.push(Message::ToggleItemSelected(None));
+                        }
                     }
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd { viewport_idx: 0 }),
                     (Key::R, true, false, false) => msgs.push(Message::ReloadWaveform(
@@ -162,7 +194,11 @@ impl State {
                     }
                     (Key::J, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Down,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
@@ -172,7 +208,11 @@ impl State {
                     }
                     (Key::K, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Up,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
@@ -182,7 +222,11 @@ impl State {
                     }
                     (Key::ArrowDown, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Down, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Down,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Down, self.get_count()));
                         } else {
@@ -192,7 +236,11 @@ impl State {
                     }
                     (Key::ArrowUp, true, false, false) => {
                         if modifiers.alt {
-                            msgs.push(Message::MoveFocus(MoveDir::Up, self.get_count()));
+                            msgs.push(Message::MoveFocus(
+                                MoveDir::Up,
+                                self.get_count(),
+                                modifiers.shift,
+                            ));
                         } else if modifiers.command {
                             msgs.push(Message::MoveFocusedItem(MoveDir::Up, self.get_count()));
                         } else {
@@ -202,10 +250,12 @@ impl State {
                     }
                     (Key::Delete | Key::X, true, false, false) => {
                         if let Some(waves) = &self.waves {
-                            if let Some(idx) = waves.focused_item {
-                                msgs.push(Message::RemoveItem(idx, self.get_count()));
-                                msgs.push(Message::InvalidateCount);
+                            let mut remove_ids =
+                                waves.selected_items.clone().into_iter().collect::<Vec<_>>();
+                            if let Some(focus) = waves.focused_item {
+                                remove_ids.append(&mut vec![waves.displayed_items_order[focus.0]]);
                             }
+                            msgs.push(Message::RemoveItems(remove_ids));
                         }
                     }
                     (Key::ArrowUp, true, true, false) => msgs.push(Message::SelectPrevCommand),
