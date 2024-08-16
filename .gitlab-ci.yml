@@ -218,8 +218,8 @@ typos-and-todos:
             fi
 
 linux_build:
+    image: rust:bullseye
     stage: deploy
-    extends: .if-release
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
