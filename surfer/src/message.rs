@@ -254,6 +254,9 @@ pub enum Message {
     Undo(usize),
     /// Redo the last n changes
     Redo(usize),
+    /// WCP Server
+    StartWcpServer(Option<String>),
+    StopWcpServer,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
