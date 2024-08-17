@@ -107,6 +107,17 @@ impl State {
                 Message::ReloadWaveform(self.config.behavior.keep_during_reload),
                 wave_loaded,
             );
+            if self.surver_url.is_some() {
+                ui.separator();
+                add_toolbar_button(
+                    ui,
+                    msgs,
+                    icons::FILE_LIST_FILL,
+                    "Select Surver file",
+                    Message::SetServerFileWindowVisible(true),
+                    true,
+                );
+            }
             ui.separator();
             add_toolbar_button(
                 ui,

@@ -1,0 +1,4 @@
+counter.vcd
+counter2.vcd
+theme_demo.ghw
+many_sv_datatypes.fst
