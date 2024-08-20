@@ -219,7 +219,6 @@ typos-and-todos:
 
 linux_build:
     stage: deploy
-    extends: .if-release
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
@@ -235,6 +234,28 @@ linux_build:
     artifacts:
         paths:
             - surfer_linux.zip
+        expire_in: 1 week
+
+rocky_build:
+    image: rockylinux:8
+    stage: test
+    script:
+        - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        - sudo dnf install
+        - sudo dnf groupinstall 'Development Tools'
+        - git submodule update --init
+        - mkdir dist
+        - git fetch --tags
+        - rustc -V
+        - cargo -V
+        - cargo build --release --locked --features accesskit
+        - cp target/release/surfer dist/surfer
+        - cp target/release/surver dist/surver
+        - cd dist
+        - zip ../surfer_linux_rocky.zip surfer surver
+    artifacts:
+        paths:
+            - surfer_linux_rocky.zip
         expire_in: 1 week
 
 windows_build:
