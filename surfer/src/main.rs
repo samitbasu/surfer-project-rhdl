@@ -1865,6 +1865,45 @@ impl State {
                     self.update(message);
                 }
             }
+            Message::AddDraggedVariables(variables) => {
+                if self.waves.is_some() {
+                    self.waves.as_mut().unwrap().focused_item = None;
+                    let waves = self.waves.as_mut().unwrap();
+                    if let Some(DisplayedItemIndex(target_idx)) = self.drag_target_idx {
+                        let variables_len = variables.len() - 1;
+                        let items_len = waves.displayed_items_order.len();
+                        if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
+                            self.load_variables(cmd);
+                        }
+
+                        for i in 0..=variables_len {
+                            let to_insert = self
+                                .waves
+                                .as_mut()
+                                .unwrap()
+                                .displayed_items_order
+                                .remove(items_len + i);
+                            self.waves
+                                .as_mut()
+                                .unwrap()
+                                .displayed_items_order
+                                .insert(target_idx, to_insert);
+                        }
+                    } else {
+                        if let Some(cmd) = self
+                            .waves
+                            .as_mut()
+                            .unwrap()
+                            .add_variables(&self.sys.translators, variables)
+                        {
+                            self.load_variables(cmd);
+                        }
+                    }
+                    self.invalidate_draw_commands();
+                }
+                self.drag_source_idx = None;
+                self.drag_target_idx = None;
+            }
             Message::VariableDragStarted(vidx) => {
                 self.drag_started = true;
                 self.drag_source_idx = Some(vidx);

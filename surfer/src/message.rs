@@ -243,7 +243,7 @@ pub enum Message {
     VariableDragStarted(DisplayedItemIndex),
     VariableDragTargetChanged(DisplayedItemIndex),
     VariableDragFinished,
-
+    AddDraggedVariables(Vec<VariableRef>),
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
     UnpauseSimulation,
