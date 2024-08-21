@@ -1883,7 +1883,7 @@ impl State {
                                 .as_mut()
                                 .unwrap()
                                 .displayed_items_order
-                                .insert(target_idx, to_insert);
+                                .insert(target_idx+i, to_insert);
                         }
                     } else {
                         if let Some(cmd) = self
