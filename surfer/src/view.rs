@@ -742,14 +742,13 @@ impl State {
                         response = response.on_hover_text(variable_tooltip_text(&meta, &variable));
                     }
                     response.drag_started().then(|| {
-                        //TODO: don't show variables before moving it to the right place
                         msgs.push(Message::VariableDragStarted(
                             self.waves.as_ref().unwrap().display_item_ref_counter.into(),
                         ))
                     });
                     response.drag_stopped().then(|| {
                         msgs.push(Message::AddDraggedVariables(vec![variable.clone()]));
-                    }); //TODO: crashes when adding variable index is greater than len
+                    });
                     response
                         .clicked()
                         .then(|| msgs.push(Message::AddVariables(vec![variable.clone()])));
