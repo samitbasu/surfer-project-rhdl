@@ -289,12 +289,10 @@ impl DisplayedItem {
     ) {
         match self {
             DisplayedItem::Variable(_) => {
-                RichText::new(self.name()).color(*color).append_to(
-                    layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
+                RichText::new(self.name())
+                    .color(*color)
+                    .line_height(Some(config.layout.waveforms_line_height))
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
                 RichText::new(self.name())
