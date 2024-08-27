@@ -6,6 +6,7 @@ use epaint::text::LayoutJob;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::VariableInfo;
 
+use crate::config::SurferConfig;
 use crate::transaction_container::TransactionStreamRef;
 use crate::wave_container::{VariableRef, VariableRefExt, WaveContainer};
 use crate::{
@@ -279,15 +280,19 @@ impl DisplayedItem {
     }
 
     /// Widget displayed in variable list for the wave form, may include additional info compared to name()
-    pub fn add_to_layout_job(&self, color: &Color32, style: &Style, layout_job: &mut LayoutJob) {
+    pub fn add_to_layout_job(
+        &self,
+        color: &Color32,
+        style: &Style,
+        layout_job: &mut LayoutJob,
+        config: &SurferConfig,
+    ) {
         match self {
             DisplayedItem::Variable(_) => {
-                RichText::new(self.name()).color(*color).append_to(
-                    layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
+                RichText::new(self.name())
+                    .color(*color)
+                    .line_height(Some(config.layout.waveforms_line_height))
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
                 RichText::new(self.name())
@@ -311,7 +316,7 @@ impl DisplayedItem {
             DisplayedItem::Stream(stream) => {
                 RichText::new(format!("{}{}", self.name(), "\n".repeat(stream.rows - 1)))
                     .color(*color)
-                    .line_height(Some(30.0))
+                    .line_height(Some(config.layout.transactions_line_height))
                     .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
         }

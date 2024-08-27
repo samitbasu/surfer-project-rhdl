@@ -59,20 +59,11 @@ pub struct DrawConfig {
 }
 
 impl DrawConfig {
-    pub fn new(canvas_height: f32) -> Self {
-        let line_height = 16.;
+    pub fn new(canvas_height: f32, line_height: f32, text_size: f32) -> Self {
         Self {
             canvas_height,
             line_height,
-            text_size: line_height - 5.,
-            max_transition_width: 6,
-        }
-    }
-    pub fn new_with_line_height(canvas_height: f32, line_height: f32) -> Self {
-        Self {
-            canvas_height,
-            line_height,
-            text_size: line_height - 5.,
+            text_size,
             max_transition_width: 6,
         }
     }
@@ -1153,7 +1144,7 @@ impl State {
             }
 
             let mut layout_job = LayoutJob::default();
-            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job);
+            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job, &self.config);
 
             let mut variable_label = ui
                 .selectable_label(
@@ -1383,7 +1374,7 @@ impl State {
                 text_color = *self.get_item_text_color(displayed_item);
             }
 
-            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job);
+            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job, &self.config);
 
             let item_label = ui
                 .selectable_label(
@@ -1472,7 +1463,11 @@ impl State {
         let rect = response.rect;
         let container_rect = Rect::from_min_size(Pos2::ZERO, rect.size());
         let to_screen = RectTransform::from_to(container_rect, rect);
-        let cfg = DrawConfig::new(rect.height());
+        let cfg = DrawConfig::new(
+            rect.height(),
+            self.config.layout.waveforms_line_height,
+            self.config.layout.waveforms_text_size,
+        );
         let frame_width = rect.width();
 
         painter.rect_filled(

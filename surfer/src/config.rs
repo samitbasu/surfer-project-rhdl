@@ -105,6 +105,10 @@ pub struct SurferLayout {
     align_names_right: bool,
     /// Set style of hierarchy
     pub hierarchy_style: HierarchyStyle,
+    /// Default text size for waves
+    pub waveforms_text_size: f32,
+    /// Default line height for waves
+    pub waveforms_line_height: f32,
     /// Default line height for transaction streams
     pub transactions_line_height: f32,
     /// UI zoom factors
