@@ -551,10 +551,15 @@ impl State {
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
 
         let cfg = match self.waves.as_ref().unwrap().inner {
-            DataContainer::Waves(_) => DrawConfig::new(response.rect.size().y),
-            DataContainer::Transactions(_) => DrawConfig::new_with_line_height(
+            DataContainer::Waves(_) => DrawConfig::new(
+                response.rect.size().y,
+                self.config.layout.waveforms_line_height,
+                self.config.layout.waveforms_text_size,
+            ),
+            DataContainer::Transactions(_) => DrawConfig::new(
                 response.rect.size().y,
                 self.config.layout.transactions_line_height,
+                self.config.layout.waveforms_text_size,
             ),
             DataContainer::Empty => return,
         };
