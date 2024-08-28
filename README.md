@@ -75,7 +75,7 @@ cargo build
 ```
 
 If all goes well, the `surfer` executable can found in `./target/debug/`.
-You can run it from there, or you can use `cargo run`.
+You can run it from there, or you can use `cargo run --bin surfer`.
 
 You can install your own version of surfer with `cargo install --path surfer`.
 
@@ -106,12 +106,17 @@ It is possible to run Surfer in WSL (Windows Subsystem for  Linux). However, the
 reported that most likely are caused by the gui framework used (as in, Surfer cannot really affect it).
 These are the suggested solutions if it does not work for you:
 
-1. Run the Windows version (this is really the preferred way anyway as it will be faster, although finding the files from Windows is a bit of a mess)
-2. Start Surfer in (experimental) server mode `surfer server --file filename.vcd/fst/ghw` in WSL and open the Windows version using the URL in the output.
-3. Compile Surfer with a change in `Cargo.toml` (replace the line defining `eframe` version, using the current one below).  Installing `libgtk-3-dev` may be required if errors remain (although most likely it is a dependency of that package that is really required).
+1. Run the Windows version (this is really the preferred way anyway as it will be faster):
+   - It is possible to start the Windows version from WSL
+     - Creating a symlink from WSL to the Windows version or copying the Windows version to WSL are good options to make it possible to simply run `surfer` from the command line
+   - However, there are some caveats:
+      - The file browser will open as if it was opened from Windows, so one will have to find the files in WSL or provide them when starting Surfer
+      - There is a bug making it impossible to open files located in `/mnt`, typically files on the Windows file system so should rarely be a problem in practice (if you have the files in the Windows file system run the Windows version directly)
+2. Start Surfer in (experimental) server mode, see below, in WSL and open the Windows version using the URL provided from running the previous command.
+3. Compile Surfer with a change in `Cargo.toml` as below (replace the line defining `eframe` version, using the current version if the line below has an older version).  Installing `libgtk-3-dev` may be required if errors remain (although most likely it is a dependency of that package that is really required).
 
 ```toml
-  eframe = { version="0.27.2",  features = ["glow", "x11", "default_fonts"], default-features = false}
+  eframe = { version="0.28.1",  features = ["glow", "x11", "default_fonts"], default-features = false}
 ```
 
 4. Install the VS Code [extension](https://marketplace.visualstudio.com/items?itemName=surfer-project.surfer). This will allow you to just write `code filename.vcd`  and
@@ -124,14 +129,19 @@ To learn more about configuration, have a look at our [wiki](https://gitlab.com/
 
 ## Server Mode (experimental)
 
-It is possible to start Surfer in server mode on one computer and open the wave form viewer on another computer to avoid copying the wave form files. Run
+It is possible to start Surfer in server mode on one computer and open the wave form viewer on another computer to avoid copying the wave form files. There is also a stand-alone version of the server: Surver. Run
 
 ```bash
 surfer server --file waveform.vcd/fst/ghw
 ```
 
-on the computer where the wave form is located and follow the instructions. This can also be useful when running simulations in WSL and wanting to run the Windows native version of Surfer without the mess of finding the files.
+or, after installing `surver` with `cargo install --path surver`,
 
+```bash
+surver waveform.vcd/fst/ghw
+```
+
+on the computer where the wave form is located and follow the instructions.
 
 ## Development Information
 
@@ -154,6 +164,8 @@ As an indication of the status of the project, here is an incomplete list of sup
   - [x] VCD loading
   - [x] FST loading
   - [x] GHW loading
+- [x] Memory transaction file format support
+  - [x] FTR loading
 - [x] [Fuzzy completion based command line interface](misc/surfer_ui_trimmed.mp4)
 - [x] Bit-vector translation
   - [x] Raw bits
@@ -185,12 +197,13 @@ As an indication of the status of the project, here is an incomplete list of sup
       - [x] A
       - [x] F
       - [x] D
-    - [ ] RV64
-    - [ ] arm
-    - [ ] Mips
+    - [x] RV64
+    - [ ] Arm
+    - [x] MIPS
   - [ ] Compressed integers
     - [x] LEB128 (also for other bitwidths than 128)
   - [ ] Custom translation via Python API
+  - [ ] Custom translation via WASM API
 - [x] Dividers
 - [x] Wave file reloading
 - [x] Saving and loading selected waves
@@ -202,6 +215,7 @@ As an indication of the status of the project, here is an incomplete list of sup
 - [x] VS Code [extension](https://marketplace.visualstudio.com/items?itemName=surfer-project.surfer)
 - [x] Remote support
   - [x] Serving wave forms from remote server
+  - [ ] Multi-file support for remote server
   - [ ] Remote control of Surfer
 - [x] Scripting
   - [x] Loading of commands on startup
