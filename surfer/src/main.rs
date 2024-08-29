@@ -556,7 +556,8 @@ pub struct State {
     variable_name_filter_type: VariableNameFilterType,
     variable_name_filter_case_insensitive: bool,
     rename_target: Option<DisplayedItemIndex>,
-
+    //Sidepanel width
+    sidepanel_width: Option<f32>,
     /// UI zoom factor if set by the user
     ui_zoom_factor: Option<f32>,
 
@@ -631,6 +632,7 @@ impl State {
             drag_source_idx: None,
             drag_target_idx: None,
             state_file: None,
+            sidepanel_width: None,
         };
 
         Ok(result)
@@ -773,8 +775,28 @@ impl State {
                     .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
                     .cloned()
                     .collect_vec();
+
+                let variable_len = variables.len();
+                let items_len = waves.displayed_items_order.len();
                 if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
                     self.load_variables(cmd);
+                }
+                if let (Some(DisplayedItemIndex(target_idx)), Some(_)) =
+                    (self.drag_target_idx, self.drag_source_idx)
+                {
+                    for i in 0..variable_len {
+                        let to_insert = self
+                            .waves
+                            .as_mut()
+                            .unwrap()
+                            .displayed_items_order
+                            .remove(items_len + i);
+                        self.waves
+                            .as_mut()
+                            .unwrap()
+                            .displayed_items_order
+                            .insert(target_idx + i, to_insert);
+                    }
                 }
                 self.invalidate_draw_commands();
             }
@@ -1883,7 +1905,7 @@ impl State {
                                 .as_mut()
                                 .unwrap()
                                 .displayed_items_order
-                                .insert(target_idx+i, to_insert);
+                                .insert(target_idx + i, to_insert);
                         }
                     } else {
                         if let Some(cmd) = self

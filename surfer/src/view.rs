@@ -304,9 +304,12 @@ impl State {
                     fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
-                .show(ctx, |ui| match self.config.layout.hierarchy_style {
-                    HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
-                    HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
+                .show(ctx, |ui| {
+                    self.sidepanel_width = Some(ui.clip_rect().width());
+                    match self.config.layout.hierarchy_style {
+                        HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
+                        HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
+                    }
                 });
         }
 
@@ -570,25 +573,30 @@ impl State {
                 self.waves.as_ref().unwrap().display_item_ref_counter.into(),
             ))
         });
+
         response.drag_stopped().then(|| {
-            let scope_t = ScopeType::WaveScope(scope.clone());
-            let variables = self
-                .waves
-                .as_ref()
-                .unwrap()
-                .inner
-                .variables_in_scope(&scope_t);
-            let variables = variables
-                .iter()
-                .filter_map(|var| match var {
-                    VarType::Variable(var) => Some(var.clone()),
-                    _ => None,
-                })
-                .collect_vec();
-            msgs.push(Message::AddDraggedVariables(self.filtered_variables(
-                variables.as_slice(),
-                self.sys.variable_name_filter.borrow_mut().as_str(),
-            )));
+            if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
+                > self.sidepanel_width.unwrap_or_default()
+            {
+                let scope_t = ScopeType::WaveScope(scope.clone());
+                let variables = self
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .inner
+                    .variables_in_scope(&scope_t)
+                    .iter()
+                    .filter_map(|var| match var {
+                        VarType::Variable(var) => Some(var.clone()),
+                        _ => None,
+                    })
+                    .collect_vec();
+
+                msgs.push(Message::AddDraggedVariables(self.filtered_variables(
+                    variables.as_slice(),
+                    self.sys.variable_name_filter.borrow_mut().as_str(),
+                )));
+            }
         });
         if self.show_tooltip() {
             response = response.on_hover_text(scope_tooltip_text(wave, scope));
@@ -738,7 +746,11 @@ impl State {
                         ))
                     });
                     response.drag_stopped().then(|| {
-                        msgs.push(Message::AddDraggedVariables(vec![variable.clone()]));
+                        if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
+                            > self.sidepanel_width.unwrap_or_default()
+                        {
+                            msgs.push(Message::AddDraggedVariables(vec![variable.clone()]));
+                        }
                     });
                     response
                         .clicked()
