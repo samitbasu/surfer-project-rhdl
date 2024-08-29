@@ -14,12 +14,9 @@ use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 
-use surfer_translation_types::{
-    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
-};
-
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
+use crate::data_container::VariableType as VarType;
 use crate::displayed_item::{
     draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
 };
@@ -42,7 +39,9 @@ use crate::{
     Message, MoveDir, State,
 };
 use crate::{config::SurferTheme, wave_container::VariableMeta};
-
+use surfer_translation_types::{
+    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
+};
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
     pub cfg: &'a DrawConfig,
@@ -305,9 +304,12 @@ impl State {
                     fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
-                .show(ctx, |ui| match self.config.layout.hierarchy_style {
-                    HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
-                    HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
+                .show(ctx, |ui| {
+                    self.sidepanel_width = Some(ui.clip_rect().width());
+                    match self.config.layout.hierarchy_style {
+                        HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
+                        HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
+                    }
                 });
         }
 
@@ -565,7 +567,37 @@ impl State {
             wave.active_scope == Some(ScopeType::WaveScope(scope.clone())),
             name,
         ));
+        let _ = response.interact(egui::Sense::click_and_drag());
+        response.drag_started().then(|| {
+            msgs.push(Message::VariableDragStarted(
+                self.waves.as_ref().unwrap().display_item_ref_counter.into(),
+            ))
+        });
 
+        response.drag_stopped().then(|| {
+            if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
+                > self.sidepanel_width.unwrap_or_default()
+            {
+                let scope_t = ScopeType::WaveScope(scope.clone());
+                let variables = self
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .inner
+                    .variables_in_scope(&scope_t)
+                    .iter()
+                    .filter_map(|var| match var {
+                        VarType::Variable(var) => Some(var.clone()),
+                        _ => None,
+                    })
+                    .collect_vec();
+
+                msgs.push(Message::AddDraggedVariables(self.filtered_variables(
+                    variables.as_slice(),
+                    self.sys.variable_name_filter.borrow_mut().as_str(),
+                )));
+            }
+        });
         if self.show_tooltip() {
             response = response.on_hover_text(scope_tooltip_text(wave, scope));
         }
@@ -701,11 +733,25 @@ impl State {
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
                     let mut response = ui.add(egui::SelectableLabel::new(false, variable_name));
+                    let _ = response.interact(egui::Sense::click_and_drag());
+
                     if self.show_tooltip() {
                         // Should be possible to reuse the meta from above?
                         let meta = wave_container.variable_meta(&variable).ok();
                         response = response.on_hover_text(variable_tooltip_text(&meta, &variable));
                     }
+                    response.drag_started().then(|| {
+                        msgs.push(Message::VariableDragStarted(
+                            self.waves.as_ref().unwrap().display_item_ref_counter.into(),
+                        ))
+                    });
+                    response.drag_stopped().then(|| {
+                        if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
+                            > self.sidepanel_width.unwrap_or_default()
+                        {
+                            msgs.push(Message::AddDraggedVariables(vec![variable.clone()]));
+                        }
+                    });
                     response
                         .clicked()
                         .then(|| msgs.push(Message::AddVariables(vec![variable.clone()])));
