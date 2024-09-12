@@ -59,6 +59,10 @@ pub enum Graphic {
         to: (GrPoint, Direction),
         text: String,
     },
+    Text {
+        pos: (GrPoint, Direction),
+        text: String,
+    },
 }
 
 impl WaveData {
@@ -116,6 +120,27 @@ impl WaveData {
                         ctx.painter.text(
                             (ctx.to_screen)(to_x, to_y),
                             Align2([Align::LEFT, Align::Center]),
+                            text,
+                            FontId::monospace(15.),
+                            Color32::YELLOW,
+                        );
+                    }
+                }
+                Graphic::Text {
+                    pos: (pos, dir),
+                    text,
+                } => {
+                    let to_x = viewport.pixel_from_time(&pos.x, size.x, &self.num_timestamps());
+                    let to_y = self.get_item_y(&pos.y);
+                    if let Some(to_y) = to_y {
+                        ctx.painter.text(
+                            (ctx.to_screen)(to_x, to_y),
+                            match dir {
+                                Direction::North => Align2([Align::Center, Align::TOP]),
+                                Direction::East => Align2([Align::LEFT, Align::Center]),
+                                Direction::South => Align2([Align::Center, Align::BOTTOM]),
+                                Direction::West => Align2([Align::RIGHT, Align::Center]),
+                            },
                             text,
                             FontId::monospace(15.),
                             Color32::YELLOW,

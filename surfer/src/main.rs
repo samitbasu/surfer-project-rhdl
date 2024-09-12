@@ -1648,6 +1648,17 @@ impl State {
             Message::FileDownloaded(url, bytes, load_options) => {
                 self.load_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
             }
+            Message::SetConfigFromString(s) => {
+                // FIXME think about a structured way to collect errors
+                if let Ok(config) =
+                    SurferConfig::new_from_toml(&s).with_context(|| "Failed to load config file")
+                {
+                    self.config = config;
+                    if let Some(ctx) = &self.sys.context.as_ref() {
+                        ctx.set_visuals(self.get_visuals())
+                    }
+                }
+            }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
                 if let Ok(config) =
@@ -1986,6 +1997,13 @@ impl State {
                     }
                 }
             }
+            Message::SetViewportStrategy(s) => {
+                if let Some(waves) = &mut self.waves {
+                    for vp in &mut waves.viewports {
+                        vp.move_strategy = s
+                    }
+                }
+            }
             Message::Undo(count) => {
                 if let Some(waves) = &mut self.waves {
                     for _ in 0..count {
@@ -2055,6 +2073,11 @@ impl State {
             Message::AddGraphic(id, g) => {
                 if let Some(waves) = &mut self.waves {
                     waves.graphics.insert(id, g);
+                }
+            }
+            Message::RemoveGraphic(id) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.retain(|k, _| k != &id)
                 }
             }
         }
