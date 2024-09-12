@@ -6,7 +6,7 @@ use num::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    displayed_item::DisplayedItemRef, view::DrawingContext, viewport::Viewport, wave_data::WaveData,
+    config::SurferTheme, displayed_item::DisplayedItemRef, view::DrawingContext, viewport::Viewport, wave_data::WaveData
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -21,9 +21,9 @@ impl Direction {
     pub fn as_vector(&self) -> Vec2 {
         match self {
             Direction::North => Vec2::new(0., -1.),
-            Direction::East => Vec2::new(1., 0.),
+            Direction::East => Vec2::new(-1., 0.),
             Direction::South => Vec2::new(0., 1.),
-            Direction::West => Vec2::new(-1., 0.),
+            Direction::West => Vec2::new(1., 0.),
         }
     }
 }
@@ -81,7 +81,14 @@ impl WaveData {
             .map(|point| point - self.top_item_draw_offset)
     }
 
-    pub(crate) fn draw_graphics(&self, ctx: &mut DrawingContext, size: Vec2, viewport: &Viewport) {
+    pub(crate) fn draw_graphics(
+        &self,
+        ctx: &mut DrawingContext,
+        size: Vec2,
+        viewport: &Viewport,
+        theme: &SurferTheme
+    ) {
+        let color = theme.variable_dontcare;
         for (_, g) in &self.graphics {
             match g {
                 Graphic::TextArrow {
@@ -99,19 +106,19 @@ impl WaveData {
 
                     if let (Some(from_y), Some(to_y)) = (from_y, to_y) {
                         let from_dir = from_dir.as_vector() * 30.;
-                        let to_dir = to_dir.as_vector() * 30.;
+                        let to_dir_vec = to_dir.as_vector() * 30.;
                         let shape = Shape::CubicBezier(CubicBezierShape {
                             points: [
                                 (ctx.to_screen)(from_x, from_y),
                                 (ctx.to_screen)(from_x + from_dir.x, from_y + from_dir.y),
-                                (ctx.to_screen)(to_x + to_dir.x, to_y + to_dir.y),
+                                (ctx.to_screen)(to_x + to_dir_vec.x, to_y + to_dir_vec.y),
                                 (ctx.to_screen)(to_x, to_y),
                             ],
                             closed: false,
                             fill: Color32::TRANSPARENT,
                             stroke: Stroke {
                                 width: 3.,
-                                color: Color32::YELLOW,
+                                color,
                             }
                             .into(),
                         });
@@ -119,10 +126,15 @@ impl WaveData {
 
                         ctx.painter.text(
                             (ctx.to_screen)(to_x, to_y),
-                            Align2([Align::LEFT, Align::Center]),
+                            match to_dir {
+                                Direction::North => Align2([Align::Center, Align::TOP]),
+                                Direction::East => Align2([Align::LEFT, Align::Center]),
+                                Direction::South => Align2([Align::Center, Align::BOTTOM]),
+                                Direction::West => Align2([Align::RIGHT, Align::Center]),
+                            },
                             text,
                             FontId::monospace(15.),
-                            Color32::YELLOW,
+                            color,
                         );
                     }
                 }
@@ -143,7 +155,7 @@ impl WaveData {
                             },
                             text,
                             FontId::monospace(15.),
-                            Color32::YELLOW,
+                            color,
                         );
                     }
                 }

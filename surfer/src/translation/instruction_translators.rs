@@ -4,6 +4,7 @@ use super::{
 use crate::wave_container::{ScopeId, VarId, VariableMeta};
 
 use color_eyre::Result;
+use egui::Color32;
 use instruction_decoder::Decoder;
 use surfer_translation_types::{BasicTranslator, VariableValue};
 
@@ -32,7 +33,15 @@ impl BasicTranslator<VarId, ScopeId> for InstructionTranslator {
             .decoder
             .decode_from_i64(u64_value as i64, num_bits as usize)
         {
-            Ok(iform) => (iform, ValueKind::Normal),
+            // TODO: Undo this change
+            Ok(iform) => (
+                iform.clone(),
+                if iform == "addi zero, zero, 0" {
+                    ValueKind::Custom(Color32::DARK_GRAY)
+                } else {
+                    ValueKind::Normal
+                },
+            ),
             _ => (
                 format!(
                     "UNKNOWN INSN ({:#0width$x})",

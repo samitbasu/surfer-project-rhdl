@@ -1,6 +1,7 @@
 // The functions here are only used
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use futures::executor::block_on;
@@ -31,7 +32,7 @@ struct Callback {
 
 lazy_static! {
     pub static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
-    static ref QUERY_QUEUE: tokio::sync::Mutex<Vec<Callback>> = tokio::sync::Mutex::new(vec![]);
+    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> = tokio::sync::Mutex::new(VecDeque::new());
 }
 
 pub fn try_repaint() {
@@ -55,7 +56,8 @@ pub fn inject_message(message: &str) {
             try_repaint()
         }
         Err(e) => {
-            error!("When injecting {message} {e:#?}")
+            error!("When injecting message {message}:");
+            error!(" Injection failed{e:#?}")
         }
     }
 }
@@ -65,7 +67,7 @@ pub async fn id_of_name(name: String) -> Option<usize> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let result = Arc::new(tokio::sync::Mutex::new(None));
     let result_clone = result.clone();
-    QUERY_QUEUE.lock().await.push(Callback {
+    QUERY_QUEUE.lock().await.push_back(Callback {
         function: Box::new(move |state| {
             if let Some(waves) = &state.waves {
                 *block_on(result_clone.lock()) = waves
@@ -141,7 +143,7 @@ where
     let (tx, rx) = tokio::sync::oneshot::channel();
     let result = Arc::new(tokio::sync::Mutex::new(None));
     let result_clone = result.clone();
-    QUERY_QUEUE.lock().await.push(Callback {
+    QUERY_QUEUE.lock().await.push_back(Callback {
         function: Box::new(move |state| *block_on(result_clone.lock()) = query(state)),
         executed: tx,
     });
@@ -204,7 +206,7 @@ impl State {
             self.update(msg);
         }
 
-        while let Some(cb) = block_on(QUERY_QUEUE.lock()).pop() {
+        while let Some(cb) = block_on(QUERY_QUEUE.lock()).pop_front() {
             (cb.function)(self);
             let _ = cb.executed.send(());
         }

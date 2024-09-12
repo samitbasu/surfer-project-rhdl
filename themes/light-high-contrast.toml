@@ -12,8 +12,8 @@ secondary_ui_color = { background = "f0f0f0", foreground = "000000" } # bg-dim, 
 accent_info = { background = "a0132f", foreground = "000000" } # red-cooler, fg-main
 accent_warn = { background = "d79921", foreground = "000000" } # TODO I don't know how to trigger these.
 accent_error = { background = "cc241f", foreground = "000000" } # TODO
-clock_highlight_line = { color = "f0f0f0", width = 2 } # bg-dim
-clock_highlight_cycle = "f0f0f0" # bg-dim972500
+clock_highlight_line = { color = "707070", width = 2 } # bg-dim
+clock_highlight_cycle = "707070" # bg-dim972500
 clock_rising_marker = true
 variable_default = "009900" # custom green
 variable_undef = "ff0000" # custom red
