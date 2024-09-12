@@ -14,6 +14,7 @@ use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
 };
 use crate::translation::DynTranslator;
+use crate::viewport::ViewportStrategy;
 use crate::wave_data::ScopeType;
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -239,6 +240,7 @@ pub enum Message {
     VariableValueToClipbord(Option<DisplayedItemIndex>),
     InvalidateDrawCommands,
     AddGraphic(GraphicId, Graphic),
+    RemoveGraphic(GraphicId),
 
     /// Variable dragging messages
     VariableDragStarted(DisplayedItemIndex),
@@ -251,6 +253,9 @@ pub enum Message {
     /// Pause the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
     PauseSimulation,
+
+    SetViewportStrategy(ViewportStrategy),
+    SetConfigFromString(String),
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),
@@ -267,3 +272,4 @@ pub enum Message {
     Exit,
     AsyncDone(AsyncJob),
 }
+
