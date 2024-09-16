@@ -32,7 +32,8 @@ struct Callback {
 
 lazy_static! {
     pub static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
-    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> = tokio::sync::Mutex::new(VecDeque::new());
+    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> =
+        tokio::sync::Mutex::new(VecDeque::new());
 }
 
 pub fn try_repaint() {
@@ -134,7 +135,6 @@ pub async fn draw_text_arrow(
         try_repaint()
     }
 }
-
 
 async fn perform_query<T>(query: Box<dyn FnOnce(&State) -> Option<T> + Send + Sync>) -> Option<T>
 where
