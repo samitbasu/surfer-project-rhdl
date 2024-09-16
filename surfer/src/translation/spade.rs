@@ -62,7 +62,7 @@ impl SpadeTranslator {
             .context("Failed to initialize ron deserializer")?;
         let de = serde_stacker::Deserializer::new(&mut de);
         let state = CompilerState::deserialize(de)
-            .with_context(|| format!("Failed to decode spade state"))?;
+            .with_context(|| format!("Failed to decode Spade state"))?;
 
         let path = top_name
             .split("::")
@@ -71,7 +71,7 @@ impl SpadeTranslator {
             .symtab
             .symtab()
             .lookup_unit(&Path(path.collect()).nowhere())
-            .map_err(|_| anyhow!("Did not find a unit {top_name} in spade state"))?;
+            .map_err(|_| anyhow!("Did not find a unit {top_name} in Spade state"))?;
 
         Ok(Self {
             state,

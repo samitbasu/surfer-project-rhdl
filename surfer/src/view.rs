@@ -1317,7 +1317,7 @@ impl State {
                                 info,
                                 ui,
                                 ctx,
-                                levels_to_force_expand.clone().map(|l| l.saturating_sub(1)),
+                                levels_to_force_expand.map(|l| l.saturating_sub(1)),
                             );
                         }
                     });
