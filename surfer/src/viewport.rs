@@ -74,7 +74,6 @@ impl From<&BigInt> for Absolute {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Viewport {
     pub curr_left: Relative,

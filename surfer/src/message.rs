@@ -285,4 +285,3 @@ pub enum Message {
     Exit,
     AsyncDone(AsyncJob),
 }
-
