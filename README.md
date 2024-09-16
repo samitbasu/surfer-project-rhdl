@@ -7,7 +7,7 @@
 
 A waveform viewer with a focus on a snappy usable interface, and extensibility.
 
-![A screenshot of surfer](misc/screenshot.png)
+![A screenshot of surfer](snapshots/render_readme_screenshot.png)
 
 ## Development Discussion
 
@@ -71,10 +71,10 @@ To compile a version in your local repo without installing it anywhere:
 git clone git@gitlab.com:surfer-project/surfer.git
 cd surfer
 git submodule update --init --recursive
-cargo build
+cargo build --release
 ```
 
-If all goes well, the `surfer` executable can found in `./target/debug/`.
+If all goes well, the `surfer` executable can found in `./target/release/`.
 You can run it from there, or you can use `cargo run --bin surfer`.
 
 You can install your own version of surfer with `cargo install --path surfer`.
