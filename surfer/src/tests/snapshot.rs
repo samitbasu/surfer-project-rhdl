@@ -48,7 +48,13 @@ fn print_image(img: &DynamicImage) {
     }
 }
 
-pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
+pub(crate) fn render_and_compare_inner(
+    filename: &Path,
+    state: impl Fn() -> State,
+    size: Vec2,
+    feathering: bool,
+    threshold_score: f64,
+) {
     info!("test up and running");
 
     // https://tokio.rs/tokio/topics/bridging
@@ -74,7 +80,6 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     let mut state = state();
     state.config.layout.show_statusbar = false;
 
-    let size = Vec2::new(1280., 720.);
     let size_i = (size.x as i32, size.y as i32);
 
     let mut surface =
@@ -84,7 +89,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
     draw_onto_surface(
         &mut surface,
         |ctx| {
-            ctx.memory_mut(|mem| mem.options.tessellation_options.feathering = false);
+            ctx.memory_mut(|mem| mem.options.tessellation_options.feathering = feathering);
             ctx.set_visuals(state.get_visuals());
             setup_custom_font(ctx);
             state.draw(ctx, Some(size));
@@ -116,7 +121,7 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
         // comparator.create_image_rgb(&prev_imgref.as_ref(), width, height);
 
         let (score, map) = (result.score, result.image);
-        (score <= 0.99999, Some((score, map)))
+        (score <= threshold_score, Some((score, map)))
     } else {
         (true, None)
     };
@@ -172,6 +177,10 @@ pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
         }
         (false, _) => {}
     }
+}
+
+pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
+    render_and_compare_inner(filename, state, Vec2::new(1280., 720.), false, 0.99999)
 }
 
 macro_rules! snapshot_ui {
@@ -286,6 +295,101 @@ macro_rules! snapshot_ui_with_theme {
             Message::SelectTheme(Some($theme.to_string()))
         ]}
     };
+}
+
+#[test]
+fn render_readme_screenshot() {
+    render_and_compare_inner(
+        &PathBuf::from("render_readme_screenshot"),
+        || {
+            let mut state = State::new_default_config()
+                .unwrap()
+                .with_params(StartupParams {
+                    waves: Some(WaveSource::File(
+                        get_project_root()
+                            .unwrap()
+                            .join("examples/picorv32.vcd")
+                            .try_into()
+                            .unwrap(),
+                    )),
+                    spade_top: None,
+                    spade_state: None,
+                    startup_commands: vec![],
+                });
+
+            let load_start = std::time::Instant::now();
+
+            loop {
+                state.handle_async_messages();
+                state.handle_batch_commands();
+
+                if state.waves_fully_loaded() {
+                    break;
+                }
+
+                if load_start.elapsed().as_secs() > 100 {
+                    panic!("Timeout")
+                }
+            }
+            let msgs = vec![
+                Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+                    "testbench",
+                    "top",
+                ]))),
+                Message::AddVariables(vec![
+                    VariableRef::from_hierarchy_string("testbench.top.clk"),
+                    VariableRef::from_hierarchy_string("testbench.top.uut.pcpi_insn"),
+                    VariableRef::from_hierarchy_string(
+                        "testbench.top.uut.picorv32_core.mem_do_rinst",
+                    ),
+                ]),
+                Message::VariableFormatChange(
+                    DisplayedFieldRef {
+                        item: DisplayedItemRef(1),
+                        field: vec![],
+                    },
+                    String::from("Clock"),
+                ),
+                Message::VariableFormatChange(
+                    DisplayedFieldRef {
+                        item: DisplayedItemRef(2),
+                        field: vec![],
+                    },
+                    String::from("RV32"),
+                ),
+                Message::FocusItem(DisplayedItemIndex(2)),
+                Message::AddDivider(None, None),
+                Message::AddDivider(Some("Top module:".to_string()), None),
+                Message::ItemColorChange(None, Some("green".to_string())),
+                Message::AddScope(ScopeRef::from_strs(&["testbench", "top"])),
+                Message::ZoomToRange {
+                    start: 1612078.to_bigint().unwrap(),
+                    end: 2176254.to_bigint().unwrap(),
+                    viewport_idx: 0,
+                },
+                Message::SetMarker {
+                    id: 0,
+                    time: 1764339.to_bigint().unwrap(),
+                },
+                Message::ItemColorChange(None, Some("orange".to_string())),
+                Message::SetMarker {
+                    id: 1,
+                    time: 1912676.to_bigint().unwrap(),
+                },
+                Message::ItemColorChange(None, Some("violet".to_string())),
+                Message::CursorSet(1820000.to_bigint().unwrap()),
+            ];
+            state.add_startup_messages(msgs);
+
+            // make sure all the signals added by the proceeding messages are properly loaded
+            wait_for_waves_fully_loaded(&mut state, 10);
+
+            state
+        },
+        Vec2::new(1440., 810.),
+        true,
+        0.99,
+    )
 }
 
 snapshot_ui! {startup_screen_looks_fine, || {
