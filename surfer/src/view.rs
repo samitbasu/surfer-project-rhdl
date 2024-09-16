@@ -174,6 +174,8 @@ impl eframe::App for State {
             ctx.set_zoom_factor(ui_zoom_factor);
         }
 
+        self.sys.items_to_expand.borrow_mut().clear();
+
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
             if let Message::Exit = msg {
@@ -197,6 +199,24 @@ impl eframe::App for State {
         self.handle_batch_commands();
         #[cfg(target_arch = "wasm32")]
         self.handle_wasm_external_messages();
+
+        let viewport_is_moving = if let Some(waves) = &mut self.waves {
+            let mut is_moving = false;
+            for vp in &mut waves.viewports {
+                if vp.is_moving() {
+                    vp.move_viewport(ctx.input(|i| i.stable_dt));
+                    is_moving = true;
+                }
+            }
+            is_moving
+        } else {
+            false
+        };
+
+        if viewport_is_moving {
+            self.invalidate_draw_commands();
+            ctx.request_repaint();
+        }
 
         // We can save some user battery life by not redrawing unless needed. At the moment,
         // we only need to continuously redraw to make surfer interactive during loading, otherwise
@@ -808,17 +828,31 @@ impl State {
                     .get(displayed_item_id)
                 {
                     let item_rect = match displayed_item {
-                        DisplayedItem::Variable(displayed_variable) => self.draw_variable(
-                            msgs,
-                            vidx,
-                            displayed_item,
-                            *displayed_item_id,
-                            FieldRef::without_fields(displayed_variable.variable_ref.clone()),
-                            &mut item_offsets,
-                            &displayed_variable.info,
-                            ui,
-                            ctx,
-                        ),
+                        DisplayedItem::Variable(displayed_variable) => {
+                            let levels_to_force_expand =
+                                self.sys.items_to_expand.borrow().iter().find_map(
+                                    |(id, levels)| {
+                                        if displayed_item_id == id {
+                                            Some(*levels)
+                                        } else {
+                                            None
+                                        }
+                                    },
+                                );
+
+                            self.draw_variable(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                *displayed_item_id,
+                                FieldRef::without_fields(displayed_variable.variable_ref.clone()),
+                                &mut item_offsets,
+                                &displayed_variable.info,
+                                ui,
+                                ctx,
+                                levels_to_force_expand,
+                            )
+                        }
                         DisplayedItem::Divider(_) => self.draw_plain_item(
                             msgs,
                             vidx,
@@ -1173,6 +1207,7 @@ impl State {
         info: &VariableInfo,
         ui: &mut egui::Ui,
         ctx: &egui::Context,
+        levels_to_force_expand: Option<usize>,
     ) -> Rect {
         let mut draw_label = |ui: &mut egui::Ui| {
             let style = ui.style_mut();
@@ -1251,34 +1286,41 @@ impl State {
         };
         match info {
             VariableInfo::Compound { subfields } => {
-                let response = egui::collapsing_header::CollapsingState::load_with_default_open(
+                let mut header = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
                     egui::Id::new(&field),
                     false,
-                )
-                .show_header(ui, |ui| {
-                    ui.with_layout(
-                        Layout::top_down(Align::LEFT).with_cross_justify(true),
-                        draw_label,
-                    );
-                })
-                .body(|ui| {
-                    for (name, info) in subfields {
-                        let mut new_path = field.clone();
-                        new_path.field.push(name.clone());
-                        self.draw_variable(
-                            msgs,
-                            vidx,
-                            displayed_item,
-                            displayed_id,
-                            new_path,
-                            drawing_infos,
-                            info,
-                            ui,
-                            ctx,
+                );
+
+                if let Some(level) = levels_to_force_expand {
+                    header.set_open(level > 0);
+                }
+
+                let response = header
+                    .show_header(ui, |ui| {
+                        ui.with_layout(
+                            Layout::top_down(Align::LEFT).with_cross_justify(true),
+                            draw_label,
                         );
-                    }
-                });
+                    })
+                    .body(|ui| {
+                        for (name, info) in subfields {
+                            let mut new_path = field.clone();
+                            new_path.field.push(name.clone());
+                            self.draw_variable(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                displayed_id,
+                                new_path,
+                                drawing_infos,
+                                info,
+                                ui,
+                                ctx,
+                                levels_to_force_expand.clone().map(|l| l.saturating_sub(1)),
+                            );
+                        }
+                    });
 
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     displayed_field_ref,

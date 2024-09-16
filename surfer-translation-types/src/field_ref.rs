@@ -13,6 +13,8 @@ pub struct FieldRef<VarId, ScopeId> {
 
 impl<VarId, ScopeId> Hash for FieldRef<VarId, ScopeId> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.root.hash(state)
+        let FieldRef { root, field } = self;
+        root.hash(state);
+        field.hash(state);
     }
 }

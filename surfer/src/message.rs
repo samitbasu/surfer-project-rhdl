@@ -14,6 +14,7 @@ use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
 };
 use crate::translation::DynTranslator;
+use crate::viewport::ViewportStrategy;
 use crate::wave_data::ScopeType;
 use crate::{
     clock_highlighting::ClockHighlightType,
@@ -111,6 +112,12 @@ pub enum Message {
     LoadFromData(Vec<u8>, LoadOptions),
     #[cfg(feature = "python")]
     LoadPythonTranslator(Utf8PathBuf),
+    /// Load a spade translator using the specified top and the specified state encoded as ron.
+    LoadSpadeTranslator {
+        top: String,
+        #[derivative(Debug = "ignore")]
+        state: String,
+    },
     #[cfg(not(target_arch = "wasm32"))]
     ConnectToCxxrtl(String),
     #[serde(skip)]
@@ -239,6 +246,7 @@ pub enum Message {
     VariableValueToClipbord(Option<DisplayedItemIndex>),
     InvalidateDrawCommands,
     AddGraphic(GraphicId, Graphic),
+    RemoveGraphic(GraphicId),
 
     /// Variable dragging messages
     VariableDragStarted(DisplayedItemIndex),
@@ -251,6 +259,16 @@ pub enum Message {
     /// Pause the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
     PauseSimulation,
+    /// Expand the displayed item into subfields. Levels controls how many layers of subfields
+    /// are expanded. 0 unexpands it completely
+    ExpandDrawnItem {
+        item: DisplayedItemRef,
+        levels: usize,
+    },
+
+    SetViewportStrategy(ViewportStrategy),
+    SetConfigFromString(String),
+    AddCharToPrompt(char),
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),
@@ -267,3 +285,4 @@ pub enum Message {
     Exit,
     AsyncDone(AsyncJob),
 }
+
