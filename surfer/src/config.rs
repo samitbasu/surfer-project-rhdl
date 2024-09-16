@@ -546,7 +546,7 @@ impl SurferConfig {
     }
 
     pub fn new_from_toml(config: &str) -> Result<Self> {
-        Ok(toml::from_str(&config)?)
+        Ok(toml::from_str(config)?)
     }
 }
 

@@ -990,7 +990,7 @@ impl State {
             &mut ctx,
             response.rect.size(),
             &waves.viewports[viewport_idx],
-            &self.config.theme
+            &self.config.theme,
         );
 
         waves.draw_cursor(

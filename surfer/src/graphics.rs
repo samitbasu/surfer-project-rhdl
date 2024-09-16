@@ -6,7 +6,8 @@ use num::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::SurferTheme, displayed_item::DisplayedItemRef, view::DrawingContext, viewport::Viewport, wave_data::WaveData
+    config::SurferTheme, displayed_item::DisplayedItemRef, view::DrawingContext,
+    viewport::Viewport, wave_data::WaveData,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -86,7 +87,7 @@ impl WaveData {
         ctx: &mut DrawingContext,
         size: Vec2,
         viewport: &Viewport,
-        theme: &SurferTheme
+        theme: &SurferTheme,
     ) {
         let color = theme.variable_dontcare;
         for (_, g) in &self.graphics {
@@ -116,11 +117,7 @@ impl WaveData {
                             ],
                             closed: false,
                             fill: Color32::TRANSPARENT,
-                            stroke: Stroke {
-                                width: 3.,
-                                color,
-                            }
-                            .into(),
+                            stroke: Stroke { width: 3., color }.into(),
                         });
                         ctx.painter.add(shape);
 
