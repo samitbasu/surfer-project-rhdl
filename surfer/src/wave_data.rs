@@ -433,35 +433,6 @@ impl WaveData {
         res
     }
 
-    // <<<<<<< HEAD
-    //     pub fn remove_displayed_item(&mut self, count: usize, idx: DisplayedItemIndex) {
-    //         let idx = idx.0;
-    //         for _ in 0..count {
-    //             let visible_items_len = self.displayed_items_order.len();
-    //             if let Some(DisplayedItem::Marker(marker)) = self
-    //                 .displayed_items_order
-    //                 .get(idx)
-    //                 .and_then(|id| self.displayed_items.get(id))
-    //             {
-    //                 self.markers.remove(&marker.idx);
-    //             }
-    //             if visible_items_len > 0 && idx <= (visible_items_len - 1) {
-    //                 let displayed_item_id = self.displayed_items_order[idx];
-    //                 self.displayed_items_order.remove(idx);
-    //                 self.displayed_items.remove(&displayed_item_id);
-    //                 if let Some(DisplayedItemIndex(focused)) = self.focused_item {
-    //                     if focused == idx {
-    //                         if (idx > 0) && (idx == (visible_items_len - 1)) {
-    //                             // if the end of list is selected
-    //                             self.focused_item = Some((idx - 1).into());
-    //                         }
-    //                     } else if idx < focused {
-    //                         self.focused_item = Some((focused - 1).into());
-    //                     }
-    //                     if !self.any_displayed() {
-    //                         self.focused_item = None;
-    //                     }
-    // =======
     pub fn remove_displayed_item(&mut self, id: DisplayedItemRef) {
         if let Some(idx) = self
             .displayed_items_order
@@ -632,7 +603,11 @@ impl WaveData {
     /// Insert item after item vidx if Some(vidx).
     /// If None, insert after focused item if there is one, otherwise insert at the end.
     /// Focus on the inserted item if there was a focues item.
-    fn insert_item(&mut self, new_item: DisplayedItem, vidx: Option<DisplayedItemIndex>) {
+    pub(crate) fn insert_item(
+        &mut self,
+        new_item: DisplayedItem,
+        vidx: Option<DisplayedItemIndex>,
+    ) {
         if let Some(DisplayedItemIndex(current_idx)) = vidx {
             let insert_idx = current_idx + 1;
             let id = self.next_displayed_item_ref();
