@@ -5771,9 +5771,9 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b75fb0cac42f6336ef4125eac91d7f39a0823c5d98490cbd1afe6d9b5703d1bf"
+checksum = "73ce167e6979afe07e7d1f9efd4ceb5fce2f87f6c9939c70a2520d7ff4a3d2db"
 dependencies = [
  "bytesize",
  "fst-native",
