@@ -323,7 +323,7 @@ impl BasicTranslator<VarId, ScopeId> for PositQuire16Translator {
 fn decode_e5m2(v: u8) -> String {
     let mant = v & 3;
     let exp = v >> 2 & 31;
-    let sign: i8 = 1 - (v >> 6) as i8; // 1 - 2*signbit
+    let sign: i8 = 1 - ((v >> 6) & 2) as i8; // 1 - 2*signbit
     match (exp, mant) {
         (31, 0) => "∞".to_string(),
         (31, ..) => "NaN".to_string(),
@@ -366,7 +366,7 @@ impl BasicTranslator<VarId, ScopeId> for E5M2Translator {
 fn decode_e4m3(v: u8) -> String {
     let mant = v & 7;
     let exp = v >> 3 & 15;
-    let sign: i8 = 1 - (v >> 6) as i8; // 1 - 2*signbit
+    let sign: i8 = 1 - ((v >> 6) & 2) as i8; // 1 - 2*signbit
     match (exp, mant) {
         (15, 7) => "NaN".to_string(),
         (0, 0) => {
@@ -523,6 +523,18 @@ mod test {
                 .0,
             "0"
         );
+        assert_eq!(
+            E4M3Translator {}
+                .basic_translate(8, &VariableValue::String("11110111".to_string()))
+                .0,
+            "-240"
+        );
+        assert_eq!(
+            E4M3Translator {}
+                .basic_translate(8, &VariableValue::String("01000000".to_string()))
+                .0,
+            "2"
+        );
     }
 
     #[test]
@@ -566,6 +578,18 @@ mod test {
                 .basic_translate(8, &VariableValue::String("00000000".to_string()))
                 .0,
             "0"
+        );
+        assert_eq!(
+            E5M2Translator {}
+                .basic_translate(8, &VariableValue::String("11111011".to_string()))
+                .0,
+            "-57344"
+        );
+        assert_eq!(
+            E5M2Translator {}
+                .basic_translate(8, &VariableValue::String("01000000".to_string()))
+                .0,
+            "2"
         );
     }
 
