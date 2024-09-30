@@ -15,6 +15,15 @@
     <base data-trunk-public-url />
 
 
+    <script>
+        function on_surfer_error(msg) {
+            console.log("Setting error message")
+            document.getElementById("error_message").innerHTML = msg
+            document.getElementById("error_container").style.display = "block"
+        }
+        window.on_surfer_error = on_surfer_error;
+    </script>
+
 
     <link data-trunk rel="copy-file" href="assets/sw.js" />
     <link data-trunk rel="copy-file" href="assets/manifest.json" />
@@ -109,6 +118,26 @@
             }
         }
 
+        #error_container {
+            padding: 1em;
+            border-radius: 0.5em;
+            margin: 0px auto;
+            max-width: 980px;
+            color: #ffffff;
+            background-color: black;
+            position: relative;
+            height: 90%;
+            overflow: scroll;
+        }
+
+        #error_container a {
+            color: #ff9999;
+        }
+
+        #error_message {
+            overflow: scroll;
+            white-space: break-spaces;
+        }
     </style>
 </head>
 
@@ -116,6 +145,27 @@
     <!-- The WASM code will resize the canvas dynamically -->
     <!-- the id is hardcoded in main.rs . so, make sure both match. -->
     <canvas id="the_canvas_id"></canvas>
+
+    <div id="error_container" style="display: none;">
+        <h1>Sorry, Surfer crashed 🔥</h1>
+        <p>
+            Something caused Surfer to crash. Please report the error on
+            <a href="https://gitlab.com/surfer-project/surfer/-/issues/new">
+                gitlab
+            </a>
+        </p>
+        <p>
+            Any report is appreciated, but it is extra helpful if you can attach the waveform that caused
+            the crash and/or the steps to reproduce the crash.
+        </p>
+        <h3>
+            Backtrace:
+        </h3>
+        <div class="error_container">
+            <!-- This is filled in by javascript -->
+            <code id="error_message"></code>
+        </div>
+    </div>
 
     <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
     <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
