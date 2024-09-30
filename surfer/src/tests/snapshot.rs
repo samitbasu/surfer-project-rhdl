@@ -2114,7 +2114,7 @@ snapshot_ui!(arrow_drawing, || {
                         anchor: crate::graphics::Anchor::Top,
                     },
                 },
-                Direction::East,
+                Direction::West,
             ),
             to: (
                 GrPoint {
@@ -2124,7 +2124,7 @@ snapshot_ui!(arrow_drawing, || {
                         anchor: crate::graphics::Anchor::Top,
                     },
                 },
-                Direction::West,
+                Direction::East,
             ),
             text: "A".to_string(),
         },
@@ -2166,7 +2166,7 @@ snapshot_ui!(arrow_drawing, || {
                         anchor: crate::graphics::Anchor::Top,
                     },
                 },
-                Direction::West,
+                Direction::East,
             ),
             to: (
                 GrPoint {
@@ -2176,7 +2176,7 @@ snapshot_ui!(arrow_drawing, || {
                         anchor: crate::graphics::Anchor::Center,
                     },
                 },
-                Direction::East,
+                Direction::West,
             ),
             text: "C".to_string(),
         },
@@ -2189,7 +2189,7 @@ snapshot_ui!(arrow_drawing, || {
                     x: 40u32.to_bigint().unwrap(),
                     y: crate::graphics::GraphicsY {
                         item: idxes[1],
-                        anchor: crate::graphics::Anchor::Top,
+                        anchor: crate::graphics::Anchor::Center,
                     },
                 },
                 Direction::South,
@@ -2205,6 +2205,32 @@ snapshot_ui!(arrow_drawing, || {
                 Direction::North,
             ),
             text: "D".to_string(),
+        },
+    ));
+    state.update(Message::AddGraphic(
+        GraphicId(4),
+        Graphic::TextArrow {
+            from: (
+                GrPoint {
+                    x: 45u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[3],
+                        anchor: crate::graphics::Anchor::Top,
+                    },
+                },
+                Direction::North,
+            ),
+            to: (
+                GrPoint {
+                    x: 50u32.to_bigint().unwrap(),
+                    y: crate::graphics::GraphicsY {
+                        item: idxes[1],
+                        anchor: crate::graphics::Anchor::Center,
+                    },
+                },
+                Direction::South,
+            ),
+            text: "E".to_string(),
         },
     ));
     wait_for_waves_fully_loaded(&mut state, 10);

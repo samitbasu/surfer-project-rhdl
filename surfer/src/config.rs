@@ -499,8 +499,7 @@ fn default_colors() -> HashMap<String, Color32> {
 impl SurferConfig {
     #[cfg(target_arch = "wasm32")]
     pub fn new(_force_default_config: bool) -> Result<Self> {
-        let default_config = String::from(include_str!("../../default_config.toml"));
-        Ok(toml::from_str(&default_config)?)
+        Self::new_from_toml(&include_str!("../../default_config.toml"))
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -544,6 +543,10 @@ impl SurferConfig {
             .build()?
             .try_deserialize()
             .map_err(|e| anyhow!("Failed to parse config {e}"))
+    }
+
+    pub fn new_from_toml(config: &str) -> Result<Self> {
+        Ok(toml::from_str(config)?)
     }
 }
 

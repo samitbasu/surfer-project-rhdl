@@ -38,7 +38,7 @@ pub struct SpadeTranslator {
     state: CompilerState,
     top: NameID,
     top_name: String,
-    state_file: Utf8PathBuf,
+    state_file: Option<Utf8PathBuf>,
 }
 
 impl SpadeTranslator {
@@ -46,14 +46,23 @@ impl SpadeTranslator {
         let file_content = std::fs::read_to_string(state_file)
             .with_context(|| format!("Failed to read {state_file}"))?;
 
+        Self::new_from_string(top_name, &file_content, Some(state_file.to_path_buf()))
+            .context("When loading Spade state from {state_file}")
+    }
+
+    pub fn new_from_string(
+        top_name: &str,
+        state_content: &str,
+        state_file: Option<Utf8PathBuf>,
+    ) -> Result<Self> {
         let mut opt = ron::Options::default();
         opt.recursion_limit = None;
 
-        let mut de = ron::Deserializer::from_str_with_options(&file_content, opt)
+        let mut de = ron::Deserializer::from_str_with_options(state_content, opt)
             .context("Failed to initialize ron deserializer")?;
         let de = serde_stacker::Deserializer::new(&mut de);
         let state = CompilerState::deserialize(de)
-            .with_context(|| format!("Failed to decode {state_file}"))?;
+            .with_context(|| format!("Failed to decode Spade state"))?;
 
         let path = top_name
             .split("::")
@@ -62,14 +71,28 @@ impl SpadeTranslator {
             .symtab
             .symtab()
             .lookup_unit(&Path(path.collect()).nowhere())
-            .map_err(|_| anyhow!("Did not find a unit {top_name} in {state_file}"))?;
+            .map_err(|_| anyhow!("Did not find a unit {top_name} in Spade state"))?;
 
         Ok(Self {
             state,
             top,
             top_name: top_name.to_string(),
-            state_file: state_file.into(),
+            state_file,
         })
+    }
+
+    pub fn init(top_name: &str, state: &str, sender: Sender<Message>) {
+        let top_name = top_name.to_string();
+        let state_clone = state.to_string();
+        perform_work(move || {
+            let t = SpadeTranslator::new_from_string(&top_name, &state_clone, None);
+            match t {
+                Ok(result) => sender
+                    .send(Message::TranslatorLoaded(Box::new(result)))
+                    .unwrap(),
+                Err(e) => sender.send(Message::Error(e)).unwrap(),
+            }
+        });
     }
 
     pub fn load(
@@ -208,7 +231,7 @@ impl Translator<VarId, ScopeId, Message> for SpadeTranslator {
         Self::load(
             &None,
             &Some(self.top_name.clone()),
-            &Some(self.state_file.clone()),
+            &self.state_file,
             sender,
         );
     }

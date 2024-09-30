@@ -642,6 +642,11 @@ pub fn show_command_prompt(
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
                 let input = &mut *state.sys.command_prompt_text.borrow_mut();
+                let new_c = *state.sys.char_to_add_to_prompt.borrow();
+                if let Some(c) = new_c {
+                    input.push(c);
+                    *state.sys.char_to_add_to_prompt.borrow_mut() = None;
+                }
                 let response = ui.add(
                     TextEdit::singleline(input)
                         .desired_width(f32::INFINITY)
