@@ -39,6 +39,8 @@ mod variable_type;
 mod view;
 mod viewport;
 mod wasm_api;
+#[cfg(target_arch = "wasm32")]
+mod wasm_panic;
 mod wasm_util;
 mod wave_container;
 mod wave_data;
@@ -316,6 +318,8 @@ fn main() -> Result<()> {
         .chain(Box::new(eframe::WebLogger::new(log::LevelFilter::Debug)) as Box<dyn log::Log>);
 
     logs::setup_logging(web_log_config)?;
+
+    wasm_panic::set_once();
 
     let web_options = eframe::WebOptions::default();
 
