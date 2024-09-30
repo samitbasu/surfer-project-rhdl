@@ -32,6 +32,7 @@ impl BasicTranslator<VarId, ScopeId> for InstructionTranslator {
             .decoder
             .decode_from_i64(u64_value as i64, num_bits as usize)
         {
+            // TODO: Undo this change
             Ok(iform) => (iform, ValueKind::Normal),
             _ => (
                 format!(
