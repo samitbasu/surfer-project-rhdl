@@ -98,7 +98,7 @@ use crate::translation::{all_translators, AnyTranslator, TranslatorList};
 use crate::variable_name_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
 use crate::wasm_util::{perform_work, UrlArgs};
-use crate::wave_container::{ScopeRefExt, VariableRef, WaveContainer};
+use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, WaveContainer};
 use crate::wave_data::{ScopeType, WaveData};
 use crate::wave_source::{string_to_wavesource, LoadOptions, LoadProgress, WaveFormat, WaveSource};
 use crate::wellen::convert_format;
@@ -772,47 +772,9 @@ impl State {
                     waves.add_timeline(vidx);
                 }
             }
-            Message::AddScope(scope) => {
+            Message::AddScope(scope, recursive) => {
                 self.save_current_canvas(format!("Add scope {}", scope.name()));
-
-                let Some(waves) = self.waves.as_mut() else {
-                    warn!("Adding scope without waves loaded");
-                    return;
-                };
-
-                let variables = waves
-                    .inner
-                    .as_waves()
-                    .unwrap()
-                    .variables_in_scope(&scope)
-                    .iter()
-                    .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
-                    .cloned()
-                    .collect_vec();
-
-                let variable_len = variables.len();
-                let items_len = waves.displayed_items_order.len();
-                if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
-                    self.load_variables(cmd);
-                }
-                if let (Some(DisplayedItemIndex(target_idx)), Some(_)) =
-                    (self.drag_target_idx, self.drag_source_idx)
-                {
-                    for i in 0..variable_len {
-                        let to_insert = self
-                            .waves
-                            .as_mut()
-                            .unwrap()
-                            .displayed_items_order
-                            .remove(items_len + i);
-                        self.waves
-                            .as_mut()
-                            .unwrap()
-                            .displayed_items_order
-                            .insert(target_idx + i, to_insert);
-                    }
-                }
-                self.invalidate_draw_commands();
+                self.add_scope(scope, recursive);
             }
             Message::AddCount(digit) => {
                 if let Some(count) = &mut self.count {
@@ -2115,6 +2077,55 @@ impl State {
             }
             Message::AddCharToPrompt(c) => *self.sys.char_to_add_to_prompt.borrow_mut() = Some(c),
         }
+    }
+
+    fn add_scope(&mut self, scope: ScopeRef, recursive: bool) {
+        let Some(waves) = self.waves.as_mut() else {
+            warn!("Adding scope without waves loaded");
+            return;
+        };
+
+        let wave_cont = waves.inner.as_waves().unwrap();
+
+        let children = wave_cont.child_scopes(&scope);
+        let variables = wave_cont
+            .variables_in_scope(&scope)
+            .iter()
+            .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
+            .cloned()
+            .collect_vec();
+
+        let variable_len = variables.len();
+        let items_len = waves.displayed_items_order.len();
+        if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
+            self.load_variables(cmd);
+        }
+        if let (Some(DisplayedItemIndex(target_idx)), Some(_)) =
+            (self.drag_target_idx, self.drag_source_idx)
+        {
+            for i in 0..variable_len {
+                let to_insert = self
+                    .waves
+                    .as_mut()
+                    .unwrap()
+                    .displayed_items_order
+                    .remove(items_len + i);
+                self.waves
+                    .as_mut()
+                    .unwrap()
+                    .displayed_items_order
+                    .insert(target_idx + i, to_insert);
+            }
+        }
+
+        if recursive {
+            if let Ok(children) = children {
+                for child in children {
+                    self.add_scope(child, true);
+                }
+            }
+        }
+        self.invalidate_draw_commands();
     }
 
     fn on_waves_loaded(

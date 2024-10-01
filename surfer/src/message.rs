@@ -59,7 +59,7 @@ pub enum AsyncJob {
 pub enum Message {
     SetActiveScope(ScopeType),
     AddVariables(Vec<VariableRef>),
-    AddScope(ScopeRef),
+    AddScope(ScopeRef, bool),
     AddCount(char),
     AddStreamOrGenerator(TransactionStreamRef),
     AddStreamOrGeneratorFromName(Option<StreamScopeRef>, String),

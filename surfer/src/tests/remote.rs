@@ -104,7 +104,7 @@ snapshot_ui_remote!(
     example_vcd_renders,
     "examples/counter.vcd",
     [
-        Message::AddScope(ScopeRef::from_strs(&["tb"])),
-        Message::AddScope(ScopeRef::from_strs(&["tb", "dut"])),
+        Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
+        Message::AddScope(ScopeRef::from_strs(&["tb", "dut"]), false),
     ]
 );
