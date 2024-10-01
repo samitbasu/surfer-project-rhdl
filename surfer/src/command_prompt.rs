@@ -24,6 +24,7 @@ use emath::{Align, Align2, NumExt, Vec2};
 use epaint::{FontFamily, FontId};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
 use itertools::Itertools;
+use log::warn;
 
 type RestCommand = Box<dyn Fn(&str) -> Option<Command<Message>>>;
 
@@ -162,6 +163,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "item_rename",
             "zoom_fit",
             "scope_add",
+            "scope_add_recursive",
             "scope_select",
             "stream_add",
             "stream_select",
@@ -305,8 +307,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
                 "toggle_tick_lines" => Some(Command::Terminal(Message::ToggleTickLines)),
                 // scope commands
-                "scope_add" | "module_add" | "stream_add" => {
+                "scope_add" | "module_add" | "stream_add" | "scope_add_recursive" => {
+                    let recursive = query == "scope_add_recursive";
                     if is_transaction_container {
+                        if recursive {
+                            warn!("Cannot recursively add transaction containers");
+                        }
                         single_word(
                             scopes,
                             Box::new(|word| {
@@ -318,9 +324,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     } else {
                         single_word(
                             scopes,
-                            Box::new(|word| {
+                            Box::new(move |word| {
                                 Some(Command::Terminal(Message::AddScope(
                                     ScopeRef::from_hierarchy_string(word),
+                                    recursive,
                                 )))
                             }),
                         )
