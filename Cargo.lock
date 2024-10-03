@@ -1904,9 +1904,9 @@ dependencies = [
 
 [[package]]
 name = "fst-native"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25dd6d296401ddf3c26e65a5543a1551b9e7e7f802c464444a1d7b9c0ccc4d9b"
+checksum = "9a8e06986da3f0b7573db603629f8c22fa20dc8f60137001e776057b3b202c93"
 dependencies = [
  "flate2",
  "lz4_flex",
@@ -2881,9 +2881,9 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "memmap2"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe751422e4a8caa417e13c3ea66452215d7d63e19e604f4980461212f3ae1322"
+checksum = "fd3f7eed9d3848f8b98834af67102b720745c4ec028fcd0aa0239277e7de374f"
 dependencies = [
  "libc",
 ]
@@ -5771,9 +5771,9 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.11.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73ce167e6979afe07e7d1f9efd4ceb5fce2f87f6c9939c70a2520d7ff4a3d2db"
+checksum = "dcf704f99fb63ac46ee5b892792b6f229e77d5c2e405a1c920f8c0a8e958110b"
 dependencies = [
  "bytesize",
  "fst-native",
