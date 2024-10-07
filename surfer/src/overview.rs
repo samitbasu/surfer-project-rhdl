@@ -113,12 +113,12 @@ impl State {
         );
         response.dragged_by(PointerButton::Primary).then(|| {
             let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
-            let pos = pointer_pos_global
-                .map(|p| to_screen.inverse().transform_pos(p))
-                .unwrap();
-            let timestamp =
-                viewport_all.as_time_bigint(pos.x, frame_width, &waves.num_timestamps());
-            msgs.push(Message::GoToTime(Some(timestamp), 0));
+            let pos = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
+            if let Some(pos) = pos {
+                let timestamp =
+                    viewport_all.as_time_bigint(pos.x, frame_width, &waves.num_timestamps());
+                msgs.push(Message::GoToTime(Some(timestamp), 0));
+            }
         });
     }
 }
