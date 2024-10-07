@@ -96,7 +96,7 @@ fn color_for_binary_representation(s: &str) -> ValueKind {
 }
 
 /// Map to radix-based representation, in practice hex or octal
-fn map_to_radix(s: &String, radix: usize, num_bits: u64) -> (String, ValueKind) {
+fn map_to_radix(s: &str, radix: usize, num_bits: u64) -> (String, ValueKind) {
     let mut is_undef = false;
     let mut is_highimp = false;
     let mut is_dontcare = false;
