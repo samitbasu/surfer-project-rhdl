@@ -242,11 +242,8 @@ pub struct SurferTheme {
     /// Default transaction color
     pub transaction_default: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
-    // Color used for selected transaction
-    pub transaction_selected: Color32,
-    #[serde(deserialize_with = "deserialize_hex_color")]
-    // Color used for transaction outlines
-    pub transaction_outline: Color32,
+    // Color used for highlighting selected transaction
+    pub transaction_highlight: Color32,
     #[serde(deserialize_with = "deserialize_hex_color")]
     // Color used for relation arrows of transactions
     pub relation_arrow: Color32,
