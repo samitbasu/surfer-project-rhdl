@@ -1,6 +1,6 @@
 use color_eyre::eyre::WrapErr;
 use ecolor::Color32;
-use egui::{PointerButton, Response, Sense, Ui};
+use egui::{PointerButton, Response, Rgba, Sense, Ui};
 use egui_extras::{Column, TableBuilder};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use epaint::{CubicBezierShape, FontId, PathShape, PathStroke, RectShape, Rounding, Shape, Stroke};
@@ -457,7 +457,7 @@ impl State {
             }
 
             let mut last_times_on_row = vec![(BigUint::ZERO, BigUint::ZERO)];
-            for gen in generators {
+            for gen in &generators {
                 for tx in &gen.transactions {
                     let mut curr_row = 0;
                     let start_time = tx.get_start_time();
@@ -805,6 +805,7 @@ impl State {
                 let stream_to_displayed_txs = &draw_data.stream_to_displayed_txs;
                 let inc_relation_tx_ids = &draw_data.inc_relation_tx_ids;
                 let out_relation_tx_ids = &draw_data.out_relation_tx_ids;
+                let highlight_rgba = Rgba::from(self.config.theme.transaction_highlight);
 
                 let mut inc_relation_starts = vec![];
                 let mut out_relation_starts = vec![];
@@ -819,6 +820,7 @@ impl State {
                     &self.get_time_format(),
                     &self.config,
                 );
+
                 if !ticks.is_empty() && self.show_ticks() {
                     let stroke = Stroke {
                         color: self.config.theme.ticks.style.color,
@@ -860,16 +862,17 @@ impl State {
 
                                         let start = Pos2::new(min.x, (min.y + max.y) / 2.);
 
+                                        let is_transaction_focused = waves
+                                            .focused_transaction
+                                            .0
+                                            .as_ref()
+                                            .is_some_and(|t| t == tx_ref);
+
                                         if inc_relation_tx_ids.contains(tx_ref) {
                                             inc_relation_starts.push(start);
                                         } else if out_relation_tx_ids.contains(tx_ref) {
                                             out_relation_starts.push(start);
-                                        } else if waves
-                                            .focused_transaction
-                                            .0
-                                            .as_ref()
-                                            .is_some_and(|t| t == tx_ref)
-                                        {
+                                        } else if is_transaction_focused {
                                             focused_transaction_start = Some(start);
                                         }
 
@@ -890,34 +893,22 @@ impl State {
                                                 None,
                                             ));
                                         }
-                                        let tx_fill_color = if waves
-                                            .focused_transaction
-                                            .0
-                                            .as_ref()
-                                            .is_some_and(|t| t == tx_ref)
-                                        {
-                                            self.config.theme.transaction_selected
+                                        let tx_fill_color = if is_transaction_focused {
+                                            Color32::from(
+                                                Rgba::from(
+                                                    color
+                                                        .unwrap_or(
+                                                            &self.config.theme.transaction_default,
+                                                        )
+                                                        .additive(),
+                                                ) + highlight_rgba,
+                                            )
                                         } else {
-                                            *waves
-                                                .displayed_items_order
-                                                .get(drawing_info.item_list_idx())
-                                                .and_then(|id| waves.displayed_items.get(id))
-                                                .and_then(
-                                                    super::displayed_item::DisplayedItem::color,
-                                                )
-                                                .and_then(|color| {
-                                                    self.config.theme.colors.get(&color)
-                                                })
+                                            color
                                                 .unwrap_or(&self.config.theme.transaction_default)
+                                                .gamma_multiply(0.6)
                                         };
-                                        let tx_fill_color = Color32::from_rgba_unmultiplied(
-                                            tx_fill_color.r(),
-                                            tx_fill_color.g(),
-                                            tx_fill_color.b(),
-                                            130,
-                                        );
-                                        let stroke =
-                                            Stroke::new(1.5, self.config.theme.transaction_outline);
+                                        let stroke = Stroke::new(1.5, tx_fill_color.additive());
                                         ctx.painter.rect(
                                             transaction_rect,
                                             Rounding::same(5.0),
