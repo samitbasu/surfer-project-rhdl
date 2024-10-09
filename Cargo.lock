@@ -1903,10 +1903,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "fst-native"
-version = "0.8.3"
+name = "fst-reader"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa5186c9e6e585c41b11086684d46b19f10869377312daa7ea0acd3100545581"
+checksum = "d0489e6241c3cc313e8e172c992dd4571a4dac4bb292c457492cd323738948db"
 dependencies = [
  "flate2",
  "lz4_flex",
@@ -5771,12 +5771,12 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.11.3"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8490c6df37757b487f423b2e3373f67546c636742091ff3a87d81f91ea6f0e69"
+checksum = "f255918ee316414cdbc8ef5815ff2d00ecb45156c32f98f44ca365555cb7cf27"
 dependencies = [
  "bytesize",
- "fst-native",
+ "fst-reader",
  "leb128",
  "lz4_flex",
  "memmap2",
