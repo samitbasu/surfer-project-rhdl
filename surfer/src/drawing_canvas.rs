@@ -548,7 +548,8 @@ impl State {
     }
 
     pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut Ui, viewport_idx: usize) {
-        let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::drag());
+        let (response, mut painter) =
+            ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
         let cfg = match self.waves.as_ref().unwrap().inner {
             DataContainer::Waves(_) => DrawConfig::new(
@@ -617,13 +618,15 @@ impl State {
             }
         });
 
-        response.dragged_by(PointerButton::Primary).then(|| {
+        if response.dragged_by(PointerButton::Primary)
+            || response.clicked_by(PointerButton::Primary)
+        {
             if let Some(snap_point) =
                 self.snap_to_edge(pointer_pos_canvas, waves, frame_width, viewport_idx)
             {
                 msgs.push(Message::CursorSet(snap_point));
             }
-        });
+        }
 
         painter.rect_filled(
             response.rect,
@@ -1277,8 +1280,9 @@ impl State {
     }
 
     /// Takes a pointer pos in the canvas and returns a position that is snapped to transitions
-    /// if the cursor is close enough to any transition. If the cursor is on the canvas
-    /// a point will be returned, otherwise `None`
+    /// if the cursor is close enough to any transition. If the cursor is on the canvas and no
+    /// transitions are close enough for snapping, the raw point will be returned. If the cursor is
+    /// off the canvas, `None` is returned
     fn snap_to_edge(
         &self,
         pointer_pos_canvas: Option<Pos2>,
