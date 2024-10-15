@@ -75,6 +75,10 @@ pub struct SurferConfig {
     pub snap_distance: f32,
     /// Maximum size of the undo stack
     pub undo_stack_size: usize,
+    /// Some(true) - always auto reload changed files
+    /// Some(false) - never auto reload changed files
+    /// None - ask for confirmation before auto reloading files
+    pub autoreload_files: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

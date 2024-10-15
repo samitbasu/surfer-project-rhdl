@@ -272,6 +272,10 @@ impl State {
             self.draw_log_window(ctx, &mut msgs);
         }
 
+        if let Some(dialog) = &self.show_reload_suggestion {
+            self.draw_reload_waveform_dialog(ctx, dialog, &mut msgs);
+        }
+
         if self.show_performance {
             #[cfg(feature = "performance_plot")]
             self.draw_performance_graph(ctx, &mut msgs);
@@ -491,7 +495,10 @@ impl State {
         });
 
         // If some dialogs are open, skip decoding keypresses
-        if !self.show_url_entry && self.rename_target.is_none() {
+        if !self.show_url_entry
+            && self.rename_target.is_none()
+            && self.show_reload_suggestion.is_none()
+        {
             self.handle_pressed_keys(ctx, &mut msgs);
         }
         msgs

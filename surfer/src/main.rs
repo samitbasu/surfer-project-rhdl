@@ -10,8 +10,10 @@ mod cxxrtl;
 #[cfg(not(target_arch = "wasm32"))]
 mod cxxrtl_container;
 mod data_container;
+mod dialog;
 mod displayed_item;
 mod drawing_canvas;
+mod file_watcher;
 mod graphics;
 mod help;
 mod hierarchy;
@@ -84,10 +86,12 @@ use crate::command_prompt::get_parser;
 use crate::config::{SurferConfig, SurferTheme};
 use crate::data_container::DataContainer;
 use crate::data_container::DataContainer::Transactions;
+use crate::dialog::ReloadWaveformDialog;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef, FieldFormat,
 };
 use crate::drawing_canvas::TxDrawingCommands;
+use crate::file_watcher::FileWatcher;
 use crate::message::{HeaderResult, Message};
 use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
@@ -258,7 +262,11 @@ fn main() -> Result<()> {
         });
     });
 
-    let mut state = match &args.state_file {
+    let state_file = args.state_file.clone();
+    let startup_params = StartupParams::from_args(args);
+    let waves = startup_params.waves.clone();
+
+    let mut state = match &state_file {
         Some(file) => std::fs::read_to_string(file)
             .with_context(|| format!("Failed to read state from {file}"))
             .and_then(|content| {
@@ -275,7 +283,26 @@ fn main() -> Result<()> {
             })?,
         None => State::new()?,
     }
-    .with_params(StartupParams::from_args(args));
+    .with_params(startup_params);
+
+    // install a file watcher that emits a `SuggestReloadWaveform` message
+    // whenever the user-provided file changes.
+    let _watcher = match waves {
+        Some(WaveSource::File(path)) => {
+            let sender = state.sys.channels.msg_sender.clone();
+            FileWatcher::new(&path, move || {
+                match sender.send(Message::SuggestReloadWaveform) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Message ReloadWaveform did not send:\n{err}")
+                    }
+                }
+            })
+            .inspect_err(|err| error!("Cannot set up the file watcher:\n{err}"))
+            .ok()
+        }
+        _ => None,
+    };
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -566,6 +593,10 @@ pub struct State {
     wanted_timeunit: TimeUnit,
     time_string_format: Option<TimeStringFormatting>,
     show_url_entry: bool,
+    /// Show a confirmation dialog asking the user for confirmation
+    /// that surfer should reload changed files from disk.
+    #[serde(skip, default)]
+    show_reload_suggestion: Option<ReloadWaveformDialog>,
     variable_name_filter_focused: bool,
     variable_name_filter_type: VariableNameFilterType,
     variable_name_filter_case_insensitive: bool,
@@ -627,6 +658,7 @@ impl State {
             time_string_format: None,
             show_url_entry: false,
             show_quick_start: false,
+            show_reload_suggestion: None,
             rename_target: None,
             variable_name_filter_focused: false,
             variable_name_filter_type: VariableNameFilterType::Fuzzy,
@@ -1705,6 +1737,30 @@ impl State {
                 for translator in self.sys.translators.all_translators() {
                     translator.reload(self.sys.channels.msg_sender.clone());
                 }
+            }
+            Message::SuggestReloadWaveform => match self.config.autoreload_files {
+                Some(true) => {
+                    self.update(Message::ReloadWaveform(true));
+                }
+                Some(false) => {}
+                None => self.show_reload_suggestion = Some(ReloadWaveformDialog::default()),
+            },
+            Message::CloseReloadWaveformDialog {
+                reload_file,
+                do_not_show_again,
+            } => {
+                if do_not_show_again {
+                    // FIXME: This is currently for one session only, but could be persisted in
+                    // some setting.
+                    self.config.autoreload_files = Some(reload_file);
+                }
+                self.show_reload_suggestion = None;
+                if reload_file {
+                    self.update(Message::ReloadWaveform(true));
+                }
+            }
+            Message::UpdateReloadWaveformDialog(dialog) => {
+                self.show_reload_suggestion = Some(dialog);
             }
             Message::RemovePlaceholders => {
                 if let Some(waves) = self.waves.as_mut() {
