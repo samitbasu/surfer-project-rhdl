@@ -25,7 +25,7 @@ use crate::{
     wave_container::{ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
     wellen::LoadSignalsResult,
-    MoveDir, VariableNameFilterType, WaveSource,
+    MoveDir, ReloadWaveformDialog, VariableNameFilterType, WaveSource,
 };
 use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
@@ -166,6 +166,22 @@ pub enum Message {
     FileDownloaded(String, Bytes, LoadOptions),
     ReloadConfig,
     ReloadWaveform(bool),
+    /// Suggest reloading the current waveform as the file on disk has changed.
+    /// This should first take the user's confirmation before reloading the waveform.
+    /// However, there is a configuration setting that the user can overwrite.
+    #[serde(skip)]
+    SuggestReloadWaveform,
+    /// Close the 'reload_waveform' dialog.
+    /// The `reload_file` boolean is the return value of the dialog.
+    /// If `do_not_show_again` is true, the `reload_file` setting will be persisted.
+    #[serde(skip)]
+    CloseReloadWaveformDialog {
+        reload_file: bool,
+        do_not_show_again: bool,
+    },
+    /// Update the waveform dialog UI with the provided dialog model.
+    #[serde(skip)]
+    UpdateReloadWaveformDialog(ReloadWaveformDialog),
     RemovePlaceholders,
     ZoomToFit {
         viewport_idx: usize,
