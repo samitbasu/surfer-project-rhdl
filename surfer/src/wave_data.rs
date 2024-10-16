@@ -383,7 +383,8 @@ impl WaveData {
         &mut self,
         translators: &TranslatorList,
         variables: Vec<VariableRef>,
-    ) -> Option<LoadSignalsCmd> {
+    ) -> (Option<LoadSignalsCmd>, Vec<DisplayedItemRef>) {
+        let mut indices = vec![];
         // load variables from waveform
         let res = match self
             .inner
@@ -393,7 +394,7 @@ impl WaveData {
         {
             Err(e) => {
                 error!("{e:#?}");
-                return None;
+                return (None, indices);
             }
             Ok(res) => res,
         };
@@ -408,7 +409,7 @@ impl WaveData {
                 .context("When adding variable")
                 .map_err(|e| error!("{e:#?}"))
             else {
-                return res;
+                return (res, indices);
             };
 
             let translator = variable_translator(None, &[], translators, || Ok(meta.clone()));
@@ -426,11 +427,11 @@ impl WaveData {
                 field_formats: vec![],
             });
 
-            self.insert_item(new_variable, None);
+            indices.push(self.insert_item(new_variable, None));
         }
 
         self.compute_variable_display_names();
-        res
+        (res, indices)
     }
 
     pub fn remove_displayed_item(&mut self, id: DisplayedItemRef) {
@@ -613,16 +614,19 @@ impl WaveData {
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.insert(insert_idx, id);
             self.displayed_items.insert(id, new_item);
+            id
         } else if let Some(DisplayedItemIndex(focus_idx)) = self.focused_item {
             let insert_idx = focus_idx + 1;
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.insert(insert_idx, id);
             self.displayed_items.insert(id, new_item);
             self.focused_item = Some(insert_idx.into());
+            id
         } else {
             let id = self.next_displayed_item_ref();
             self.displayed_items_order.push(id);
             self.displayed_items.insert(id, new_item);
+            id
         }
     }
 

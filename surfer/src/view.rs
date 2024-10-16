@@ -216,6 +216,13 @@ impl eframe::App for State {
         if viewport_is_moving {
             self.invalidate_draw_commands();
             ctx.request_repaint();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            #[cfg(feature = "performance_plot")]
+            self.sys.timing.borrow_mut().start("handle_wcp_commands");
+            self.handle_wcp_commands();
+            #[cfg(feature = "performance_plot")]
+            self.sys.timing.borrow_mut().end("handle_wcp_commands");
         }
 
         // We can save some user battery life by not redrawing unless needed. At the moment,
