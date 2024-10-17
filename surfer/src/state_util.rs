@@ -73,4 +73,16 @@ impl State {
         self.ui_zoom_factor
             .unwrap_or_else(|| self.config.layout.default_zoom_factor())
     }
+
+    #[inline]
+    pub fn show_empty_scopes(&self) -> bool {
+        self.show_empty_scopes
+            .unwrap_or_else(|| self.config.layout.show_empty_scopes())
+    }
+
+    #[inline]
+    pub fn show_parameters_in_scopes(&self) -> bool {
+        self.show_parameters_in_scopes
+            .unwrap_or_else(|| self.config.layout.show_parameters_in_scopes())
+    }
 }

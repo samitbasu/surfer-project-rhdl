@@ -101,6 +101,10 @@ pub struct SurferLayout {
     show_variable_indices: bool,
     /// Flag to show/hide the variable direction icon
     show_variable_direction: bool,
+    /// Flag to show/hide empty scopes
+    show_empty_scopes: bool,
+    /// Flag to show parameters in scope view
+    show_parameters_in_scopes: bool,
     /// Initial window height
     pub window_height: usize,
     /// Initial window width
@@ -154,6 +158,12 @@ impl SurferLayout {
     }
     pub fn default_zoom_factor(&self) -> f32 {
         self.default_zoom_factor
+    }
+    pub fn show_empty_scopes(&self) -> bool {
+        self.show_empty_scopes
+    }
+    pub fn show_parameters_in_scopes(&self) -> bool {
+        self.show_parameters_in_scopes
     }
 }
 

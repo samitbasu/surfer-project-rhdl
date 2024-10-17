@@ -1,7 +1,10 @@
 use camino::Utf8Path;
+#[cfg(not(windows))]
 use log::{error, info};
-use notify::event::ModifyKind;
-use notify::{Config, Error, Event, EventKind, RecursiveMode, Watcher};
+use notify::Error;
+#[cfg(not(windows))]
+use notify::{event::ModifyKind, Config, Event, EventKind, RecursiveMode, Watcher};
+#[cfg(not(windows))]
 use std::time::Duration;
 
 /// Watches a provided file for changes.
@@ -14,6 +17,7 @@ pub struct FileWatcher {
 /// Checks whether two paths, pointing at a file, refer to the same file.
 /// This might be slower than some platform-dependent alternatives,
 /// but should be guaranteed to work on all platforms
+#[allow(dead_code)] // Only used in tests on Windows
 fn is_same_file(p1: impl AsRef<std::path::Path>, p2: impl AsRef<std::path::Path>) -> bool {
     match (
         std::fs::canonicalize(p1.as_ref()),
@@ -85,7 +89,10 @@ mod tests {
     use crate::file_watcher::{is_same_file, FileWatcher};
     use camino::Utf8Path;
     use std::fs;
-    use std::fs::{File, OpenOptions};
+    use std::fs::File;
+    #[cfg(not(windows))]
+    use std::fs::OpenOptions;
+    #[cfg(not(windows))]
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Condvar, Mutex};
@@ -141,6 +148,7 @@ mod tests {
 
         /// Block until signal has been called or a timeout occurred.
         /// Panics on the timeout.
+        #[cfg(not(windows))]
         pub fn assert_called(&self) {
             let mut started = self.called.lock().unwrap();
             let result = self

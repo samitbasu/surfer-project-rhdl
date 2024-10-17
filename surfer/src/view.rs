@@ -14,6 +14,11 @@ use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 
+use num::BigUint;
+use surfer_translation_types::{
+    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
+};
+
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::data_container::VariableType as VarType;
@@ -39,9 +44,6 @@ use crate::{
     Message, MoveDir, State,
 };
 use crate::{config::SurferTheme, wave_container::VariableMeta};
-use surfer_translation_types::{
-    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
-};
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
     pub cfg: &'a DrawConfig,
@@ -574,11 +576,12 @@ impl State {
                 }
             }
         }
-        if draw_variables && self.waves.as_ref().unwrap().inner.is_waves() {
-            let scope = ScopeRef::empty();
-            let wave_container = wave.inner.as_waves().unwrap();
-            let variables = wave_container.variables_in_scope(&scope);
-            self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
+        if draw_variables {
+            if let Some(wave_container) = wave.inner.as_waves() {
+                let scope = ScopeRef::empty();
+                let variables = wave_container.variables_in_scope(&scope);
+                self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
+            }
         }
     }
 
@@ -654,9 +657,11 @@ impl State {
             return;
         };
 
-        if child_scopes.is_empty()
-            && (!draw_variables || wave.inner.as_waves().unwrap().no_variables_in_scope(scope))
-        {
+        let no_variables_in_scope = wave.inner.as_waves().unwrap().no_variables_in_scope(scope);
+        if child_scopes.is_empty() && no_variables_in_scope && !self.show_empty_scopes() {
+            return;
+        }
+        if child_scopes.is_empty() && (!draw_variables || no_variables_in_scope) {
             self.add_scope_selectable_label(msgs, wave, scope, ui);
         } else {
             egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -673,10 +678,48 @@ impl State {
                 );
             })
             .body(|ui| {
+                if draw_variables || self.show_parameters_in_scopes() {
+                    let wave_container = wave.inner.as_waves().unwrap();
+                    let all_variables = wave_container.variables_in_scope(scope);
+                    let parameters = all_variables
+                        .iter()
+                        .filter(|var| {
+                            let meta = wave_container.variable_meta(var).ok();
+                            meta.unwrap().variable_type == Some(VariableType::VCDParameter)
+                        })
+                        .cloned()
+                        .collect_vec();
+                    if !parameters.is_empty() {
+                        egui::collapsing_header::CollapsingState::load_with_default_open(
+                            ui.ctx(),
+                            egui::Id::new(&parameters),
+                            false,
+                        )
+                        .show_header(ui, |ui| {
+                            ui.with_layout(
+                                Layout::top_down(Align::LEFT).with_cross_justify(true),
+                                |ui| {
+                                    ui.label("Parameters");
+                                },
+                            );
+                        })
+                        .body(|ui| {
+                            self.draw_variable_list(msgs, wave_container, ui, &parameters, filter);
+                        });
+                    }
+                }
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
                 if draw_variables {
                     let wave_container = wave.inner.as_waves().unwrap();
-                    let variables = wave_container.variables_in_scope(scope);
+                    let all_variables = wave_container.variables_in_scope(scope);
+                    let variables = all_variables
+                        .iter()
+                        .filter(|var| {
+                            let meta = wave_container.variable_meta(var).ok();
+                            meta.unwrap().variable_type != Some(VariableType::VCDParameter)
+                        })
+                        .cloned()
+                        .collect_vec();
                     self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
                 }
             });
@@ -740,7 +783,9 @@ impl State {
                             "{} ",
                             // Icon based on direction
                             direction.get_icon().unwrap_or_else(|| {
-                                if meta.unwrap().variable_type == Some(VariableType::VCDParameter) {
+                                if meta.as_ref().is_some_and(|meta| {
+                                    meta.variable_type == Some(VariableType::VCDParameter)
+                                }) {
                                     // If parameter
                                     icons::MAP_PIN_2_LINE
                                 } else {
@@ -755,7 +800,20 @@ impl State {
                 String::new()
             };
 
-            let variable_name = format!("{}{}{}", direction, variable.name.clone(), index);
+            let value = if meta
+                .as_ref()
+                .is_some_and(|meta| meta.variable_type == Some(VariableType::VCDParameter))
+            {
+                let res = wave_container
+                    .query_variable(&variable, &BigUint::ZERO)
+                    .ok();
+                res.and_then(|o| o.and_then(|q| q.current.map(|v| format!(": {}", v.1))))
+                    .unwrap_or_else(|| ": Undefined".to_string())
+            } else {
+                String::new()
+            };
+
+            let variable_name = format!("{direction}{}{index}{value}", variable.name.clone());
             ui.with_layout(
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {

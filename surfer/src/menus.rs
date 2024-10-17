@@ -289,12 +289,30 @@ impl State {
                     ui.close_menu();
                     msgs.push(Message::ToggleIndices);
                 });
+
             ui.radio(self.show_variable_direction(), "Show variable direction")
                 .clicked()
                 .then(|| {
                     ui.close_menu();
                     msgs.push(Message::ToggleDirection);
                 });
+
+            ui.radio(self.show_empty_scopes(), "Show empty scopes")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleEmptyScopes);
+                });
+
+            ui.radio(
+                self.show_parameters_in_scopes(),
+                "Show parameters in scopes",
+            )
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::ToggleParametersInScopes);
+            });
         });
         ui.menu_button("Help", |ui| {
             b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);
