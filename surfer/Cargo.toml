@@ -20,14 +20,14 @@ config = { version = "0.14", default-features = false, features = ["toml"] }
 derivative = "2.2.0"
 derive_more.workspace = true
 ecolor.workspace = true
-eframe = { version = "0.28.1", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
-egui = { version = "0.28.1", default-features = false, features = ["serde"] }
+eframe = { version = "0.29.1", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = { version = "0.29.1", default-features = false, features = ["serde"] }
 egui-remixicon = { version = "0.27.2", default-features = false }
-egui_extras = { version = "0.28.1", default-features = false }
-egui_plot = { version = "0.28.1", optional = true }
+egui_extras = { version = "0.29.1", default-features = false }
+egui_plot = { version = "0.29", optional = true }
 emath.workspace = true
 enum-iterator = "2.0"
-epaint = "0.28.1"
+epaint = "0.29.1"
 f128 = { path = "../f128", optional = true }
 fern.workspace = true
 ftr_parser = { path = "../ftr_parser" }
@@ -86,16 +86,16 @@ console_error_panic_hook = "0.1.6"
 toml = "0.8.12"
 wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
-web-sys = { version = "= 0.3.69", features = ["Location", "UrlSearchParams"] }
+web-sys = { version = "= 0.3.72", features = ["Location", "UrlSearchParams"] }
 futures = "0.3.30"
 tokio = {workspace = true, features = ["sync"]}
 
 [dev-dependencies]
-egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "c13a8bbfc622ae28ee7b7f6d1c576a761e8b8bbe" }
+egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "a45332b332e8c6b3fa9587dc8438cebec7dc3b0e" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 image-compare = "0.4.1"
 project-root = "0.2.2"
-skia-safe = "0.75.0"
+skia-safe = "0.78.0"
 tempfile = "3.12.0"
 test-log = "0.2.15"
 

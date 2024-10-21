@@ -42,8 +42,8 @@ derive_more = { version = "0.99.18", default-features = false, features = [
   "display",
   "not",
 ] }
-ecolor = "0.28.1"
-emath = "0.28.1"
+ecolor = "0.29.1"
+emath = "0.29.1"
 fern = { version = "0.6.2", features = ["colored"] }
 lazy_static = "1.5.0"
 log = "0.4.22"
