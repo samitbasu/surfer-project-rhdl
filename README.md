@@ -202,6 +202,9 @@ As an indication of the status of the project, here is an incomplete list of sup
     - [x] MIPS
   - [ ] Compressed integers
     - [x] LEB128 (also for other bitwidths than 128)
+  - [x] Number of ones
+  - [x] Leading/trailing zeros/ones
+  - [x] Leading MSBs
   - [ ] Custom translation via Python API
   - [ ] Custom translation via WASM API
 - [x] Dividers
