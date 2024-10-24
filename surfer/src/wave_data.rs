@@ -378,7 +378,6 @@ impl WaveData {
             },
         )
     }
-
     pub fn add_variables(
         &mut self,
         translators: &TranslatorList,
@@ -604,11 +603,11 @@ impl WaveData {
     /// Insert item after item vidx if Some(vidx).
     /// If None, insert after focused item if there is one, otherwise insert at the end.
     /// Focus on the inserted item if there was a focues item.
-    pub(crate) fn insert_item(
+    pub fn insert_item(
         &mut self,
         new_item: DisplayedItem,
         vidx: Option<DisplayedItemIndex>,
-    ) {
+    ) -> DisplayedItemRef {
         if let Some(DisplayedItemIndex(current_idx)) = vidx {
             let insert_idx = current_idx + 1;
             let id = self.next_displayed_item_ref();

@@ -14,31 +14,6 @@ use serde::{Deserialize, Serialize};
 use surfer_translation_types::ScopeRef;
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum WcpMessage {
-    #[serde(rename = "greeting")]
-    Greeting {
-        version: String,
-        commands: Vec<String>,
-    },
-    #[serde(rename = "command")]
-    Command(WcpCommand),
-    #[serde(rename = "response")]
-    Response { command: String, arguments: Vecs },
-    #[serde(rename = "error")]
-    Error {
-        error: String,
-        arguments: Vec<String>,
-        message: String,
-    },
-    #[serde(rename = "event")]
-    Event {
-        event: String,
-        arguments: Vec<String>,
-    },
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "command")]
 pub enum WcpCommand {
     #[serde(rename = "get_item_list")]
@@ -72,10 +47,10 @@ pub enum WcpCommand {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum Vecs {
-    VecString(Vec<String>),
-    VecInfo(Vec<ItemInfo>),
-    VecInt(Vec<usize>),
-    VecTuple(Vec<(String, usize)>),
+    String(Vec<String>),
+    Info(Vec<ItemInfo>),
+    Int(Vec<usize>),
+    Tuple(Vec<(String, usize)>),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -84,6 +59,31 @@ pub struct ItemInfo {
     #[serde(rename = "type")]
     t: String,
     id: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum WcpMessage {
+    #[serde(rename = "greeting")]
+    Greeting {
+        version: String,
+        commands: Vec<String>,
+    },
+    #[serde(rename = "command")]
+    Command(WcpCommand),
+    #[serde(rename = "response")]
+    Response { command: String, arguments: Vecs },
+    #[serde(rename = "error")]
+    Error {
+        error: String,
+        arguments: Vec<String>,
+        message: String,
+    },
+    #[serde(rename = "event")]
+    Event {
+        event: String,
+        arguments: Vec<String>,
+    },
 }
 impl WcpMessage {
     pub fn create_greeting(version: usize, commands: Vec<String>) -> Self {
@@ -142,20 +142,9 @@ impl State {
                                 .iter()
                                 .map(|i| format!("{}", i.0))
                                 .collect_vec();
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_response(
-                                    "get_item_list".to_string(),
-                                    Vecs::VecString(ids),
-                                ))
-                            });
+                            self.send_response(command, Vecs::String(ids));
                         } else {
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_error(
-                                    "No waveform loaded".to_string(),
-                                    vec![],
-                                    "No waveform loaded".to_string(),
-                                ))
-                            });
+                            self.send_error("No waveform loaded", vec![], "No waveform loaded");
                         }
                     }
                     WcpCommand::GetItemInfo { ids } => {
@@ -216,12 +205,7 @@ impl State {
                                 }
                             }
                         }
-                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                            ch.send(WcpMessage::create_response(
-                                "get_item_info".to_string(),
-                                Vecs::VecInfo(items),
-                            ))
-                        });
+                        self.send_response(command, Vecs::Info(items));
                     }
                     WcpCommand::AddVariables { names } => {
                         if self.waves.is_some() {
@@ -237,23 +221,19 @@ impl State {
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_response(
-                                    "add_variables".to_string(),
-                                    Vecs::VecString(
-                                        ids.iter().map(|id| format!("{}", id.0)).collect_vec(),
-                                    ),
-                                ))
-                            });
+                            self.send_response(
+                                command,
+                                Vecs::String(
+                                    ids.iter().map(|id| format!("{}", id.0)).collect_vec(),
+                                ),
+                            );
                             self.invalidate_draw_commands();
                         } else {
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_error(
-                                    "add_variables".to_string(),
-                                    vec![],
-                                    "Can't add signals. No waveform loaded.".to_string(),
-                                ))
-                            });
+                            self.send_error(
+                                "add_variables",
+                                vec![],
+                                "Can't add signals. No waveform loaded",
+                            )
                         }
                     }
                     WcpCommand::AddScope { scope } => {
@@ -269,52 +249,36 @@ impl State {
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_response(
-                                    "add_variables".to_string(),
-                                    Vecs::VecString(
-                                        ids.iter().map(|id| format!("{}", id.0)).collect_vec(),
-                                    ),
-                                ))
-                            });
+                            self.send_response(
+                                command,
+                                Vecs::String(
+                                    ids.iter().map(|id| format!("{}", id.0)).collect_vec(),
+                                ),
+                            );
                             self.invalidate_draw_commands();
                         } else {
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_error(
-                                    "scope_add".to_string(),
-                                    vec![],
-                                    "No waveform loaded".to_string(),
-                                ))
-                            });
+                            self.send_error(
+                                "scope_add",
+                                vec![],
+                                format!("No waveform loaded").as_str(),
+                            );
                         }
                     }
                     WcpCommand::Reload => {
                         self.update(Message::ReloadWaveform(false));
-                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                            ch.send(WcpMessage::create_response(
-                                "reload".to_string(),
-                                Vecs::VecString(vec![]),
-                            ))
-                        });
+                        self.send_response(command, Vecs::String(vec![]));
                     }
                     WcpCommand::SetViewportTo { timestamp } => {
                         self.update(Message::GoToTime(Some(timestamp.clone()), 0));
-                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                            ch.send(WcpMessage::create_response(
-                                "set_viewport_to".to_string(),
-                                Vecs::VecString(vec![]),
-                            ))
-                        });
+                        self.send_response(command, Vecs::String(vec![]));
                     }
                     WcpCommand::SetItemColor { id, color } => {
                         let Some(waves) = &self.waves else {
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_error(
-                                    "set_item_color".to_string(),
-                                    vec![],
-                                    "No waveform loaded".to_string(),
-                                ))
-                            });
+                            self.send_error(
+                                "set_item_color",
+                                vec![],
+                                format!("No waveform loaded").as_str(),
+                            );
                             return;
                         };
                         if let Ok(id) = usize::from_str_radix(id, 10) {
@@ -327,40 +291,25 @@ impl State {
                                     Some(DisplayedItemIndex(idx.0)),
                                     Some(color.clone()),
                                 ));
-                                self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                    ch.send(WcpMessage::create_response(
-                                        "set_item_color".to_string(),
-                                        Vecs::VecString(vec![]),
-                                    ))
-                                });
+                                self.send_response(command, Vecs::String(vec![]))
                             } else {
-                                self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                    ch.send(WcpMessage::create_error(
-                                        "set_item_color".to_string(),
-                                        vec![],
-                                        "Item {id} not found".to_string(),
-                                    ))
-                                });
+                                self.send_error(
+                                    "set_item_color",
+                                    vec![],
+                                    format!("Item {id} not found").as_str(),
+                                );
                             }
                         } else {
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_error(
-                                    "set_item_color".to_string(),
-                                    vec![],
-                                    "{id} is not a valid Surfer id".to_string(),
-                                ))
-                            });
+                            self.send_error(
+                                "set_item_color",
+                                vec![],
+                                format!("{id} is not valid Surfer id").as_str(),
+                            );
                         }
                     }
                     WcpCommand::RemoveItems { ids } => {
                         let Some(waves) = self.waves.as_mut() else {
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_error(
-                                    "remove_items".to_string(),
-                                    vec![],
-                                    "No waveform loaded".to_string(),
-                                ))
-                            });
+                            self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
                         let mut msgs = vec![];
@@ -371,27 +320,17 @@ impl State {
                                     .iter()
                                     .find_position(|&list_id| list_id.0 == id)
                                 {
-                                    msgs.push(Message::RemoveItem(DisplayedItemIndex(idx.0), 1));
+                                    msgs.push(Message::RemoveItems(vec![*idx.1]));
                                 }
                             }
                         }
                         self.update(Message::Batch(msgs));
-                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                            ch.send(WcpMessage::create_response(
-                                "remove_items".to_string(),
-                                Vecs::VecInt(vec![]),
-                            ))
-                        });
+
+                        self.send_response(command, Vecs::Int(vec![]));
                     }
                     WcpCommand::FocusItem { id } => {
                         let Some(waves) = &self.waves else {
-                            self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                ch.send(WcpMessage::create_error(
-                                    "remove_items".to_string(),
-                                    vec![],
-                                    "No waveform loaded".to_string(),
-                                ))
-                            });
+                            self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
                         if let Ok(id) = usize::from_str_radix(id, 10) {
@@ -401,37 +340,26 @@ impl State {
                                 .find_position(|&list_id| list_id.0 == id)
                             {
                                 self.update(Message::FocusItem(DisplayedItemIndex(idx.0)));
-                                self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                    ch.send(WcpMessage::create_response(
-                                        "focus_item".to_string(),
-                                        Vecs::VecInt(vec![]),
-                                    ))
-                                });
+
+                                self.send_response(command, Vecs::Int(vec![]));
                             } else {
-                                self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                    ch.send(WcpMessage::create_error(
-                                        "focus_item".to_string(),
-                                        vec![],
-                                        format!("No item with ID {id}"),
-                                    ))
-                                });
+                                self.send_error(
+                                    "focus_item",
+                                    vec![],
+                                    format!("No item with ID {id}").as_str(),
+                                );
                             }
                         }
                     }
                     WcpCommand::Clear => {
                         match &self.waves {
-                            Some(wave) => self.update(Message::RemoveItem(
-                                DisplayedItemIndex(0),
-                                wave.display_item_ref_counter,
-                            )),
+                            Some(wave) => {
+                                self.update(Message::RemoveItems(self.get_displayed_items(wave)))
+                            }
                             None => (),
                         }
-                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                            ch.send(WcpMessage::create_response(
-                                "clear".to_string(),
-                                Vecs::VecInt(vec![]),
-                            ))
-                        });
+
+                        self.send_response(command, Vecs::Int(vec![]));
                     }
                     WcpCommand::Load { source } => {
                         self.sys.wcp_server_load_outstanding = true;
@@ -444,21 +372,19 @@ impl State {
                             }
                             WaveSource::File(file) => {
                                 let msg = match file.extension().unwrap() {
-                                    "ftr" => {
-                                        Message::LoadTransactionFile(file, LoadOptions::clean())
-                                    }
-                                    _ => Message::LoadWaveformFile(file, LoadOptions::clean()),
+                                    // "ftr" => {
+                                    // Message::LoadTransactionFile(file, LoadOptions::clean())
+                                    // }
+                                    _ => Message::LoadFile(file, LoadOptions::clean()),
                                 };
                                 self.update(msg);
                             }
                             _ => {
-                                self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                                    ch.send(WcpMessage::create_error(
-                                        "load".to_string(),
-                                        vec![],
-                                        format!("{source} is not a legal wave source"),
-                                    ))
-                                });
+                                self.send_error(
+                                    "load",
+                                    vec![],
+                                    format!("{source} is not legal wave source").as_str(),
+                                );
                             }
                         }
                     }
@@ -466,13 +392,7 @@ impl State {
                         self.update(Message::ZoomToFit {
                             viewport_idx: *viewport_idx,
                         });
-
-                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                            ch.send(WcpMessage::create_response(
-                                "zoom_to_fit".to_string(),
-                                Vecs::VecInt(vec![]),
-                            ))
-                        });
+                        self.send_response(command, Vecs::Int(vec![]));
                     }
                     WcpCommand::Shutdown => {
                         warn!("WCP Shutdown message should not reach this place")
@@ -480,15 +400,43 @@ impl State {
                 };
             }
             _ => {
-                self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                    ch.send(WcpMessage::create_error(
-                        "Illegal command".to_string(),
-                        vec![],
-                        "Illegal command".to_string(),
-                    ))
-                });
+                self.send_error("Illegal command", vec![], "Illegal command");
             }
         }
+    }
+    fn send_response(&self, command: &WcpCommand, result: Vecs) {
+        let serde_json::Value::Object(tag) = serde_json::to_value(command).unwrap() else {
+            self.send_error(
+                "Could not serialize command",
+                vec![],
+                "try sending a valid command",
+            );
+            return;
+        };
+        let Some(serde_json::Value::String(command)) = tag.get("command") else {
+            self.send_error(
+                "Command tag does not have a value",
+                vec![],
+                "try sending a valid command",
+            );
+            return;
+        };
+
+        self.sys
+            .channels
+            .wcp_c2s_sender
+            .as_ref()
+            .map(|ch| ch.send(WcpMessage::create_response(command.clone(), result)));
+    }
+
+    fn send_error(&self, error: &str, arguments: Vec<String>, message: &str) {
+        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
+            ch.send(WcpMessage::create_error(
+                error.to_string(),
+                arguments,
+                message.to_string(),
+            ))
+        });
     }
 
     fn get_displayed_items(&self, waves: &WaveData) -> Vec<DisplayedItemRef> {

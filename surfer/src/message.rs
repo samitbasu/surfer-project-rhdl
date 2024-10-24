@@ -297,7 +297,9 @@ pub enum Message {
     /// Redo the last n changes
     Redo(usize),
     /// WCP Server
+    #[cfg(not(target_arch = "wasm32"))]
     StartWcpServer(Option<String>),
+    #[cfg(not(target_arch = "wasm32"))]
     StopWcpServer,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms

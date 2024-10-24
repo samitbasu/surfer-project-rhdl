@@ -147,6 +147,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         BTreeMap::new()
     };
 
+    #[cfg(not(target_arch = "wasm32"))]
     let wcp_start_or_stop = if state.sys.wcp_server_address.is_some() {
         "wcp_server_stop"
     } else {
@@ -612,7 +613,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "unpause_simulation" => Some(Command::Terminal(Message::UnpauseSimulation)),
                 "undo" => Some(Command::Terminal(Message::Undo(1))),
                 "redo" => Some(Command::Terminal(Message::Redo(1))),
+                #[cfg(not(target_arch = "wasm32"))]
                 "wcp_server_start" => Some(Command::Terminal(Message::StartWcpServer(None))),
+                #[cfg(not(target_arch = "wasm32"))]
                 "wcp_server_stop" => Some(Command::Terminal(Message::StopWcpServer)),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,

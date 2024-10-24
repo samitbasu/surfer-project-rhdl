@@ -47,6 +47,7 @@ mod wasm_util;
 mod wave_container;
 mod wave_data;
 mod wave_source;
+#[cfg(not(target_arch = "wasm32"))]
 mod wcp;
 mod wellen;
 
@@ -83,6 +84,7 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::Translator;
 use time::{TimeStringFormatting, TimeUnit};
+#[cfg(not(target_arch = "wasm32"))]
 use wcp::wcp_handler::WcpMessage;
 #[cfg(not(target_arch = "wasm32"))]
 use wcp::wcp_server::WcpHttpServer;
@@ -112,6 +114,7 @@ use crate::wasm_util::{perform_work, UrlArgs};
 use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, WaveContainer};
 use crate::wave_data::{ScopeType, WaveData};
 use crate::wave_source::{string_to_wavesource, LoadOptions, LoadProgress, WaveFormat, WaveSource};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::wcp::wcp_handler::Vecs;
 use crate::wellen::convert_format;
 
@@ -329,6 +332,7 @@ fn main() -> Result<()> {
             let ctx_arc = Arc::new(cc.egui_ctx.clone());
             *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
             state.sys.context = Some(ctx_arc.clone());
+            #[cfg(not(target_arch = "wasm32"))]
             if state.config.wcp.autostart {
                 state.start_wcp_server(Some(state.config.wcp.address.clone()));
             }
@@ -438,16 +442,22 @@ struct CachedTransactionDrawData {
 struct Channels {
     msg_sender: Sender<Message>,
     msg_receiver: Receiver<Message>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_s2c_receiver: Option<Receiver<WcpMessage>>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_c2s_sender: Option<Sender<WcpMessage>>,
 }
+
 impl Channels {
     fn new() -> Self {
         let (msg_sender, msg_receiver) = mpsc::channel();
         Self {
             msg_sender,
             msg_receiver,
+
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_s2c_receiver: None,
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_c2s_sender: None,
         }
     }
@@ -484,9 +494,13 @@ pub struct SystemState {
     batch_commands_completed: bool,
 
     /// The WCP server
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_server_thread: Option<JoinHandle<()>>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_server_address: Option<String>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_stop_signal: Arc<AtomicBool>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_server_load_outstanding: bool,
 
     /// The draw commands for every variable currently selected
@@ -549,9 +563,14 @@ impl SystemState {
                 previous_commands: vec![],
             },
             context: None,
+
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_server_thread: None,
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_server_address: None,
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_stop_signal: Arc::new(AtomicBool::new(false)),
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_server_load_outstanding: false,
             gesture_start_location: None,
             batch_commands: VecDeque::new(),
@@ -778,6 +797,7 @@ impl State {
         self.add_startup_messages([msg]);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn wcp(&mut self) {
         self.handle_wcp_commands();
     }
@@ -1574,14 +1594,17 @@ impl State {
                         None
                     });
 
-                if self.sys.wcp_server_load_outstanding {
-                    self.sys.wcp_server_load_outstanding = false;
-                    self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                        ch.send(WcpMessage::create_response(
-                            "load".to_string(),
-                            Vecs::VecInt(vec![]),
-                        ))
-                    });
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if self.sys.wcp_server_load_outstanding {
+                        self.sys.wcp_server_load_outstanding = false;
+                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
+                            ch.send(WcpMessage::create_response(
+                                "load".to_string(),
+                                Vecs::Int(vec![]),
+                            ))
+                        });
+                    }
                 }
 
                 // update viewports, now that we have the time table
@@ -1613,7 +1636,6 @@ impl State {
                 // here, the body and thus the number of timestamps is already loaded!
                 self.waves.as_mut().unwrap().update_viewports();
                 self.sys.progress_tracker = None;
-                info!("wave form loaded");
             }
             Message::TransactionStreamsLoaded(filename, format, new_ftr, loaded_options) => {
                 self.on_transaction_streams_loaded(filename, format, new_ftr, loaded_options);
@@ -1990,7 +2012,9 @@ impl State {
                     if let Some(DisplayedItemIndex(target_idx)) = self.drag_target_idx {
                         let variables_len = variables.len() - 1;
                         let items_len = waves.displayed_items_order.len();
-                        if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
+                        if let (Some(cmd), _) =
+                            waves.add_variables(&self.sys.translators, variables)
+                        {
                             self.load_variables(cmd);
                         }
 
@@ -2008,7 +2032,7 @@ impl State {
                                 .insert(target_idx + i, to_insert);
                         }
                     } else {
-                        if let Some(cmd) = self
+                        if let (Some(cmd), _) = self
                             .waves
                             .as_mut()
                             .unwrap()
@@ -2132,10 +2156,14 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
             Message::StartWcpServer(address) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 self.start_wcp_server(address);
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
             Message::StopWcpServer => {
                 #[cfg(not(target_arch = "wasm32"))]
                 self.stop_wcp_server();
@@ -2202,7 +2230,7 @@ impl State {
 
         let variable_len = variables.len();
         let items_len = waves.displayed_items_order.len();
-        if let Some(cmd) = waves.add_variables(&self.sys.translators, variables) {
+        if let (Some(cmd), _) = waves.add_variables(&self.sys.translators, variables) {
             self.load_variables(cmd);
         }
         if let (Some(DisplayedItemIndex(target_idx)), Some(_)) =
@@ -2588,9 +2616,9 @@ impl State {
         let ctx = self.sys.context.clone();
         let address = address.unwrap_or(self.config.wcp.address.clone());
         self.sys.wcp_server_address = Some(address.clone());
-        self.sys.wcp_server_thread = Some(thread::spawn(|| {
+        self.sys.wcp_server_thread = Some(thread::spawn(move || {
             let server = WcpHttpServer::new(
-                address,
+                address.clone(),
                 wcp_s2c_sender,
                 wcp_c2s_receiver,
                 stop_signal_copy,
@@ -2599,7 +2627,9 @@ impl State {
             match server {
                 Ok(mut server) => server.run(),
                 Err(m) => {
-                    error!("Could not start WCP HTTP server. Address already in use. {m:?}")
+                    error!(
+                        "Could not start WCP HTTP server. Address {address} already in use. {m:?}"
+                    )
                 }
             }
         }));
