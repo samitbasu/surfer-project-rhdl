@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
@@ -12,6 +13,7 @@ use crate::wasm_util::{perform_async_work, perform_work, sleep_ms};
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
+use ftr_parser::parse;
 use futures_util::FutureExt;
 use log::{error, info, warn};
 use rfd::AsyncFileDialog;
@@ -161,6 +163,31 @@ macro_rules! spawn {
 }
 
 impl State {
+    pub fn load_from_file(
+        &mut self,
+        filename: Utf8PathBuf,
+        load_options: LoadOptions,
+    ) -> Result<()> {
+        if let Some("ftr") = filename.extension() {
+            self.load_transactions_from_file(filename, load_options)
+        } else {
+            self.load_wave_from_file(filename, load_options)
+        }
+    }
+
+    pub fn load_from_bytes(
+        &mut self,
+        source: WaveSource,
+        bytes: Vec<u8>,
+        load_options: LoadOptions,
+    ) {
+        if parse::is_ftr(&mut Cursor::new(&bytes)) {
+            self.load_transactions_from_bytes(source, bytes, load_options);
+        } else {
+            self.load_wave_from_bytes(source, bytes, load_options);
+        }
+    }
+
     pub fn load_wave_from_file(
         &mut self,
         filename: Utf8PathBuf,
@@ -198,16 +225,12 @@ impl State {
         Ok(())
     }
 
-    pub fn load_wave_from_data(
-        &mut self,
-        vcd_data: Vec<u8>,
-        load_options: LoadOptions,
-    ) -> Result<()> {
-        self.load_wave_from_bytes(WaveSource::Data, vcd_data, load_options);
+    pub fn load_from_data(&mut self, data: Vec<u8>, load_options: LoadOptions) -> Result<()> {
+        self.load_from_bytes(WaveSource::Data, data, load_options);
         Ok(())
     }
 
-    pub fn load_wave_from_dropped(&mut self, file: egui::DroppedFile) -> Result<()> {
+    pub fn load_from_dropped(&mut self, file: egui::DroppedFile) -> Result<()> {
         info!("Got a dropped file");
 
         let path = file.path.and_then(|x| Utf8PathBuf::try_from(x).ok());
@@ -216,7 +239,7 @@ impl State {
             if bytes.len() == 0 {
                 Err(anyhow!("Dropped an empty file"))
             } else {
-                self.load_wave_from_bytes(
+                self.load_from_bytes(
                     WaveSource::DragAndDrop(path),
                     bytes.to_vec(),
                     LoadOptions::clean(),
@@ -224,7 +247,7 @@ impl State {
                 Ok(())
             }
         } else if let Some(path) = path {
-            self.load_wave_from_file(path, LoadOptions::clean())
+            self.load_from_file(path, LoadOptions::clean())
         } else {
             Err(anyhow!(
                 "Unknown how to load dropped file w/o path or bytes"
@@ -318,6 +341,30 @@ impl State {
             Err(e) => sender.send(Message::Error(e)).unwrap(),
         }
         Ok(())
+    }
+    pub fn load_transactions_from_bytes(
+        &mut self,
+        source: WaveSource,
+        bytes: Vec<u8>,
+        load_options: LoadOptions,
+    ) {
+        let sender = self.sys.channels.msg_sender.clone();
+
+        let result = parse::read_from_bytes(bytes);
+
+        info!("Done with loading ftr file");
+
+        match result {
+            Ok(ftr) => sender
+                .send(Message::TransactionStreamsLoaded(
+                    source,
+                    WaveFormat::Ftr,
+                    TransactionContainer { inner: ftr },
+                    load_options,
+                ))
+                .unwrap(),
+            Err(e) => sender.send(Message::Error(e)).unwrap(),
+        }
     }
     fn get_hierarchy_from_server(
         sender: Sender<Message>,
@@ -623,28 +670,18 @@ impl State {
 
         #[cfg(not(target_arch = "wasm32"))]
         let message = move |file: PathBuf| {
-            if file.extension().unwrap() == "ftr" {
-                Message::LoadTransactionFile(
-                    Utf8PathBuf::from_path_buf(file).unwrap(),
-                    LoadOptions {
-                        keep_variables,
-                        keep_unavailable,
-                    },
-                )
-            } else {
-                Message::LoadWaveformFile(
-                    Utf8PathBuf::from_path_buf(file).unwrap(),
-                    LoadOptions {
-                        keep_variables,
-                        keep_unavailable,
-                    },
-                )
-            }
+            Message::LoadFile(
+                Utf8PathBuf::from_path_buf(file).unwrap(),
+                LoadOptions {
+                    keep_variables,
+                    keep_unavailable,
+                },
+            )
         };
 
         #[cfg(target_arch = "wasm32")]
         let message = move |file: Vec<u8>| {
-            Message::LoadWaveformFileFromData(
+            Message::LoadFromData(
                 file,
                 LoadOptions {
                     keep_variables,
@@ -667,7 +704,7 @@ impl State {
         );
     }
 
-    #[cfg(target_family = "unix")]
+    #[cfg(feature = "python")]
     pub fn open_python_file_dialog(&mut self) {
         self.file_dialog(
             ("Python files (*.py)".to_string(), vec!["py".to_string()]),

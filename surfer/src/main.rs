@@ -10,8 +10,11 @@ mod cxxrtl;
 #[cfg(not(target_arch = "wasm32"))]
 mod cxxrtl_container;
 mod data_container;
+mod dialog;
 mod displayed_item;
 mod drawing_canvas;
+mod file_watcher;
+mod graphics;
 mod help;
 mod hierarchy;
 mod keys;
@@ -37,12 +40,14 @@ mod variable_name_type;
 mod variable_type;
 mod view;
 mod viewport;
-#[cfg(target_arch = "wasm32")]
 mod wasm_api;
+#[cfg(target_arch = "wasm32")]
+mod wasm_panic;
 mod wasm_util;
 mod wave_container;
 mod wave_data;
 mod wave_source;
+#[cfg(not(target_arch = "wasm32"))]
 mod wcp;
 mod wellen;
 
@@ -62,13 +67,16 @@ use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use derive_more::Display;
+use eframe::App;
 use egui::style::{Selection, WidgetVisuals, Widgets};
 use egui::{FontData, FontDefinitions, FontFamily, Visuals};
 #[cfg(not(target_arch = "wasm32"))]
 use emath::Vec2;
 use emath::{Pos2, Rect};
 use epaint::{Rounding, Stroke};
+use ftr_parser::types::Transaction;
 use fzcmd::parse_command;
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{error, info, trace, warn};
 use num::BigInt;
@@ -76,6 +84,7 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::Translator;
 use time::{TimeStringFormatting, TimeUnit};
+#[cfg(not(target_arch = "wasm32"))]
 use wcp::wcp_handler::WcpMessage;
 #[cfg(not(target_arch = "wasm32"))]
 use wcp::wcp_server::WcpHttpServer;
@@ -86,21 +95,26 @@ use crate::command_prompt::get_parser;
 use crate::config::{SurferConfig, SurferTheme};
 use crate::data_container::DataContainer;
 use crate::data_container::DataContainer::Transactions;
+use crate::dialog::ReloadWaveformDialog;
 use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef, FieldFormat,
 };
 use crate::drawing_canvas::TxDrawingCommands;
+use crate::file_watcher::FileWatcher;
 use crate::message::{HeaderResult, Message};
-use crate::transaction_container::{TransactionContainer, TransactionRef, TransactionStreamRef};
+use crate::transaction_container::{
+    StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
+};
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::{all_translators, AnyTranslator, TranslatorList};
 use crate::variable_name_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
 use crate::wasm_util::{perform_work, UrlArgs};
-use crate::wave_container::{ScopeRefExt, VariableRef, WaveContainer};
-use crate::wave_data::WaveData;
+use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, WaveContainer};
+use crate::wave_data::{ScopeType, WaveData};
 use crate::wave_source::{string_to_wavesource, LoadOptions, LoadProgress, WaveFormat, WaveSource};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::wcp::wcp_handler::Vecs;
 use crate::wellen::convert_format;
 
@@ -259,7 +273,11 @@ fn main() -> Result<()> {
         });
     });
 
-    let mut state = match &args.state_file {
+    let state_file = args.state_file.clone();
+    let startup_params = StartupParams::from_args(args);
+    let waves = startup_params.waves.clone();
+
+    let mut state = match &state_file {
         Some(file) => std::fs::read_to_string(file)
             .with_context(|| format!("Failed to read state from {file}"))
             .and_then(|content| {
@@ -276,7 +294,26 @@ fn main() -> Result<()> {
             })?,
         None => State::new()?,
     }
-    .with_params(StartupParams::from_args(args));
+    .with_params(startup_params);
+
+    // install a file watcher that emits a `SuggestReloadWaveform` message
+    // whenever the user-provided file changes.
+    let _watcher = match waves {
+        Some(WaveSource::File(path)) => {
+            let sender = state.sys.channels.msg_sender.clone();
+            FileWatcher::new(&path, move || {
+                match sender.send(Message::SuggestReloadWaveform) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("Message ReloadWaveform did not send:\n{err}")
+                    }
+                }
+            })
+            .inspect_err(|err| error!("Cannot set up the file watcher:\n{err}"))
+            .ok()
+        }
+        _ => None,
+    };
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -295,6 +332,7 @@ fn main() -> Result<()> {
             let ctx_arc = Arc::new(cc.egui_ctx.clone());
             *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
             state.sys.context = Some(ctx_arc.clone());
+            #[cfg(not(target_arch = "wasm32"))]
             if state.config.wcp.autostart {
                 state.start_wcp_server(Some(state.config.wcp.address.clone()));
             }
@@ -322,6 +360,8 @@ fn main() -> Result<()> {
         .chain(Box::new(eframe::WebLogger::new(log::LevelFilter::Debug)) as Box<dyn log::Log>);
 
     logs::setup_logging(web_log_config)?;
+
+    wasm_panic::set_once();
 
     let web_options = eframe::WebOptions::default();
 
@@ -402,16 +442,22 @@ struct CachedTransactionDrawData {
 struct Channels {
     msg_sender: Sender<Message>,
     msg_receiver: Receiver<Message>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_s2c_receiver: Option<Receiver<WcpMessage>>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_c2s_sender: Option<Sender<WcpMessage>>,
 }
+
 impl Channels {
     fn new() -> Self {
         let (msg_sender, msg_receiver) = mpsc::channel();
         Self {
             msg_sender,
             msg_receiver,
+
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_s2c_receiver: None,
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_c2s_sender: None,
         }
     }
@@ -421,6 +467,8 @@ impl Channels {
 struct CanvasState {
     message: String,
     focused_item: Option<DisplayedItemIndex>,
+    focused_transaction: (Option<TransactionRef>, Option<Transaction>),
+    selected_items: HashSet<DisplayedItemRef>,
     displayed_item_order: Vec<DisplayedItemRef>,
     displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
     markers: HashMap<u8, BigInt>,
@@ -446,9 +494,13 @@ pub struct SystemState {
     batch_commands_completed: bool,
 
     /// The WCP server
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_server_thread: Option<JoinHandle<()>>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_server_address: Option<String>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_stop_signal: Arc<AtomicBool>,
+    #[cfg(not(target_arch = "wasm32"))]
     wcp_server_load_outstanding: bool,
 
     /// The draw commands for every variable currently selected
@@ -464,6 +516,13 @@ pub struct SystemState {
     last_canvas_rect: RefCell<Option<Rect>>,
     variable_name_filter: RefCell<String>,
     item_renaming_string: RefCell<String>,
+
+    /// These items should be expanded into subfields in the next frame. Cleared after each
+    /// frame
+    items_to_expand: RefCell<Vec<(DisplayedItemRef, usize)>>,
+    /// Character to add to the command prompt if it is visible. This is only needed for
+    /// presentations at them moment.
+    char_to_add_to_prompt: RefCell<Option<char>>,
 
     // Benchmarking stuff
     /// Invalidate draw commands every frame to make performance comparison easier
@@ -500,12 +559,18 @@ impl SystemState {
                 suggestions: vec![],
                 selected: 0,
                 new_selection: None,
+                new_cursor_pos: None,
                 previous_commands: vec![],
             },
             context: None,
+
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_server_thread: None,
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_server_address: None,
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_stop_signal: Arc::new(AtomicBool::new(false)),
+            #[cfg(not(target_arch = "wasm32"))]
             wcp_server_load_outstanding: false,
             gesture_start_location: None,
             batch_commands: VecDeque::new(),
@@ -516,6 +581,9 @@ impl SystemState {
             last_canvas_rect: RefCell::new(None),
             variable_name_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
+
+            items_to_expand: RefCell::new(vec![]),
+            char_to_add_to_prompt: RefCell::new(None),
 
             continuous_redraw: false,
             #[cfg(feature = "performance_plot")]
@@ -569,11 +637,16 @@ pub struct State {
     wanted_timeunit: TimeUnit,
     time_string_format: Option<TimeStringFormatting>,
     show_url_entry: bool,
+    /// Show a confirmation dialog asking the user for confirmation
+    /// that surfer should reload changed files from disk.
+    #[serde(skip, default)]
+    show_reload_suggestion: Option<ReloadWaveformDialog>,
     variable_name_filter_focused: bool,
     variable_name_filter_type: VariableNameFilterType,
     variable_name_filter_case_insensitive: bool,
     rename_target: Option<DisplayedItemIndex>,
-
+    //Sidepanel width
+    sidepanel_width: Option<f32>,
     /// UI zoom factor if set by the user
     ui_zoom_factor: Option<f32>,
 
@@ -629,6 +702,7 @@ impl State {
             time_string_format: None,
             show_url_entry: false,
             show_quick_start: false,
+            show_reload_suggestion: None,
             rename_target: None,
             variable_name_filter_focused: false,
             variable_name_filter_type: VariableNameFilterType::Fuzzy,
@@ -648,6 +722,7 @@ impl State {
             drag_source_idx: None,
             drag_target_idx: None,
             state_file: None,
+            sidepanel_width: None,
         };
 
         Ok(result)
@@ -685,11 +760,7 @@ impl State {
                 ));
             }
             Some(WaveSource::File(file)) => {
-                let msg = match file.extension().unwrap() {
-                    "ftr" => Message::LoadTransactionFile(file, LoadOptions::clean()),
-                    _ => Message::LoadWaveformFile(file, LoadOptions::clean()),
-                };
-                self.add_startup_message(msg);
+                self.add_startup_message(Message::LoadFile(file, LoadOptions::clean()));
             }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             #[cfg(not(target_arch = "wasm32"))]
@@ -726,6 +797,7 @@ impl State {
         self.add_startup_messages([msg]);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn wcp(&mut self) {
         self.handle_wcp_commands();
     }
@@ -736,6 +808,15 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
+                let scope = if let ScopeType::StreamScope(StreamScopeRef::Empty(name)) = scope {
+                    ScopeType::StreamScope(StreamScopeRef::new_stream_from_name(
+                        waves.inner.as_transactions().unwrap(),
+                        name,
+                    ))
+                } else {
+                    scope
+                };
+
                 if waves.inner.scope_exists(&scope) {
                     waves.active_scope = Some(scope);
                 } else {
@@ -772,20 +853,9 @@ impl State {
                     waves.add_timeline(vidx);
                 }
             }
-            Message::AddScope(scope) => {
+            Message::AddScope(scope, recursive) => {
                 self.save_current_canvas(format!("Add scope {}", scope.name()));
-
-                let Some(waves) = self.waves.as_mut() else {
-                    warn!("Adding scope without waves loaded");
-                    return;
-                };
-
-                let variables = waves.inner.as_waves().unwrap().variables_in_scope(&scope);
-                let (cmd, _) = waves.add_variables(&self.sys.translators, variables);
-                if let Some(cmd) = cmd {
-                    self.load_variables(cmd);
-                }
-                self.invalidate_draw_commands();
+                self.add_scope(scope, recursive);
             }
             Message::AddCount(digit) => {
                 if let Some(count) = &mut self.count {
@@ -795,6 +865,13 @@ impl State {
                 }
             }
             Message::AddStreamOrGenerator(s) => {
+                let undo_msg = if let Some(gen_id) = s.gen_id {
+                    format!("Add generator(id: {})", gen_id)
+                } else {
+                    format!("Add stream(id: {})", s.stream_id)
+                };
+                self.save_current_canvas(undo_msg);
+
                 if let Some(waves) = self.waves.as_mut() {
                     if s.gen_id.is_some() {
                         waves.add_generator(s);
@@ -804,7 +881,77 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
-            Message::AddStreamOrGeneratorFromName(_scope, _name) => {}
+            Message::AddStreamOrGeneratorFromName(scope, name) => {
+                self.save_current_canvas(format!(
+                    "Add Stream/Generator from name: {}",
+                    name.clone()
+                ));
+                if let Some(waves) = self.waves.as_mut() {
+                    let Some(inner) = waves.inner.as_transactions() else {
+                        return;
+                    };
+                    if let Some(scope) = scope {
+                        match scope {
+                            StreamScopeRef::Root => {
+                                let (stream_id, name) = inner
+                                    .get_stream_from_name(name)
+                                    .map(|s| (s.id, s.name.clone()))
+                                    .unwrap();
+
+                                waves.add_stream(TransactionStreamRef::new_stream(stream_id, name));
+                            }
+                            StreamScopeRef::Stream(stream) => {
+                                let (stream_id, id, name) = inner
+                                    .get_generator_from_name(Some(stream.stream_id), name)
+                                    .map(|gen| (gen.stream_id, gen.id, gen.name.clone()))
+                                    .unwrap();
+
+                                waves.add_generator(TransactionStreamRef::new_gen(
+                                    stream_id, id, name,
+                                ));
+                            }
+                            StreamScopeRef::Empty(_) => {}
+                        }
+                    } else {
+                        let (stream_id, id, name) = inner
+                            .get_generator_from_name(None, name)
+                            .map(|gen| (gen.stream_id, gen.id, gen.name.clone()))
+                            .unwrap();
+
+                        waves.add_generator(TransactionStreamRef::new_gen(stream_id, id, name));
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
+            Message::AddAllFromStreamScope(scope_name) => {
+                self.save_current_canvas(format!("Add all from scope {}", scope_name.clone()));
+                if let Some(waves) = self.waves.as_mut() {
+                    if scope_name == "tr" {
+                        waves.add_all_streams();
+                    } else {
+                        let Some(inner) = waves.inner.as_transactions() else {
+                            return;
+                        };
+                        if let Some(stream) = inner.get_stream_from_name(scope_name) {
+                            let gens = stream
+                                .generators
+                                .iter()
+                                .map(|gen_id| inner.get_generator(*gen_id).unwrap())
+                                .map(|gen| (gen.stream_id, gen.id, gen.name.clone()))
+                                .collect_vec();
+
+                            for (stream_id, id, name) in gens {
+                                waves.add_generator(TransactionStreamRef::new_gen(
+                                    stream_id,
+                                    id,
+                                    name.clone(),
+                                ))
+                            }
+                        }
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
             Message::InvalidateCount => self.count = None,
             Message::SetNameAlignRight(align_right) => {
                 self.align_names_right = Some(align_right);
@@ -821,6 +968,38 @@ impl State {
                     error!(
                         "Can not focus variable {} because only {visible_items_len} variables are visible.", idx.0
                     );
+                }
+            }
+            Message::ItemSelectRange(select_to) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+
+                if let Some(select_from) = waves.focused_item {
+                    let range = if select_to.0 > select_from.0 {
+                        select_from.0..=select_to.0
+                    } else {
+                        select_to.0..=select_from.0
+                    };
+                    for idx in range {
+                        if let Some(item_ref) = waves.displayed_items_order.get(idx) {
+                            waves.selected_items.insert(*item_ref);
+                        }
+                    }
+                }
+            }
+            Message::ToggleItemSelected(idx) => {
+                let Some(waves) = self.waves.as_mut() else {
+                    return;
+                };
+
+                if let Some(focused) = idx.or(waves.focused_item) {
+                    let id = waves.displayed_items_order[focused.0];
+                    if waves.selected_items.contains(&id) {
+                        waves.selected_items.remove(&id);
+                    } else {
+                        waves.selected_items.insert(id);
+                    }
                 }
             }
             Message::UnfocusItem => {
@@ -846,39 +1025,50 @@ impl State {
                     }
                 }
             }
-            Message::MoveFocus(direction, count) => {
+            Message::MoveFocus(direction, count, select) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
                 let visible_items_len = waves.displayed_items.len();
                 if visible_items_len > 0 {
                     self.count = None;
-                    match direction {
-                        MoveDir::Up => {
-                            waves.focused_item = waves
-                                .focused_item
-                                .map(|dii| dii.0)
-                                .map_or(Some(visible_items_len - 1), |focused| {
-                                    Some(focused - count.clamp(0, focused))
-                                })
-                                .map(DisplayedItemIndex);
+                    let new_focus_idx = match direction {
+                        MoveDir::Up => waves
+                            .focused_item
+                            .map(|dii| dii.0)
+                            .map_or(Some(visible_items_len - 1), |focused| {
+                                Some(focused - count.clamp(0, focused))
+                            }),
+                        MoveDir::Down => waves.focused_item.map(|dii| dii.0).map_or(
+                            Some((count - 1).clamp(0, visible_items_len - 1)),
+                            |focused| Some((focused + count).clamp(0, visible_items_len - 1)),
+                        ),
+                    };
+
+                    if let Some(idx) = new_focus_idx {
+                        if select {
+                            if let Some(focused) = waves.focused_item {
+                                if let Some(focused_ref) =
+                                    waves.displayed_items_order.get(focused.0)
+                                {
+                                    waves.selected_items.insert(*focused_ref);
+                                }
+                            }
+                            if let Some(item_ref) = waves.displayed_items_order.get(idx) {
+                                waves.selected_items.insert(*item_ref);
+                            }
                         }
-                        MoveDir::Down => {
-                            waves.focused_item = waves
-                                .focused_item
-                                .map(|dii| dii.0)
-                                .map_or(
-                                    Some((count - 1).clamp(0, visible_items_len - 1)),
-                                    |focused| {
-                                        Some((focused + count).clamp(0, visible_items_len - 1))
-                                    },
-                                )
-                                .map(DisplayedItemIndex);
-                        }
+                        waves.focused_item = Some(DisplayedItemIndex::from(idx));
                     }
                 }
             }
             Message::FocusTransaction(tx_ref, tx) => {
+                if tx_ref.is_some() && tx.is_none() {
+                    self.save_current_canvas(format!(
+                        "Focus Transaction id: {}",
+                        tx_ref.as_ref().unwrap().id
+                    ));
+                }
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
@@ -919,8 +1109,8 @@ impl State {
                     }
                 }
             }
-            Message::RemoveItem(idx, count) => {
-                let name = self
+            Message::RemoveItemByIndex(idx) => {
+                let undo_msg = self
                     .waves
                     .as_ref()
                     .and_then(|waves| {
@@ -929,12 +1119,46 @@ impl State {
                             .get(idx.0)
                             .and_then(|id| waves.displayed_items.get(id))
                             .map(displayed_item::DisplayedItem::name)
+                            .map(|name| format!("Remove item {name}"))
                     })
-                    .unwrap_or_default();
-                self.save_current_canvas(format!("Remove item {name}"));
+                    .unwrap_or("Remove one item".to_string());
+                self.save_current_canvas(undo_msg);
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.remove_displayed_item(count, idx);
-                    self.invalidate_draw_commands();
+                    if idx.0 < waves.displayed_items_order.len() {
+                        let id = waves.displayed_items_order[idx.0];
+                        waves.remove_displayed_item(id);
+                    }
+                }
+            }
+            Message::RemoveItems(items) => {
+                let undo_msg = self
+                    .waves
+                    .as_ref()
+                    .and_then(|waves| {
+                        if items.len() == 1 {
+                            items.first().and_then(|idx| {
+                                waves
+                                    .displayed_items_order
+                                    .get(idx.0)
+                                    .and_then(|id| waves.displayed_items.get(id))
+                                    .map(|item| format!("Remove item {}", item.name()))
+                            })
+                        } else {
+                            Some(format!("Remove {} items", items.len()))
+                        }
+                    })
+                    .unwrap_or("".to_string());
+                self.save_current_canvas(undo_msg);
+                if let Some(waves) = self.waves.as_mut() {
+                    let mut ordered_items = items.clone();
+                    ordered_items.sort_unstable_by_key(|item| item.0);
+                    ordered_items.dedup_by_key(|item| item.0);
+                    for id in ordered_items {
+                        waves.remove_displayed_item(id);
+                    }
+                    waves
+                        .selected_items
+                        .retain(|item_ref| !items.contains(item_ref));
                 }
             }
             Message::MoveFocusedItem(direction, count) => {
@@ -1085,6 +1309,11 @@ impl State {
                 }
                 self.invalidate_draw_commands();
             }
+            Message::ItemSelectionClear => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.selected_items.clear();
+                }
+            }
             Message::ItemColorChange(vidx, color_name) => {
                 self.save_current_canvas(format!(
                     "Change item color to {}",
@@ -1096,8 +1325,16 @@ impl State {
                             waves
                                 .displayed_items
                                 .entry(*id)
-                                .and_modify(|item| item.set_color(color_name))
+                                .and_modify(|item| item.set_color(color_name.clone()))
                         });
+                    }
+                    if vidx.is_none() {
+                        for idx in waves.selected_items.iter() {
+                            waves
+                                .displayed_items
+                                .entry(*idx)
+                                .and_modify(|item| item.set_color(color_name.clone()));
+                        }
                     }
                 };
             }
@@ -1128,8 +1365,16 @@ impl State {
                             waves
                                 .displayed_items
                                 .entry(*id)
-                                .and_modify(|item| item.set_background_color(color_name))
+                                .and_modify(|item| item.set_background_color(color_name.clone()))
                         });
+                    }
+                    if vidx.is_none() {
+                        for idx in waves.selected_items.iter() {
+                            waves
+                                .displayed_items
+                                .entry(*idx)
+                                .and_modify(|item| item.set_background_color(color_name.clone()));
+                        }
                     }
                 };
             }
@@ -1159,6 +1404,73 @@ impl State {
                     }
                 }
             }
+            Message::MoveTransaction { next } => {
+                let undo_msg = if next {
+                    "Move to next transaction"
+                } else {
+                    "Move to previous transaction"
+                };
+                self.save_current_canvas(undo_msg.to_string());
+                if let Some(waves) = &mut self.waves {
+                    if let Some(inner) = waves.inner.as_transactions() {
+                        let mut transactions = waves
+                            .displayed_items_order
+                            .iter()
+                            .map(|item_id| {
+                                let item = &waves.displayed_items[item_id];
+                                match item {
+                                    DisplayedItem::Stream(s) => {
+                                        let stream_ref = &s.transaction_stream_ref;
+                                        let stream_id = stream_ref.stream_id;
+                                        if let Some(gen_id) = stream_ref.gen_id {
+                                            inner.get_transactions_from_generator(gen_id)
+                                        } else {
+                                            inner.get_transactions_from_stream(stream_id)
+                                        }
+                                    }
+                                    _ => vec![],
+                                }
+                            })
+                            .flatten()
+                            .collect_vec();
+
+                        transactions.sort();
+                        let tx = if let Some(focused_tx) = &waves.focused_transaction.0 {
+                            let next_id = transactions
+                                .iter()
+                                .enumerate()
+                                .find(|(_, tx)| **tx == focused_tx.id)
+                                .map(|(vec_idx, _)| {
+                                    if next {
+                                        if vec_idx + 1 < transactions.len() {
+                                            vec_idx + 1
+                                        } else {
+                                            transactions.len() - 1
+                                        }
+                                    } else {
+                                        if vec_idx as i32 - 1 > 0 {
+                                            vec_idx - 1
+                                        } else {
+                                            0
+                                        }
+                                    }
+                                })
+                                .unwrap_or(next.then_some(transactions.len() - 1).unwrap_or(0));
+                            Some(TransactionRef {
+                                id: *transactions.get(next_id).unwrap(),
+                            })
+                        } else if !transactions.is_empty() {
+                            Some(TransactionRef {
+                                id: *transactions.get(0).unwrap(),
+                            })
+                        } else {
+                            None
+                        };
+                        waves.focused_transaction = (tx, waves.focused_transaction.1.clone());
+                    }
+                    self.invalidate_draw_commands();
+                }
+            }
             Message::ResetVariableFormat(displayed_field_ref) => {
                 if let Some(DisplayedItem::Variable(displayed_variable)) = self
                     .waves
@@ -1180,30 +1492,37 @@ impl State {
                     waves.cursor = Some(new);
                 }
             }
-            Message::RightCursorSet(new) => {
-                if let Some(waves) = self.waves.as_mut() {
-                    waves.right_cursor = new;
-                }
-            }
-            Message::LoadWaveformFile(filename, load_options) => {
-                self.load_wave_from_file(filename, load_options).ok();
+            Message::LoadFile(filename, load_options) => {
+                self.load_from_file(filename, load_options).ok();
             }
             Message::LoadWaveformFileFromUrl(url, load_options) => {
                 self.load_wave_from_url(url, load_options);
             }
-            Message::LoadWaveformFileFromData(data, load_options) => {
-                self.load_wave_from_data(data, load_options).ok();
+            Message::LoadFromData(data, load_options) => {
+                self.load_from_data(data, load_options).ok();
             }
-            Message::LoadTransactionFile(filename, load_options) => {
-                self.load_transactions_from_file(filename, load_options)
-                    .ok();
-            }
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             Message::LoadPythonTranslator(filename) => {
                 try_log_error!(
                     self.sys.translators.load_python_translator(filename),
                     "Error loading Python translator",
                 )
+            }
+            Message::LoadSpadeTranslator { top, state } => {
+                #[cfg(feature = "spade")]
+                {
+                    let sender = self.sys.channels.msg_sender.clone();
+                    perform_work(move || {
+                        #[cfg(feature = "spade")]
+                        SpadeTranslator::init(&top, &state, sender);
+                    });
+                };
+                #[cfg(not(feature = "spade"))]
+                {
+                    info!(
+                        "Surfer is not compiled with spade support, ignoring LoadSpadeTranslator"
+                    );
+                }
             }
             #[cfg(not(target_arch = "wasm32"))]
             Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
@@ -1211,7 +1530,7 @@ impl State {
                 self.server_status_to_progress(server, status);
             }
             Message::FileDropped(dropped_file) => {
-                self.load_wave_from_dropped(dropped_file)
+                self.load_from_dropped(dropped_file)
                     .map_err(|e| error!("{e:#?}"))
                     .ok();
             }
@@ -1275,14 +1594,17 @@ impl State {
                         None
                     });
 
-                if self.sys.wcp_server_load_outstanding {
-                    self.sys.wcp_server_load_outstanding = false;
-                    self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                        ch.send(WcpMessage::create_response(
-                            "load".to_string(),
-                            Vecs::VecInt(vec![]),
-                        ))
-                    });
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if self.sys.wcp_server_load_outstanding {
+                        self.sys.wcp_server_load_outstanding = false;
+                        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
+                            ch.send(WcpMessage::create_response(
+                                "load".to_string(),
+                                Vecs::Int(vec![]),
+                            ))
+                        });
+                    }
                 }
 
                 // update viewports, now that we have the time table
@@ -1314,7 +1636,6 @@ impl State {
                 // here, the body and thus the number of timestamps is already loaded!
                 self.waves.as_mut().unwrap().update_viewports();
                 self.sys.progress_tracker = None;
-                info!("wave form loaded");
             }
             Message::TransactionStreamsLoaded(filename, format, new_ftr, loaded_options) => {
                 self.on_transaction_streams_loaded(filename, format, new_ftr, loaded_options);
@@ -1398,17 +1719,32 @@ impl State {
                     waves.compute_variable_display_names();
                 }
             }
-            Message::ShowCommandPrompt(new_visibility) => {
-                if !new_visibility {
-                    *self.sys.command_prompt_text.borrow_mut() = String::new();
+            Message::ShowCommandPrompt(text) => {
+                if let Some(init_text) = text {
+                    self.sys.command_prompt.new_cursor_pos = Some(init_text.len());
+                    *self.sys.command_prompt_text.borrow_mut() = init_text;
+                    self.sys.command_prompt.visible = true;
+                } else {
+                    *self.sys.command_prompt_text.borrow_mut() = "".to_string();
                     self.sys.command_prompt.suggestions = vec![];
                     self.sys.command_prompt.selected =
                         self.sys.command_prompt.previous_commands.len();
+                    self.sys.command_prompt.visible = false;
                 }
-                self.sys.command_prompt.visible = new_visibility;
             }
             Message::FileDownloaded(url, bytes, load_options) => {
-                self.load_wave_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options);
+                self.load_from_bytes(WaveSource::Url(url), bytes.to_vec(), load_options)
+            }
+            Message::SetConfigFromString(s) => {
+                // FIXME think about a structured way to collect errors
+                if let Ok(config) =
+                    SurferConfig::new_from_toml(&s).with_context(|| "Failed to load config file")
+                {
+                    self.config = config;
+                    if let Some(ctx) = &self.sys.context.as_ref() {
+                        ctx.set_visuals(self.get_visuals())
+                    }
+                }
             }
             Message::ReloadConfig => {
                 // FIXME think about a structured way to collect errors
@@ -1426,7 +1762,7 @@ impl State {
                 let Some(waves) = &self.waves else { return };
                 match &waves.source {
                     WaveSource::File(filename) => {
-                        self.load_wave_from_file(
+                        self.load_from_file(
                             filename.clone(),
                             LoadOptions {
                                 keep_variables: true,
@@ -1440,7 +1776,7 @@ impl State {
                     WaveSource::CxxrtlTcp(..) => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename.clone().and_then(|filename| {
-                            self.load_wave_from_file(
+                            self.load_from_file(
                                 filename,
                                 LoadOptions {
                                     keep_variables: true,
@@ -1464,6 +1800,30 @@ impl State {
                 for translator in self.sys.translators.all_translators() {
                     translator.reload(self.sys.channels.msg_sender.clone());
                 }
+            }
+            Message::SuggestReloadWaveform => match self.config.autoreload_files {
+                Some(true) => {
+                    self.update(Message::ReloadWaveform(true));
+                }
+                Some(false) => {}
+                None => self.show_reload_suggestion = Some(ReloadWaveformDialog::default()),
+            },
+            Message::CloseReloadWaveformDialog {
+                reload_file,
+                do_not_show_again,
+            } => {
+                if do_not_show_again {
+                    // FIXME: This is currently for one session only, but could be persisted in
+                    // some setting.
+                    self.config.autoreload_files = Some(reload_file);
+                }
+                self.show_reload_suggestion = None;
+                if reload_file {
+                    self.update(Message::ReloadWaveform(true));
+                }
+            }
+            Message::UpdateReloadWaveformDialog(dialog) => {
+                self.show_reload_suggestion = Some(dialog);
             }
             Message::RemovePlaceholders => {
                 if let Some(waves) = self.waves.as_mut() {
@@ -1556,11 +1916,11 @@ impl State {
             Message::OpenFileDialog(mode) => {
                 self.open_file_dialog(mode);
             }
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             Message::OpenPythonPluginDialog => {
                 self.open_python_file_dialog();
             }
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             Message::ReloadPythonPlugin => {
                 try_log_error!(
                     self.sys.translators.reload_python_translator(),
@@ -1645,6 +2005,47 @@ impl State {
                     self.update(message);
                 }
             }
+            Message::AddDraggedVariables(variables) => {
+                if self.waves.is_some() {
+                    self.waves.as_mut().unwrap().focused_item = None;
+                    let waves = self.waves.as_mut().unwrap();
+                    if let Some(DisplayedItemIndex(target_idx)) = self.drag_target_idx {
+                        let variables_len = variables.len() - 1;
+                        let items_len = waves.displayed_items_order.len();
+                        if let (Some(cmd), _) =
+                            waves.add_variables(&self.sys.translators, variables)
+                        {
+                            self.load_variables(cmd);
+                        }
+
+                        for i in 0..=variables_len {
+                            let to_insert = self
+                                .waves
+                                .as_mut()
+                                .unwrap()
+                                .displayed_items_order
+                                .remove(items_len + i);
+                            self.waves
+                                .as_mut()
+                                .unwrap()
+                                .displayed_items_order
+                                .insert(target_idx + i, to_insert);
+                        }
+                    } else {
+                        if let (Some(cmd), _) = self
+                            .waves
+                            .as_mut()
+                            .unwrap()
+                            .add_variables(&self.sys.translators, variables)
+                        {
+                            self.load_variables(cmd);
+                        }
+                    }
+                    self.invalidate_draw_commands();
+                }
+                self.drag_source_idx = None;
+                self.drag_target_idx = None;
+            }
             Message::VariableDragStarted(vidx) => {
                 self.drag_started = true;
                 self.drag_source_idx = Some(vidx);
@@ -1709,6 +2110,13 @@ impl State {
                     }
                 }
             }
+            Message::SetViewportStrategy(s) => {
+                if let Some(waves) = &mut self.waves {
+                    for vp in &mut waves.viewports {
+                        vp.move_strategy = s
+                    }
+                }
+            }
             Message::Undo(count) => {
                 if let Some(waves) = &mut self.waves {
                     for _ in 0..count {
@@ -1717,6 +2125,8 @@ impl State {
                                 .redo_stack
                                 .push(State::current_canvas_state(waves, prev_state.message));
                             waves.focused_item = prev_state.focused_item;
+                            waves.focused_transaction = prev_state.focused_transaction;
+                            waves.selected_items = prev_state.selected_items;
                             waves.displayed_items_order = prev_state.displayed_item_order;
                             waves.displayed_items = prev_state.displayed_items;
                             waves.markers = prev_state.markers;
@@ -1735,6 +2145,7 @@ impl State {
                                 .undo_stack
                                 .push(State::current_canvas_state(waves, prev_state.message));
                             waves.focused_item = prev_state.focused_item;
+                            waves.focused_transaction = prev_state.focused_transaction;
                             waves.displayed_items_order = prev_state.displayed_item_order;
                             waves.displayed_items = prev_state.displayed_items;
                             waves.markers = prev_state.markers;
@@ -1745,10 +2156,14 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
             Message::StartWcpServer(address) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 self.start_wcp_server(address);
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
             Message::StopWcpServer => {
                 #[cfg(not(target_arch = "wasm32"))]
                 self.stop_wcp_server();
@@ -1780,7 +2195,70 @@ impl State {
                 }
             }
             Message::AsyncDone(_) => (),
+            Message::AddGraphic(id, g) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.insert(id, g);
+                }
+            }
+            Message::RemoveGraphic(id) => {
+                if let Some(waves) = &mut self.waves {
+                    waves.graphics.retain(|k, _| k != &id)
+                }
+            }
+            Message::ExpandDrawnItem { item, levels } => {
+                self.sys.items_to_expand.borrow_mut().push((item, levels))
+            }
+            Message::AddCharToPrompt(c) => *self.sys.char_to_add_to_prompt.borrow_mut() = Some(c),
         }
+    }
+
+    fn add_scope(&mut self, scope: ScopeRef, recursive: bool) {
+        let Some(waves) = self.waves.as_mut() else {
+            warn!("Adding scope without waves loaded");
+            return;
+        };
+
+        let wave_cont = waves.inner.as_waves().unwrap();
+
+        let children = wave_cont.child_scopes(&scope);
+        let variables = wave_cont
+            .variables_in_scope(&scope)
+            .iter()
+            .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
+            .cloned()
+            .collect_vec();
+
+        let variable_len = variables.len();
+        let items_len = waves.displayed_items_order.len();
+        if let (Some(cmd), _) = waves.add_variables(&self.sys.translators, variables) {
+            self.load_variables(cmd);
+        }
+        if let (Some(DisplayedItemIndex(target_idx)), Some(_)) =
+            (self.drag_target_idx, self.drag_source_idx)
+        {
+            for i in 0..variable_len {
+                let to_insert = self
+                    .waves
+                    .as_mut()
+                    .unwrap()
+                    .displayed_items_order
+                    .remove(items_len + i);
+                self.waves
+                    .as_mut()
+                    .unwrap()
+                    .displayed_items_order
+                    .insert(target_idx + i, to_insert);
+            }
+        }
+
+        if recursive {
+            if let Ok(children) = children {
+                for child in children {
+                    self.add_scope(child, true);
+                }
+            }
+        }
+        self.invalidate_draw_commands();
     }
 
     fn on_waves_loaded(
@@ -1821,10 +2299,10 @@ impl State {
                     displayed_items: HashMap::new(),
                     viewports,
                     cursor: None,
-                    right_cursor: None,
                     markers: HashMap::new(),
                     focused_item: None,
                     focused_transaction: (None, None),
+                    selected_items: HashSet::new(),
                     default_variable_name_type: self.config.default_variable_name_type,
                     display_variable_indices: self.show_variable_indices(),
                     scroll_offset: 0.,
@@ -1833,6 +2311,7 @@ impl State {
                     total_height: 0.,
                     display_item_ref_counter: 0,
                     old_num_timestamps: None,
+                    graphics: HashMap::new(),
                 },
                 None,
             )
@@ -1868,10 +2347,10 @@ impl State {
             displayed_items: HashMap::new(),
             viewports,
             cursor: None,
-            right_cursor: None,
             markers: HashMap::new(),
             focused_item: None,
             focused_transaction: (None, None),
+            selected_items: HashSet::new(),
             default_variable_name_type: self.config.default_variable_name_type,
             display_variable_indices: self.show_variable_indices(),
             scroll_offset: 0.,
@@ -1880,6 +2359,7 @@ impl State {
             total_height: 0.,
             display_item_ref_counter: 0,
             old_num_timestamps: None,
+            graphics: HashMap::new(),
         };
 
         self.invalidate_draw_commands();
@@ -2010,7 +2490,6 @@ impl State {
 
             mem::swap(&mut waves.viewports, &mut new_waves.viewports);
             mem::swap(&mut waves.cursor, &mut new_waves.cursor);
-            mem::swap(&mut waves.right_cursor, &mut new_waves.right_cursor);
             mem::swap(&mut waves.markers, &mut new_waves.markers);
             mem::swap(&mut waves.focused_item, &mut new_waves.focused_item);
             waves.default_variable_name_type = new_waves.default_variable_name_type;
@@ -2100,6 +2579,8 @@ impl State {
         CanvasState {
             message,
             focused_item: waves.focused_item,
+            focused_transaction: waves.focused_transaction.clone(),
+            selected_items: waves.selected_items.clone(),
             displayed_item_order: waves.displayed_items_order.clone(),
             displayed_items: waves.displayed_items.clone(),
             markers: waves.markers.clone(),
@@ -2135,9 +2616,9 @@ impl State {
         let ctx = self.sys.context.clone();
         let address = address.unwrap_or(self.config.wcp.address.clone());
         self.sys.wcp_server_address = Some(address.clone());
-        self.sys.wcp_server_thread = Some(thread::spawn(|| {
+        self.sys.wcp_server_thread = Some(thread::spawn(move || {
             let server = WcpHttpServer::new(
-                address,
+                address.clone(),
                 wcp_s2c_sender,
                 wcp_c2s_receiver,
                 stop_signal_copy,
@@ -2146,7 +2627,9 @@ impl State {
             match server {
                 Ok(mut server) => server.run(),
                 Err(m) => {
-                    error!("Could not start WCP HTTP server. Address already in use. {m:?}")
+                    error!(
+                        "Could not start WCP HTTP server. Address {address} already in use. {m:?}"
+                    )
                 }
             }
         }));
@@ -2171,5 +2654,12 @@ impl State {
                 info!("Stopped WCP server");
             }
         }
+    }
+}
+
+pub struct StateWrapper(Arc<RwLock<State>>);
+impl App for StateWrapper {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        App::update(&mut *self.0.write().unwrap(), ctx, frame)
     }
 }

@@ -9,7 +9,7 @@ impl State {
     pub fn get_item_text_color(&self, item: &DisplayedItem) -> &Color32 {
         item.color()
             .and_then(|color| self.config.theme.get_color(&color))
-            .unwrap_or(&self.config.theme.foreground)
+            .unwrap_or(&self.config.theme.primary_ui_color.foreground)
     }
 
     #[inline]
@@ -61,9 +61,16 @@ impl State {
         self.show_variable_indices
             .unwrap_or_else(|| self.config.layout.show_variable_indices())
     }
+
     #[inline]
     pub fn show_variable_direction(&self) -> bool {
         self.show_variable_direction
             .unwrap_or_else(|| self.config.layout.show_variable_direction())
+    }
+
+    #[inline]
+    pub fn ui_zoom_factor(&self) -> f32 {
+        self.ui_zoom_factor
+            .unwrap_or_else(|| self.config.layout.default_zoom_factor())
     }
 }

@@ -42,9 +42,11 @@ lazy_static.workspace = true
 local-impl = "0.1.2"
 log.workspace = true
 lz4_flex.workspace = true
+notify = "6.1.1"
 num.workspace = true
 numeric-sort = "0.1.1"
 pure-rust-locales = "0.8.1"
+pyo3 = { workspace = true, optional = true }
 rayon = "1.10.0"
 regex = "1.10.2"
 reqwest = { version = "0.12.4", features = ["stream"] }
@@ -54,10 +56,10 @@ serde.workspace = true
 serde_json.workspace = true
 serde_stacker = { version = "0.1", optional = true }
 softposit = "0.4.0"
-spade = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
-spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
-spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
-spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "1ea65cb7f09072ba8118dc0a70830d2352fbc71e", optional = true }
+spade = { git = "https://gitlab.com/spade-lang/spade", rev = "53f597f25705f8b9d5dffaf8134a8e461888d2ec", optional = true }
+spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "53f597f25705f8b9d5dffaf8134a8e461888d2ec", optional = true }
+spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "53f597f25705f8b9d5dffaf8134a8e461888d2ec", optional = true }
+spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "53f597f25705f8b9d5dffaf8134a8e461888d2ec", optional = true }
 surfer-translation-types = { path = "../surfer-translation-types" }
 surver.workspace = true
 sys-locale = "0.3.1"
@@ -70,6 +72,7 @@ default = ["spade", "performance_plot"]
 accesskit = ["eframe/accesskit", "eframe/web_screen_reader"]
 f128 = ["dep:f128"]
 performance_plot = ["dep:egui_plot"]
+python = ["pyo3", "surfer-translation-types/pyo3"]
 spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-types", "dep:serde_stacker"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -83,10 +86,9 @@ console_error_panic_hook = "0.1.6"
 toml = "0.8.12"
 wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3.69", features = ["Location", "UrlSearchParams"] }
-
-[target.'cfg(target_family = "unix")'.dependencies]
-pyo3.workspace = true
+web-sys = { version = "= 0.3.69", features = ["Location", "UrlSearchParams"] }
+futures = "0.3.30"
+tokio = {workspace = true, features = ["sync"]}
 
 [dev-dependencies]
 egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "c13a8bbfc622ae28ee7b7f6d1c576a761e8b8bbe" }
@@ -94,6 +96,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 image-compare = "0.4.1"
 project-root = "0.2.2"
 skia-safe = "0.75.0"
+tempfile = "3.12.0"
 test-log = "0.2.15"
 
 [build-dependencies]

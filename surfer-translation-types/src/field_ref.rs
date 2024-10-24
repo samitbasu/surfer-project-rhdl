@@ -11,8 +11,11 @@ pub struct FieldRef<VarId, ScopeId> {
     pub field: Vec<String>,
 }
 
+// Manual implementation because of https://github.com/rust-lang/rust/issues/26925
 impl<VarId, ScopeId> Hash for FieldRef<VarId, ScopeId> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.root.hash(state)
+        let FieldRef { root, field } = self;
+        root.hash(state);
+        field.hash(state);
     }
 }

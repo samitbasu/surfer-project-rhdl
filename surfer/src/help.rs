@@ -1,5 +1,5 @@
 //! Help texts and dialogs.
-use egui::{Context, Grid, RichText, ScrollArea, Ui, Window};
+use egui::{Context, Grid, OpenUrl, RichText, ScrollArea, Ui, Window};
 use egui_remixicon::icons;
 use emath::{Align2, Pos2};
 
@@ -200,7 +200,12 @@ fn key_listing(ui: &mut Ui) {
         ("", "Ctrl+j/⬇", "Move focused item down"),
         ("", "Alt+k/⬆", "Move focus up"),
         ("", "Alt+j/⬇", "Move focus down"),
+        ("", "a", "Add focused item to selection"),
+        ("", "Ctrl+Alt+k/⬆", "Extend selection up"),
+        ("", "Ctrl+Alt+j/⬇", "Extend selection down"),
         ("", "u/Shift+u", "Undo/redo last change"),
+        ("", "Ctrl+z/Ctrl+y", "Undo/redo last change"),
+        ("", "f", "Fast focus a signal"),
         ("", "Ctrl+0-9", "Add numbered marker"),
         ("", "0-9", "Center view at numbered marker"),
         (icons::REWIND_START_FILL, "s", "Go to start"),
@@ -298,9 +303,17 @@ pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
                 ui.label(text);
             });
             ui.add_space(10.);
-            if ui.button("Close").clicked() {
-                msgs.push(Message::SetLicenseVisible(false));
-            }
+            ui.horizontal(|ui| {
+                if ui.button("Dependency licenses").clicked() {
+                    ctx.open_url(OpenUrl {
+                        url: "https://docs.surfer-project.org/licenses.html".to_string(),
+                        new_tab: true,
+                    });
+                }
+                if ui.button("Close").clicked() {
+                    msgs.push(Message::SetLicenseVisible(false));
+                }
+            });
         });
     if !open {
         msgs.push(Message::SetLicenseVisible(false));

@@ -3,16 +3,9 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
-use egui::scroll_area::ScrollBarVisibility;
-use egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
-use egui::{Key, RichText, TextEdit};
-use emath::{Align, Align2, NumExt, Vec2};
-use epaint::{FontFamily, FontId};
-use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
-use itertools::Itertools;
-
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
 use crate::displayed_item::DisplayedItemIndex;
+use crate::transaction_container::StreamScopeRef;
 use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt};
 use crate::wave_data::ScopeType;
 use crate::wave_source::LoadOptions;
@@ -24,6 +17,14 @@ use crate::{
     variable_name_type::VariableNameType,
     State,
 };
+use egui::scroll_area::ScrollBarVisibility;
+use egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
+use egui::{Key, RichText, TextEdit};
+use emath::{Align, Align2, NumExt, Vec2};
+use epaint::{FontFamily, FontId};
+use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
+use itertools::Itertools;
+use log::warn;
 
 type RestCommand = Box<dyn Fn(&str) -> Option<Command<Message>>>;
 
@@ -108,6 +109,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     let active_scope = state.waves.as_ref().and_then(|w| w.active_scope.clone());
 
+    let is_transaction_container = state
+        .waves
+        .as_ref()
+        .is_some_and(|w| w.inner.is_transactions());
+
     fn files_with_ext(matches: fn(&str) -> bool) -> Vec<String> {
         if let Ok(res) = fs::read_dir(".") {
             res.map(|res| res.map(|e| e.path()).unwrap_or_default())
@@ -141,6 +147,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         BTreeMap::new()
     };
 
+    #[cfg(not(target_arch = "wasm32"))]
     let wcp_start_or_stop = if state.sys.wcp_server_address.is_some() {
         "wcp_server_stop"
     } else {
@@ -153,6 +160,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "load_file",
             "switch_file",
             "variable_add",
+            "generator_add",
             "item_focus",
             "item_set_color",
             "item_set_background_color",
@@ -162,7 +170,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "item_rename",
             "zoom_fit",
             "scope_add",
+            "scope_add_recursive",
             "scope_select",
+            "stream_add",
+            "stream_select",
             "divider_add",
             "config_reload",
             "theme_select",
@@ -184,6 +195,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "toggle_fullscreen",
             "toggle_tick_lines",
             "variable_add_from_scope",
+            "generator_add_from_stream",
             "variable_set_name_type",
             "variable_force_name_type",
             "preference_set_clock_highlight",
@@ -198,6 +210,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "viewport_remove",
             "transition_next",
             "transition_previous",
+            "transaction_next",
+            "transaction_prev",
             "copy_value",
             "pause_simulation",
             "unpause_simulation",
@@ -240,11 +254,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
             let markers = markers.clone();
             let scopes = scopes.clone();
             let active_scope = active_scope.clone();
+            let is_transaction_container = is_transaction_container;
             match query {
                 "load_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::LoadWaveformFile(
+                        Some(Command::Terminal(Message::LoadFile(
                             word.into(),
                             LoadOptions::clean(),
                         )))
@@ -253,7 +268,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "switch_file" => single_word_delayed_suggestions(
                     Box::new(all_wave_files),
                     Box::new(|word| {
-                        Some(Command::Terminal(Message::LoadWaveformFile(
+                        Some(Command::Terminal(Message::LoadFile(
                             word.into(),
                             LoadOptions {
                                 keep_variables: true,
@@ -303,36 +318,84 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "toggle_fullscreen" => Some(Command::Terminal(Message::ToggleFullscreen)),
                 "toggle_tick_lines" => Some(Command::Terminal(Message::ToggleTickLines)),
                 // scope commands
-                "scope_add" | "module_add" => single_word(
-                    scopes,
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::AddScope(
-                            ScopeRef::from_hierarchy_string(word),
-                        )))
-                    }),
-                ),
-                "scope_select" => single_word(
-                    scopes.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::SetActiveScope(
-                            ScopeType::WaveScope(ScopeRef::from_hierarchy_string(word)),
-                        )))
-                    }),
-                ),
+                "scope_add" | "module_add" | "stream_add" | "scope_add_recursive" => {
+                    let recursive = query == "scope_add_recursive";
+                    if is_transaction_container {
+                        if recursive {
+                            warn!("Cannot recursively add transaction containers");
+                        }
+                        single_word(
+                            scopes,
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::AddAllFromStreamScope(
+                                    word.to_string(),
+                                )))
+                            }),
+                        )
+                    } else {
+                        single_word(
+                            scopes,
+                            Box::new(move |word| {
+                                Some(Command::Terminal(Message::AddScope(
+                                    ScopeRef::from_hierarchy_string(word),
+                                    recursive,
+                                )))
+                            }),
+                        )
+                    }
+                }
+                "scope_select" | "stream_select" => {
+                    if is_transaction_container {
+                        single_word(
+                            scopes.clone(),
+                            Box::new(|word| {
+                                let scope = if word == "tr" {
+                                    ScopeType::StreamScope(StreamScopeRef::Root)
+                                } else {
+                                    ScopeType::StreamScope(StreamScopeRef::Empty(word.to_string()))
+                                };
+                                Some(Command::Terminal(Message::SetActiveScope(scope)))
+                            }),
+                        )
+                    } else {
+                        single_word(
+                            scopes.clone(),
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::SetActiveScope(
+                                    ScopeType::WaveScope(ScopeRef::from_hierarchy_string(word)),
+                                )))
+                            }),
+                        )
+                    }
+                }
                 "reload" => Some(Command::Terminal(Message::ReloadWaveform(
                     keep_during_reload,
                 ))),
                 "remove_unavailable" => Some(Command::Terminal(Message::RemovePlaceholders)),
                 // Variable commands
-                "variable_add" => single_word(
-                    variables.clone(),
-                    Box::new(|word| {
-                        Some(Command::Terminal(Message::AddVariables(vec![
-                            VariableRef::from_hierarchy_string(word),
-                        ])))
-                    }),
-                ),
-                "variable_add_from_scope" => single_word(
+                "variable_add" | "generator_add" => {
+                    if is_transaction_container {
+                        single_word(
+                            variables.clone(),
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::AddStreamOrGeneratorFromName(
+                                    None,
+                                    word.to_string(),
+                                )))
+                            }),
+                        )
+                    } else {
+                        single_word(
+                            variables.clone(),
+                            Box::new(|word| {
+                                Some(Command::Terminal(Message::AddVariables(vec![
+                                    VariableRef::from_hierarchy_string(word),
+                                ])))
+                            }),
+                        )
+                    }
+                }
+                "variable_add_from_scope" | "generator_add_from_stream" => single_word(
                     variables_in_active_scope
                         .into_iter()
                         .map(|s| s.name())
@@ -344,7 +407,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             )),
                             ScopeType::StreamScope(stream_scope) => {
                                 Command::Terminal(Message::AddStreamOrGeneratorFromName(
-                                    stream_scope.clone(),
+                                    Some(stream_scope.clone()),
                                     name.to_string(),
                                 ))
                             }
@@ -436,6 +499,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         })
                     }),
                 ),
+                "transaction_next" => {
+                    Some(Command::Terminal(Message::MoveTransaction { next: true }))
+                }
+                "transaction_prev" => {
+                    Some(Command::Terminal(Message::MoveTransaction { next: false }))
+                }
                 "copy_value" => single_word(
                     displayed_items.clone(),
                     Box::new(|word| {
@@ -544,7 +613,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "unpause_simulation" => Some(Command::Terminal(Message::UnpauseSimulation)),
                 "undo" => Some(Command::Terminal(Message::Undo(1))),
                 "redo" => Some(Command::Terminal(Message::Redo(1))),
+                #[cfg(not(target_arch = "wasm32"))]
                 "wcp_server_start" => Some(Command::Terminal(Message::StartWcpServer(None))),
+                #[cfg(not(target_arch = "wasm32"))]
                 "wcp_server_stop" => Some(Command::Terminal(Message::StopWcpServer)),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,
@@ -574,11 +645,12 @@ pub struct CommandPrompt {
     pub suggestions: Vec<(String, Vec<bool>)>,
     pub selected: usize,
     pub new_selection: Option<usize>,
+    pub new_cursor_pos: Option<usize>,
     pub previous_commands: Vec<(String, Vec<bool>)>,
 }
 
 pub fn show_command_prompt(
-    state: &State,
+    state: &mut State,
     ctx: &egui::Context,
     // Window size if known. If unknown defaults to a width of 200pts
     window_size: Option<Vec2>,
@@ -592,6 +664,11 @@ pub fn show_command_prompt(
         .show(ctx, |ui| {
             egui::Frame::none().show(ui, |ui| {
                 let input = &mut *state.sys.command_prompt_text.borrow_mut();
+                let new_c = *state.sys.char_to_add_to_prompt.borrow();
+                if let Some(c) = new_c {
+                    input.push(c);
+                    *state.sys.char_to_add_to_prompt.borrow_mut() = None;
+                }
                 let response = ui.add(
                     TextEdit::singleline(input)
                         .desired_width(f32::INFINITY)
@@ -615,6 +692,10 @@ pub fn show_command_prompt(
 
                 if response.ctx.input(|i| i.key_pressed(Key::ArrowUp)) {
                     set_cursor_to_pos(input.chars().count(), ui);
+                }
+                if let Some(new_pos) = state.sys.command_prompt.new_cursor_pos {
+                    set_cursor_to_pos(new_pos, ui);
+                    state.sys.command_prompt.new_cursor_pos = None;
                 }
 
                 let suggestions = state
@@ -680,7 +761,7 @@ pub fn show_command_prompt(
                     );
 
                     if let Ok(cmd) = parsed.1 {
-                        msgs.push(Message::ShowCommandPrompt(false));
+                        msgs.push(Message::ShowCommandPrompt(None));
                         msgs.push(Message::CommandPromptClear);
                         msgs.push(Message::CommandPromptPushPrevious(parsed.0));
                         msgs.push(cmd);
@@ -841,7 +922,7 @@ pub fn show_command_prompt(
                                 );
 
                                 if let Ok(cmd) = result.1 {
-                                    msgs.push(Message::ShowCommandPrompt(false));
+                                    msgs.push(Message::ShowCommandPrompt(None));
                                     msgs.push(Message::CommandPromptClear);
                                     msgs.push(Message::CommandPromptPushPrevious(expanded));
                                     msgs.push(cmd);

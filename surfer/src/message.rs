@@ -9,21 +9,23 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use surver::Status;
 
+use crate::graphics::{Graphic, GraphicId};
 use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
 };
 use crate::translation::DynTranslator;
+use crate::viewport::ViewportStrategy;
 use crate::wave_data::ScopeType;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
-    displayed_item::{DisplayedFieldRef, DisplayedItemIndex},
+    displayed_item::{DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef},
     time::{TimeStringFormatting, TimeUnit},
     variable_name_type::VariableNameType,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
     wellen::LoadSignalsResult,
-    MoveDir, VariableNameFilterType, WaveSource,
+    MoveDir, ReloadWaveformDialog, VariableNameFilterType, WaveSource,
 };
 use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
@@ -57,22 +59,27 @@ pub enum AsyncJob {
 pub enum Message {
     SetActiveScope(ScopeType),
     AddVariables(Vec<VariableRef>),
-    AddScope(ScopeRef),
+    AddScope(ScopeRef, bool),
     AddCount(char),
     AddStreamOrGenerator(TransactionStreamRef),
-    AddStreamOrGeneratorFromName(StreamScopeRef, String),
+    AddStreamOrGeneratorFromName(Option<StreamScopeRef>, String),
+    AddAllFromStreamScope(String),
     InvalidateCount,
-    RemoveItem(DisplayedItemIndex, CommandCount),
+    RemoveItemByIndex(DisplayedItemIndex),
+    RemoveItems(Vec<DisplayedItemRef>),
     FocusItem(DisplayedItemIndex),
+    ItemSelectRange(DisplayedItemIndex),
+    ToggleItemSelected(Option<DisplayedItemIndex>),
     UnfocusItem,
     RenameItem(Option<DisplayedItemIndex>),
-    MoveFocus(MoveDir, CommandCount),
+    MoveFocus(MoveDir, CommandCount, bool),
     MoveFocusedItem(MoveDir, CommandCount),
     FocusTransaction(Option<TransactionRef>, Option<Transaction>),
     VerticalScroll(MoveDir, CommandCount),
     ScrollToItem(usize),
     SetScrollOffset(f32),
     VariableFormatChange(DisplayedFieldRef, String),
+    ItemSelectionClear,
     ItemColorChange(Option<DisplayedItemIndex>, Option<String>),
     ItemBackgroundColorChange(Option<DisplayedItemIndex>, Option<String>),
     ItemNameChange(Option<DisplayedItemIndex>, Option<String>),
@@ -98,15 +105,19 @@ pub enum Message {
         viewport_idx: usize,
     },
     CursorSet(BigInt),
-    RightCursorSet(Option<BigInt>),
     #[serde(skip)]
     SurferServerStatus(web_time::Instant, String, Status),
-    LoadWaveformFile(Utf8PathBuf, LoadOptions),
+    LoadFile(Utf8PathBuf, LoadOptions),
     LoadWaveformFileFromUrl(String, LoadOptions),
-    LoadWaveformFileFromData(Vec<u8>, LoadOptions),
-    LoadTransactionFile(Utf8PathBuf, LoadOptions),
-    #[cfg(target_family = "unix")]
+    LoadFromData(Vec<u8>, LoadOptions),
+    #[cfg(feature = "python")]
     LoadPythonTranslator(Utf8PathBuf),
+    /// Load a spade translator using the specified top and the specified state encoded as ron.
+    LoadSpadeTranslator {
+        top: String,
+        #[derivative(Debug = "ignore")]
+        state: String,
+    },
     #[cfg(not(target_arch = "wasm32"))]
     ConnectToCxxrtl(String),
     #[serde(skip)]
@@ -149,12 +160,28 @@ pub enum Message {
     /// specified variable
     BlacklistTranslator(VariableRef, String),
     ToggleSidePanel,
-    ShowCommandPrompt(bool),
+    ShowCommandPrompt(Option<String>),
     FileDropped(DroppedFile),
     #[serde(skip)]
     FileDownloaded(String, Bytes, LoadOptions),
     ReloadConfig,
     ReloadWaveform(bool),
+    /// Suggest reloading the current waveform as the file on disk has changed.
+    /// This should first take the user's confirmation before reloading the waveform.
+    /// However, there is a configuration setting that the user can overwrite.
+    #[serde(skip)]
+    SuggestReloadWaveform,
+    /// Close the 'reload_waveform' dialog.
+    /// The `reload_file` boolean is the return value of the dialog.
+    /// If `do_not_show_again` is true, the `reload_file` setting will be persisted.
+    #[serde(skip)]
+    CloseReloadWaveformDialog {
+        reload_file: bool,
+        do_not_show_again: bool,
+    },
+    /// Update the waveform dialog UI with the provided dialog model.
+    #[serde(skip)]
+    UpdateReloadWaveformDialog(ReloadWaveformDialog),
     RemovePlaceholders,
     ZoomToFit {
         viewport_idx: usize,
@@ -182,9 +209,9 @@ pub enum Message {
     SelectPrevCommand,
     SelectNextCommand,
     OpenFileDialog(OpenMode),
-    #[cfg(target_family = "unix")]
+    #[cfg(feature = "python")]
     OpenPythonPluginDialog,
-    #[cfg(target_family = "unix")]
+    #[cfg(feature = "python")]
     ReloadPythonPlugin,
     SaveStateFile(Option<PathBuf>),
     LoadStateFile(Option<PathBuf>),
@@ -229,20 +256,35 @@ pub enum Message {
         variable: Option<DisplayedItemIndex>,
         skip_zero: bool,
     },
+    MoveTransaction {
+        next: bool,
+    },
     VariableValueToClipbord(Option<DisplayedItemIndex>),
     InvalidateDrawCommands,
+    AddGraphic(GraphicId, Graphic),
+    RemoveGraphic(GraphicId),
 
     /// Variable dragging messages
     VariableDragStarted(DisplayedItemIndex),
     VariableDragTargetChanged(DisplayedItemIndex),
     VariableDragFinished,
-
+    AddDraggedVariables(Vec<VariableRef>),
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
     UnpauseSimulation,
     /// Pause the simulation if the wave source supports this kind of interactivity. Otherwise
     /// does nothing
     PauseSimulation,
+    /// Expand the displayed item into subfields. Levels controls how many layers of subfields
+    /// are expanded. 0 unexpands it completely
+    ExpandDrawnItem {
+        item: DisplayedItemRef,
+        levels: usize,
+    },
+
+    SetViewportStrategy(ViewportStrategy),
+    SetConfigFromString(String),
+    AddCharToPrompt(char),
 
     /// Run more than one message in sequence
     Batch(Vec<Message>),
@@ -255,7 +297,9 @@ pub enum Message {
     /// Redo the last n changes
     Redo(usize),
     /// WCP Server
+    #[cfg(not(target_arch = "wasm32"))]
     StartWcpServer(Option<String>),
+    #[cfg(not(target_arch = "wasm32"))]
     StopWcpServer,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms

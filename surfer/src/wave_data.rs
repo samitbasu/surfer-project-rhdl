@@ -12,6 +12,7 @@ use crate::displayed_item::{
     DisplayedDivider, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
     DisplayedStream, DisplayedTimeLine, DisplayedVariable,
 };
+use crate::graphics::{Graphic, GraphicId};
 use crate::transaction_container::{StreamScopeRef, TransactionRef, TransactionStreamRef};
 use crate::translation::{DynTranslator, TranslatorList, VariableInfoExt};
 use crate::variable_name_type::VariableNameType;
@@ -56,15 +57,14 @@ pub struct WaveData {
     pub display_item_ref_counter: usize,
     pub viewports: Vec<Viewport>,
     pub cursor: Option<BigInt>,
-    /// When right clicking we'll create a temporary cursor that shows where right click
-    /// actions will apply. This gets cleared when the context menu is closed
-    pub right_cursor: Option<BigInt>,
     pub markers: HashMap<u8, BigInt>,
     pub focused_item: Option<DisplayedItemIndex>,
     pub focused_transaction: (Option<TransactionRef>, Option<Transaction>),
+    pub selected_items: std::collections::HashSet<DisplayedItemRef>,
     pub default_variable_name_type: VariableNameType,
     pub scroll_offset: f32,
     pub display_variable_indices: bool,
+    pub graphics: HashMap<GraphicId, Graphic>,
     /// These are just stored during operation, so no need to serialize
     #[serde(skip)]
     pub drawing_infos: Vec<ItemDrawingInfo>,
@@ -182,15 +182,16 @@ impl WaveData {
             display_item_ref_counter: self.display_item_ref_counter,
             viewports: self.viewports,
             cursor: self.cursor.clone(),
-            right_cursor: None,
             markers: self.markers.clone(),
             focused_item: self.focused_item,
             focused_transaction: self.focused_transaction,
+            selected_items: std::collections::HashSet::new(),
             default_variable_name_type: self.default_variable_name_type,
             display_variable_indices: self.display_variable_indices,
             scroll_offset: self.scroll_offset,
             drawing_infos: vec![],
             top_item_draw_offset: 0.,
+            graphics: HashMap::new(),
             total_height: 0.,
             old_num_timestamps,
         };
@@ -377,7 +378,6 @@ impl WaveData {
             },
         )
     }
-
     pub fn add_variables(
         &mut self,
         translators: &TranslatorList,
@@ -433,37 +433,36 @@ impl WaveData {
         (res, indices)
     }
 
-    pub fn remove_displayed_item(&mut self, count: usize, idx: DisplayedItemIndex) {
-        let idx = idx.0;
-        for _ in 0..count {
-            let visible_items_len = self.displayed_items_order.len();
-            if let Some(DisplayedItem::Marker(marker)) = self
-                .displayed_items_order
-                .get(idx)
-                .and_then(|id| self.displayed_items.get(id))
-            {
-                self.markers.remove(&marker.idx);
-            }
-            if visible_items_len > 0 && idx <= (visible_items_len - 1) {
-                let displayed_item_id = self.displayed_items_order[idx];
-                self.displayed_items_order.remove(idx);
-                self.displayed_items.remove(&displayed_item_id);
-                if let Some(DisplayedItemIndex(focused)) = self.focused_item {
-                    if focused == idx {
-                        if (idx > 0) && (idx == (visible_items_len - 1)) {
-                            // if the end of list is selected
-                            self.focused_item = Some((idx - 1).into());
-                        }
-                    } else if idx < focused {
-                        self.focused_item = Some((focused - 1).into());
-                    }
-                    if !self.any_displayed() {
-                        self.focused_item = None;
-                    }
+    pub fn remove_displayed_item(&mut self, id: DisplayedItemRef) {
+        if let Some(idx) = self
+            .displayed_items_order
+            .iter()
+            .enumerate()
+            .find(|(_, local_id)| **local_id == id)
+        {
+            if let Some(fidx) = self.focused_item {
+                // move focus up if if signal was removed below focus
+                if fidx.0 > idx.0 {
+                    self.focused_item = Some(DisplayedItemIndex(
+                        fidx.0
+                            .saturating_sub(1)
+                            .min(self.displayed_items_order.len().saturating_sub(2)),
+                    ));
+                // if the focus was removed move if it was the last element
+                } else if fidx.0 == idx.0 {
+                    self.focused_item = Some(DisplayedItemIndex(
+                        fidx.0
+                            .min(self.displayed_items_order.len().saturating_sub(2)),
+                    ));
                 }
+                // when the removed item is above the focus, the focus does not move
+            }
+            self.displayed_items_order.remove(idx.0);
+            self.displayed_items.remove(&id);
+            if self.displayed_items_order.is_empty() {
+                self.focused_item = None;
             }
         }
-        self.compute_variable_display_names();
     }
 
     pub fn add_divider(&mut self, name: Option<String>, vidx: Option<DisplayedItemIndex>) {
@@ -590,10 +589,21 @@ impl WaveData {
         self.insert_item(new_stream, None);
     }
 
+    pub fn add_all_streams(&mut self) {
+        let mut streams: Vec<(usize, String)> = vec![];
+        for stream in self.inner.as_transactions().unwrap().get_streams() {
+            streams.push((stream.id, stream.name.clone()));
+        }
+
+        for (id, name) in streams {
+            self.add_stream(TransactionStreamRef::new_stream(id, name));
+        }
+    }
+
     /// Insert item after item vidx if Some(vidx).
     /// If None, insert after focused item if there is one, otherwise insert at the end.
     /// Focus on the inserted item if there was a focues item.
-    fn insert_item(
+    pub fn insert_item(
         &mut self,
         new_item: DisplayedItem,
         vidx: Option<DisplayedItemIndex>,
@@ -703,7 +713,10 @@ impl WaveData {
             .get(idx)
             .unwrap_or_else(|| self.drawing_infos.last().unwrap())
             .top();
-        self.scroll_offset = item_y - first_element_y;
+        // only scroll if new location is outside of visible area
+        if self.scroll_offset > self.total_height {
+            self.scroll_offset = item_y - first_element_y;
+        }
     }
 
     /// Set cursor at next (or previous, if `next` is false) transition of `variable`. If `skip_zero` is true,
@@ -746,8 +759,10 @@ impl WaveData {
                                         &(cursor - bigone).to_biguint().unwrap_or_default(),
                                     )
                                 {
-                                    if let Some(newstime) = newres.current.unwrap().0.to_bigint() {
-                                        self.cursor = Some(newstime);
+                                    if let Some(current) = newres.current {
+                                        if let Some(newstime) = current.0.to_bigint() {
+                                            self.cursor = Some(newstime);
+                                        }
                                     }
                                 }
                             } else {

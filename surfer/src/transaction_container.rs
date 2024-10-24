@@ -1,6 +1,7 @@
 use crate::time::{TimeScale, TimeUnit};
 use crate::wave_container::MetaData;
 use ftr_parser::types::{TxGenerator, TxStream, FTR};
+use itertools::Itertools;
 use num::BigUint;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -20,6 +21,10 @@ impl TransactionContainer {
         self.inner.get_stream(stream_id)
     }
 
+    pub fn get_stream_from_name(&self, name: String) -> Option<&TxStream> {
+        self.inner.get_stream_from_name(name)
+    }
+
     pub fn get_generators(&self) -> Vec<&TxGenerator> {
         self.inner.tx_generators.values().collect()
     }
@@ -27,10 +32,44 @@ impl TransactionContainer {
     pub fn get_generator(&self, gen_id: usize) -> Option<&TxGenerator> {
         self.inner.get_generator(gen_id)
     }
+    pub fn get_generator_from_name(
+        &self,
+        stream_id: Option<usize>,
+        gen_name: String,
+    ) -> Option<&TxGenerator> {
+        self.inner.get_generator_from_name(stream_id, gen_name)
+    }
+
+    pub fn get_transactions_from_generator(&self, gen_id: usize) -> Vec<usize> {
+        self.get_generator(gen_id)
+            .unwrap()
+            .transactions
+            .iter()
+            .map(|t| t.get_tx_id())
+            .collect_vec()
+    }
+
+    pub fn get_transactions_from_stream(&self, stream_id: usize) -> Vec<usize> {
+        self.get_stream(stream_id)
+            .unwrap()
+            .generators
+            .iter()
+            .map(|g| {
+                self.get_generator(*g)
+                    .unwrap()
+                    .transactions
+                    .iter()
+                    .map(|t| t.get_tx_id())
+                    .collect_vec()
+            })
+            .flatten()
+            .collect()
+    }
     pub fn stream_scope_exists(&self, stream_scope: &StreamScopeRef) -> bool {
         match stream_scope {
             StreamScopeRef::Root => true,
             StreamScopeRef::Stream(s) => self.inner.tx_streams.contains_key(&s.stream_id),
+            StreamScopeRef::Empty(_) => false,
         }
     }
 
@@ -78,6 +117,7 @@ impl TransactionContainer {
                     }
                 })
                 .collect(),
+            StreamScopeRef::Empty(_) => vec![],
         }
     }
 
@@ -110,6 +150,7 @@ impl TransactionContainer {
 pub enum StreamScopeRef {
     Root,
     Stream(TransactionStreamRef),
+    Empty(String),
 }
 
 impl Display for StreamScopeRef {
@@ -117,7 +158,18 @@ impl Display for StreamScopeRef {
         match self {
             StreamScopeRef::Root => write!(f, "Root scope"),
             StreamScopeRef::Stream(s) => s.fmt(f),
+            StreamScopeRef::Empty(_) => write!(f, "Empty stream scope"),
         }
+    }
+}
+
+impl StreamScopeRef {
+    pub fn new_stream_from_name(transactions: &TransactionContainer, name: String) -> Self {
+        let stream = transactions
+            .inner
+            .get_stream_from_name(name.clone())
+            .unwrap();
+        StreamScopeRef::Stream(TransactionStreamRef::new_stream(stream.id, name))
     }
 }
 

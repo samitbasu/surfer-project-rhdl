@@ -4,7 +4,6 @@ use epaint::{FontId, Rounding, Stroke};
 use itertools::Itertools;
 use num::BigInt;
 
-use crate::displayed_item::DisplayedItemRef;
 use crate::State;
 use crate::{
     config::SurferTheme,
@@ -19,13 +18,6 @@ use crate::{
 pub const DEFAULT_MARKER_NAME: &str = "Marker";
 
 impl WaveData {
-    fn add_displayed_item(&mut self, item: DisplayedItem) -> DisplayedItemRef {
-        let id = self.next_displayed_item_ref();
-        self.displayed_items_order.push(id);
-        self.displayed_items.insert(id, item);
-        id
-    }
-
     pub fn draw_cursor(
         &self,
         theme: &SurferTheme,
@@ -109,13 +101,15 @@ impl WaveData {
             })
             .is_none()
         {
-            let marker = DisplayedMarker {
-                color: None,
-                background_color: None,
-                name: None,
-                idx,
-            };
-            self.add_displayed_item(DisplayedItem::Marker(marker));
+            self.insert_item(
+                DisplayedItem::Marker(DisplayedMarker {
+                    color: None,
+                    background_color: None,
+                    name: None,
+                    idx,
+                }),
+                None,
+            );
         }
         self.markers.insert(idx, location.clone());
     }

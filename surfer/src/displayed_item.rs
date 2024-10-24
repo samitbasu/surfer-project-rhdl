@@ -6,6 +6,7 @@ use epaint::text::LayoutJob;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::VariableInfo;
 
+use crate::config::SurferConfig;
 use crate::transaction_container::TransactionStreamRef;
 use crate::wave_container::{VariableRef, VariableRefExt, WaveContainer};
 use crate::{
@@ -16,6 +17,7 @@ use crate::{
 const DEFAULT_DIVIDER_NAME: &str = "";
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen::prelude::wasm_bindgen)]
 pub struct DisplayedItemRef(pub usize);
 
 impl From<usize> for DisplayedItemRef {
@@ -278,15 +280,19 @@ impl DisplayedItem {
     }
 
     /// Widget displayed in variable list for the wave form, may include additional info compared to name()
-    pub fn add_to_layout_job(&self, color: &Color32, style: &Style, layout_job: &mut LayoutJob) {
+    pub fn add_to_layout_job(
+        &self,
+        color: &Color32,
+        style: &Style,
+        layout_job: &mut LayoutJob,
+        config: &SurferConfig,
+    ) {
         match self {
             DisplayedItem::Variable(_) => {
-                RichText::new(self.name()).color(*color).append_to(
-                    layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
+                RichText::new(self.name())
+                    .color(*color)
+                    .line_height(Some(config.layout.waveforms_line_height))
+                    .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
                 RichText::new(self.name())
@@ -310,7 +316,7 @@ impl DisplayedItem {
             DisplayedItem::Stream(stream) => {
                 RichText::new(format!("{}{}", self.name(), "\n".repeat(stream.rows - 1)))
                     .color(*color)
-                    .line_height(Some(30.0))
+                    .line_height(Some(config.layout.transactions_line_height))
                     .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
         }

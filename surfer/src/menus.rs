@@ -1,6 +1,7 @@
 //! Menu handling.
 use color_eyre::eyre::WrapErr;
 use egui::{menu, Button, Context, TextWrapMode, TopBottomPanel, Ui};
+use itertools::Itertools;
 use surfer_translation_types::{TranslationPreference, Translator};
 
 use crate::wave_container::{FieldRef, VariableRefExt};
@@ -39,8 +40,8 @@ impl ButtonBuilder {
         self
     }
 
-    #[cfg(target_family = "unix")]
-    fn enabled(mut self, enabled: bool) -> Self {
+    #[cfg_attr(not(feature = "python"), allow(dead_code))]
+    pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self
     }
@@ -48,6 +49,7 @@ impl ButtonBuilder {
     pub fn add_leave_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
         self.add_inner(false, msgs, ui);
     }
+
     pub fn add_closing_menu(self, msgs: &mut Vec<Message>, ui: &mut Ui) {
         self.add_inner(true, msgs, ui);
     }
@@ -109,7 +111,7 @@ impl State {
             }
             b("Save state as...", Message::SaveStateFile(None)).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
-            #[cfg(target_family = "unix")]
+            #[cfg(feature = "python")]
             {
                 b("Add Python translator", Message::OpenPythonPluginDialog)
                     .add_closing_menu(msgs, ui);
@@ -176,10 +178,25 @@ impl State {
                 .shortcut("F11")
                 .add_closing_menu(msgs, ui);
             ui.menu_button("Theme", |ui| {
-                b("Default Theme", Message::SelectTheme(None)).add_closing_menu(msgs, ui);
+                ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                b("Default theme", Message::SelectTheme(None)).add_closing_menu(msgs, ui);
                 for theme_name in self.config.theme.theme_names.clone() {
                     b(theme_name.clone(), Message::SelectTheme(Some(theme_name)))
                         .add_closing_menu(msgs, ui);
+                }
+            });
+            ui.menu_button("UI zoom factor", |ui| {
+                ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                for scale in &self.config.layout.zoom_factors {
+                    ui.radio(
+                        self.ui_zoom_factor() == *scale,
+                        format!("{} %", scale * 100.),
+                    )
+                    .clicked()
+                    .then(|| {
+                        ui.close_menu();
+                        msgs.push(Message::SetUIZoomFactor(*scale))
+                    });
                 }
             });
         });
@@ -223,19 +240,6 @@ impl State {
             ui.menu_button("Variable filter type", |ui| {
                 variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
             });
-            ui.menu_button("Zoom factor", |ui| {
-                for scale in [0.5, 0.75, 1.0, 1.5, 2.0, 2.5] {
-                    ui.radio(
-                        self.ui_zoom_factor == Some(scale),
-                        format!("{} %", scale * 100.),
-                    )
-                    .clicked()
-                    .then(|| {
-                        ui.close_menu();
-                        msgs.push(Message::SetUIZoomFactor(scale));
-                    });
-                }
-            });
 
             ui.menu_button("Hierarchy", |ui| {
                 for style in enum_iterator::all::<HierarchyStyle>() {
@@ -251,7 +255,7 @@ impl State {
                 }
             });
 
-            ui.menu_button("Arrow Keys", |ui| {
+            ui.menu_button("Arrow keys", |ui| {
                 for binding in enum_iterator::all::<ArrowKeyBindings>() {
                     ui.radio(
                         self.config.behavior.arrow_key_bindings == binding,
@@ -341,7 +345,11 @@ impl State {
                     .then(|| {
                         ui.close_menu();
                         msgs.push(Message::ItemColorChange(
-                            Some(vidx),
+                            if waves.selected_items.contains(&displayed_item_id) {
+                                None
+                            } else {
+                                Some(vidx)
+                            },
                             Some(color_name.clone()),
                         ));
                     });
@@ -366,7 +374,11 @@ impl State {
                     .then(|| {
                         ui.close_menu();
                         msgs.push(Message::ItemBackgroundColorChange(
-                            Some(vidx),
+                            if waves.selected_items.contains(&displayed_item_id) {
+                                None
+                            } else {
+                                Some(vidx)
+                            },
                             Some(color_name.clone()),
                         ));
                     });
@@ -400,7 +412,20 @@ impl State {
         }
 
         if ui.button("Remove").clicked() {
-            msgs.push(Message::RemoveItem(vidx, 1));
+            msgs.push(if waves.selected_items.contains(&displayed_item_id) {
+                Message::Batch(vec![
+                    Message::RemoveItems(
+                        waves
+                            .selected_items
+                            .iter()
+                            .map(|item_ref| *item_ref)
+                            .collect_vec(),
+                    ),
+                    Message::UnfocusItem,
+                ])
+            } else {
+                Message::RemoveItems(vec![displayed_item_id])
+            });
             msgs.push(Message::InvalidateCount);
             ui.close_menu();
         }

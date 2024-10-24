@@ -2,10 +2,8 @@ use color_eyre::eyre::Context;
 use ecolor::Color32;
 #[cfg(not(target_arch = "wasm32"))]
 use egui::ViewportCommand;
-use egui::{
-    FontSelection, Frame, Layout, Painter, RichText, ScrollArea, Sense, Style, TextStyle,
-    WidgetText,
-};
+use egui::{Frame, Layout, Painter, RichText, ScrollArea, Sense, TextStyle, WidgetText};
+use egui_extras::{Column, TableBuilder};
 use egui_remixicon::icons;
 use emath::{Align, Pos2, Rect, RectTransform, Vec2};
 use epaint::{
@@ -16,12 +14,9 @@ use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 
-use surfer_translation_types::{
-    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
-};
-
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
+use crate::data_container::VariableType as VarType;
 use crate::displayed_item::{
     draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
 };
@@ -44,7 +39,9 @@ use crate::{
     Message, MoveDir, State,
 };
 use crate::{config::SurferTheme, wave_container::VariableMeta};
-
+use surfer_translation_types::{
+    SubFieldFlatTranslationResult, TranslatedValue, VariableInfo, VariableType,
+};
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
     pub cfg: &'a DrawConfig,
@@ -61,20 +58,11 @@ pub struct DrawConfig {
 }
 
 impl DrawConfig {
-    pub fn new(canvas_height: f32) -> Self {
-        let line_height = 16.;
+    pub fn new(canvas_height: f32, line_height: f32, text_size: f32) -> Self {
         Self {
             canvas_height,
             line_height,
-            text_size: line_height - 5.,
-            max_transition_width: 6,
-        }
-    }
-    pub fn new_with_line_height(canvas_height: f32, line_height: f32) -> Self {
-        Self {
-            canvas_height,
-            line_height,
-            text_size: line_height - 5.,
+            text_size,
             max_transition_width: 6,
         }
     }
@@ -181,11 +169,12 @@ impl eframe::App for State {
 
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("update");
-        if let Some(scale) = self.ui_zoom_factor {
-            if ctx.zoom_factor() != scale {
-                ctx.set_zoom_factor(scale);
-            }
+        let ui_zoom_factor = self.ui_zoom_factor();
+        if ctx.zoom_factor() != ui_zoom_factor {
+            ctx.set_zoom_factor(ui_zoom_factor);
         }
+
+        self.sys.items_to_expand.borrow_mut().clear();
 
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
@@ -210,6 +199,32 @@ impl eframe::App for State {
         self.handle_batch_commands();
         #[cfg(target_arch = "wasm32")]
         self.handle_wasm_external_messages();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            #[cfg(feature = "performance_plot")]
+            self.sys.timing.borrow_mut().start("handle_wcp_commands");
+            self.handle_wcp_commands();
+            #[cfg(feature = "performance_plot")]
+            self.sys.timing.borrow_mut().end("handle_wcp_commands");
+        }
+
+        let viewport_is_moving = if let Some(waves) = &mut self.waves {
+            let mut is_moving = false;
+            for vp in &mut waves.viewports {
+                if vp.is_moving() {
+                    vp.move_viewport(ctx.input(|i| i.stable_dt));
+                    is_moving = true;
+                }
+            }
+            is_moving
+        } else {
+            false
+        };
+
+        if viewport_is_moving {
+            self.invalidate_draw_commands();
+            ctx.request_repaint();
+        }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -274,6 +289,10 @@ impl State {
             self.draw_log_window(ctx, &mut msgs);
         }
 
+        if let Some(dialog) = &self.show_reload_suggestion {
+            self.draw_reload_waveform_dialog(ctx, dialog, &mut msgs);
+        }
+
         if self.show_performance {
             #[cfg(feature = "performance_plot")]
             self.draw_performance_graph(ctx, &mut msgs);
@@ -326,9 +345,12 @@ impl State {
                     fill: self.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
-                .show(ctx, |ui| match self.config.layout.hierarchy_style {
-                    HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
-                    HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
+                .show(ctx, |ui| {
+                    self.sidepanel_width = Some(ui.clip_rect().width());
+                    match self.config.layout.hierarchy_style {
+                        HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
+                        HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
+                    }
                 });
         }
 
@@ -343,16 +365,41 @@ impl State {
         if self.waves.is_some() {
             let scroll_offset = self.waves.as_ref().unwrap().scroll_offset;
             if self.waves.as_ref().unwrap().any_displayed() {
+                let draw_focus_ids = self.sys.command_prompt.visible
+                    && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
+                        .expanded
+                        .starts_with("item_focus");
+                if draw_focus_ids {
+                    egui::SidePanel::left("focus id list")
+                        .default_width(40.)
+                        .width_range(40.0..=max_width)
+                        .show(ctx, |ui| {
+                            self.handle_pointer_in_ui(ui, &mut msgs);
+                            let response = ScrollArea::both()
+                                .vertical_scroll_offset(scroll_offset)
+                                .show(ui, |ui| {
+                                    self.draw_item_focus_list(ui);
+                                });
+                            self.waves.as_mut().unwrap().top_item_draw_offset =
+                                response.inner_rect.min.y;
+                            self.waves.as_mut().unwrap().total_height =
+                                response.inner_rect.height();
+                            if (scroll_offset - response.state.offset.y).abs() > 5. {
+                                msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                            }
+                        });
+                }
+
                 egui::SidePanel::left("variable list")
                     .default_width(200.)
-                    .width_range(20.0..=max_width)
+                    .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         self.handle_pointer_in_ui(ui, &mut msgs);
                         let response = ScrollArea::both()
                             .vertical_scroll_offset(scroll_offset)
                             .show(ui, |ui| {
-                                self.draw_item_list(&mut msgs, ui);
+                                self.draw_item_list(&mut msgs, ui, ctx);
                             });
                         self.waves.as_mut().unwrap().top_item_draw_offset =
                             response.inner_rect.min.y;
@@ -362,8 +409,18 @@ impl State {
                         }
                     });
 
+                if self.waves.as_ref().unwrap().focused_transaction.1.is_some() {
+                    egui::SidePanel::right("Transaction Details")
+                        .default_width(330.)
+                        .width_range(10.0..=max_width)
+                        .show(ctx, |ui| {
+                            ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                            self.handle_pointer_in_ui(ui, &mut msgs);
+                            self.draw_focused_transaction_details(ui);
+                        });
+                }
+
                 egui::SidePanel::left("variable values")
-                    // Remove margin so that we can draw background
                     .frame(Frame {
                         inner_margin: Margin::ZERO,
                         outer_margin: Margin::ZERO,
@@ -374,17 +431,12 @@ impl State {
                     .show(ctx, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         self.handle_pointer_in_ui(ui, &mut msgs);
-                        ui.with_layout(
-                            Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            |ui| {
-                                let response = ScrollArea::both()
-                                    .vertical_scroll_offset(scroll_offset)
-                                    .show(ui, |ui| self.draw_var_values(ui, &mut msgs));
-                                if (scroll_offset - response.state.offset.y).abs() > 5. {
-                                    msgs.push(Message::SetScrollOffset(response.state.offset.y));
-                                }
-                            },
-                        )
+                        let response = ScrollArea::both()
+                            .vertical_scroll_offset(scroll_offset)
+                            .show(ui, |ui| self.draw_var_values(ui, &mut msgs));
+                        if (scroll_offset - response.state.offset.y).abs() > 5. {
+                            msgs.push(Message::SetScrollOffset(response.state.offset.y));
+                        }
                     });
                 let std_stroke = ctx.style().visuals.widgets.noninteractive.bg_stroke;
                 ctx.style_mut(|style| {
@@ -460,7 +512,10 @@ impl State {
         });
 
         // If some dialogs are open, skip decoding keypresses
-        if !self.show_url_entry && self.rename_target.is_none() {
+        if !self.show_url_entry
+            && self.rename_target.is_none()
+            && self.show_reload_suggestion.is_none()
+        {
             self.handle_pressed_keys(ctx, &mut msgs);
         }
         msgs
@@ -556,7 +611,37 @@ impl State {
             wave.active_scope == Some(ScopeType::WaveScope(scope.clone())),
             name,
         ));
+        let _ = response.interact(egui::Sense::click_and_drag());
+        response.drag_started().then(|| {
+            msgs.push(Message::VariableDragStarted(
+                self.waves.as_ref().unwrap().display_item_ref_counter.into(),
+            ))
+        });
 
+        response.drag_stopped().then(|| {
+            if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
+                > self.sidepanel_width.unwrap_or_default()
+            {
+                let scope_t = ScopeType::WaveScope(scope.clone());
+                let variables = self
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .inner
+                    .variables_in_scope(&scope_t)
+                    .iter()
+                    .filter_map(|var| match var {
+                        VarType::Variable(var) => Some(var.clone()),
+                        _ => None,
+                    })
+                    .collect_vec();
+
+                msgs.push(Message::AddDraggedVariables(self.filtered_variables(
+                    variables.as_slice(),
+                    self.sys.variable_name_filter.borrow_mut().as_str(),
+                )));
+            }
+        });
         if self.show_tooltip() {
             response = response.on_hover_text(scope_tooltip_text(wave, scope));
         }
@@ -692,11 +777,25 @@ impl State {
                 Layout::top_down(Align::LEFT).with_cross_justify(true),
                 |ui| {
                     let mut response = ui.add(egui::SelectableLabel::new(false, variable_name));
+                    let _ = response.interact(egui::Sense::click_and_drag());
+
                     if self.show_tooltip() {
                         // Should be possible to reuse the meta from above?
                         let meta = wave_container.variable_meta(&variable).ok();
                         response = response.on_hover_text(variable_tooltip_text(&meta, &variable));
                     }
+                    response.drag_started().then(|| {
+                        msgs.push(Message::VariableDragStarted(
+                            self.waves.as_ref().unwrap().display_item_ref_counter.into(),
+                        ))
+                    });
+                    response.drag_stopped().then(|| {
+                        if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
+                            > self.sidepanel_width.unwrap_or_default()
+                        {
+                            msgs.push(Message::AddDraggedVariables(vec![variable.clone()]));
+                        }
+                    });
                     response
                         .clicked()
                         .then(|| msgs.push(Message::AddVariables(vec![variable.clone()])));
@@ -705,12 +804,34 @@ impl State {
         }
     }
 
-    fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui) {
+    fn draw_item_focus_list(&self, ui: &mut egui::Ui) {
+        let alignment = self.get_name_alignment();
+        ui.with_layout(
+            Layout::top_down(alignment).with_cross_justify(false),
+            |ui| {
+                for (vidx, _) in self
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .displayed_items_order
+                    .iter()
+                    .enumerate()
+                {
+                    let vidx = vidx.into();
+                    ui.scope(|ui| {
+                        ui.style_mut().visuals.selection.bg_fill =
+                            self.config.theme.accent_warn.background;
+                        ui.style_mut().visuals.override_text_color =
+                            Some(self.config.theme.accent_warn.foreground);
+                        let _ = ui.selectable_label(true, self.get_alpha_focus_id(vidx));
+                    });
+                }
+            },
+        );
+    }
+
+    fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui, ctx: &egui::Context) {
         let mut item_offsets = Vec::new();
-        let draw_alpha = self.sys.command_prompt.visible
-            && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
-                .expanded
-                .starts_with("item_focus");
 
         let alignment = self.get_name_alignment();
         ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
@@ -732,81 +853,69 @@ impl State {
                 {
                     let item_rect = match displayed_item {
                         DisplayedItem::Variable(displayed_variable) => {
-                            let var = displayed_variable;
-                            let info = &displayed_variable.info;
-                            let style = Style::default();
-                            let mut layout_job = LayoutJob::default();
-                            self.add_alpha_id(
-                                draw_alpha,
-                                vidx,
-                                &style,
-                                &mut layout_job,
-                                Align::LEFT,
-                            );
-                            displayed_item.add_to_layout_job(
-                                &self.config.theme.foreground,
-                                &style,
-                                &mut layout_job,
-                            );
-
-                            self.add_alpha_id(
-                                draw_alpha,
-                                vidx,
-                                &style,
-                                &mut layout_job,
-                                Align::RIGHT,
-                            );
+                            let levels_to_force_expand =
+                                self.sys.items_to_expand.borrow().iter().find_map(
+                                    |(id, levels)| {
+                                        if displayed_item_id == id {
+                                            Some(*levels)
+                                        } else {
+                                            None
+                                        }
+                                    },
+                                );
 
                             self.draw_variable(
                                 msgs,
                                 vidx,
-                                WidgetText::LayoutJob(layout_job),
+                                displayed_item,
                                 *displayed_item_id,
-                                FieldRef::without_fields(var.variable_ref.clone()),
+                                FieldRef::without_fields(displayed_variable.variable_ref.clone()),
                                 &mut item_offsets,
-                                info,
+                                &displayed_variable.info,
                                 ui,
+                                ctx,
+                                levels_to_force_expand,
                             )
                         }
                         DisplayedItem::Divider(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::Marker(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::Placeholder(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::TimeLine(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                         DisplayedItem::Stream(_) => self.draw_plain_item(
                             msgs,
                             vidx,
+                            *displayed_item_id,
                             displayed_item,
                             &mut item_offsets,
                             ui,
-                            draw_alpha,
                         ),
                     };
                     self.draw_drag_target(
@@ -925,7 +1034,158 @@ impl State {
                     );
                 }
             }
+            StreamScopeRef::Empty(_) => {}
         }
+    }
+    fn draw_focused_transaction_details(&self, ui: &mut egui::Ui) {
+        ui.with_layout(
+            Layout::top_down(Align::LEFT).with_cross_justify(true),
+            |ui| {
+                ui.label("Focused Transaction Details");
+                let column_width = ui.available_width() / 2.;
+                TableBuilder::new(ui)
+                    .column(Column::exact(column_width))
+                    .column(Column::auto())
+                    .header(20.0, |mut header| {
+                        header.col(|ui| {
+                            ui.heading("Properties");
+                        });
+                    })
+                    .body(|mut body| {
+                        let focused_transaction = self
+                            .waves
+                            .as_ref()
+                            .unwrap()
+                            .focused_transaction
+                            .1
+                            .as_ref()
+                            .unwrap();
+                        let row_height = 15.;
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("Transaction ID");
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("{}", focused_transaction.get_tx_id()));
+                            });
+                        });
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("Type");
+                            });
+                            row.col(|ui| {
+                                let gen = self
+                                    .waves
+                                    .as_ref()
+                                    .unwrap()
+                                    .inner
+                                    .as_transactions()
+                                    .unwrap()
+                                    .get_generator(focused_transaction.get_gen_id())
+                                    .unwrap();
+                                ui.label(format!("{}", gen.name));
+                            });
+                        });
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("Start Time");
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("{}", focused_transaction.get_start_time()));
+                            });
+                        });
+                        body.row(row_height, |mut row| {
+                            row.col(|ui| {
+                                ui.label("End Time");
+                            });
+                            row.col(|ui| {
+                                ui.label(format!("{}", focused_transaction.get_end_time()));
+                            });
+                        });
+                        body.row(row_height + 5., |mut row| {
+                            row.col(|ui| {
+                                ui.heading("Attributes");
+                            });
+                        });
+
+                        body.row(row_height + 3., |mut row| {
+                            row.col(|ui| {
+                                ui.label(RichText::new("Name").size(15.));
+                            });
+                            row.col(|ui| {
+                                ui.label(RichText::new("Value").size(15.));
+                            });
+                        });
+
+                        for attr in &focused_transaction.attributes {
+                            body.row(row_height, |mut row| {
+                                row.col(|ui| {
+                                    ui.label(format!("{}", attr.name));
+                                });
+                                row.col(|ui| {
+                                    ui.label(format!("{}", attr.value()));
+                                });
+                            });
+                        }
+
+                        if !focused_transaction.inc_relations.is_empty() {
+                            body.row(row_height + 5., |mut row| {
+                                row.col(|ui| {
+                                    ui.heading("Incoming Relations");
+                                });
+                            });
+
+                            body.row(row_height + 3., |mut row| {
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Source Tx").size(15.));
+                                });
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Sink Tx").size(15.));
+                                });
+                            });
+
+                            for rel in &focused_transaction.inc_relations {
+                                body.row(row_height, |mut row| {
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.source_tx_id));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.sink_tx_id));
+                                    });
+                                });
+                            }
+                        }
+
+                        if !focused_transaction.out_relations.is_empty() {
+                            body.row(row_height + 5., |mut row| {
+                                row.col(|ui| {
+                                    ui.heading("Outgoing Relations");
+                                });
+                            });
+
+                            body.row(row_height + 3., |mut row| {
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Source Tx").size(15.));
+                                });
+                                row.col(|ui| {
+                                    ui.label(RichText::new("Sink Tx").size(15.));
+                                });
+                            });
+
+                            for rel in &focused_transaction.out_relations {
+                                body.row(row_height, |mut row| {
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.source_tx_id));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(format!("{}", rel.sink_tx_id));
+                                    });
+                                });
+                            }
+                        }
+                    });
+            },
+        );
     }
 
     fn get_name_alignment(&self) -> Align {
@@ -964,16 +1224,38 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: DisplayedItemIndex,
-        name: WidgetText,
+        displayed_item: &DisplayedItem,
         displayed_id: DisplayedItemRef,
         field: FieldRef,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         info: &VariableInfo,
         ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        levels_to_force_expand: Option<usize>,
     ) -> Rect {
-        let draw_label = |ui: &mut egui::Ui| {
+        let mut draw_label = |ui: &mut egui::Ui| {
+            let style = ui.style_mut();
+            let text_color: Color32;
+            if self.item_is_focused(vidx) {
+                style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
+                text_color = self.config.theme.accent_info.foreground;
+            } else if self.item_is_selected(displayed_id) {
+                style.visuals.selection.bg_fill =
+                    self.config.theme.selected_elements_colors.background;
+                text_color = self.config.theme.selected_elements_colors.foreground;
+            } else {
+                style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
+                text_color = self.config.theme.primary_ui_color.foreground;
+            }
+
+            let mut layout_job = LayoutJob::default();
+            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job, &self.config);
+
             let mut variable_label = ui
-                .selectable_label(self.item_is_selected(vidx), name)
+                .selectable_label(
+                    self.item_is_selected(displayed_id) || self.item_is_focused(vidx),
+                    WidgetText::LayoutJob(layout_job),
+                )
                 .interact(Sense::drag());
             variable_label.context_menu(|ui| {
                 self.item_context_menu(Some(&field), msgs, ui, vidx);
@@ -1002,7 +1284,20 @@ impl State {
                 {
                     msgs.push(Message::UnfocusItem);
                 } else {
-                    msgs.push(Message::FocusItem(vidx));
+                    let modifiers = ctx.input(|i| i.modifiers);
+                    if modifiers.ctrl {
+                        msgs.push(Message::ToggleItemSelected(Some(vidx)));
+                    } else if modifiers.shift {
+                        msgs.push(Message::Batch(vec![
+                            Message::ItemSelectionClear,
+                            Message::ItemSelectRange(vidx),
+                        ]));
+                    } else {
+                        msgs.push(Message::Batch(vec![
+                            Message::ItemSelectionClear,
+                            Message::FocusItem(vidx),
+                        ]));
+                    }
                 }
             }
 
@@ -1015,33 +1310,41 @@ impl State {
         };
         match info {
             VariableInfo::Compound { subfields } => {
-                let response = egui::collapsing_header::CollapsingState::load_with_default_open(
+                let mut header = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
                     egui::Id::new(&field),
                     false,
-                )
-                .show_header(ui, |ui| {
-                    ui.with_layout(
-                        Layout::top_down(Align::LEFT).with_cross_justify(true),
-                        draw_label,
-                    );
-                })
-                .body(|ui| {
-                    for (name, info) in subfields {
-                        let mut new_path = field.clone();
-                        new_path.field.push(name.clone());
-                        self.draw_variable(
-                            msgs,
-                            vidx,
-                            WidgetText::RichText(RichText::new(name)),
-                            displayed_id,
-                            new_path,
-                            drawing_infos,
-                            info,
-                            ui,
+                );
+
+                if let Some(level) = levels_to_force_expand {
+                    header.set_open(level > 0);
+                }
+
+                let response = header
+                    .show_header(ui, |ui| {
+                        ui.with_layout(
+                            Layout::top_down(Align::LEFT).with_cross_justify(true),
+                            draw_label,
                         );
-                    }
-                });
+                    })
+                    .body(|ui| {
+                        for (name, info) in subfields {
+                            let mut new_path = field.clone();
+                            new_path.field.push(name.clone());
+                            self.draw_variable(
+                                msgs,
+                                vidx,
+                                displayed_item,
+                                displayed_id,
+                                new_path,
+                                drawing_infos,
+                                info,
+                                ui,
+                                ctx,
+                                levels_to_force_expand.map(|l| l.saturating_sub(1)),
+                            );
+                        }
+                    });
 
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     displayed_field_ref,
@@ -1161,23 +1464,33 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: DisplayedItemIndex,
+        displayed_id: DisplayedItemRef,
         displayed_item: &DisplayedItem,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
         ui: &mut egui::Ui,
-        draw_alpha: bool,
     ) -> Rect {
         let mut draw_label = |ui: &mut egui::Ui| {
-            let style = Style::default();
+            let style = ui.style_mut();
             let mut layout_job = LayoutJob::default();
-            self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::LEFT);
+            let text_color: Color32;
 
-            let text_color = self.get_item_text_color(displayed_item);
+            if self.item_is_focused(vidx) {
+                style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
+                text_color = self.config.theme.accent_info.foreground;
+            } else if self.item_is_selected(displayed_id) {
+                style.visuals.selection.bg_fill =
+                    self.config.theme.selected_elements_colors.background;
+                text_color = self.config.theme.selected_elements_colors.foreground;
+            } else {
+                style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
+                text_color = *self.get_item_text_color(displayed_item);
+            }
 
-            displayed_item.add_to_layout_job(text_color, &style, &mut layout_job);
-            self.add_alpha_id(draw_alpha, vidx, &style, &mut layout_job, Align::RIGHT);
+            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job, &self.config);
+
             let item_label = ui
                 .selectable_label(
-                    self.item_is_selected(vidx),
+                    self.item_is_selected(displayed_id) || self.item_is_focused(vidx),
                     WidgetText::LayoutJob(layout_job),
                 )
                 .interact(Sense::drag());
@@ -1229,48 +1542,28 @@ impl State {
         label.rect
     }
 
-    fn add_alpha_id(
-        &self,
-        draw_alpha: bool,
-        vidx: DisplayedItemIndex,
-        style: &Style,
-        layout_job: &mut LayoutJob,
-        alignment: Align,
-    ) {
-        if draw_alpha && alignment == self.get_name_alignment() {
-            let alpha_id = uint_idx_to_alpha_idx(
-                vidx,
-                self.waves
-                    .as_ref()
-                    .map_or(0, |waves| waves.displayed_items.len()),
-            );
-            let text = RichText::new(alpha_id)
-                .background_color(self.config.theme.accent_info.background)
-                .monospace()
-                .color(self.config.theme.accent_info.foreground);
-            if alignment == Align::LEFT {
-                text.append_to(layout_job, style, FontSelection::Default, Align::Center);
-                RichText::new(" ").append_to(
-                    layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
-            } else {
-                RichText::new(" ").append_to(
-                    layout_job,
-                    style,
-                    FontSelection::Default,
-                    Align::Center,
-                );
-                text.append_to(layout_job, style, FontSelection::Default, Align::Center);
-            }
+    fn get_alpha_focus_id(&self, vidx: DisplayedItemIndex) -> RichText {
+        let alpha_id = uint_idx_to_alpha_idx(
+            vidx,
+            self.waves
+                .as_ref()
+                .map_or(0, |waves| waves.displayed_items.len()),
+        );
+
+        RichText::new(alpha_id).monospace()
+    }
+
+    fn item_is_focused(&self, vidx: DisplayedItemIndex) -> bool {
+        if let Some(waves) = &self.waves {
+            waves.focused_item == Some(vidx)
+        } else {
+            false
         }
     }
 
-    fn item_is_selected(&self, vidx: DisplayedItemIndex) -> bool {
+    fn item_is_selected(&self, id: DisplayedItemRef) -> bool {
         if let Some(waves) = &self.waves {
-            waves.focused_item == Some(vidx)
+            waves.selected_items.contains(&id)
         } else {
             false
         }
@@ -1282,7 +1575,11 @@ impl State {
         let rect = response.rect;
         let container_rect = Rect::from_min_size(Pos2::ZERO, rect.size());
         let to_screen = RectTransform::from_to(container_rect, rect);
-        let cfg = DrawConfig::new(rect.height());
+        let cfg = DrawConfig::new(
+            rect.height(),
+            self.config.layout.waveforms_line_height,
+            self.config.layout.waveforms_text_size,
+        );
         let frame_width = rect.width();
 
         painter.rect_filled(

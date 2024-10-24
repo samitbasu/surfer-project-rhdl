@@ -72,7 +72,7 @@ test:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
 
 test-windows:
     tags:
@@ -103,7 +103,7 @@ test-oldest-supported:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
 
 test-beta:
     image: "instrumentisto/rust:beta"
@@ -112,7 +112,7 @@ test-beta:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
     allow_failure: true
 
 test-nightly:
@@ -122,7 +122,7 @@ test-nightly:
     script:
         - rustc -V
         - cargo -V
-        - cargo test --color=always --locked
+        - cargo test --features python --color=always --locked
     allow_failure: true
 
 test-macos-aarch64:
@@ -222,7 +222,7 @@ linux_build:
     extends: .if-release
     script:
         - apt-get update -y
-        - apt-get install -y openssl libssl-dev zip python3-dev
+        - apt-get install -y openssl libssl-dev zip
         - git fetch --tags
         - rustc -V
         - cargo -V
@@ -237,12 +237,36 @@ linux_build:
             - surfer_linux.zip
         expire_in: 1 week
 
+rocky_build:
+    image: rockylinux:8
+    stage: deploy
+    extends: .if-release
+    script:
+        - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        - . "/builds/surfer-project/surfer/cargo/env"
+        - dnf install -y openssl openssl-devel
+        - dnf groupinstall -y 'Development Tools'
+        - git submodule update --init
+        - mkdir dist
+        - git fetch --tags
+        - rustc -V
+        - cargo -V
+        - cargo build --release --locked --features accesskit
+        - cp target/release/surfer dist/surfer
+        - cp target/release/surver dist/surver
+        - cd dist
+        - zip ../surfer_linux_rocky.zip surfer surver
+    artifacts:
+        paths:
+            - surfer_linux_rocky.zip
+        expire_in: 1 week
+
 windows_build:
     stage: deploy
     extends: .if-release
     script:
         - apt-get update -y
-        - apt-get install -y mingw-w64 zip python3-dev
+        - apt-get install -y mingw-w64 zip
         - git fetch --tags
         - rustc -V
         - cargo -V
@@ -313,12 +337,16 @@ pages_build:
           # we'll build with a dummy public URL, then replace it with ./
         - RUSTFLAGS="--cfg=web_sys_unstable_apis" ./trunk build surfer/index.html --release --public-url /dist --features accesskit
         - cp -r surfer/dist pages_build
+        - cp -r surfer/dist surfer_wasm
         - cp examples/*.vcd pages_build/
         - sed -i "s|/dist/|./|g" pages_build/index.html
     artifacts:
         paths:
             - pages_build
+            - surfer_wasm
         expire_in: 1h
+
+
 
 # https://k33g.gitlab.io/articles/2020-07-23-GITLAB-PAGES-EN.html
 # Deploy gitlab pages
@@ -370,6 +398,19 @@ pages_preview_stop:
   script:
     - echo "👋 bye"
 
+
+# A small job that just distributes the files required for hosting surfer
+# in a single zip file without any files
+wasm_artifacts:
+    stage: deploy
+    dependencies: [pages_build]
+    needs: [pages_build]
+    script:
+        - echo "No script for wasm_artifacts"
+    artifacts:
+        paths:
+            - surfer_wasm
+        expire_in: 1h
 
 upload:
   dependencies: [windows_build, linux_build, macos-aarch64_build]

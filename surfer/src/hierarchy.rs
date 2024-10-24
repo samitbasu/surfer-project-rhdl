@@ -1,5 +1,4 @@
 //! Functions for drawing the left hand panel showing scopes and variables.
-use crate::data_container::DataContainer;
 use crate::message::Message;
 use crate::transaction_container::StreamScopeRef;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
@@ -49,10 +48,10 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                         .id_source("variables")
                         .show(ui, |ui| {
                             if let Some(waves) = &state.waves {
-                                let empty_scope = if let DataContainer::Waves(_) = waves.inner {
+                                let empty_scope = if waves.inner.is_waves() {
                                     ScopeType::WaveScope(ScopeRef::empty())
                                 } else {
-                                    ScopeType::StreamScope(StreamScopeRef::Root)
+                                    ScopeType::StreamScope(StreamScopeRef::Empty(String::default()))
                                 };
                                 let active_scope =
                                     waves.active_scope.as_ref().unwrap_or(&empty_scope);
