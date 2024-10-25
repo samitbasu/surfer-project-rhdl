@@ -150,6 +150,23 @@ Contributions to Surfer are very welcome! See the
 suggestions on your own. Some basic [development information](https://gitlab.com/surfer-project/surfer/-/wikis/home)
 is available.
 
+## Integration
+
+Surfer is designed to be easy to integrate in other projects, especially web
+applications. The easiest way to do so is to embed the viewer as an `<iframe>`,
+either the publicly hosted `app.surfer-project.org` or a local copy.
+
+A pre-compiled web-assembly build can be downloaded from
+`https://gitlab.com/surfer-project/surfer/-/jobs/artifacts/main/download?job=pages_build`
+
+To control the embedded waveform viewer, use the `postMessage` function on the
+`iframe`. Information about the API for this can be found in
+`surfer/assets/integration.js`
+
+It is also possible to embed surfer without an iframe. An example of this can be found in
+`https://gitlab.com/surfer-project/orconf2024#`. However, note that the API for message
+injection is unstable unless you use messages in `surfer::message::StableMessage`.
+
 ## Project Status
 
 Surfer is still in early development, but it is in a usable state. In fact, if
