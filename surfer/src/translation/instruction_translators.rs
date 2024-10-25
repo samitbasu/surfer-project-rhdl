@@ -84,7 +84,8 @@ pub fn new_rv32_translator() -> InstructionTranslator {
             include_str!("../../../instruction-decoder/toml/RV_Zicbo.toml").to_string(),
             include_str!("../../../instruction-decoder/toml/RV_Zimop.toml").to_string(),
             include_str!("../../../instruction-decoder/toml/RV_Zihintntl.toml").to_string(),
-        ]),
+        ])
+        .expect("Can't build RV32 decoder"),
         num_bits: 32,
     }
 }
@@ -134,7 +135,8 @@ pub fn new_rv64_translator() -> InstructionTranslator {
             include_str!("../../../instruction-decoder/toml/RV_Zicbo.toml").to_string(),
             include_str!("../../../instruction-decoder/toml/RV_Zimop.toml").to_string(),
             include_str!("../../../instruction-decoder/toml/RV_Zihintntl.toml").to_string(),
-        ]),
+        ])
+        .expect("Can't build RV64 decoder"),
         num_bits: 32,
     }
 }
@@ -144,7 +146,8 @@ pub fn new_mips_translator() -> InstructionTranslator {
         name: "MIPS".into(),
         decoder: Decoder::new(&[
             include_str!("../../../instruction-decoder/toml/mips.toml").to_string()
-        ]),
+        ])
+        .expect("Can't build mips decoder"),
         num_bits: 32,
     }
 }
