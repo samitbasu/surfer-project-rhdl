@@ -54,6 +54,23 @@ pub enum AsyncJob {
     SaveState,
 }
 
+/// The normal `Message` enum contains messages that control all surfer functionality, however
+/// its API is not guaratneed to be stable.
+/// These messages can be injected via `Message::Stable` and have a stable API. Before surfer
+//  1.0 we still reserve the right to make changes to these, but they will be
+/// made rarely, only when absolutely necessary and with preceding
+/// announcements and deprecation warnings.
+#[derive(Derivative, Deserialize)]
+#[derivative(Debug)]
+pub enum StableMessage {
+    ///  Load a waveform from the specified URL. This will not retain existing
+    /// signals that the user has added
+    LoadFromUrl(String),
+    /// Show or hide the menu bar
+    ToggleMenuBar,
+    HideMenuBar,
+}
+
 #[derive(Derivative, Deserialize)]
 #[derivative(Debug)]
 pub enum Message {
@@ -298,6 +315,7 @@ pub enum Message {
     Undo(usize),
     /// Redo the last n changes
     Redo(usize),
+    Stable(StableMessage),
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,

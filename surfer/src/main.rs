@@ -74,6 +74,7 @@ use fzcmd::parse_command;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{error, info, trace, warn};
+use message::StableMessage;
 use num::BigInt;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -2163,6 +2164,21 @@ impl State {
             Message::ExpandDrawnItem { item, levels } => {
                 self.sys.items_to_expand.borrow_mut().push((item, levels))
             }
+            Message::Stable(s) => match s {
+                StableMessage::ToggleMenuBar => self.update(Message::ToggleMenu),
+                StableMessage::LoadFromUrl(url) => self.update(Message::LoadWaveformFileFromUrl(
+                    url,
+                    LoadOptions {
+                        keep_variables: false,
+                        keep_unavailable: false,
+                    },
+                )),
+                StableMessage::HideMenuBar => {
+                    if self.show_menu() {
+                        self.update(Message::ToggleMenu)
+                    }
+                }
+            },
             Message::AddCharToPrompt(c) => *self.sys.char_to_add_to_prompt.borrow_mut() = Some(c),
         }
     }
