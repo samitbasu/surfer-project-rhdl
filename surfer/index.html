@@ -25,6 +25,7 @@
     </script>
 
 
+    <link data-trunk rel="copy-file", href="assets/integration.js" />
     <link data-trunk rel="copy-file" href="assets/sw.js" />
     <link data-trunk rel="copy-file" href="assets/manifest.json" />
 
@@ -166,6 +167,12 @@
             <code id="error_message"></code>
         </div>
     </div>
+
+    <!-- Register the message listener system -->
+    <script src="integration.js"></script>
+    <script>
+        register_message_listener()
+    </script>
 
     <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
     <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
