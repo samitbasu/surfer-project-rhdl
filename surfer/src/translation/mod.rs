@@ -140,6 +140,8 @@ fn find_user_decoders() -> Vec<Box<DynBasicTranslator>> {
 /// Look for user defined decoders in path.
 #[cfg(not(target_arch = "wasm32"))]
 fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
+    use log::error;
+
     let mut decoders: Vec<Box<DynBasicTranslator>> = vec![];
     let Ok(decoder_dirs) = std::fs::read_dir(path.join("decoders")) else {
         return decoders;
@@ -203,11 +205,21 @@ fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
             }
 
             if let Some(width) = width.and_then(|width| width.as_integer()) {
-                decoders.push(Box::new(InstructionTranslator {
-                    name,
-                    decoder: Decoder::new_from_table(tomls),
-                    num_bits: width.unsigned_abs(),
-                }));
+                match Decoder::new_from_table(tomls) {
+                    Ok(decoder) => decoders.push(Box::new(InstructionTranslator {
+                        name,
+                        decoder,
+                        num_bits: width.unsigned_abs(),
+                    })),
+                    Err(e) => {
+                        error!("Error while building decoder {name}");
+                        for toml in e {
+                            for error in toml {
+                                error!("{error}");
+                            }
+                        }
+                    }
+                }
             }
         }
     }
