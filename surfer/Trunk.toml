@@ -2,11 +2,12 @@
 pattern_script = """
     <script type=\"module\">
         import init from '{base}{js}';
-        init('{base}{wasm}');
+        await init('{base}{wasm}');
         import {inject_message, id_of_name, draw_text_arrow} from '{base}{js}';
         window.inject_message = inject_message;
         window.id_of_name = id_of_name;
         window.draw_text_arrow = draw_text_arrow;
+        /*SURFER_SETUP_HOOKS*/
     </script>
     """
 
