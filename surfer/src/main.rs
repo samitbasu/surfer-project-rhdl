@@ -394,10 +394,10 @@ fn setup_custom_font(ctx: &egui::Context) {
 
 #[derive(Debug, Deserialize, Display)]
 pub enum MoveDir {
-    #[display(fmt = "up")]
+    #[display("up")]
     Up,
 
-    #[display(fmt = "down")]
+    #[display("down")]
     Down,
 }
 

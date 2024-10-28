@@ -23,9 +23,9 @@ pub use crate::variable_ref::VariableRef;
 
 #[derive(Debug, PartialEq, Clone, Display)]
 pub enum VariableValue {
-    #[display(fmt = "{_0}")]
+    #[display("{_0}")]
     BigUint(BigUint),
-    #[display(fmt = "{_0}")]
+    #[display("{_0}")]
     String(String),
 }
 
@@ -69,99 +69,99 @@ pub enum VariableInfo {
 #[derive(Debug, Display, Clone, Copy, Eq, PartialEq)]
 pub enum VariableType {
     // VCD-specific types
-    #[display(fmt = "event")]
+    #[display("event")]
     VCDEvent,
-    #[display(fmt = "reg")]
+    #[display("reg")]
     VCDReg,
-    #[display(fmt = "wire")]
+    #[display("wire")]
     VCDWire,
-    #[display(fmt = "real")]
+    #[display("real")]
     VCDReal,
-    #[display(fmt = "time")]
+    #[display("time")]
     VCDTime,
-    #[display(fmt = "string")]
+    #[display("string")]
     VCDString,
-    #[display(fmt = "parameter")]
+    #[display("parameter")]
     VCDParameter,
-    #[display(fmt = "integer")]
+    #[display("integer")]
     VCDInteger,
-    #[display(fmt = "real time")]
+    #[display("real time")]
     VCDRealTime,
-    #[display(fmt = "supply 0")]
+    #[display("supply 0")]
     VCDSupply0,
-    #[display(fmt = "supply 1")]
+    #[display("supply 1")]
     VCDSupply1,
-    #[display(fmt = "tri")]
+    #[display("tri")]
     VCDTri,
-    #[display(fmt = "tri and")]
+    #[display("tri and")]
     VCDTriAnd,
-    #[display(fmt = "tri or")]
+    #[display("tri or")]
     VCDTriOr,
-    #[display(fmt = "tri reg")]
+    #[display("tri reg")]
     VCDTriReg,
-    #[display(fmt = "tri 0")]
+    #[display("tri 0")]
     VCDTri0,
-    #[display(fmt = "tri 1")]
+    #[display("tri 1")]
     VCDTri1,
-    #[display(fmt = "wand")]
+    #[display("wand")]
     VCDWAnd,
-    #[display(fmt = "wor")]
+    #[display("wor")]
     VCDWOr,
-    #[display(fmt = "port")]
+    #[display("port")]
     Port,
-    #[display(fmt = "sparse array")]
+    #[display("sparse array")]
     SparseArray,
-    #[display(fmt = "realtime")]
+    #[display("realtime")]
     RealTime,
 
     // System Verilog
-    #[display(fmt = "bit")]
+    #[display("bit")]
     Bit,
-    #[display(fmt = "logic")]
+    #[display("logic")]
     Logic,
-    #[display(fmt = "int")]
+    #[display("int")]
     Int,
-    #[display(fmt = "shortint")]
+    #[display("shortint")]
     ShortInt,
-    #[display(fmt = "longint")]
+    #[display("longint")]
     LongInt,
-    #[display(fmt = "byte")]
+    #[display("byte")]
     Byte,
-    #[display(fmt = "enum")]
+    #[display("enum")]
     Enum,
-    #[display(fmt = "shortreal")]
+    #[display("shortreal")]
     ShortReal,
 
     // VHDL (these are the types emitted by GHDL)
-    #[display(fmt = "boolean")]
+    #[display("boolean")]
     Boolean,
-    #[display(fmt = "bit_vector")]
+    #[display("bit_vector")]
     BitVector,
-    #[display(fmt = "std_logic")]
+    #[display("std_logic")]
     StdLogic,
-    #[display(fmt = "std_logic_vector")]
+    #[display("std_logic_vector")]
     StdLogicVector,
-    #[display(fmt = "std_ulogic")]
+    #[display("std_ulogic")]
     StdULogic,
-    #[display(fmt = "std_ulogic_vector")]
+    #[display("std_ulogic_vector")]
     StdULogicVector,
 }
 
 #[derive(Clone, Display, Copy)]
 pub enum VariableDirection {
-    #[display(fmt = "unknown")]
+    #[display("unknown")]
     Unknown,
-    #[display(fmt = "implicit")]
+    #[display("implicit")]
     Implicit,
-    #[display(fmt = "input")]
+    #[display("input")]
     Input,
-    #[display(fmt = "output")]
+    #[display("output")]
     Output,
-    #[display(fmt = "inout")]
+    #[display("inout")]
     InOut,
-    #[display(fmt = "buffer")]
+    #[display("buffer")]
     Buffer,
-    #[display(fmt = "linkage")]
+    #[display("linkage")]
     Linkage,
 }
 

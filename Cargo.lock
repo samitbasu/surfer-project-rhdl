@@ -1186,17 +1186,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derivative"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "derive-where"
 version = "1.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1240,13 +1229,23 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
-version = "0.99.18"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f33878137e4dafd7fa914ad4e259e18a4e8e532b9617a2d0150262bf53abfce"
+checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.85",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -1379,9 +1378,9 @@ dependencies = [
 
 [[package]]
 name = "egui-remixicon"
-version = "0.27.2"
+version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673b30730f1e0026b1596942a1fbb008a69d821562de38fd22116e6e82b2ac2c"
+checksum = "4a463c133d92f2ea65465464437aeb3ebd134a5e583379c5f73121727dd0e2d6"
 
 [[package]]
 name = "egui-wgpu"
@@ -4621,7 +4620,6 @@ dependencies = [
  "color-eyre",
  "config",
  "console_error_panic_hook",
- "derivative",
  "derive_more",
  "directories",
  "ecolor",

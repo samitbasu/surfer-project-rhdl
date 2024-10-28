@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
 use color_eyre::{eyre::anyhow, eyre::bail, Result};
-use derivative::Derivative;
+use derive_more::Debug;
 use log::warn;
 use num::{BigUint, ToPrimitive};
 use surfer_translation_types::{VariableDirection, VariableEncoding, VariableType, VariableValue};
@@ -22,10 +22,9 @@ use crate::wave_container::{
 
 static UNIQUE_ID_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct WellenContainer {
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     hierarchy: std::sync::Arc<Hierarchy>,
     /// the url of a remote server, None if waveforms are loaded locally
     server: Option<String>,
@@ -35,7 +34,7 @@ pub struct WellenContainer {
     /// keeps track of signals that need to be loaded once the body of the waveform file has been loaded
     signals_to_be_loaded: HashSet<SignalRef>,
     time_table: TimeTable,
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     source: Option<SignalSource>,
     unique_id: u64,
     body_loaded: bool,

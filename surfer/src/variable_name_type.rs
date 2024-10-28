@@ -11,15 +11,15 @@ use crate::{displayed_item::DisplayedItem, wave_container::VariableRef, wave_dat
 #[derive(PartialEq, Copy, Clone, Debug, Deserialize, Display, Serialize, Sequence)]
 pub enum VariableNameType {
     /// Local variable name only (i.e. for tb.dut.clk => clk)
-    #[display(fmt = "Local")]
+    #[display("Local")]
     Local,
 
     /// Add unique prefix, prefix + local
-    #[display(fmt = "Unique")]
+    #[display("Unique")]
     Unique,
 
     /// Full variable name (i.e. tb.dut.clk => tb.dut.clk)
-    #[display(fmt = "Global")]
+    #[display("Global")]
     Global,
 }
 
