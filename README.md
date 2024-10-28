@@ -161,7 +161,21 @@ A pre-compiled web-assembly build can be downloaded from
 
 To control the embedded waveform viewer, use the `postMessage` function on the
 `iframe`. Information about the API for this can be found in
-`surfer/assets/integration.js`
+`surfer/assets/integration.js`. Note that these functions can only be run after Surfer has been
+loaded. To ensure this, modify the HTML to replace `/*SURFER_SETUP_HOOKS*/` with JavaScript which
+notifies your application that it has loaded, for example, the VSCode plugin
+does this using the following snippet
+```
+const load_notifier = `
+    (function() {
+        const vscode = acquireVsCodeApi();
+
+        vscode.postMessage({
+            command: 'loaded',
+        })
+    }())`
+html = html.replaceAll("/*SURFER_SETUP_HOOKS*/", `${load_notifier}`)
+```
 
 It is also possible to embed surfer without an iframe. An example of this can
 be found in `https://gitlab.com/surfer-project/orconf2024#`. However, note that
