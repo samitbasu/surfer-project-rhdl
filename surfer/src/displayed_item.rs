@@ -8,7 +8,7 @@ use surfer_translation_types::VariableInfo;
 
 use crate::config::SurferConfig;
 use crate::transaction_container::TransactionStreamRef;
-use crate::wave_container::{VariableRef, VariableRefExt, WaveContainer};
+use crate::wave_container::{FieldRef, VariableRef, VariableRefExt, WaveContainer};
 use crate::{
     marker::DEFAULT_MARKER_NAME, message::Message, time::DEFAULT_TIMELINE_NAME,
     variable_name_type::VariableNameType,
@@ -285,11 +285,18 @@ impl DisplayedItem {
         color: &Color32,
         style: &Style,
         layout_job: &mut LayoutJob,
+        field: Option<&FieldRef>,
         config: &SurferConfig,
     ) {
         match self {
             DisplayedItem::Variable(_) => {
-                RichText::new(self.name())
+                let name = if field.map(|f| f.field.is_empty()).unwrap_or_default() {
+                    self.name()
+                } else {
+                    // NOTE: Safe unwrap, we've cheked that the field exists and is non-empty
+                    field.unwrap().field.last().unwrap().clone()
+                };
+                RichText::new(name)
                     .color(*color)
                     .line_height(Some(config.layout.waveforms_line_height))
                     .append_to(layout_job, style, FontSelection::Default, Align::Center);

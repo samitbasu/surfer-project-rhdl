@@ -1290,7 +1290,13 @@ impl State {
             }
 
             let mut layout_job = LayoutJob::default();
-            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job, &self.config);
+            displayed_item.add_to_layout_job(
+                &text_color,
+                style,
+                &mut layout_job,
+                Some(&field),
+                &self.config,
+            );
 
             let mut variable_label = ui
                 .selectable_label(
@@ -1298,6 +1304,7 @@ impl State {
                     WidgetText::LayoutJob(layout_job),
                 )
                 .interact(Sense::drag());
+
             variable_label.context_menu(|ui| {
                 self.item_context_menu(Some(&field), msgs, ui, vidx);
             });
@@ -1527,7 +1534,13 @@ impl State {
                 text_color = *self.get_item_text_color(displayed_item);
             }
 
-            displayed_item.add_to_layout_job(&text_color, style, &mut layout_job, &self.config);
+            displayed_item.add_to_layout_job(
+                &text_color,
+                style,
+                &mut layout_job,
+                None,
+                &self.config,
+            );
 
             let item_label = ui
                 .selectable_label(
