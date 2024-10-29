@@ -91,6 +91,7 @@ use crate::displayed_item::{
     DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef, FieldFormat,
 };
 use crate::drawing_canvas::TxDrawingCommands;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::file_watcher::FileWatcher;
 use crate::message::{HeaderResult, Message};
 use crate::transaction_container::{

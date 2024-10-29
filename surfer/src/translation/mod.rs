@@ -23,6 +23,7 @@ pub mod spade;
 
 pub use basic_translators::*;
 use clock::ClockTranslator;
+#[cfg(not(target_arch = "wasm32"))]
 use instruction_decoder::Decoder;
 pub use instruction_translators::*;
 use itertools::Itertools;
