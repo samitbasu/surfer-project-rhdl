@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SPADE_REV="53f597f25705f8b9d5dffaf8134a8e461888d2ec"
+SPADE_REV="84f6e75016f40d9b3f82d8085e9b08393c56db95"
 
 d="$(mktemp -d)"
 pushd $d

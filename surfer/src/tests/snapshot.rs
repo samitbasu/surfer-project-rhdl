@@ -225,6 +225,17 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
         );
     };
     ($name:ident, $file:expr, $spade_top:expr, $spade_state:expr, $initial_state_mod:expr, $msgs:expr) => {
+        snapshot_ui_with_file_spade_and_msgs!(
+            $name,
+            $file,
+            $spade_top,
+            $spade_state,
+            $initial_state_mod,
+            $msgs,
+            []
+        );
+    };
+    ($name:ident, $file:expr, $spade_top:expr, $spade_state:expr, $initial_state_mod:expr, $msgs:expr, $late_msgs:expr) => {
         snapshot_ui!($name, || {
             use camino::Utf8PathBuf;
 
@@ -278,6 +289,10 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
 
             // make sure all the signals added by the proceeding messages are properly loaded
             wait_for_waves_fully_loaded(&mut state, 10);
+
+            for msg in $late_msgs {
+                state.update(msg)
+            }
 
             state
         });
@@ -666,9 +681,25 @@ snapshot_ui_with_file_spade_and_msgs! {
     Some("proj::pipeline_ready_valid::ready_valid_pipeline".to_string()),
     Some("examples/spade_state.ron".into()),
     [
-    Message::AddScope(ScopeRef::from_strs(&[
-        "proj::pipeline_ready_valid::ready_valid_pipeline"
-    ]), false),
+        Message::AddScope(ScopeRef::from_strs(&[
+            "proj::pipeline_ready_valid::ready_valid_pipeline"
+        ]), false),
+    ]
+}
+
+#[cfg(feature = "spade")]
+snapshot_ui_with_file_spade_and_msgs! {
+    spade_translation_with_hierarchy_works,
+    "examples/spade.vcd",
+    Some("proj::pipeline_ready_valid::ready_valid_pipeline".to_string()),
+    Some("examples/spade_state.ron".into()),
+    (|_state| {}),
+    [
+        Message::AddVariables(vec![VariableRef::from_hierarchy_string("proj::pipeline_ready_valid::ready_valid_pipeline.output__")]),
+        Message::ExpandDrawnItem { item: DisplayedItemRef(0), levels: 1 }
+    ],
+    [
+        Message::ExpandDrawnItem { item: DisplayedItemRef(1), levels: 1 }
     ]
 }
 
