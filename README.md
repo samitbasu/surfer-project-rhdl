@@ -1,3 +1,8 @@
+# Fork of Surfer project
+
+This is a github fork of the surfer project on gitlab to add support for RHDL.  
+See [here](https://gitlab.com/surfer-project/surfer) for the original project.
+
 # Surfer
 
 ![Pipeline status](https://gitlab.com/surfer-project/surfer/badges/main/pipeline.svg)
