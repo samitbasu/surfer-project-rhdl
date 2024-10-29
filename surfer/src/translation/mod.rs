@@ -23,6 +23,7 @@ pub mod spade;
 
 pub use basic_translators::*;
 use clock::ClockTranslator;
+#[cfg(not(target_arch = "wasm32"))]
 use instruction_decoder::Decoder;
 pub use instruction_translators::*;
 use itertools::Itertools;
@@ -251,6 +252,12 @@ pub fn all_translators() -> TranslatorList {
         Box::new(PositQuire16Translator {}),
         Box::new(E5M2Translator {}),
         Box::new(E4M3Translator {}),
+        Box::new(NumberOfOnesTranslator {}),
+        Box::new(LeadingOnesTranslator {}),
+        Box::new(TrailingOnesTranslator {}),
+        Box::new(LeadingZerosTranslator {}),
+        Box::new(TrailingZerosTranslator {}),
+        Box::new(IdenticalMSBsTranslator {}),
         #[cfg(feature = "f128")]
         Box::new(QuadPrecisionTranslator {}),
     ];

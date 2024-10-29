@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use camino::Utf8PathBuf;
-use derivative::Derivative;
+use derive_more::Debug;
 use egui::DroppedFile;
 use emath::{Pos2, Vec2};
 use ftr_parser::types::Transaction;
@@ -54,8 +54,7 @@ pub enum AsyncJob {
     SaveState,
 }
 
-#[derive(Derivative, Deserialize)]
-#[derivative(Debug)]
+#[derive(Debug, Deserialize)]
 pub enum Message {
     SetActiveScope(ScopeType),
     AddVariables(Vec<VariableRef>),
@@ -115,7 +114,7 @@ pub enum Message {
     /// Load a spade translator using the specified top and the specified state encoded as ron.
     LoadSpadeTranslator {
         top: String,
-        #[derivative(Debug = "ignore")]
+        #[debug(skip)]
         state: String,
     },
     #[cfg(not(target_arch = "wasm32"))]
@@ -125,37 +124,30 @@ pub enum Message {
         web_time::Instant,
         WaveSource,
         LoadOptions,
-        #[derivative(Debug = "ignore")] HeaderResult,
+        #[debug(skip)] HeaderResult,
     ),
     #[serde(skip)]
-    WaveBodyLoaded(
-        web_time::Instant,
-        WaveSource,
-        #[derivative(Debug = "ignore")] BodyResult,
-    ),
+    WaveBodyLoaded(web_time::Instant, WaveSource, #[debug(skip)] BodyResult),
     #[serde(skip)]
     WavesLoaded(
         WaveSource,
         WaveFormat,
-        #[derivative(Debug = "ignore")] Box<WaveContainer>,
+        #[debug(skip)] Box<WaveContainer>,
         LoadOptions,
     ),
     #[serde(skip)]
-    SignalsLoaded(
-        web_time::Instant,
-        #[derivative(Debug = "ignore")] LoadSignalsResult,
-    ),
+    SignalsLoaded(web_time::Instant, #[debug(skip)] LoadSignalsResult),
     #[serde(skip)]
     TransactionStreamsLoaded(
         WaveSource,
         WaveFormat,
-        #[derivative(Debug = "ignore")] TransactionContainer,
+        #[debug(skip)] TransactionContainer,
         LoadOptions,
     ),
     #[serde(skip)]
     Error(color_eyre::eyre::Error),
     #[serde(skip)]
-    TranslatorLoaded(#[derivative(Debug = "ignore")] Box<DynTranslator>),
+    TranslatorLoaded(#[debug(skip)] Box<DynTranslator>),
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified variable
     BlacklistTranslator(VariableRef, String),

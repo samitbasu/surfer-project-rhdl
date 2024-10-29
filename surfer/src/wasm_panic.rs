@@ -1,10 +1,7 @@
 extern crate wasm_bindgen;
-use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys;
 
 use std::panic;
-use std::sync::Mutex;
 
 #[wasm_bindgen]
 extern "C" {
@@ -21,7 +18,7 @@ extern "C" {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn panic_hook(info: &panic::PanicInfo) {
+fn panic_hook(info: &panic::PanicHookInfo) {
     use log::warn;
 
     let mut msg = info.to_string();

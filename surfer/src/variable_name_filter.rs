@@ -16,16 +16,16 @@ use crate::{message::Message, wave_container::VariableRef, State};
 
 #[derive(Debug, Display, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum VariableNameFilterType {
-    #[display(fmt = "Fuzzy")]
+    #[display("Fuzzy")]
     Fuzzy,
 
-    #[display(fmt = "Regular expression")]
+    #[display("Regular expression")]
     Regex,
 
-    #[display(fmt = "Variable starts with")]
+    #[display("Variable starts with")]
     Start,
 
-    #[display(fmt = "Variable contains")]
+    #[display("Variable contains")]
     Contain,
 }
 

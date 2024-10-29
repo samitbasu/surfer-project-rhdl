@@ -26,7 +26,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                     ui.heading("Scopes");
                     ui.add_space(3.0);
 
-                    ScrollArea::both().id_source("scopes").show(ui, |ui| {
+                    ScrollArea::both().id_salt("scopes").show(ui, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         if let Some(waves) = &state.waves {
                             state.draw_all_scopes(msgs, waves, false, ui, "");
@@ -47,7 +47,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
 
                     ScrollArea::both()
                         .max_height(f32::INFINITY)
-                        .id_source("variables")
+                        .id_salt("variables")
                         .show(ui, |ui| {
                             if let Some(waves) = &state.waves {
                                 let empty_scope = if waves.inner.is_waves() {
@@ -138,7 +138,7 @@ pub fn tree(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                     });
                     ui.add_space(3.0);
 
-                    ScrollArea::both().id_source("hierarchy").show(ui, |ui| {
+                    ScrollArea::both().id_salt("hierarchy").show(ui, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         if let Some(waves) = &state.waves {
                             state.draw_all_scopes(msgs, waves, true, ui, filter);

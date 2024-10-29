@@ -27,28 +27,28 @@ pub struct TimeScale {
 
 #[derive(Debug, Clone, Copy, Display, Eq, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum TimeUnit {
-    #[display(fmt = "fs")]
+    #[display("fs")]
     FemtoSeconds,
 
-    #[display(fmt = "ps")]
+    #[display("ps")]
     PicoSeconds,
 
-    #[display(fmt = "ns")]
+    #[display("ns")]
     NanoSeconds,
 
-    #[display(fmt = "μs")]
+    #[display("μs")]
     MicroSeconds,
 
-    #[display(fmt = "ms")]
+    #[display("ms")]
     MilliSeconds,
 
-    #[display(fmt = "s")]
+    #[display("s")]
     Seconds,
 
-    #[display(fmt = "No unit")]
+    #[display("No unit")]
     None,
 
-    #[display(fmt = "Auto")]
+    #[display("Auto")]
     Auto,
 }
 
@@ -184,16 +184,16 @@ pub fn timeformat_menu(ui: &mut Ui, msgs: &mut Vec<Message>, current_timeformat:
 #[derive(Debug, Clone, Copy, Display, Eq, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum TimeStringFormatting {
     /// No additional formatting
-    #[display(fmt = "No")]
+    #[display("No")]
     No,
 
     /// Use the current locale to determine decimal separator, thousands separator, and grouping
-    #[display(fmt = "Locale")]
+    #[display("Locale")]
     Locale,
 
     /// Use the SI standard: split into groups of three digits, unless there are exactly four
     /// for both integer and fractional part. Use space as group separator.
-    #[display(fmt = "SI")]
+    #[display("SI")]
     SI,
 }
 

@@ -13,15 +13,15 @@ use crate::{config::SurferConfig, message::Message, view::DrawingContext};
 #[derive(PartialEq, Copy, Clone, Debug, Deserialize, Display, Sequence)]
 pub enum ClockHighlightType {
     /// Draw a line at every posedge of the clocks
-    #[display(fmt = "Line")]
+    #[display("Line")]
     Line,
 
     /// Highlight every other cycle
-    #[display(fmt = "Cycle")]
+    #[display("Cycle")]
     Cycle,
 
     /// No highlighting
-    #[display(fmt = "None")]
+    #[display("None")]
     None,
 }
 

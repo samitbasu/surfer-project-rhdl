@@ -2,7 +2,7 @@ use color_eyre::eyre::Context;
 use ecolor::Color32;
 #[cfg(not(target_arch = "wasm32"))]
 use egui::ViewportCommand;
-use egui::{Frame, Layout, Painter, RichText, ScrollArea, Sense, TextStyle, WidgetText};
+use egui::{Frame, Layout, Painter, RichText, ScrollArea, Sense, TextStyle, UiBuilder, WidgetText};
 use egui_extras::{Column, TableBuilder};
 use egui_remixicon::icons;
 use emath::{Align, Pos2, Rect, RectTransform, Vec2};
@@ -1646,7 +1646,9 @@ impl State {
             min: rect.min + ui.spacing().item_spacing,
             max: rect.max,
         };
-        ui.allocate_ui_at_rect(rect_with_margin, |ui| {
+
+        let builder = UiBuilder::new().max_rect(rect_with_margin);
+        ui.allocate_new_ui(builder, |ui| {
             let text_style = TextStyle::Monospace;
             ui.style_mut().override_text_style = Some(text_style);
             for (vidx, drawing_info) in waves
